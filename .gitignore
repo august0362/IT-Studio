@@ -1,0 +1,28 @@
+# dependencies
+node_modules/
+
+# build outputs
+dist/
+build/
+out/
+target/
+*.vsix
+coverage/
+*.tsbuildinfo
+
+# runtime data
+*.db
+*.db-wal
+*.db-shm
+.itstudio/
+logs/
+*.log
+
+# secrets
+.env
+.env.*
+
+# editors / OS
+.DS_Store
+Thumbs.db
+.idea/

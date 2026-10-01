@@ -1,0 +1,10 @@
+# Changelog
+
+All notable changes to this project are documented here.
+Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: [SemVer](https://semver.org/) · Rules: `CONVENTIONS.md` §9.
+
+## [Unreleased]
+
+### Docs
+- Add specification set: CONTEXT, ARCHITECTURE, ROLES, ROADMAP, CONVENTIONS, AGENTS, ADR-0001 (M0-00)
+- Add canonical contracts `src/types/schemas.ts` — strict, zero `any` (M0-00)
