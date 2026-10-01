@@ -11,7 +11,7 @@
 |---|---|---|
 | M0 Environment & scaffold | **Done** | 8 / 8 |
 | M1 Sidecar core & IPC | In progress | 5 / 7 |
-| M2 LLM router & providers | In progress | 2 / 9 |
+| M2 LLM router & providers | In progress | 3 / 9 |
 | M3 Cost, pricing, FX, budget, P&L | In progress | 1 / 7 |
 | M4 UI shell, Settings, Chat, P&L | Not started | 0 / 7 |
 | M5 RAG | Not started | 0 / 7 |
@@ -52,7 +52,7 @@
 **Exit criteria:** with fixtures, 429 on model A ⇒ answer from model B + `router.event{fallback}`; Auto Fallback OFF ⇒ `router.fallbackRequired` then resumes on `router.resolveFallback`; quota exhaustion opens circuit.
 
 - [x] **M2-01** (C) `ILlmProvider` port, `ProviderRequest/Response`, `ProviderFailure`; shared adapter contract test suite; msw fixture harness. Ref: ARCH §5.1.
-- [ ] **M2-02** (C) Anthropic adapter: complete, stream, tools, usage incl. cache reads, failure classification table. Ref: ARCH §5.2.
+- [x] **M2-02** (C) Anthropic adapter: complete, stream, tools, usage incl. cache reads, failure classification table. Ref: ARCH §5.2.
 - [ ] **M2-03** (C) OpenAI-compatible adapter (OpenAI, xAI, Groq, Together via baseURL config).
 - [ ] **M2-04** (C) Google GenAI adapter.
 - [ ] **M2-05** (A+C) Model registry from `models.seed.json`, `models.list`; A resolves Q-02 (verify model ids via provider list endpoints) and updates seed + `RoleAssignment` defaults.
