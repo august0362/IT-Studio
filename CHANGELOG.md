@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add OS keychain secret store, provider key verification and write-only secrets RPC ([M1-06](docs/tasks/M1-06.md))
 - Add Anthropic provider adapter ([M2-02](docs/tasks/M2-02.md))
 - Add SQLite persistence (WAL, drizzle migrations), settings and project services with RPC ([M1-05](docs/tasks/M1-05.md))
 - Add integer µUSD cost computation and dual USD/VND money display ([M3-01](docs/tasks/M3-01.md))

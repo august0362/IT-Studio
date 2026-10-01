@@ -10,7 +10,7 @@
 | Milestone | Status | Tasks |
 |---|---|---|
 | M0 Environment & scaffold | **Done** | 8 / 8 |
-| M1 Sidecar core & IPC | In progress | 5 / 7 |
+| M1 Sidecar core & IPC | In progress | 6 / 7 |
 | M2 LLM router & providers | In progress | 3 / 9 |
 | M3 Cost, pricing, FX, budget, P&L | In progress | 1 / 7 |
 | M4 UI shell, Settings, Chat, P&L | Not started | 0 / 7 |
@@ -44,7 +44,7 @@
 - [x] **M1-03** (C) Rust shell: spawn sidecar (dev: `node --import tsx`), `sidecar_send` command, `sidecar://message` event, restart backoff + `sidecar://fatal`, graceful shutdown, capability lockdown, CSP. Ref: ARCH §2.3, §3.1, §11.
 - [x] **M1-04** (C) UI `RpcClient` typed by `RpcMethodMap`/`RpcNotificationMap`, `useRpcQuery`/`useRpcMutation` (TanStack Query), `useNotification(name, handler)`, timeouts, fail-in-flight on restart.
 - [x] **M1-05** (C) SQLite infra (better-sqlite3 + Drizzle, WAL, migrations); repositories for `projects`, `settings`; `SettingsService` with complete defaults; `ProjectService` (`project.*`, `settings.*`). Ref: ARCH §12.
-- [ ] **M1-06** (C) `ISecretStore` + keychain impl (`@napi-rs/keyring`, service name `itstudio`) + in-memory impl for tests; `secrets.set/delete/status/verify` (verify = cheapest list-models call). Ref: ARCH §11, D2.
+- [x] **M1-06** (C) `ISecretStore` + keychain impl (`@napi-rs/keyring`, service name `itstudio`) + in-memory impl for tests; `secrets.set/delete/status/verify` (verify = cheapest list-models call). Ref: ARCH §11, D2.
 - [ ] **M1-07** (C) UI status bar: sidecar connection state + version; minimal Settings → API Keys page (write-only inputs, status chips with hint).
 
 ## M2 — LLM router & providers
