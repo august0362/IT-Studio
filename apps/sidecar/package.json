@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "dev": "tsx src/main.ts"
+    "dev": "tsx src/main.ts",
+    "db:generate": "drizzle-kit generate --dialect sqlite --schema ./src/infra/sqlite/schema.ts --out ./src/infra/sqlite/migrations"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
