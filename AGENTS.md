@@ -52,6 +52,7 @@ codex exec -s workspace-write \
 
 Verified 2026-10-01 with codex-cli 0.159.3 (ChatGPT login): workspace writes and network (npm registry) work.
 In the sandbox npm uses a repo-local `.npm-cache/` (gitignored). Max 2 Codex runs in parallel, only on tasks with disjoint *Scope* (never two tasks editing the same `package.json` / lockfile).
+From M1 on, the Architect pre-installs each milestone's dependencies in one commit; tasks marked **"deps pre-installed"** must NOT run `npm install <pkg>` or edit any `package.json` / `package-lock.json` — if a needed package is missing, write `## Blocked`.
 
 ## 6. Toolchain
 

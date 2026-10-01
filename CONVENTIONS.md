@@ -25,6 +25,11 @@
 - Prefer `readonly` fields and `ReadonlyArray` in public types.
 - Shared contracts imported as `@itstudio/schemas` (path alias → `src/types/schemas.ts`). Never redeclare a contract type locally.
 
+### 2.1 Identifiers & branded values
+
+- All entity ids are UUID v4 strings from `crypto.randomUUID()`, generated only in the sidecar via `IIdGenerator` (injectable for tests).
+- Branded types (`ProjectId`, `MicroUsd`, …) are constructed **only** in `apps/sidecar/src/validation/brand.ts` (zod transforms) and `domain/` constructors. That file is the single place where `as <Brand>` casts are allowed.
+
 ## 3. Architecture rules (SOLID applied)
 
 | Principle | Rule in this codebase |
