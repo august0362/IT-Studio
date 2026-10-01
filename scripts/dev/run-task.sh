@@ -19,5 +19,5 @@ PROMPT="Implement docs/tasks/$ID.md. Follow AGENTS.md strictly. Do not commit. U
 codex exec -s workspace-write \
   -c sandbox_workspace_write.network_access=true \
   --add-dir "$USERPROFILE/.cargo" --add-dir "$USERPROFILE/.rustup" \
-  -C "$WT" -o "$LOG_DIR/$ID.last.txt" "$PROMPT" > "$LOG_DIR/$ID.log" 2>&1
+  -C "$WT" -o "$LOG_DIR/$ID.last.txt" "$PROMPT" < /dev/null > "$LOG_DIR/$ID.log" 2>&1
 echo "exit=$? worktree=$WT log=$LOG_DIR/$ID.log"
