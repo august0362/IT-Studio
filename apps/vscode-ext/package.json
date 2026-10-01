@@ -1,0 +1,22 @@
+{
+  "name": "itstudio-vscode",
+  "version": "0.1.0",
+  "publisher": "itstudio",
+  "displayName": "IT Studio Companion",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "workspaceContains:.itstudio/session.json"
+  ],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/vscode": "^1.100.0",
+    "esbuild": "^0.28.2"
+  }
+}
