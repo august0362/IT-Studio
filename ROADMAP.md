@@ -11,7 +11,7 @@
 |---|---|---|
 | M0 Environment & scaffold | **Done** | 8 / 8 |
 | M1 Sidecar core & IPC | In progress | 3 / 7 |
-| M2 LLM router & providers | Not started | 0 / 9 |
+| M2 LLM router & providers | In progress | 1 / 9 |
 | M3 Cost, pricing, FX, budget, P&L | Not started | 0 / 7 |
 | M4 UI shell, Settings, Chat, P&L | Not started | 0 / 7 |
 | M5 RAG | Not started | 0 / 7 |
@@ -56,7 +56,7 @@
 - [ ] **M2-03** (C) OpenAI-compatible adapter (OpenAI, xAI, Groq, Together via baseURL config).
 - [ ] **M2-04** (C) Google GenAI adapter.
 - [ ] **M2-05** (A+C) Model registry from `models.seed.json`, `models.list`; A resolves Q-02 (verify model ids via provider list endpoints) and updates seed + `RoleAssignment` defaults.
-- [ ] **M2-06** (C) Pure router state machine `domain/router-machine.ts` with explicit transition table; tests for every transition incl. illegal ones. Ref: ARCH §5.3.
+- [x] **M2-06** (C) Pure router state machine `domain/router-machine.ts` with explicit transition table; tests for every transition incl. illegal ones. Ref: ARCH §5.3.
 - [ ] **M2-07** (C) `LlmRouter` service: eligibility, ordering (override → lock → ladder), retry/backoff+jitter, fallback, circuit breaker, cancel, mid-stream fallback, `router.event`s.
 - [ ] **M2-08** (C) Auto Fallback OFF: `FallbackDecisionRequest` with candidate cost estimates, `router.resolveFallback`, expiry → `FALLBACK_DECLINED`.
 - [ ] **M2-09** (C) `router.getConfig` / `router.updateConfig` with validation (unique priorities, existing models).

@@ -16,6 +16,7 @@
 | M0-06 Test gate (Vitest) | PASS (Architect fixed 1-line ESLint config blocker) | 7935165 |
 | M1-04 UI RpcClient + hooks | PASS | see git log |
 | M1-01 zod validators + seed loader (closes M0-07) | PASS (QA ran Prettier) | 2762857 |
+| M2-06 Router state machine | PASS | see git log |
 | M1-03 Rust sidecar supervisor | PASS after 1 fix round (app could never exit — fixed) | ea0f6e4 |
 
 ## Failed / rolled back (needs your attention)
