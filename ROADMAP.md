@@ -9,7 +9,7 @@
 
 | Milestone | Status | Tasks |
 |---|---|---|
-| M0 Environment & scaffold | In progress | 5 / 8 |
+| M0 Environment & scaffold | In progress | 6 / 8 |
 | M1 Sidecar core & IPC | Not started | 0 / 7 |
 | M2 LLM router & providers | Not started | 0 / 9 |
 | M3 Cost, pricing, FX, budget, P&L | Not started | 0 / 7 |
@@ -31,7 +31,7 @@
 - [x] **M0-02** (A) `git init`; `.gitignore` (node_modules, dist, target, `*.db`, `.itstudio/`, `.env*`), `.gitattributes` (LF), first commit of docs. — AC: clean `git status`.
 - [x] **M0-03** (A) Verify `codex exec` flags / sandbox mode / auth on this machine; record exact invocation in `AGENTS.md` §5. — AC: dry-run task edits a scratch file and exits 0.
 - [x] **M0-04** (C) npm workspaces root; `tsconfig.base.json` (CONVENTIONS §2); alias `@itstudio/schemas`; skeleton packages `apps/sidecar` (tsx), `apps/desktop` (Tauri v2 + React 19 + Vite + Tailwind), `apps/vscode-ext` (esbuild). Deps: M0-01, M0-02. — AC: each package typechecks importing a type from `@itstudio/schemas`.
-- [ ] **M0-05** (C) ESLint flat config: typescript-eslint `strict-type-checked`, `no-explicit-any`, `no-restricted-syntax` (TSEnumDeclaration, TSModuleDeclaration, default export), `eslint-plugin-boundaries` per CONVENTIONS §3.2; Prettier; `scripts/scan-secrets.mjs` (regex for common key formats) wired to `npm run lint`. — AC: a fixture file with `enum`/`any`/fake key fails lint.
+- [x] **M0-05** (C) ESLint flat config: typescript-eslint `strict-type-checked`, `no-explicit-any`, `no-restricted-syntax` (TSEnumDeclaration, TSModuleDeclaration, default export), `eslint-plugin-boundaries` per CONVENTIONS §3.2; Prettier; `scripts/scan-secrets.mjs` (regex for common key formats) wired to `npm run lint`. — AC: a fixture file with `enum`/`any`/fake key fails lint.
 - [ ] **M0-06** (C) Vitest workspace + coverage thresholds (CONVENTIONS §6); root scripts `typecheck`, `lint`, `test`, `dev`. — AC: one sample test per package passes.
 - [ ] **M0-07** (A) Config seeds: `config/models.seed.json`, `config/pricing.seed.json`, `config/pricing.sources.json`, `config/commands.default.json`, `config/fx.json`. — AC: each validates against its `schemas.ts` type via a test added in M1-01.
 

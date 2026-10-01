@@ -12,6 +12,7 @@
 | Task | Result | Commit |
 |---|---|---|
 | M0-04 Monorepo scaffold | PASS (QA re-ran 3 sandbox-blocked checks) | f95cd23 |
+| M0-05 Lint gate | PASS | ef39833 |
 
 ## Failed / rolled back (needs your attention)
 
