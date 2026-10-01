@@ -28,9 +28,12 @@ export function connectSidecarStatus(transport: ISidecarTransport): () => void {
     setStatus(status);
   });
   const unlistenFatal = transport.onFatal(setFatal);
-  void transport.status().then((status) => {
-    if (!statusEventReceived) setStatus(status);
-  }).catch(() => undefined);
+  void transport
+    .status()
+    .then((status) => {
+      if (!statusEventReceived) setStatus(status);
+    })
+    .catch(() => undefined);
   return () => {
     unlistenStatus();
     unlistenFatal();

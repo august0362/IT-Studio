@@ -13,7 +13,11 @@ export function useNotification<N extends RpcNotificationName>(
     handlerRef.current = handler;
   }, [handler]);
 
-  useEffect(() => rpc.on(name, (payload) => {
-    handlerRef.current(payload);
-  }), [name, rpc]);
+  useEffect(
+    () =>
+      rpc.on(name, (payload) => {
+        handlerRef.current(payload);
+      }),
+    [name, rpc],
+  );
 }

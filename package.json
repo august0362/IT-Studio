@@ -12,7 +12,7 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit && npm run typecheck --workspaces --if-present",
     "dev": "npm run tauri:dev -w @itstudio/desktop",
-    "lint": "eslint . --max-warnings 0 && node scripts/scan-secrets.mjs",
+    "lint": "eslint . --max-warnings 0 && prettier --check . --log-level warn && node scripts/scan-secrets.mjs",
     "lint:selftest": "node scripts/lint-fixtures/selftest.mjs",
     "pretest": "npm run lint:selftest",
     "test": "vitest run",

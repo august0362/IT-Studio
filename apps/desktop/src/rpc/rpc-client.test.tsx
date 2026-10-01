@@ -24,7 +24,10 @@ function response(transport: FakeTransport, id: number, result: unknown): void {
   transport.receive(JSON.stringify({ jsonrpc: '2.0', id, result }));
 }
 
-function testWrapper(client: RpcClient, queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
+function testWrapper(
+  client: RpcClient,
+  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
   return function Wrapper({ children }: { readonly children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
@@ -49,7 +52,10 @@ describe('RpcClient', () => {
     const first = client.call('system.ping', {});
     const second = client.call('project.list', {});
     const sent = transport.sent.map((line) => JSON.parse(line) as { id: number; method: RpcMethod });
-    expect(sent.map(({ id, method }) => [id, method])).toEqual([[1, 'system.ping'], [2, 'project.list']]);
+    expect(sent.map(({ id, method }) => [id, method])).toEqual([
+      [1, 'system.ping'],
+      [2, 'project.list'],
+    ]);
     transport.receive(JSON.stringify({ jsonrpc: '2.0', id: 2, result: [] }));
     response(transport, 1, { version: '1.0.0', uptimeMs: 42 });
     await expect(second).resolves.toEqual([]);
@@ -62,11 +68,17 @@ describe('RpcClient', () => {
     const client = new RpcClient(transport);
     ready(transport);
     const pending = client.call('settings.get', {});
-    transport.receive(JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      error: { code: -32000, message: 'failed', data: { code: ErrorCode.NOT_FOUND, message: 'missing', retryable: false } },
-    }));
+    transport.receive(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        error: {
+          code: -32000,
+          message: 'failed',
+          data: { code: ErrorCode.NOT_FOUND, message: 'missing', retryable: false },
+        },
+      }),
+    );
     await expect(pending).rejects.toMatchObject({
       appError: { code: ErrorCode.NOT_FOUND, message: 'missing' },
     });
@@ -98,7 +110,9 @@ describe('RpcClient', () => {
     ready(transport);
     const pending = client.call('settings.get', {});
     transport.setStatus({ running: false, ready: false, restarts: 0 });
-    await expect(pending).rejects.toMatchObject({ appError: { code: ErrorCode.INTERNAL, message: 'sidecar restarted' } });
+    await expect(pending).rejects.toMatchObject({
+      appError: { code: ErrorCode.INTERNAL, message: 'sidecar restarted' },
+    });
     client.dispose();
   });
 
@@ -123,9 +137,13 @@ describe('RpcClient', () => {
     const client = new RpcClient(transport);
     const handler = vi.fn();
     const unsubscribe = client.on('chat.delta', handler);
-    transport.receive(JSON.stringify({ jsonrpc: '2.0', method: 'chat.delta', params: { requestId: 'r1', textDelta: 'hi' } }));
+    transport.receive(
+      JSON.stringify({ jsonrpc: '2.0', method: 'chat.delta', params: { requestId: 'r1', textDelta: 'hi' } }),
+    );
     unsubscribe();
-    transport.receive(JSON.stringify({ jsonrpc: '2.0', method: 'chat.delta', params: { requestId: 'r1', textDelta: 'again' } }));
+    transport.receive(
+      JSON.stringify({ jsonrpc: '2.0', method: 'chat.delta', params: { requestId: 'r1', textDelta: 'again' } }),
+    );
     expect(handler).toHaveBeenCalledTimes(1);
     client.dispose();
   });
@@ -137,11 +155,13 @@ describe('RpcClient', () => {
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     transport.receive('{broken');
     expect(warning).toHaveBeenCalledOnce();
-    transport.receive(JSON.stringify({
-      jsonrpc: '2.0',
-      method: 'system.ready',
-      params: { version: '1.0.0', recoveredTransactions: 0 },
-    }));
+    transport.receive(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'system.ready',
+        params: { version: '1.0.0', recoveredTransactions: 0 },
+      }),
+    );
     expect(transport.sent).toHaveLength(1);
     transport.receive(JSON.stringify({ jsonrpc: '2.0', id: 1, error: { code: -32600, message: 'bad request' } }));
     await expect(queued).rejects.toMatchObject({
@@ -180,20 +200,31 @@ describe('RpcClient', () => {
     });
 
     const handler = vi.fn();
-    const notification = renderHook(() => {
-      useNotification('chat.delta', handler);
-    }, { wrapper });
+    const notification = renderHook(
+      () => {
+        useNotification('chat.delta', handler);
+      },
+      { wrapper },
+    );
     act(() => {
-      transport.receive(JSON.stringify({
-        jsonrpc: '2.0', method: 'chat.delta', params: { requestId: 'r2', textDelta: 'hello' },
-      }));
+      transport.receive(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'chat.delta',
+          params: { requestId: 'r2', textDelta: 'hello' },
+        }),
+      );
     });
     expect(handler).toHaveBeenCalledTimes(1);
     notification.unmount();
     act(() => {
-      transport.receive(JSON.stringify({
-        jsonrpc: '2.0', method: 'chat.delta', params: { requestId: 'r2', textDelta: 'ignored' },
-      }));
+      transport.receive(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'chat.delta',
+          params: { requestId: 'r2', textDelta: 'ignored' },
+        }),
+      );
     });
     expect(handler).toHaveBeenCalledTimes(1);
     query.unmount();

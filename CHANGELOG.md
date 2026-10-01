@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add zod validators for all boundary contracts, exhaustive RPC catalogs, seed config loader ([M1-01](docs/tasks/M1-01.md))
 - Add typed UI RpcClient, Tauri transport, React Query hooks and sidecar status store ([M1-04](docs/tasks/M1-04.md))
 - Add Vitest projects for all packages with coverage thresholds ([M0-06](docs/tasks/M0-06.md))
 - Add Tauri sidecar supervisor: NDJSON relay, ready gate, restart backoff with fatal limit, graceful shutdown, locked-down capabilities ([M1-03](docs/tasks/M1-03.md))

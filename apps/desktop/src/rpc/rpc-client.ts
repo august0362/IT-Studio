@@ -1,4 +1,11 @@
-import { ErrorCode, type AppError, type RpcMethod, type RpcMethodMap, type RpcNotificationMap, type RpcNotificationName } from '@itstudio/schemas';
+import {
+  ErrorCode,
+  type AppError,
+  type RpcMethod,
+  type RpcMethodMap,
+  type RpcNotificationMap,
+  type RpcNotificationName,
+} from '@itstudio/schemas';
 import type { ISidecarTransport, SidecarStatus } from './transport';
 
 export class RpcCallError extends Error {
@@ -58,9 +65,12 @@ export class RpcClient {
         this.receiveStatus(status);
       }),
     ];
-    void transport.status().then((status) => {
-      if (!this.statusEventReceived) this.receiveStatus(status);
-    }).catch(() => undefined);
+    void transport
+      .status()
+      .then((status) => {
+        if (!this.statusEventReceived) this.receiveStatus(status);
+      })
+      .catch(() => undefined);
   }
 
   public call<M extends RpcMethod>(
@@ -191,7 +201,9 @@ export class RpcClient {
 
   private async sendQueued(id: number, entry: PendingCall): Promise<void> {
     try {
-      await this.transport.send(JSON.stringify({ jsonrpc: '2.0', id, method: entry.method, params: this.paramsForQueuedCall(id) }));
+      await this.transport.send(
+        JSON.stringify({ jsonrpc: '2.0', id, method: entry.method, params: this.paramsForQueuedCall(id) }),
+      );
     } catch {
       this.finish(id, syntheticError(ErrorCode.INTERNAL, 'failed to send request to sidecar', true));
     }
