@@ -12,7 +12,7 @@
 | M0 Environment & scaffold | **Done** | 8 / 8 |
 | M1 Sidecar core & IPC | In progress | 4 / 7 |
 | M2 LLM router & providers | In progress | 2 / 9 |
-| M3 Cost, pricing, FX, budget, P&L | Not started | 0 / 7 |
+| M3 Cost, pricing, FX, budget, P&L | In progress | 1 / 7 |
 | M4 UI shell, Settings, Chat, P&L | Not started | 0 / 7 |
 | M5 RAG | Not started | 0 / 7 |
 | M6 Agent pipeline & Worker | Not started | 0 / 7 |
@@ -65,7 +65,7 @@
 
 **Exit criteria:** every billed call creates a ledger row with frozen cost + price version; Hard Stop blocks paid calls; P&L numbers match hand-computed fixtures; prices auto-update with validation.
 
-- [ ] **M3-01** (C) `domain/cost.ts`, `domain/money.ts` (integer µUSD, rounding, `MoneyDisplay` USD/VND formatting). ≥ 95 % coverage. Ref: ARCH §6.1, §6.3.
+- [x] **M3-01** (C) `domain/cost.ts`, `domain/money.ts` (integer µUSD, rounding, `MoneyDisplay` USD/VND formatting). ≥ 95 % coverage. Ref: ARCH §6.1, §6.3.
 - [ ] **M3-02** (C) Ledger repository (append-only) + `LedgerService.record` subscribed to router completions (incl. `billedFailure`), `ledger.entry` notification, `ledger.query` with cursor paging.
 - [ ] **M3-03** (C) Price tables: seed import, versioning, `pricing.get`, `pricing.override` (manual precedence rules).
 - [ ] **M3-04** (C) Pricing updater: sources fetch, HTML→text, extraction via router (prompt ROLES §2.5), validation (bounds, max Δ%), apply/reject, scheduler single-flight, `pricing.updated`. Ref: ARCH §6.2.

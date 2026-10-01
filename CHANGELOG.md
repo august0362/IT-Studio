@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add integer µUSD cost computation and dual USD/VND money display ([M3-01](docs/tasks/M3-01.md))
 - Add sidecar JSON-RPC server over NDJSON stdio, typed event bus, redacting pino logger, composition root ([M1-02](docs/tasks/M1-02.md))
 - Add LLM provider port, failure taxonomy, provider contract test suite and HTTP fixture harness ([M2-01](docs/tasks/M2-01.md))
 - Add pure LLM router state machine and retry backoff ([M2-06](docs/tasks/M2-06.md))
