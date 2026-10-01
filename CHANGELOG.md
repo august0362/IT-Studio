@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add Vitest projects for all packages with coverage thresholds ([M0-06](docs/tasks/M0-06.md))
 - Add Tauri sidecar supervisor: NDJSON relay, ready gate, restart backoff with fatal limit, graceful shutdown, locked-down capabilities ([M1-03](docs/tasks/M1-03.md))
 - Add strict lint gate: typescript-eslint strict-type-checked, layer boundaries, Prettier, secret scanner with self-test ([M0-05](docs/tasks/M0-05.md))
 - Add npm-workspaces monorepo scaffold: sidecar, desktop (Tauri v2 + React 19 + Vite 8 + Tailwind 4), VS Code extension skeleton ([M0-04](docs/tasks/M0-04.md))
