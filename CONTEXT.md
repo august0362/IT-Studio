@@ -53,6 +53,7 @@ Changing any row requires an ADR in `docs/decisions/` and user approval.
 | D14 | Single user, local only, no auth/multi-tenant. Windows first; macOS/Linux not tested in v1. | Scope. |
 | D15 | Provider adapters: **Anthropic SDK**, **OpenAI SDK** (also used for xAI, Groq, Together via `baseURL` — OpenAI-compatible), **Google GenAI SDK**. Exact model ids live in `config/models.seed.json`, never hard-coded in logic. | Few adapters; model churn is config, not code. |
 | D16 | Runtime write safety: the Worker only writes paths inside the project root **and** inside `TaskSpec.allowedPaths`; runs only allow-listed commands from Settings, never commands proposed by a model. | Prevent model-driven path traversal / RCE. |
+| D17 | **Themes:** Settings → Theme offers 18 themes derived from the palettes in `src/image/theme/`, each with light + dark variants and a follow-system mode, designed with color psychology (mood, rationale, recommended activities per theme) and WCAG AA/AAA contrast enforced by tooling. Defaults: Arctic Focus (light) / Midnight Focus (dark). Spec: `docs/design/THEMES.md`. | User requirement (2026-10-02). |
 
 ## 4. Open questions (ask the user before the milestone that needs them)
 
@@ -61,7 +62,6 @@ Changing any row requires an ADR in `docs/decisions/` and user approval.
 | Q-01 | One active project at a time, or several concurrently, each with its own P&L view? | M4 (UI shell) | One active project + project switcher; P&L per project. |
 | Q-02 | Exact default Coder model id (Codex-class) and PM/Reviewer Claude model id. | M2 | Verified from provider `/models` endpoints during M2; written to seed config. |
 | Q-03 | FX data source preference (e.g. Vietcombank vs. generic open FX API). | M3 | Generic open FX API, configurable URL. |
-| Q-04 | UI theme palettes supplied in `src/image/theme/` (20 four-color palettes, Color Hunt hex codes in filenames; named sets Cold, DarkCold, DarkWinter, Fall, Summer, Winter). How are they used? | M4 | Every palette becomes a selectable theme in Settings → Appearance; named "Dark*" palettes are dark themes; default theme = `ColdColor` (light) / `DarkColdColor` (dark), following OS light/dark. |
 
 ## 5. Glossary
 
@@ -156,6 +156,7 @@ IT Studio/
 |---|---|
 | A type / contract | `src/types/schemas.ts` |
 | How a component works | `ARCHITECTURE.md` |
+| Theme / colors / UI tokens | `docs/design/THEMES.md`, `config/themes.json` |
 | What an agent may / may not do | `ROLES.md` |
 | What to work on next | `ROADMAP.md` (first unchecked task whose dependencies are checked) |
 | How to write code / commit / log changes | `CONVENTIONS.md` |

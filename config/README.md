@@ -8,6 +8,7 @@ Loaded by the sidecar at first run and validated with zod (task M1-01). After fi
 | `pricing.seed.json` | `PriceTable` | Collected 2026-10-01. Anthropic and Google from official pages; OpenAI, xAI, Groq from secondary aggregators (official pages blocked automated fetch) — **treat as provisional**; M3-04 auto-update replaces them. Cached-input prices for Google/OpenAI-mini/xAI-fast assumed at 10 % of input. Groq has no cache discount (cached = input). Free tiers are metered at paid rates (conservative). |
 | `pricing.sources.json` | `Record<ProviderId, string[]>` | Pages fetched by the pricing updater. |
 | `commands.default.json` | `CommandSpec[]` | Default validation commands. `executable: "node"` is resolved by the runner to `process.execPath` (Windows cannot spawn `npm.cmd` with `shell:false`; tools are run via their JS entry points). |
+| `themes.json` | `ThemeCatalog` | **Generated** by `scripts/design/derive-themes.mjs` — never edit by hand. Spec: `docs/design/THEMES.md`. |
 | `fx.json` | sidecar-internal `FxConfig` | `seedUsdToVnd` used only until the first successful fetch (Q-03). |
 
 Embedding note: `text-embedding-3-small` and `gemini-embedding-2` are both requested at 1536 dimensions (both support configurable output dimensionality) so they can fall back to each other without re-indexing — verify in M5-03.

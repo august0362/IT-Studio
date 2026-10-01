@@ -1065,6 +1065,14 @@ export interface ImageSettings {
   readonly providerOrder: readonly ImageProviderId[];
 }
 
+export interface UiSettings {
+  /** Selected theme from `config/themes.json` (docs/design/THEMES.md). Unknown id → fall back to catalog defaults. */
+  readonly themeId: ThemeId;
+  /** `system` follows the OS light/dark preference using the selected theme's matching variant. */
+  readonly mode: ThemeMode;
+  readonly locale: 'en' | 'vi';
+}
+
 export interface AppSettings {
   readonly activeProjectId: ProjectId | null;
   readonly router: RouterConfig;
@@ -1075,7 +1083,7 @@ export interface AppSettings {
   readonly pipeline: PipelineSettings;
   readonly rag: RagSettings;
   readonly image: ImageSettings;
-  readonly ui: { readonly theme: 'system' | 'light' | 'dark'; readonly locale: 'en' | 'vi' };
+  readonly ui: UiSettings;
 }
 
 /** Deep-partial patch accepted by `settings.update`. */
@@ -1086,6 +1094,70 @@ export type SettingsPatch = {
       ? Partial<AppSettings[K]>
       : AppSettings[K];
 };
+
+/* ============================================================================
+ * §12a. THEMES (docs/design/THEMES.md; data in config/themes.json, bundled into the UI at build time)
+ * ========================================================================== */
+
+/** Kebab-case theme id, e.g. "arctic-focus". */
+export type ThemeId = Brand<string, 'ThemeId'>;
+/** Lower-case 7-char hex color, e.g. "#0d47a1". */
+export type HexColor = Brand<string, 'HexColor'>;
+
+export const ThemeMode = {
+  SYSTEM: 'system',
+  LIGHT: 'light',
+  DARK: 'dark',
+} as const;
+export type ThemeMode = (typeof ThemeMode)[keyof typeof ThemeMode];
+
+/** Semantic color tokens. Components use ONLY these (as CSS variables `--color-<kebab-name>`), never raw hex. */
+export interface ThemeTokens {
+  readonly bg: HexColor;
+  readonly surface: HexColor;
+  readonly surfaceAlt: HexColor;
+  readonly border: HexColor;
+  readonly text: HexColor;
+  readonly textMuted: HexColor;
+  readonly primary: HexColor;
+  readonly primaryFg: HexColor;
+  readonly primaryHover: HexColor;
+  readonly accent: HexColor;
+  readonly focusRing: HexColor;
+  readonly success: HexColor;
+  readonly warning: HexColor;
+  readonly danger: HexColor;
+  readonly info: HexColor;
+  /** Up to 6 categorical chart colors, each ≥ 3:1 against `surface`. */
+  readonly chart: readonly HexColor[];
+  /** Measured WCAG contrast ratios, recorded by the derivation tool for audit. */
+  readonly contrast: Readonly<Record<string, number>>;
+}
+
+export interface ThemeDefinition {
+  readonly id: ThemeId;
+  readonly name: string;
+  /** Source palette image (repo-relative). */
+  readonly source: string;
+  /** The four original palette colors. */
+  readonly palette: readonly HexColor[];
+  readonly nativeMode: 'light' | 'dark';
+  /** Short mood label shown on the theme card. */
+  readonly mood: string;
+  /** Color-psychology rationale shown in the theme detail tooltip. */
+  readonly psychology: string;
+  readonly recommendedFor: readonly string[];
+  readonly light: ThemeTokens;
+  readonly dark: ThemeTokens;
+}
+
+export interface ThemeCatalog {
+  readonly version: 1;
+  readonly generatedBy: string;
+  readonly defaultLight: ThemeId;
+  readonly defaultDark: ThemeId;
+  readonly themes: readonly ThemeDefinition[];
+}
 
 /* ============================================================================
  * §13. IMAGE GENERATION (DEFERRED — M8; contracts frozen now to avoid later breakage)

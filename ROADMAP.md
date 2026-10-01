@@ -79,7 +79,7 @@
 
 - [ ] **M4-00** (A) Resolve Q-01 (single vs multi project) with user; update CONTEXT §3/§4.
 - [ ] **M4-01** (C) App shell: tabs (Chat, Code, Knowledge, Gallery-disabled, Cost & P&L, Settings), project switcher, i18n scaffolding (en, vi) via react-i18next.
-- [ ] **M4-01b** (A+C) Theme system from `src/image/theme/` palettes (Q-04): A extracts hex codes into `config/themes.json` and maps palette roles to CSS tokens; C implements token-based theming + Settings → Appearance picker.
+- [ ] **M4-01b** (C) Theme system per `docs/design/THEMES.md` §5–§7: token CSS variables + Tailwind mapping, no-flash startup, system-mode listener, Settings → Theme picker (cards, filters, hover preview, a11y radiogroup), Monaco theme bridge, contrast test over all 36 theme/mode pairs, ban raw colors in components. (Data `config/themes.json` done by A.)
 - [ ] **M4-02** (C) Shared components: `<Money>`, `<SafeMarkdown>` (+ XSS test corpus), `<ErrorPanel>` (renders `AppError.remediation`).
 - [ ] **M4-03** (C) Settings: Router ladder (dnd-kit), **Auto Fallback** toggle, lock model, Budget (+ **Hard Stop** toggle), Pricing (table, refresh, override), FX (rate, override), VS Code options, Pipeline role assignment.
 - [ ] **M4-04** (C) Chat tab: conversation list, unified model dropdown (+ Lock), streaming with cancel, fallback badge + partial-reset handling, fallback modal (Auto OFF), per-message cost `<Money>`.
