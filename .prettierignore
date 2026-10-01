@@ -1,0 +1,14 @@
+**/*.md
+**/package-lock.json
+**/dist/**
+**/target/**
+apps/desktop/src-tauri/gen/**
+config/themes.json
+config/commands.default.json
+config/models.seed.json
+config/pricing.seed.json
+scripts/design/**
+src/types/schemas.ts
+apps/desktop/src/index.css
+**/node_modules/**
+.npm-cache/**
