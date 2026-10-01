@@ -20,6 +20,7 @@
 | M2-01 Provider port + contract suite | PASS | see git log |
 | M1-02 Sidecar RPC core | PASS (live ping verified) | 878b2c7 |
 | M3-01 Cost & money domain | PASS | see git log |
+| M1-05 SQLite + settings/projects | PASS (QA regenerated migrations, added 1 test) | see git log |
 | M1-03 Rust sidecar supervisor | PASS after 1 fix round (app could never exit — fixed) | ea0f6e4 |
 
 ## Failed / rolled back (needs your attention)
