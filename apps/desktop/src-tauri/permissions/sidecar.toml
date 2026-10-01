@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-sidecar-send"
+description = "Enables sending one NDJSON line to the sidecar."
+commands.allow = ["sidecar_send"]
+
+[[permission]]
+identifier = "allow-sidecar-status"
+description = "Enables reading sidecar status."
+commands.allow = ["sidecar_status"]
