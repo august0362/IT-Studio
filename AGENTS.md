@@ -52,6 +52,8 @@ Verified 2026-10-02 with codex-cli 0.159.3 (ChatGPT login): writes in worktree +
 In the sandbox npm uses a repo-local `.npm-cache/` (gitignored). Max 2 Codex runs in parallel, only on tasks with disjoint *Scope* (never two tasks editing the same `package.json` / lockfile).
 From M1 on, the Architect pre-installs each milestone's dependencies in one commit; tasks marked **"deps pre-installed"** must NOT run `npm install <pkg>` or edit any `package.json` / `package-lock.json` — if a needed package is missing, write `## Blocked`.
 
+**Known sandbox limits** (Windows): esbuild/vitest native helpers may be denied process access, `cargo` cannot download crates (TLS `SEC_E_NO_CREDENTIALS`), `tsx` may fail on `os.userInfo()`. If a verification command fails for one of these reasons, record it under *Open issues* in `## Result` and continue — QA re-runs it outside the sandbox. Do not work around by changing tooling.
+
 ## 6. Toolchain
 
 Version pins: `docs/decisions/ADR-0002-toolchain-pins.md`. **TypeScript is pinned to 6.0.x — do not install TypeScript 7.**
