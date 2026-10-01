@@ -1,0 +1,7 @@
+{
+  "sourceUrl": "https://open.er-api.com/v6/latest/USD",
+  "vndField": "rates.VND",
+  "updateIntervalHours": 24,
+  "seedUsdToVnd": 26300,
+  "seedAsOf": "2026-10-01T00:00:00.000Z"
+}

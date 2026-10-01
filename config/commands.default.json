@@ -1,0 +1,5 @@
+[
+  { "kind": "typecheck", "executable": "node", "args": ["node_modules/typescript/bin/tsc", "--noEmit"], "timeoutMs": 180000 },
+  { "kind": "lint", "executable": "node", "args": ["node_modules/eslint/bin/eslint.js", ".", "--format", "json"], "timeoutMs": 180000 },
+  { "kind": "test", "executable": "node", "args": ["node_modules/vitest/vitest.mjs", "run", "--reporter=json"], "timeoutMs": 600000 }
+]

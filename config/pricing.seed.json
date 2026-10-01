@@ -1,0 +1,25 @@
+{
+  "version": "seed-2026-10-01",
+  "effectiveFrom": "2026-10-01T00:00:00.000Z",
+  "origin": "seed",
+  "entries": [
+    { "modelKey": "anthropic/claude-opus-5-5", "inputPerMTokMicroUsd": 4000000, "outputPerMTokMicroUsd": 20000000, "cachedInputPerMTokMicroUsd": 200000, "freeTier": false, "sourceUrl": "https://claude.com/pricing" },
+    { "modelKey": "anthropic/claude-sonnet-5-5", "inputPerMTokMicroUsd": 2000000, "outputPerMTokMicroUsd": 10000000, "cachedInputPerMTokMicroUsd": 200000, "freeTier": false, "sourceUrl": "https://claude.com/pricing" },
+    { "modelKey": "anthropic/claude-haiku-4-5", "inputPerMTokMicroUsd": 1000000, "outputPerMTokMicroUsd": 5000000, "cachedInputPerMTokMicroUsd": 100000, "freeTier": false, "sourceUrl": "https://claude.com/pricing" },
+
+    { "modelKey": "openai/gpt-5.5", "inputPerMTokMicroUsd": 5000000, "outputPerMTokMicroUsd": 30000000, "cachedInputPerMTokMicroUsd": 500000, "freeTier": false, "sourceUrl": "https://openai.com/api/pricing/" },
+    { "modelKey": "openai/gpt-5.3-codex", "inputPerMTokMicroUsd": 1750000, "outputPerMTokMicroUsd": 14000000, "cachedInputPerMTokMicroUsd": 175000, "freeTier": false, "sourceUrl": "https://openai.com/api/pricing/" },
+    { "modelKey": "openai/gpt-5.4-mini", "inputPerMTokMicroUsd": 750000, "outputPerMTokMicroUsd": 4500000, "cachedInputPerMTokMicroUsd": 75000, "freeTier": false, "sourceUrl": "https://openai.com/api/pricing/" },
+    { "modelKey": "openai/text-embedding-3-small", "inputPerMTokMicroUsd": 20000, "outputPerMTokMicroUsd": 0, "cachedInputPerMTokMicroUsd": 0, "freeTier": false, "sourceUrl": "https://openai.com/api/pricing/" },
+
+    { "modelKey": "google/gemini-3.8-flash", "inputPerMTokMicroUsd": 750000, "outputPerMTokMicroUsd": 3750000, "cachedInputPerMTokMicroUsd": 75000, "freeTier": false, "sourceUrl": "https://ai.google.dev/gemini-api/docs/pricing" },
+    { "modelKey": "google/gemini-3.1-pro-preview", "inputPerMTokMicroUsd": 2000000, "outputPerMTokMicroUsd": 12000000, "cachedInputPerMTokMicroUsd": 200000, "freeTier": false, "sourceUrl": "https://ai.google.dev/gemini-api/docs/pricing" },
+    { "modelKey": "google/gemini-embedding-2", "inputPerMTokMicroUsd": 200000, "outputPerMTokMicroUsd": 0, "cachedInputPerMTokMicroUsd": 0, "freeTier": false, "sourceUrl": "https://ai.google.dev/gemini-api/docs/pricing" },
+
+    { "modelKey": "xai/grok-4.6", "inputPerMTokMicroUsd": 2000000, "outputPerMTokMicroUsd": 6000000, "cachedInputPerMTokMicroUsd": 500000, "freeTier": false, "sourceUrl": "https://docs.x.ai/docs/models" },
+    { "modelKey": "xai/grok-4.1-fast", "inputPerMTokMicroUsd": 200000, "outputPerMTokMicroUsd": 500000, "cachedInputPerMTokMicroUsd": 50000, "freeTier": false, "sourceUrl": "https://docs.x.ai/docs/models" },
+
+    { "modelKey": "groq/llama-3.3-70b-versatile", "inputPerMTokMicroUsd": 590000, "outputPerMTokMicroUsd": 790000, "cachedInputPerMTokMicroUsd": 590000, "freeTier": false, "sourceUrl": "https://groq.com/pricing" },
+    { "modelKey": "groq/llama-3.1-8b-instant", "inputPerMTokMicroUsd": 50000, "outputPerMTokMicroUsd": 80000, "cachedInputPerMTokMicroUsd": 50000, "freeTier": false, "sourceUrl": "https://groq.com/pricing" }
+  ]
+}

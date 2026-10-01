@@ -1,0 +1,45 @@
+{
+  "models": [
+    { "key": "anthropic/claude-opus-5-5", "provider": "anthropic", "providerModelId": "claude-opus-5-5", "displayName": "Claude Opus 5.5", "capabilities": ["chat", "tool_calling", "vision", "code", "json_mode"], "contextWindowTokens": 200000, "maxOutputTokens": 64000, "enabled": true },
+    { "key": "anthropic/claude-sonnet-5-5", "provider": "anthropic", "providerModelId": "claude-sonnet-5-5", "displayName": "Claude Sonnet 5.5", "capabilities": ["chat", "tool_calling", "vision", "code", "json_mode"], "contextWindowTokens": 200000, "maxOutputTokens": 64000, "enabled": true },
+    { "key": "anthropic/claude-haiku-4-5", "provider": "anthropic", "providerModelId": "claude-haiku-4-5", "displayName": "Claude Haiku 4.5", "capabilities": ["chat", "tool_calling", "vision", "code", "json_mode"], "contextWindowTokens": 200000, "maxOutputTokens": 32000, "enabled": true },
+
+    { "key": "openai/gpt-5.5", "provider": "openai", "providerModelId": "gpt-5.5", "displayName": "GPT-5.5", "capabilities": ["chat", "tool_calling", "vision", "code", "json_mode"], "contextWindowTokens": 400000, "maxOutputTokens": 128000, "enabled": true },
+    { "key": "openai/gpt-5.3-codex", "provider": "openai", "providerModelId": "gpt-5.3-codex", "displayName": "GPT-5.3 Codex", "capabilities": ["chat", "tool_calling", "code", "json_mode"], "contextWindowTokens": 400000, "maxOutputTokens": 128000, "enabled": true },
+    { "key": "openai/gpt-5.4-mini", "provider": "openai", "providerModelId": "gpt-5.4-mini", "displayName": "GPT-5.4 mini", "capabilities": ["chat", "tool_calling", "vision", "code", "json_mode"], "contextWindowTokens": 400000, "maxOutputTokens": 128000, "enabled": true },
+    { "key": "openai/text-embedding-3-small", "provider": "openai", "providerModelId": "text-embedding-3-small", "displayName": "OpenAI Embedding 3 Small", "capabilities": ["embedding"], "contextWindowTokens": 8191, "maxOutputTokens": 0, "enabled": true },
+
+    { "key": "google/gemini-3.8-flash", "provider": "google", "providerModelId": "gemini-3.8-flash", "displayName": "Gemini 3.8 Flash", "capabilities": ["chat", "tool_calling", "vision", "code", "json_mode"], "contextWindowTokens": 1000000, "maxOutputTokens": 65536, "enabled": true },
+    { "key": "google/gemini-3.1-pro-preview", "provider": "google", "providerModelId": "gemini-3.1-pro-preview", "displayName": "Gemini 3.1 Pro (preview)", "capabilities": ["chat", "tool_calling", "vision", "code", "json_mode"], "contextWindowTokens": 1000000, "maxOutputTokens": 65536, "enabled": true },
+    { "key": "google/gemini-embedding-2", "provider": "google", "providerModelId": "gemini-embedding-2", "displayName": "Gemini Embedding 2", "capabilities": ["embedding"], "contextWindowTokens": 8192, "maxOutputTokens": 0, "enabled": true },
+
+    { "key": "xai/grok-4.6", "provider": "xai", "providerModelId": "grok-4.6", "displayName": "Grok 4.6", "capabilities": ["chat", "tool_calling", "vision", "code", "json_mode"], "contextWindowTokens": 1000000, "maxOutputTokens": 64000, "enabled": true },
+    { "key": "xai/grok-4.1-fast", "provider": "xai", "providerModelId": "grok-4.1-fast", "displayName": "Grok 4.1 Fast", "capabilities": ["chat", "tool_calling", "code", "json_mode"], "contextWindowTokens": 2000000, "maxOutputTokens": 64000, "enabled": true },
+
+    { "key": "groq/llama-3.3-70b-versatile", "provider": "groq", "providerModelId": "llama-3.3-70b-versatile", "displayName": "Llama 3.3 70B (Groq)", "capabilities": ["chat", "tool_calling", "code", "json_mode"], "contextWindowTokens": 131072, "maxOutputTokens": 32768, "enabled": true },
+    { "key": "groq/llama-3.1-8b-instant", "provider": "groq", "providerModelId": "llama-3.1-8b-instant", "displayName": "Llama 3.1 8B Instant (Groq)", "capabilities": ["chat", "tool_calling", "json_mode"], "contextWindowTokens": 131072, "maxOutputTokens": 8192, "enabled": true }
+  ],
+
+  "defaultLadder": [
+    { "modelKey": "google/gemini-3.8-flash", "priority": 1, "enabled": true, "maxRetries": 2, "timeoutMs": 30000 },
+    { "modelKey": "groq/llama-3.3-70b-versatile", "priority": 2, "enabled": true, "maxRetries": 2, "timeoutMs": 30000 },
+    { "modelKey": "openai/gpt-5.4-mini", "priority": 3, "enabled": true, "maxRetries": 2, "timeoutMs": 30000 },
+    { "modelKey": "anthropic/claude-haiku-4-5", "priority": 4, "enabled": true, "maxRetries": 2, "timeoutMs": 30000 },
+    { "modelKey": "xai/grok-4.1-fast", "priority": 5, "enabled": true, "maxRetries": 2, "timeoutMs": 30000 }
+  ],
+
+  "defaultRoleAssignment": {
+    "pm": ["anthropic/claude-opus-5-5", "anthropic/claude-sonnet-5-5", "openai/gpt-5.5"],
+    "coder": ["openai/gpt-5.3-codex", "openai/gpt-5.5", "anthropic/claude-sonnet-5-5"],
+    "reviewer": ["anthropic/claude-sonnet-5-5", "anthropic/claude-opus-5-5", "google/gemini-3.1-pro-preview"]
+  },
+
+  "defaultEmbedding": {
+    "modelKey": "openai/text-embedding-3-small",
+    "dimensions": 1536,
+    "batchSize": 64,
+    "fallbackModelKeys": ["google/gemini-embedding-2"]
+  },
+
+  "defaultPricingExtractionModel": "openai/gpt-5.4-mini"
+}

@@ -284,7 +284,7 @@ On sidecar start, scan every project's `.itstudio/tx/*/manifest.json`; any `prep
 
 ### 9.5 Command runner
 
-- Commands come only from `PipelineSettings.validationCommands` (defaults in `config/commands.default.json`: `npm run typecheck`, `npm run lint`, `npm test -- --run`). Executed with `spawn(executable, args, { shell: false, cwd: root })`, env stripped of all provider secrets, timeout per spec, output tail 64 KB.
+- Commands come only from `PipelineSettings.validationCommands` (defaults in `config/commands.default.json`: tsc, eslint, vitest via their JS entry points). `executable: "node"` resolves to `process.execPath`; `executable: "npm"` resolves to `process.execPath` + `<node dir>/node_modules/npm/bin/npm-cli.js` (Windows forbids spawning `.cmd` files with `shell:false`). Executed with `spawn(executable, args, { shell: false, cwd: root })`, env stripped of all provider secrets, timeout per spec, output tail 64 KB.
 - Parsers: tsc (`file(line,col): error TSxxxx: msg`), eslint (`--format json`), vitest (`--reporter=json`).
 
 ## 10. VS Code bridge & companion extension
