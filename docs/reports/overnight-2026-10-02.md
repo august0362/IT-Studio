@@ -13,6 +13,7 @@
 |---|---|---|
 | M0-04 Monorepo scaffold | PASS (QA re-ran 3 sandbox-blocked checks) | f95cd23 |
 | M0-05 Lint gate | PASS | ef39833 |
+| M1-03 Rust sidecar supervisor | PASS after 1 fix round (app could never exit — fixed) | ea0f6e4 |
 
 ## Failed / rolled back (needs your attention)
 
