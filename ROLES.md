@@ -83,6 +83,7 @@ Append a "Result" section to this file: summary, files changed, decisions taken,
 | Fail (first) | Write a **fix brief** appended to the task file (`## Fix round 1` with numbered findings, each with file/line + required change) and re-run Codex once. |
 | Fail (second) | `git reset --hard <checkpoint>` + `git clean -fd` limited to task scope → report to user (§1.4). |
 | Must not | Silently fix code itself; lower acceptance criteria to make a task pass. |
+| Global retry ceiling | Any single error (code, tooling, environment) that survives **6** fix attempts → stop working on it, record it in `docs/reports/`, continue with independent tasks; if none can proceed, end the session. |
 
 ### 1.3 Implementer — Codex
 

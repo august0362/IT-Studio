@@ -1,0 +1,1482 @@
+{
+  "version": 1,
+  "generatedBy": "scripts/design/derive-themes.mjs",
+  "defaultLight": "arctic-focus",
+  "defaultDark": "midnight-focus",
+  "themes": [
+    {
+      "id": "arctic-focus",
+      "name": "Arctic Focus",
+      "source": "src/image/theme/ColdColor.png",
+      "palette": [
+        "#e3f2fd",
+        "#90caf9",
+        "#2196f3",
+        "#0d47a1"
+      ],
+      "nativeMode": "light",
+      "mood": "Calm, trustworthy, focused",
+      "psychology": "Blue lowers arousal and is associated with trust and concentration; ideal default for long coding and reading sessions.",
+      "recommendedFor": [
+        "coding",
+        "long sessions",
+        "default"
+      ],
+      "light": {
+        "bg": "#e3f2fd",
+        "surface": "#eef6fc",
+        "surfaceAlt": "#d6e6f6",
+        "border": "#c2d3e4",
+        "text": "#1b2e4c",
+        "textMuted": "#526679",
+        "primary": "#0177c8",
+        "primaryFg": "#ffffff",
+        "primaryHover": "#0268b0",
+        "accent": "#0d47a1",
+        "focusRing": "#0d47a1",
+        "success": "#1f812d",
+        "warning": "#986600",
+        "danger": "#b94642",
+        "info": "#08798c",
+        "chart": [
+          "#0177c8",
+          "#0d47a1",
+          "#828f99",
+          "#5991bd",
+          "#1590ec"
+        ],
+        "contrast": {
+          "text/bg": 11.92,
+          "text/surface": 12.47,
+          "text/surfaceAlt": 10.71,
+          "muted/surfaceAlt": 4.67,
+          "primaryFg/primary": 4.69,
+          "accent/bg": 7.56
+        }
+      },
+      "dark": {
+        "bg": "#081121",
+        "surface": "#0d1a2f",
+        "surfaceAlt": "#162439",
+        "border": "#2a384f",
+        "text": "#e9eff5",
+        "textMuted": "#a0b0c1",
+        "primary": "#2196f3",
+        "primaryFg": "#081121",
+        "primaryHover": "#42a6ff",
+        "accent": "#275fbb",
+        "focusRing": "#275fbb",
+        "success": "#71c575",
+        "warning": "#e1a035",
+        "danger": "#fa8880",
+        "info": "#05c2e2",
+        "chart": [
+          "#2196f3",
+          "#275fbb",
+          "#e3f2fd",
+          "#90caf9",
+          "#2d65c2"
+        ],
+        "contrast": {
+          "text/bg": 16.3,
+          "text/surface": 15.03,
+          "text/surfaceAlt": 13.47,
+          "muted/surfaceAlt": 7.04,
+          "primaryFg/primary": 6.04,
+          "accent/bg": 3.09
+        }
+      }
+    },
+    {
+      "id": "midnight-focus",
+      "name": "Midnight Focus",
+      "source": "src/image/theme/DarkColdColor.png",
+      "palette": [
+        "#091540",
+        "#1b2cc1",
+        "#7692ff",
+        "#abd2fa"
+      ],
+      "nativeMode": "dark",
+      "mood": "Deep, quiet, concentrated",
+      "psychology": "Deep navy keeps the calming effect of blue while cutting glare at night; periwinkle accents keep focus cues visible.",
+      "recommendedFor": [
+        "night work",
+        "coding",
+        "default dark"
+      ],
+      "light": {
+        "bg": "#f1f8ff",
+        "surface": "#fafcff",
+        "surfaceAlt": "#e3ebff",
+        "border": "#c8d1e5",
+        "text": "#091540",
+        "textMuted": "#59637b",
+        "primary": "#1b2cc1",
+        "primaryFg": "#ffffff",
+        "primaryHover": "#1414b0",
+        "accent": "#6b85f1",
+        "focusRing": "#6b85f1",
+        "success": "#238430",
+        "warning": "#986600",
+        "danger": "#b94642",
+        "info": "#067f94",
+        "chart": [
+          "#1b2cc1",
+          "#6b85f1",
+          "#091540",
+          "#708cf8",
+          "#7196bb"
+        ],
+        "contrast": {
+          "text/bg": 16.44,
+          "text/surface": 17.13,
+          "text/surfaceAlt": 14.75,
+          "muted/surfaceAlt": 5.03,
+          "primaryFg/primary": 9.65,
+          "accent/bg": 3.14
+        }
+      },
+      "dark": {
+        "bg": "#091540",
+        "surface": "#1a2339",
+        "surfaceAlt": "#232c44",
+        "border": "#37415a",
+        "text": "#ebeef5",
+        "textMuted": "#a5aec2",
+        "primary": "#5d85fe",
+        "primaryFg": "#091540",
+        "primaryHover": "#7398ff",
+        "accent": "#7692ff",
+        "focusRing": "#7692ff",
+        "success": "#71c575",
+        "warning": "#e1a035",
+        "danger": "#fa8880",
+        "info": "#05c2e2",
+        "chart": [
+          "#5d85fe",
+          "#7692ff",
+          "#586c9f",
+          "#395ef2",
+          "#abd2fa"
+        ],
+        "contrast": {
+          "text/bg": 15.16,
+          "text/surface": 13.46,
+          "text/surfaceAlt": 11.93,
+          "muted/surfaceAlt": 6.23,
+          "primaryFg/primary": 5.24,
+          "accent/bg": 6.14
+        }
+      }
+    },
+    {
+      "id": "deep-forest",
+      "name": "Deep Forest",
+      "source": "src/image/theme/DarkWinterColor.png",
+      "palette": [
+        "#092328",
+        "#12544f",
+        "#2a835f",
+        "#8bbb92"
+      ],
+      "nativeMode": "dark",
+      "mood": "Balanced, restful, grounded",
+      "psychology": "Green is linked to balance and low visual fatigue; dark teal-green suits extended monitoring of long pipeline runs.",
+      "recommendedFor": [
+        "night work",
+        "monitoring"
+      ],
+      "light": {
+        "bg": "#effaf0",
+        "surface": "#f7fef7",
+        "surfaceAlt": "#ddf1e6",
+        "border": "#c2d7cc",
+        "text": "#092328",
+        "textMuted": "#516a5d",
+        "primary": "#2a835f",
+        "primaryFg": "#ffffff",
+        "primaryHover": "#157451",
+        "accent": "#092328",
+        "focusRing": "#092328",
+        "success": "#058379",
+        "warning": "#986600",
+        "danger": "#b94642",
+        "info": "#0f74c5",
+        "chart": [
+          "#2a835f",
+          "#092328",
+          "#12544f",
+          "#6d9c74"
+        ],
+        "contrast": {
+          "text/bg": 15.28,
+          "text/surface": 15.96,
+          "text/surfaceAlt": 13.88,
+          "muted/surfaceAlt": 4.99,
+          "primaryFg/primary": 4.66,
+          "accent/bg": 15.28
+        }
+      },
+      "dark": {
+        "bg": "#092328",
+        "surface": "#152d31",
+        "surfaceAlt": "#1f373c",
+        "border": "#344c51",
+        "text": "#e9f1ec",
+        "textMuted": "#9eb4a8",
+        "primary": "#4ca27c",
+        "primaryFg": "#092328",
+        "primaryHover": "#5cb28b",
+        "accent": "#536e74",
+        "focusRing": "#536e74",
+        "success": "#02c8b9",
+        "warning": "#e1a035",
+        "danger": "#fa8880",
+        "info": "#68b3fe",
+        "chart": [
+          "#4ca27c",
+          "#536e74",
+          "#5b777c",
+          "#407c77",
+          "#2a835f",
+          "#8bbb92"
+        ],
+        "contrast": {
+          "text/bg": 14.23,
+          "text/surface": 12.58,
+          "text/surfaceAlt": 10.93,
+          "muted/surfaceAlt": 5.72,
+          "primaryFg/primary": 5.28,
+          "accent/bg": 3
+        }
+      }
+    },
+    {
+      "id": "harbor",
+      "name": "Harbor",
+      "source": "src/image/theme/Color Hunt Palette 3368a066a3bfc8dfdbf2efe7.png",
+      "palette": [
+        "#3368a0",
+        "#66a3bf",
+        "#c8dfdb",
+        "#f2efe7"
+      ],
+      "nativeMode": "light",
+      "mood": "Stable, professional, clear",
+      "psychology": "Steel blue on warm sand reads as dependable and precise, well suited to financial review (Cost & P&L).",
+      "recommendedFor": [
+        "finance",
+        "reporting"
+      ],
+      "light": {
+        "bg": "#f2efe7",
+        "surface": "#f7f4ec",
+        "surfaceAlt": "#d7e5f5",
+        "border": "#c4d3e4",
+        "text": "#192f48",
+        "textMuted": "#546578",
+        "primary": "#3368a0",
+        "primaryFg": "#ffffff",
+        "primaryHover": "#245990",
+        "accent": "#5490ac",
+        "focusRing": "#5490ac",
+        "success": "#1f812d",
+        "warning": "#986600",
+        "danger": "#b94642",
+        "info": "#08798c",
+        "chart": [
+          "#3368a0",
+          "#5490ac",
+          "#5794af",
+          "#7b908c",
+          "#8f8d85"
+        ],
+        "contrast": {
+          "text/bg": 11.86,
+          "text/surface": 12.39,
+          "text/surfaceAlt": 10.65,
+          "muted/surfaceAlt": 4.68,
+          "primaryFg/primary": 5.79,
+          "accent/bg": 3.07
+        }
+      },
+      "dark": {
+        "bg": "#07121f",
+        "surface": "#0f1b29",
+        "surfaceAlt": "#182533",
+        "border": "#2c3948",
+        "text": "#eaeff5",
+        "textMuted": "#a1b0c1",
+        "primary": "#5086c0",
+        "primaryFg": "#07121f",
+        "primaryHover": "#5f95d0",
+        "accent": "#66a3bf",
+        "focusRing": "#66a3bf",
+        "success": "#71c575",
+        "warning": "#e1a035",
+        "danger": "#fa8880",
+        "info": "#05c2e2",
+        "chart": [
+          "#5086c0",
+          "#66a3bf",
+          "#3368a0",
+          "#c8dfdb",
+          "#f2efe7"
+        ],
+        "contrast": {
+          "text/bg": 16.29,
+          "text/surface": 15.02,
+          "text/surfaceAlt": 13.44,
+          "muted/surfaceAlt": 7.03,
+          "primaryFg/primary": 4.94,
+          "accent/bg": 6.77
+        }
+      }
+    },
+    {
+      "id": "royal-ink",
+      "name": "Royal Ink",
+      "source": "src/image/theme/Color Hunt Palette 3e0f8d9564dde4da72eeeeee.png",
+      "palette": [
+        "#3e0f8d",
+        "#9564dd",
+        "#e4da72",
+        "#eeeeee"
+      ],
+      "nativeMode": "light",
+      "mood": "Imaginative, inspired, optimistic",
+      "psychology": "Purple is associated with creativity and imagination; a yellow accent adds optimism. Good for ideation and image generation.",
+      "recommendedFor": [
+        "ideation",
+        "image generation"
+      ],
+      "light": {
+        "bg": "#eeeeee",
+        "surface": "#f6f3ea",
+        "surfaceAlt": "#e2e0f5",
+        "border": "#d0cee4",
+        "text": "#3e0f8d",
+        "textMuted": "#626079",
+        "primary": "#3e0f8d",
+        "primaryFg": "#ffffff",
+        "primaryHover": "#310276",
+        "accent": "#958a14",
+        "focusRing": "#958a14",
+        "success": "#1a7e2a",
+        "warning": "#946406",
+        "danger": "#b94642",
+        "info": "#0771c2",
+        "chart": [
+          "#3e0f8d",
+          "#958a14",
+          "#9564dd",
+          "#988e1a",
+          "#8c8c8c"
+        ],
+        "contrast": {
+          "text/bg": 10.92,
+          "text/surface": 11.42,
+          "text/surfaceAlt": 9.78,
+          "muted/surfaceAlt": 4.67,
+          "primaryFg/primary": 12.67,
+          "accent/bg": 3.06
+        }
+      },
+      "dark": {
+        "bg": "#110f20",
+        "surface": "#1a172e",
+        "surfaceAlt": "#242038",
+        "border": "#37344e",
+        "text": "#eeedf5",
+        "textMuted": "#adabc0",
+        "primary": "#886eeb",
+        "primaryFg": "#110f20",
+        "primaryHover": "#977efc",
+        "accent": "#e4da72",
+        "focusRing": "#e4da72",
+        "success": "#71c575",
+        "warning": "#e1a035",
+        "danger": "#fa8880",
+        "info": "#68b3fe",
+        "chart": [
+          "#886eeb",
+          "#e4da72",
+          "#6e52cc",
+          "#9564dd",
+          "#eeeeee"
+        ],
+        "contrast": {
+          "text/bg": 16.23,
+          "text/surface": 14.98,
+          "text/surfaceAlt": 13.5,
+          "muted/surfaceAlt": 6.99,
+          "primaryFg/primary": 4.92,
+          "accent/bg": 13.09
+        }
+      }
+    },
+    {
+      "id": "spring-grove",
+      "name": "Spring Grove",
+      "source": "src/image/theme/Color Hunt Palette 499a13bbdc128eca3c276f27.png",
+      "palette": [
+        "#499a13",
+        "#bbdc12",
+        "#8eca3c",
+        "#276f27"
+      ],
+      "nativeMode": "light",
+      "mood": "Energetic, fresh, growth-oriented",
+      "psychology": "Greens signal growth and progress; lime adds energy. Because green also means success, status colors are hue-shifted to avoid confusion.",
+      "recommendedFor": [
+        "short sprints",
+        "daytime"
+      ],
+      "light": {
+        "bg": "#f5f9ea",
+        "surface": "#fbfdf4",
+        "surfaceAlt": "#e8eeda",
+        "border": "#ced4bf",
+        "text": "#1a3519",
+        "textMuted": "#60674d",
+        "primary": "#6b7f01",
+        "primaryFg": "#ffffff",
+        "primaryHover": "#5e6f01",
+        "accent": "#679c04",
+        "focusRing": "#679c04",
+        "success": "#058379",
+        "warning": "#986600",
+        "danger": "#b94642",
+        "info": "#0f74c5",
+        "chart": [
+          "#6b7f01",
+          "#679c04",
+          "#499a13",
+          "#849c07",
+          "#699f07",
+          "#276f27"
+        ],
+        "contrast": {
+          "text/bg": 12.52,
+          "text/surface": 13.05,
+          "text/surfaceAlt": 11.28,
+          "muted/surfaceAlt": 4.99,
+          "primaryFg/primary": 4.51,
+          "accent/bg": 3.1
+        }
+      },
+      "dark": {
+        "bg": "#081507",
+        "surface": "#0c1f0c",
+        "surfaceAlt": "#162915",
+        "border": "#293e28",
+        "text": "#edf0e8",
+        "textMuted": "#abb19c",
+        "primary": "#bbdc12",
+        "primaryFg": "#081507",
+        "primaryHover": "#cbed36",
+        "accent": "#8eca3c",
+        "focusRing": "#8eca3c",
+        "success": "#02c8b9",
+        "warning": "#e1a035",
+        "danger": "#fa8880",
+        "info": "#68b3fe",
+        "chart": [
+          "#bbdc12",
+          "#8eca3c",
+          "#499a13",
+          "#2d752d"
+        ],
+        "contrast": {
+          "text/bg": 16.27,
+          "text/surface": 14.98,
+          "text/surfaceAlt": 13.38,
+          "muted/surfaceAlt": 6.97,
+          "primaryFg/primary": 11.92,
+          "accent/bg": 9.52
+        }
+      }
+    },
+    {
+      "id": "berry-dusk",
+      "name": "Berry Dusk",
+      "source": "src/image/theme/Color Hunt Palette 601d49bd5579ea9d9dffebb8.png",
+      "palette": [
+        "#601d49",
+        "#bd5579",
+        "#ea9d9d",
+        "#ffebb8"
+      ],
+      "nativeMode": "light",
+      "mood": "Warm, expressive, empathetic",
+      "psychology": "Plum and rose convey warmth and emotional depth; cream softens the intensity. Suited to writing and conversational chat.",
+      "recommendedFor": [
+        "writing",
+        "chat"
+      ],
+      "light": {
+        "bg": "#ffebb8",
+        "surface": "#f5f1e9",
+        "surfaceAlt": "#f2dae0",
+        "border": "#e3c9d0",
+        "text": "#601d49",
+        "textMuted": "#775a62",
+        "primary": "#ba5276",
+        "primaryFg": "#ffffff",
+        "primaryHover": "#a94368",
+        "accent": "#988656",
+        "focusRing": "#988656",
+        "success": "#1a7e2a",
+        "warning": "#946406",
+        "danger": "#b4446e",
+        "info": "#056ebd",
+        "chart": [
+          "#ba5276",
+          "#988656",
+          "#601d49",
+          "#bd5579",
+          "#be7576",
+          "#9b8959"
+        ],
+        "contrast": {
+          "text/bg": 10.08,
+          "text/surface": 10.54,
+          "text/surfaceAlt": 8.98,
+          "muted/surfaceAlt": 4.64,
+          "primaryFg/primary": 4.61,
+          "accent/bg": 3.03
+        }
+      },
+      "dark": {
+        "bg": "#1c0b15",
+        "surface": "#28121f",
+        "surfaceAlt": "#321c29",
+        "border": "#472f3d",
+        "text": "#f5ecee",
+        "textMuted": "#bfa6ad",
+        "primary": "#cb6185",
+        "primaryFg": "#1c0b15",
+        "primaryHover": "#dc7094",
+        "accent": "#ffebb8",
+        "focusRing": "#ffebb8",
+        "success": "#71c575",
+        "warning": "#e1a035",
+        "danger": "#f486aa",
+        "info": "#68b3fe",
+        "chart": [
+          "#cb6185",
+          "#ffebb8",
+          "#954d79",
+          "#bd5579",
+          "#ea9d9d"
+        ],
+        "contrast": {
+          "text/bg": 16.35,
+          "text/surface": 15.14,
+          "text/surfaceAlt": 13.58,
+          "muted/surfaceAlt": 6.95,
+          "primaryFg/primary": 5.04,
+          "accent/bg": 16.09
+        }
+      }
+    },
+    {
+      "id": "espresso",
+      "name": "Espresso",
+      "source": "src/image/theme/Color Hunt Palette e4e0e1d6c0b3ab886d493628.png",
+      "palette": [
+        "#e4e0e1",
+        "#d6c0b3",
+        "#ab886d",
+        "#493628"
+      ],
+      "nativeMode": "light",
+      "mood": "Reliable, cozy, grounded",
+      "psychology": "Browns evoke reliability and comfort with low stimulation, reducing visual noise while reading documentation.",
+      "recommendedFor": [
+        "reading",
+        "documentation"
+      ],
+      "light": {
+        "bg": "#fdf4f6",
+        "surface": "#fefafb",
+        "surfaceAlt": "#f3e9e2",
+        "border": "#d9cfc7",
+        "text": "#493628",
+        "textMuted": "#6c6158",
+        "primary": "#8f6d53",
+        "primaryFg": "#ffffff",
+        "primaryHover": "#805f45",
+        "accent": "#493628",
+        "focusRing": "#493628",
+        "success": "#238430",
+        "warning": "#b15204",
+        "danger": "#b94642",
+        "info": "#0f74c5",
+        "chart": [
+          "#8f6d53",
+          "#493628",
+          "#959192",
+          "#a38e82",
+          "#ab886d"
+        ],
+        "contrast": {
+          "text/bg": 10.56,
+          "text/surface": 11.01,
+          "text/surfaceAlt": 9.54,
+          "muted/surfaceAlt": 5.04,
+          "primaryFg/primary": 4.69,
+          "accent/bg": 10.56
+        }
+      },
+      "dark": {
+        "bg": "#17100a",
+        "surface": "#211913",
+        "surfaceAlt": "#2b221c",
+        "border": "#3f362f",
+        "text": "#f4ede8",
+        "textMuted": "#b7aca3",
+        "primary": "#ab886d",
+        "primaryFg": "#17100a",
+        "primaryHover": "#bb977c",
+        "accent": "#735f4f",
+        "focusRing": "#735f4f",
+        "success": "#71c575",
+        "warning": "#f49157",
+        "danger": "#fa8880",
+        "info": "#68b3fe",
+        "chart": [
+          "#ab886d",
+          "#735f4f",
+          "#e4e0e1",
+          "#d6c0b3",
+          "#796455"
+        ],
+        "contrast": {
+          "text/bg": 16.26,
+          "text/surface": 14.94,
+          "text/surfaceAlt": 13.44,
+          "muted/surfaceAlt": 7,
+          "primaryFg/primary": 5.81,
+          "accent/bg": 3.12
+        }
+      }
+    },
+    {
+      "id": "blush-lavender",
+      "name": "Blush Lavender",
+      "source": "src/image/theme/Color Hunt Palette fbefefffe2e2f5cbcbc5b3d3.png",
+      "palette": [
+        "#fbefef",
+        "#ffe2e2",
+        "#f5cbcb",
+        "#c5b3d3"
+      ],
+      "nativeMode": "light",
+      "mood": "Gentle, soothing, low-stress",
+      "psychology": "Soft pinks and lavender are associated with calm and stress relief; text is darkened for legibility.",
+      "recommendedFor": [
+        "relaxed browsing",
+        "chat"
+      ],
+      "light": {
+        "bg": "#fbefef",
+        "surface": "#fbf6f6",
+        "surfaceAlt": "#e9e5ed",
+        "border": "#d4cfd8",
+        "text": "#322a37",
+        "textMuted": "#66616b",
+        "primary": "#81708e",
+        "primaryFg": "#ffffff",
+        "primaryHover": "#72627f",
+        "accent": "#a78081",
+        "focusRing": "#a78081",
+        "success": "#1f812d",
+        "warning": "#986600",
+        "danger": "#b94642",
+        "info": "#0f74c5",
+        "chart": [
+          "#81708e",
+          "#a78081",
+          "#978d8d",
+          "#a18787",
+          "#ad8687",
+          "#9988a6"
+        ],
+        "contrast": {
+          "text/bg": 12.28,
+          "text/surface": 12.89,
+          "text/surfaceAlt": 11.1,
+          "muted/surfaceAlt": 4.85,
+          "primaryFg/primary": 4.52,
+          "accent/bg": 3.09
+        }
+      },
+      "dark": {
+        "bg": "#141016",
+        "surface": "#1d1920",
+        "surfaceAlt": "#26222a",
+        "border": "#3a363e",
+        "text": "#f0edf4",
+        "textMuted": "#b1abb5",
+        "primary": "#c5b3d3",
+        "primaryFg": "#141016",
+        "primaryHover": "#d5c3e3",
+        "accent": "#f5cbcb",
+        "focusRing": "#f5cbcb",
+        "success": "#71c575",
+        "warning": "#e1a035",
+        "danger": "#fa8880",
+        "info": "#68b3fe",
+        "chart": [
+          "#c5b3d3",
+          "#f5cbcb",
+          "#fbefef",
+          "#ffe2e2"
+        ],
+        "contrast": {
+          "text/bg": 16.25,
+          "text/surface": 14.95,
+          "text/surfaceAlt": 13.48,
+          "muted/surfaceAlt": 6.96,
+          "primaryFg/primary": 9.65,
+          "accent/bg": 12.81
+        }
+      }
+    },
+    {
+      "id": "vintage-dawn",
+      "name": "Vintage Dawn",
+      "source": "src/image/theme/Color Hunt Palette fdf4d2b0cde6a290b7946d6d.png",
+      "palette": [
+        "#fdf4d2",
+        "#b0cde6",
+        "#a290b7",
+        "#946d6d"
+      ],
+      "nativeMode": "light",
+      "mood": "Nostalgic, relaxed, thoughtful",
+      "psychology": "Cream with dusty blue and mauve feels unhurried and reflective, good for planning and reading specs.",
+      "recommendedFor": [
+        "planning",
+        "specs"
+      ],
+      "light": {
+        "bg": "#fdf4d2",
+        "surface": "#faf9f4",
+        "surfaceAlt": "#eae6f0",
+        "border": "#d3ceda",
+        "text": "#3c2828",
+        "textMuted": "#66606d",
+        "primary": "#816f95",
+        "primaryFg": "#ffffff",
+        "primaryHover": "#726186",
+        "accent": "#946d6d",
+        "focusRing": "#946d6d",
+        "success": "#238430",
+        "warning": "#986600",
+        "danger": "#b94642",
+        "info": "#0f74c5",
+        "chart": [
+          "#816f95",
+          "#946d6d",
+          "#968e6f",
+          "#7691a9",
+          "#9987ae"
+        ],
+        "contrast": {
+          "text/bg": 12.48,
+          "text/surface": 13.05,
+          "text/surfaceAlt": 11.19,
+          "muted/surfaceAlt": 4.94,
+          "primaryFg/primary": 4.52,
+          "accent/bg": 4.08
+        }
+      },
+      "dark": {
+        "bg": "#190e0e",
+        "surface": "#221717",
+        "surfaceAlt": "#2c2020",
+        "border": "#413434",
+        "text": "#f0edf4",
+        "textMuted": "#b1abb7",
+        "primary": "#a290b7",
+        "primaryFg": "#190e0e",
+        "primaryHover": "#b29fc7",
+        "accent": "#946d6d",
+        "focusRing": "#946d6d",
+        "success": "#71c575",
+        "warning": "#e1a035",
+        "danger": "#fa8880",
+        "info": "#68b3fe",
+        "chart": [
+          "#a290b7",
+          "#946d6d",
+          "#fdf4d2",
+          "#b0cde6"
+        ],
+        "contrast": {
+          "text/bg": 16.32,
+          "text/surface": 15.07,
+          "text/surfaceAlt": 13.58,
+          "muted/surfaceAlt": 7.03,
+          "primaryFg/primary": 6.49,
+          "accent/bg": 4.2
+        }
+      }
+    },
+    {
+      "id": "sherbet",
+      "name": "Sherbet",
+      "source": "src/image/theme/Color Hunt Palette ff9d9dffc5aaeef8cdbbf1d2.png",
+      "palette": [
+        "#ff9d9d",
+        "#ffc5aa",
+        "#eef8cd",
+        "#bbf1d2"
+      ],
+      "nativeMode": "light",
+      "mood": "Playful, friendly, upbeat",
+      "psychology": "Coral warmth plus mint freshness lifts mood and approachability; best for casual chat and brainstorming.",
+      "recommendedFor": [
+        "brainstorming",
+        "chat"
+      ],
+      "light": {
+        "bg": "#eef8cd",
+        "surface": "#f6f8ef",
+        "surfaceAlt": "#f9e0df",
+        "border": "#e4cac9",
+        "text": "#472121",
+        "textMuted": "#795a5a",
+        "primary": "#b45a5c",
+        "primaryFg": "#ffffff",
+        "primaryHover": "#a34b4e",
+        "accent": "#64977b",
+        "focusRing": "#64977b",
+        "success": "#1f812d",
+        "warning": "#986600",
+        "danger": "#b4446e",
+        "info": "#0f74c5",
+        "chart": [
+          "#b45a5c",
+          "#64977b",
+          "#cf7273",
+          "#b9836a",
+          "#89926a",
+          "#679a7e"
+        ],
+        "contrast": {
+          "text/bg": 12.57,
+          "text/surface": 13,
+          "text/surfaceAlt": 11.12,
+          "muted/surfaceAlt": 4.89,
+          "primaryFg/primary": 4.61,
+          "accent/bg": 3.03
+        }
+      },
+      "dark": {
+        "bg": "#1f0b0b",
+        "surface": "#291414",
+        "surfaceAlt": "#341d1d",
+        "border": "#493131",
+        "text": "#f5ecec",
+        "textMuted": "#c0a7a6",
+        "primary": "#ff9d9d",
+        "primaryFg": "#1f0b0b",
+        "primaryHover": "#ffb7b6",
+        "accent": "#bbf1d2",
+        "focusRing": "#bbf1d2",
+        "success": "#71c575",
+        "warning": "#e1a035",
+        "danger": "#f486aa",
+        "info": "#68b3fe",
+        "chart": [
+          "#ff9d9d",
+          "#bbf1d2",
+          "#ffc5aa",
+          "#eef8cd"
+        ],
+        "contrast": {
+          "text/bg": 16.28,
+          "text/surface": 15.02,
+          "text/surfaceAlt": 13.51,
+          "muted/surfaceAlt": 6.96,
+          "primaryFg/primary": 9.51,
+          "accent/bg": 14.97
+        }
+      }
+    },
+    {
+      "id": "peach-cream",
+      "name": "Peach Cream",
+      "source": "src/image/theme/Color Hunt Palette ffdcdcfff2ebffe8cdffd6ba.png",
+      "palette": [
+        "#ffdcdc",
+        "#fff2eb",
+        "#ffe8cd",
+        "#ffd6ba"
+      ],
+      "nativeMode": "light",
+      "mood": "Comforting, soft, welcoming",
+      "psychology": "Peach tones are perceived as warm and approachable with low arousal; easy on the eyes in daylight.",
+      "recommendedFor": [
+        "daytime",
+        "chat"
+      ],
+      "light": {
+        "bg": "#fff2eb",
+        "surface": "#fef9f6",
+        "surfaceAlt": "#f2e7e0",
+        "border": "#dacfc7",
+        "text": "#3a2a1f",
+        "textMuted": "#6d6058",
+        "primary": "#916d53",
+        "primaryFg": "#ffffff",
+        "primaryHover": "#825f45",
+        "accent": "#a48484",
+        "focusRing": "#a48484",
+        "success": "#238430",
+        "warning": "#b15204",
+        "danger": "#b94642",
+        "info": "#0f74c5",
+        "chart": [
+          "#916d53",
+          "#a48484",
+          "#a78787",
+          "#9b8f89",
+          "#a18c73",
+          "#ad876d"
+        ],
+        "contrast": {
+          "text/bg": 12.51,
+          "text/surface": 13.13,
+          "text/surfaceAlt": 11.29,
+          "muted/surfaceAlt": 4.99,
+          "primaryFg/primary": 4.65,
+          "accent/bg": 3.08
+        }
+      },
+      "dark": {
+        "bg": "#18100a",
+        "surface": "#221913",
+        "surfaceAlt": "#2b221c",
+        "border": "#403630",
+        "text": "#f4ede8",
+        "textMuted": "#b7aba3",
+        "primary": "#ffd6ba",
+        "primaryFg": "#18100a",
+        "primaryHover": "#ffecdf",
+        "accent": "#ffdcdc",
+        "focusRing": "#ffdcdc",
+        "success": "#71c575",
+        "warning": "#f49157",
+        "danger": "#fa8880",
+        "info": "#68b3fe",
+        "chart": [
+          "#ffd6ba",
+          "#ffdcdc",
+          "#fff2eb",
+          "#ffe8cd"
+        ],
+        "contrast": {
+          "text/bg": 16.22,
+          "text/surface": 14.9,
+          "text/surfaceAlt": 13.44,
+          "muted/surfaceAlt": 6.95,
+          "primaryFg/primary": 13.94,
+          "accent/bg": 14.79
+        }
+      }
+    },
+    {
+      "id": "candy-floss",
+      "name": "Candy Floss",
+      "source": "src/image/theme/Color Hunt Palette ffeeccffddccffccccfebbcc.png",
+      "palette": [
+        "#ffeecc",
+        "#ffddcc",
+        "#ffcccc",
+        "#febbcc"
+      ],
+      "nativeMode": "light",
+      "mood": "Sweet, light-hearted, warm",
+      "psychology": "Warm pastel pinks feel gentle and cheerful; accents are deepened so interactive elements stay discoverable.",
+      "recommendedFor": [
+        "casual use"
+      ],
+      "light": {
+        "bg": "#ffeecc",
+        "surface": "#f7f4ee",
+        "surfaceAlt": "#f1dfe3",
+        "border": "#decbd0",
+        "text": "#3f252c",
+        "textMuted": "#725d62",
+        "primary": "#a16576",
+        "primaryFg": "#ffffff",
+        "primaryHover": "#915768",
+        "accent": "#988869",
+        "focusRing": "#988869",
+        "success": "#1f812d",
+        "warning": "#986600",
+        "danger": "#b4446e",
+        "info": "#0771c2",
+        "chart": [
+          "#a16576",
+          "#988869",
+          "#9b8b6c",
+          "#a48575",
+          "#b08182",
+          "#b87a8b"
+        ],
+        "contrast": {
+          "text/bg": 12.14,
+          "text/surface": 12.65,
+          "text/surfaceAlt": 10.85,
+          "muted/surfaceAlt": 4.74,
+          "primaryFg/primary": 4.53,
+          "accent/bg": 3.03
+        }
+      },
+      "dark": {
+        "bg": "#1a0d11",
+        "surface": "#241619",
+        "surfaceAlt": "#2e1f23",
+        "border": "#433337",
+        "text": "#f5ecee",
+        "textMuted": "#bca8ad",
+        "primary": "#febbcc",
+        "primaryFg": "#1a0d11",
+        "primaryHover": "#ffd4de",
+        "accent": "#ffeecc",
+        "focusRing": "#ffeecc",
+        "success": "#71c575",
+        "warning": "#e1a035",
+        "danger": "#f486aa",
+        "info": "#68b3fe",
+        "chart": [
+          "#febbcc",
+          "#ffeecc",
+          "#ffddcc",
+          "#ffcccc"
+        ],
+        "contrast": {
+          "text/bg": 16.33,
+          "text/surface": 15.05,
+          "text/surfaceAlt": 13.55,
+          "muted/surfaceAlt": 6.99,
+          "primaryFg/primary": 11.89,
+          "accent/bg": 16.54
+        }
+      }
+    },
+    {
+      "id": "lemon-sky",
+      "name": "Lemon Sky",
+      "source": "src/image/theme/Color Hunt Palette fff2c6fff8deaac4f58ca9ff.png",
+      "palette": [
+        "#fff2c6",
+        "#fff8de",
+        "#aac4f5",
+        "#8ca9ff"
+      ],
+      "nativeMode": "light",
+      "mood": "Optimistic yet focused",
+      "psychology": "Soft yellow brings optimism and energy while periwinkle blue keeps focus, a balance for productive daytime work.",
+      "recommendedFor": [
+        "daytime",
+        "productivity"
+      ],
+      "light": {
+        "bg": "#fff8de",
+        "surface": "#fffdf5",
+        "surfaceAlt": "#e5ecfe",
+        "border": "#c9d1e5",
+        "text": "#212c4c",
+        "textMuted": "#5a637b",
+        "primary": "#5871c2",
+        "primaryFg": "#ffffff",
+        "primaryHover": "#4a62b2",
+        "accent": "#9b8f66",
+        "focusRing": "#9b8f66",
+        "success": "#238430",
+        "warning": "#986600",
+        "danger": "#b94642",
+        "info": "#067f94",
+        "chart": [
+          "#5871c2",
+          "#9b8f66",
+          "#9e9269",
+          "#98927a",
+          "#7992c0",
+          "#7490e4"
+        ],
+        "contrast": {
+          "text/bg": 12.9,
+          "text/surface": 13.48,
+          "text/surfaceAlt": 11.61,
+          "muted/surfaceAlt": 5.07,
+          "primaryFg/primary": 4.61,
+          "accent/bg": 3.03
+        }
+      },
+      "dark": {
+        "bg": "#0b1121",
+        "surface": "#131a2d",
+        "surfaceAlt": "#1c2337",
+        "border": "#30374d",
+        "text": "#eceef5",
+        "textMuted": "#a6aec2",
+        "primary": "#8ca9ff",
+        "primaryFg": "#0b1121",
+        "primaryHover": "#a2bbff",
+        "accent": "#fff2c6",
+        "focusRing": "#fff2c6",
+        "success": "#71c575",
+        "warning": "#e1a035",
+        "danger": "#fa8880",
+        "info": "#05c2e2",
+        "chart": [
+          "#8ca9ff",
+          "#fff2c6",
+          "#fff8de",
+          "#aac4f5"
+        ],
+        "contrast": {
+          "text/bg": 16.23,
+          "text/surface": 14.93,
+          "text/surfaceAlt": 13.47,
+          "muted/surfaceAlt": 7.03,
+          "primaryFg/primary": 8.27,
+          "accent/bg": 16.81
+        }
+      }
+    },
+    {
+      "id": "honey-sand",
+      "name": "Honey Sand",
+      "source": "src/image/theme/Color Hunt Palette fff2d7ffe0b5f8c794d8ae7e.png",
+      "palette": [
+        "#fff2d7",
+        "#ffe0b5",
+        "#f8c794",
+        "#d8ae7e"
+      ],
+      "nativeMode": "light",
+      "mood": "Cheerful, warm, sunny",
+      "psychology": "Golden sand tones read as warm and positive with little blue-light character, pleasant for evening use without full dark mode.",
+      "recommendedFor": [
+        "evening",
+        "reading"
+      ],
+      "light": {
+        "bg": "#fff2d7",
+        "surface": "#fbf8f1",
+        "surfaceAlt": "#f2e5d9",
+        "border": "#dccec1",
+        "text": "#3c2a14",
+        "textMuted": "#6f6051",
+        "primary": "#9a6d3c",
+        "primaryFg": "#ffffff",
+        "primaryHover": "#8b5e2d",
+        "accent": "#ab8354",
+        "focusRing": "#ab8354",
+        "success": "#1f812d",
+        "warning": "#b15204",
+        "danger": "#b94642",
+        "info": "#0f74c5",
+        "chart": [
+          "#9a6d3c",
+          "#ab8354",
+          "#9b8f76",
+          "#a78b62",
+          "#b38554",
+          "#b1895a"
+        ],
+        "contrast": {
+          "text/bg": 12.35,
+          "text/surface": 12.91,
+          "text/surfaceAlt": 11.08,
+          "muted/surfaceAlt": 4.9,
+          "primaryFg/primary": 4.54,
+          "accent/bg": 3.1
+        }
+      },
+      "dark": {
+        "bg": "#190f05",
+        "surface": "#22180d",
+        "surfaceAlt": "#2c2216",
+        "border": "#403529",
+        "text": "#f3ede8",
+        "textMuted": "#b9ab9d",
+        "primary": "#f8c794",
+        "primaryFg": "#190f05",
+        "primaryHover": "#fedbb6",
+        "accent": "#d8ae7e",
+        "focusRing": "#d8ae7e",
+        "success": "#71c575",
+        "warning": "#f49157",
+        "danger": "#fa8880",
+        "info": "#68b3fe",
+        "chart": [
+          "#f8c794",
+          "#d8ae7e",
+          "#fff2d7",
+          "#ffe0b5"
+        ],
+        "contrast": {
+          "text/bg": 16.27,
+          "text/surface": 15.02,
+          "text/surfaceAlt": 13.42,
+          "muted/surfaceAlt": 6.96,
+          "primaryFg/primary": 12.22,
+          "accent/bg": 9.24
+        }
+      }
+    },
+    {
+      "id": "autumn-ember",
+      "name": "Autumn Ember",
+      "source": "src/image/theme/FallColor.png",
+      "palette": [
+        "#e2a16f",
+        "#fff0dd",
+        "#d1d3d4",
+        "#86b0bd"
+      ],
+      "nativeMode": "light",
+      "mood": "Warm but composed",
+      "psychology": "Ember orange adds warmth and enthusiasm, balanced by cool slate-teal for composure: energetic without being aggressive.",
+      "recommendedFor": [
+        "general use"
+      ],
+      "light": {
+        "bg": "#fff0dd",
+        "surface": "#fcf6f0",
+        "surfaceAlt": "#f5e3d7",
+        "border": "#dfcdc0",
+        "text": "#05343f",
+        "textMuted": "#735f4f",
+        "primary": "#a46735",
+        "primaryFg": "#ffffff",
+        "primaryHover": "#945825",
+        "accent": "#68919e",
+        "focusRing": "#68919e",
+        "success": "#1f812d",
+        "warning": "#b15204",
+        "danger": "#b94642",
+        "info": "#0f74c5",
+        "chart": [
+          "#a46735",
+          "#68919e",
+          "#be7f4e",
+          "#9b8d7c",
+          "#8c8e8f",
+          "#6b94a1"
+        ],
+        "contrast": {
+          "text/bg": 11.95,
+          "text/surface": 12.48,
+          "text/surfaceAlt": 10.74,
+          "muted/surfaceAlt": 4.84,
+          "primaryFg/primary": 4.6,
+          "accent/bg": 3.06
+        }
+      },
+      "dark": {
+        "bg": "#01151b",
+        "surface": "#081e24",
+        "surfaceAlt": "#12282e",
+        "border": "#263c43",
+        "text": "#f4ede8",
+        "textMuted": "#bdaa9c",
+        "primary": "#e2a16f",
+        "primaryFg": "#01151b",
+        "primaryHover": "#f3b17e",
+        "accent": "#86b0bd",
+        "focusRing": "#86b0bd",
+        "success": "#71c575",
+        "warning": "#f49157",
+        "danger": "#fa8880",
+        "info": "#68b3fe",
+        "chart": [
+          "#e2a16f",
+          "#86b0bd",
+          "#fff0dd",
+          "#d1d3d4"
+        ],
+        "contrast": {
+          "text/bg": 16.12,
+          "text/surface": 14.84,
+          "text/surfaceAlt": 13.24,
+          "muted/surfaceAlt": 6.86,
+          "primaryFg/primary": 8.5,
+          "accent/bg": 7.97
+        }
+      }
+    },
+    {
+      "id": "summer-meadow",
+      "name": "Summer Meadow",
+      "source": "src/image/theme/SummerColor.png",
+      "palette": [
+        "#ffeed6",
+        "#a5af79",
+        "#827148",
+        "#e8a07c"
+      ],
+      "nativeMode": "light",
+      "mood": "Natural, grounded, relaxed",
+      "psychology": "Olive and terracotta are earthy and organic; they signal stability and ease, good for steady routine work.",
+      "recommendedFor": [
+        "routine work"
+      ],
+      "light": {
+        "bg": "#ffeed6",
+        "surface": "#faf5ee",
+        "surfaceAlt": "#f4e0d7",
+        "border": "#e1ccc2",
+        "text": "#382c0d",
+        "textMuted": "#745e52",
+        "primary": "#a66341",
+        "primaryFg": "#ffffff",
+        "primaryHover": "#965433",
+        "accent": "#848d58",
+        "focusRing": "#848d58",
+        "success": "#1f812d",
+        "warning": "#986600",
+        "danger": "#b4446e",
+        "info": "#0771c2",
+        "chart": [
+          "#a66341",
+          "#848d58",
+          "#9b8c76",
+          "#8a935e",
+          "#827148",
+          "#c07b58"
+        ],
+        "contrast": {
+          "text/bg": 12.03,
+          "text/surface": 12.62,
+          "text/surfaceAlt": 10.75,
+          "muted/surfaceAlt": 4.76,
+          "primaryFg/primary": 4.68,
+          "accent/bg": 3.11
+        }
+      },
+      "dark": {
+        "bg": "#171103",
+        "surface": "#211a0a",
+        "surfaceAlt": "#2a2313",
+        "border": "#3f3726",
+        "text": "#f5ede9",
+        "textMuted": "#bfa99e",
+        "primary": "#e8a07c",
+        "primaryFg": "#171103",
+        "primaryHover": "#f9b08b",
+        "accent": "#a5af79",
+        "focusRing": "#a5af79",
+        "success": "#71c575",
+        "warning": "#e1a035",
+        "danger": "#f486aa",
+        "info": "#68b3fe",
+        "chart": [
+          "#e8a07c",
+          "#a5af79",
+          "#ffeed6",
+          "#827148"
+        ],
+        "contrast": {
+          "text/bg": 16.26,
+          "text/surface": 14.93,
+          "text/surfaceAlt": 13.48,
+          "muted/surfaceAlt": 6.96,
+          "primaryFg/primary": 8.72,
+          "accent/bg": 8.06
+        }
+      }
+    },
+    {
+      "id": "winter-stone",
+      "name": "Winter Stone",
+      "source": "src/image/theme/WinterColor.png",
+      "palette": [
+        "#777c6d",
+        "#b7b89f",
+        "#cbcbcb",
+        "#eeeeee"
+      ],
+      "nativeMode": "light",
+      "mood": "Neutral, minimal, distraction-free",
+      "psychology": "Muted greys minimise emotional and visual stimulation and let content dominate: a focus-mode theme.",
+      "recommendedFor": [
+        "focus mode",
+        "presentations"
+      ],
+      "light": {
+        "bg": "#eeeeee",
+        "surface": "#f4f3f0",
+        "surfaceAlt": "#e3e3dd",
+        "border": "#d1d1cb",
+        "text": "#2c2f26",
+        "textMuted": "#64645c",
+        "primary": "#777861",
+        "primaryFg": "#ffffff",
+        "primaryHover": "#696a53",
+        "accent": "#777c6d",
+        "focusRing": "#777c6d",
+        "success": "#1a7e2a",
+        "warning": "#946406",
+        "danger": "#b94642",
+        "info": "#0771c2",
+        "chart": [
+          "#777861",
+          "#777c6d",
+          "#8c8d75",
+          "#8a8a8a",
+          "#8c8c8c"
+        ],
+        "contrast": {
+          "text/bg": 11.74,
+          "text/surface": 12.28,
+          "text/surfaceAlt": 10.57,
+          "muted/surfaceAlt": 4.63,
+          "primaryFg/primary": 4.52,
+          "accent/bg": 3.7
+        }
+      },
+      "dark": {
+        "bg": "#11120d",
+        "surface": "#191b16",
+        "surfaceAlt": "#23251f",
+        "border": "#373933",
+        "text": "#efefe8",
+        "textMuted": "#aeafa7",
+        "primary": "#b7b89f",
+        "primaryFg": "#11120d",
+        "primaryHover": "#c7c8af",
+        "accent": "#777c6d",
+        "focusRing": "#777c6d",
+        "success": "#71c575",
+        "warning": "#e1a035",
+        "danger": "#fa8880",
+        "info": "#68b3fe",
+        "chart": [
+          "#b7b89f",
+          "#777c6d",
+          "#cbcbcb",
+          "#eeeeee"
+        ],
+        "contrast": {
+          "text/bg": 16.29,
+          "text/surface": 15.03,
+          "text/surfaceAlt": 13.41,
+          "muted/surfaceAlt": 7,
+          "primaryFg/primary": 9.29,
+          "accent/bg": 4.38
+        }
+      }
+    }
+  ]
+}

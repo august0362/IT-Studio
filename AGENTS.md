@@ -42,15 +42,13 @@ Stop. Append `## Blocked` to the task file with the precise question and what yo
 ## 5. Invocation (maintained by Architect)
 
 ```bash
-export PATH="$USERPROFILE/.cargo/bin:$PATH"
-codex exec -s workspace-write \
-  -c sandbox_workspace_write.network_access=true \
-  --add-dir "$USERPROFILE/.cargo" --add-dir "$USERPROFILE/.rustup" \
-  -C "<repo root>" -o "docs/tasks/<ID>.last.txt" \
-  "Implement docs/tasks/<ID>.md. Follow AGENTS.md strictly. Do not commit."
+scripts/dev/run-task.sh <ID>            # creates worktree C:/Users/admin/itstudio-wt/<ID> on branch task/<ID>, runs codex exec there
+# QA in the worktree, then:
+scripts/dev/land-task.sh <ID> "feat(scope): subject [<ID>]"   # commit in worktree, merge --no-ff into main, remove worktree
 ```
 
-Verified 2026-10-01 with codex-cli 0.159.3 (ChatGPT login): workspace writes and network (npm registry) work.
+**Codex always works in its own git worktree** (not in the main checkout): the Codex Windows sandbox cannot write to the repo's Desktop path, and worktrees isolate parallel tasks. You (Codex) will see a normal repo checkout; `node_modules` may be absent — run `npm --cache .npm-cache install` first.
+Verified 2026-10-02 with codex-cli 0.159.3 (ChatGPT login): writes in worktree + network (npm registry) work.
 In the sandbox npm uses a repo-local `.npm-cache/` (gitignored). Max 2 Codex runs in parallel, only on tasks with disjoint *Scope* (never two tasks editing the same `package.json` / lockfile).
 From M1 on, the Architect pre-installs each milestone's dependencies in one commit; tasks marked **"deps pre-installed"** must NOT run `npm install <pkg>` or edit any `package.json` / `package-lock.json` — if a needed package is missing, write `## Blocked`.
 
