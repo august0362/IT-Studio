@@ -14,19 +14,25 @@
     "dev": "npm run tauri:dev -w @itstudio/desktop",
     "lint": "eslint . --max-warnings 0 && node scripts/scan-secrets.mjs",
     "lint:selftest": "node scripts/lint-fixtures/selftest.mjs",
-    "test": "npm run lint:selftest",
+    "pretest": "npm run lint:selftest",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@vitest/coverage-v8": "^5.0.3",
     "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-boundaries": "^7.2.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.13.0",
+    "msw": "^2.15.0",
     "prettier": "^3.9.9",
     "typescript": "~6.0.3",
-    "typescript-eslint": "^8.71.0"
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^5.0.3"
   }
 }
