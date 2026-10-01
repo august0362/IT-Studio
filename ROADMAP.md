@@ -10,7 +10,7 @@
 | Milestone | Status | Tasks |
 |---|---|---|
 | M0 Environment & scaffold | **Done** | 8 / 8 |
-| M1 Sidecar core & IPC | In progress | 3 / 7 |
+| M1 Sidecar core & IPC | In progress | 4 / 7 |
 | M2 LLM router & providers | In progress | 2 / 9 |
 | M3 Cost, pricing, FX, budget, P&L | Not started | 0 / 7 |
 | M4 UI shell, Settings, Chat, P&L | Not started | 0 / 7 |
@@ -40,7 +40,7 @@
 **Exit criteria:** UI ↔ sidecar round-trip for `system.ping` and `settings.get`; killing the sidecar process triggers auto-restart and UI recovers; keys stored/verified via keychain.
 
 - [x] **M1-01** (C) `apps/sidecar/src/validation/`: zod schemas mirroring every `schemas.ts` type used at boundaries + compile-time equality tests (`expectTypeOf<z.infer<…>>().toEqualTypeOf<…>()`); validates `config/*.json`. Ref: ARCH §1.
-- [ ] **M1-02** (C) Bootstrap: NDJSON stdio loop, `RpcServer` (registry, -32700/-32600/-32601/-32602/-32000 mapping), typed `EventBus`, pino logger (stderr + rotating file, redaction), `container.ts`, `system.ping`, `system.shutdown`, `system.ready`. Ref: ARCH §2–§4.
+- [x] **M1-02** (C) Bootstrap: NDJSON stdio loop, `RpcServer` (registry, -32700/-32600/-32601/-32602/-32000 mapping), typed `EventBus`, pino logger (stderr + rotating file, redaction), `container.ts`, `system.ping`, `system.shutdown`, `system.ready`. Ref: ARCH §2–§4.
 - [x] **M1-03** (C) Rust shell: spawn sidecar (dev: `node --import tsx`), `sidecar_send` command, `sidecar://message` event, restart backoff + `sidecar://fatal`, graceful shutdown, capability lockdown, CSP. Ref: ARCH §2.3, §3.1, §11.
 - [x] **M1-04** (C) UI `RpcClient` typed by `RpcMethodMap`/`RpcNotificationMap`, `useRpcQuery`/`useRpcMutation` (TanStack Query), `useNotification(name, handler)`, timeouts, fail-in-flight on restart.
 - [ ] **M1-05** (C) SQLite infra (better-sqlite3 + Drizzle, WAL, migrations); repositories for `projects`, `settings`; `SettingsService` with complete defaults; `ProjectService` (`project.*`, `settings.*`). Ref: ARCH §12.
