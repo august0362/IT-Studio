@@ -22,7 +22,7 @@ You are the **Implementer** (ROLES.md §1.3). Claude is the Architect/QA. You wr
 
 ## 3. Definition of done
 
-- `npm run typecheck`, `npm run lint`, `npm test` all pass.
+- Run `npx prettier --write <changed files>` first; then `npm run typecheck`, `npm run lint` (includes `prettier --check`), `npm test` all pass.
 - Every acceptance criterion in the task is met and covered by tests.
 - Append to the task file:
 
