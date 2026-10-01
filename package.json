@@ -11,9 +11,22 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit && npm run typecheck --workspaces --if-present",
-    "dev": "npm run tauri:dev -w @itstudio/desktop"
+    "dev": "npm run tauri:dev -w @itstudio/desktop",
+    "lint": "eslint . --max-warnings 0 && node scripts/scan-secrets.mjs",
+    "lint:selftest": "node scripts/lint-fixtures/selftest.mjs",
+    "test": "npm run lint:selftest",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
-    "typescript": "~6.0.3"
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-boundaries": "^7.2.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.9",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.0"
   }
 }

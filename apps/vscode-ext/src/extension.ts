@@ -11,4 +11,6 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(statusBarItem);
 }
 
-export function deactivate(): void {}
+export function deactivate(): void {
+  return undefined;
+}
