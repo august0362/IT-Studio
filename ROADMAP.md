@@ -9,11 +9,11 @@
 
 | Milestone | Status | Tasks |
 |---|---|---|
-| M0 Environment & scaffold | In progress | 1 / 8 |
+| M0 Environment & scaffold | In progress | 4 / 8 |
 | M1 Sidecar core & IPC | Not started | 0 / 7 |
 | M2 LLM router & providers | Not started | 0 / 9 |
 | M3 Cost, pricing, FX, budget, P&L | Not started | 0 / 7 |
-| M4 UI shell, Settings, Chat, P&L | Not started | 0 / 6 |
+| M4 UI shell, Settings, Chat, P&L | Not started | 0 / 7 |
 | M5 RAG | Not started | 0 / 7 |
 | M6 Agent pipeline & Worker | Not started | 0 / 7 |
 | M7 VS Code companion extension | Not started | 0 / 5 |
@@ -27,9 +27,9 @@
 **Exit criteria:** `npm run typecheck && npm run lint && npm test` green on skeleton; `npm run dev` opens the Tauri window showing a placeholder; repo under git.
 
 - [x] **M0-00** (A) Author spec set: CONTEXT, ARCHITECTURE, ROLES, ROADMAP, CONVENTIONS, AGENTS, CHANGELOG, `schemas.ts` (strict-compiles, zero `any`).
-- [ ] **M0-01** (A) Install Rust toolchain (rustup stable MSVC) + verify WebView2 + MSVC Build Tools. *Needs user consent.* — AC: `cargo --version`, `rustc --version` succeed.
-- [ ] **M0-02** (A) `git init`; `.gitignore` (node_modules, dist, target, `*.db`, `.itstudio/`, `.env*`), `.gitattributes` (LF), first commit of docs. — AC: clean `git status`.
-- [ ] **M0-03** (A) Verify `codex exec` flags / sandbox mode / auth on this machine; record exact invocation in `AGENTS.md` §5. — AC: dry-run task edits a scratch file and exits 0.
+- [x] **M0-01** (A) Install Rust toolchain (rustup stable MSVC) + verify WebView2 + MSVC Build Tools. *Needs user consent.* — AC: `cargo --version`, `rustc --version` succeed.
+- [x] **M0-02** (A) `git init`; `.gitignore` (node_modules, dist, target, `*.db`, `.itstudio/`, `.env*`), `.gitattributes` (LF), first commit of docs. — AC: clean `git status`.
+- [x] **M0-03** (A) Verify `codex exec` flags / sandbox mode / auth on this machine; record exact invocation in `AGENTS.md` §5. — AC: dry-run task edits a scratch file and exits 0.
 - [ ] **M0-04** (C) npm workspaces root; `tsconfig.base.json` (CONVENTIONS §2); alias `@itstudio/schemas`; skeleton packages `apps/sidecar` (tsx), `apps/desktop` (Tauri v2 + React 19 + Vite + Tailwind), `apps/vscode-ext` (esbuild). Deps: M0-01, M0-02. — AC: each package typechecks importing a type from `@itstudio/schemas`.
 - [ ] **M0-05** (C) ESLint flat config: typescript-eslint `strict-type-checked`, `no-explicit-any`, `no-restricted-syntax` (TSEnumDeclaration, TSModuleDeclaration, default export), `eslint-plugin-boundaries` per CONVENTIONS §3.2; Prettier; `scripts/scan-secrets.mjs` (regex for common key formats) wired to `npm run lint`. — AC: a fixture file with `enum`/`any`/fake key fails lint.
 - [ ] **M0-06** (C) Vitest workspace + coverage thresholds (CONVENTIONS §6); root scripts `typecheck`, `lint`, `test`, `dev`. — AC: one sample test per package passes.
@@ -78,7 +78,8 @@
 **Exit criteria:** manual script `docs/qa/M4-smoke.md` passes: add key → chat streams → force fallback shows badge/modal → cost appears live in P&L in USD+VND.
 
 - [ ] **M4-00** (A) Resolve Q-01 (single vs multi project) with user; update CONTEXT §3/§4.
-- [ ] **M4-01** (C) App shell: tabs (Chat, Code, Knowledge, Gallery-disabled, Cost & P&L, Settings), project switcher, theme, i18n scaffolding (en, vi) via react-i18next.
+- [ ] **M4-01** (C) App shell: tabs (Chat, Code, Knowledge, Gallery-disabled, Cost & P&L, Settings), project switcher, i18n scaffolding (en, vi) via react-i18next.
+- [ ] **M4-01b** (A+C) Theme system from `src/image/theme/` palettes (Q-04): A extracts hex codes into `config/themes.json` and maps palette roles to CSS tokens; C implements token-based theming + Settings → Appearance picker.
 - [ ] **M4-02** (C) Shared components: `<Money>`, `<SafeMarkdown>` (+ XSS test corpus), `<ErrorPanel>` (renders `AppError.remediation`).
 - [ ] **M4-03** (C) Settings: Router ladder (dnd-kit), **Auto Fallback** toggle, lock model, Budget (+ **Hard Stop** toggle), Pricing (table, refresh, override), FX (rate, override), VS Code options, Pipeline role assignment.
 - [ ] **M4-04** (C) Chat tab: conversation list, unified model dropdown (+ Lock), streaming with cancel, fallback badge + partial-reset handling, fallback modal (Auto OFF), per-message cost `<Money>`.

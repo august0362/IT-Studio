@@ -61,6 +61,7 @@ Changing any row requires an ADR in `docs/decisions/` and user approval.
 | Q-01 | One active project at a time, or several concurrently, each with its own P&L view? | M4 (UI shell) | One active project + project switcher; P&L per project. |
 | Q-02 | Exact default Coder model id (Codex-class) and PM/Reviewer Claude model id. | M2 | Verified from provider `/models` endpoints during M2; written to seed config. |
 | Q-03 | FX data source preference (e.g. Vietcombank vs. generic open FX API). | M3 | Generic open FX API, configurable URL. |
+| Q-04 | UI theme palettes supplied in `src/image/theme/` (20 four-color palettes, Color Hunt hex codes in filenames; named sets Cold, DarkCold, DarkWinter, Fall, Summer, Winter). How are they used? | M4 | Every palette becomes a selectable theme in Settings → Appearance; named "Dark*" palettes are dark themes; default theme = `ColdColor` (light) / `DarkColdColor` (dark), following OS light/dark. |
 
 ## 5. Glossary
 
@@ -145,8 +146,9 @@ IT Studio/
 ## 9. Environment facts (verified 2026-10-01)
 
 - Windows 11, Node v24.19, npm 11.17, codex-cli 0.159.3, VS Code 1.140 (`code` on PATH), git 2.54.
-- **Rust toolchain missing** — required for Tauri; install is task M0-01 (needs user consent).
-- Repo not yet under git — task M0-02.
+- Rust stable 1.99 (MSVC) installed via rustup (M0-01); MSVC Build Tools 2022 and WebView2 present.
+- Git repo initialised on `main` (M0-02). Codex invocation verified (M0-03, see `AGENTS.md` §5).
+- Toolchain pins: ADR-0002 (TypeScript 6.0.x, not 7).
 
 ## 10. Where to find what
 

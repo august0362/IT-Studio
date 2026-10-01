@@ -1,6 +1,9 @@
 # dependencies
 node_modules/
 
+.npm-cache/
+docs/tasks/*.last.txt
+
 # build outputs
 dist/
 build/

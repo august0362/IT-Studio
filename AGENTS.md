@@ -42,7 +42,17 @@ Stop. Append `## Blocked` to the task file with the precise question and what yo
 ## 5. Invocation (maintained by Architect)
 
 ```bash
-codex exec --full-auto -C "<repo root>" "Implement docs/tasks/<ID>.md. Follow AGENTS.md strictly. Do not commit."
+export PATH="$USERPROFILE/.cargo/bin:$PATH"
+codex exec -s workspace-write \
+  -c sandbox_workspace_write.network_access=true \
+  --add-dir "$USERPROFILE/.cargo" --add-dir "$USERPROFILE/.rustup" \
+  -C "<repo root>" -o "docs/tasks/<ID>.last.txt" \
+  "Implement docs/tasks/<ID>.md. Follow AGENTS.md strictly. Do not commit."
 ```
 
-Status: *to be verified in task M0-03.*
+Verified 2026-10-01 with codex-cli 0.159.3 (ChatGPT login): workspace writes and network (npm registry) work.
+In the sandbox npm uses a repo-local `.npm-cache/` (gitignored). Max 2 Codex runs in parallel, only on tasks with disjoint *Scope* (never two tasks editing the same `package.json` / lockfile).
+
+## 6. Toolchain
+
+Version pins: `docs/decisions/ADR-0002-toolchain-pins.md`. **TypeScript is pinned to 6.0.x — do not install TypeScript 7.**
