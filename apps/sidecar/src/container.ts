@@ -18,6 +18,11 @@ import { ProjectRepository } from './infra/sqlite/project-repository.js';
 import { SettingsRepository } from './infra/sqlite/settings-repository.js';
 import { ProjectService } from './services/project-service.js';
 import { SettingsService } from './services/settings-service.js';
+import { KeychainSecretStore } from './infra/keychain-secret-store.js';
+import { FetchHttpClient, ProviderKeyVerifier } from './infra/http/provider-key-verifier.js';
+import { SecretsService } from './services/secrets-service.js';
+import type { ISecretStore } from './ports/secret-store.js';
+import type { IProviderKeyVerifier } from './infra/http/provider-key-verifier.js';
 
 export interface ContainerDependencies {
   readonly input?: Readable;
@@ -27,6 +32,8 @@ export interface ContainerDependencies {
   readonly logger?: Logger;
   readonly exit?: (code: number) => void;
   readonly dataDir?: string;
+  readonly secretStore?: ISecretStore;
+  readonly keyVerifier?: IProviderKeyVerifier;
 }
 
 export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerDependencies = {}) {
@@ -54,6 +61,11 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     logger,
   });
   const projectService = new ProjectService({ repository: projectRepository, settings: settingsService, ids, clock });
+  const secretsService = new SecretsService({
+    store: dependencies.secretStore ?? new KeychainSecretStore(),
+    verifier: dependencies.keyVerifier ?? new ProviderKeyVerifier(new FetchHttpClient()),
+    clock,
+  });
   const events = new EventBus<RpcNotificationMap>();
   const serverRef: { current?: RpcServer } = {};
   const transport = new LineTransport({
@@ -76,12 +88,17 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   server.register('project.list', () => projectService.list());
   server.register('project.create', ({ name, workspaceRoot }) => projectService.create(name, workspaceRoot));
   server.register('project.setActive', ({ projectId }) => projectService.setActive(projectId));
+  server.register('secrets.set', ({ provider, apiKey }) => secretsService.set(provider, apiKey));
+  server.register('secrets.delete', ({ provider }) => secretsService.delete(provider));
+  server.register('secrets.status', () => secretsService.status());
+  server.register('secrets.verify', ({ provider }) => secretsService.verify(provider));
 
   return {
     clock,
     ids,
     database,
     settingsService,
+    secretsService,
     projectService,
     events,
     logger,

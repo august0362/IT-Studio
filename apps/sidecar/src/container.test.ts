@@ -7,6 +7,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createLogger } from './infra/logger.js';
 import { createFakeClock } from './infra/clock.js';
 import { createContainer } from './container.js';
+import { MemorySecretStore } from './infra/memory-secret-store.js';
+import type { IProviderKeyVerifier } from './infra/http/provider-key-verifier.js';
+import { ProviderId } from '@itstudio/schemas';
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -114,6 +117,56 @@ describe('sidecar container', () => {
     await request(6, 'system.shutdown', {});
     await new Promise((resolve) => setTimeout(resolve, 10));
     expect(exitCodes).toEqual([0]);
+    container.database.client.close();
+  });
+
+  it('returns secret statuses over RPC without returning or logging the API key', async () => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    const lines: string[] = [];
+    let pending = '';
+    output.on('data', (chunk: Buffer) => {
+      pending += chunk.toString('utf8');
+      const chunks = pending.split('\n');
+      pending = chunks.pop() ?? '';
+      lines.push(...chunks.filter(Boolean));
+    });
+    let logs = '';
+    const secret = 'rpc-secret-that-must-not-leak';
+    const verifier: IProviderKeyVerifier = { verify: () => Promise.resolve({ ok: true, value: undefined }) };
+    const container = createContainer(
+      {},
+      {
+        input,
+        output,
+        dataDir: ':memory:',
+        secretStore: new MemorySecretStore(),
+        keyVerifier: verifier,
+        logger: createLogger({
+          streams: [
+            new Writable({
+              write(chunk: Buffer, _encoding, callback) {
+                logs += chunk.toString();
+                callback();
+              },
+            }),
+          ],
+        }),
+      },
+    );
+    container.start();
+    input.write(
+      `${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'secrets.set', params: { provider: ProviderId.OPENAI, apiKey: secret } })}\n`,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const response = lines.map(parseLine).find((line) => line.id === 1);
+    expect(response?.result).toEqual({ provider: ProviderId.OPENAI, configured: true, hint: 'leak' });
+    input.write(
+      `${JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'secrets.verify', params: { provider: ProviderId.OPENAI } })}\n`,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(JSON.stringify(lines.map(parseLine))).not.toContain(secret);
+    expect(logs).not.toContain(secret);
     container.database.client.close();
   });
 });
