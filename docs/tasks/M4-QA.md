@@ -79,3 +79,12 @@ Append `## Result` per AGENTS.md §3 including a table: case ID → test file �
 | `features/cost/BreakdownCharts.tsx` lines / branches | 71.42% / 16.66% | 100% / 100% |
 | `features/cost/PortfolioPage.tsx` lines / branches | 0% / 0% | 100% / 100% |
 - Verification: `npm --cache .npm-cache run typecheck`, `npm --cache .npm-cache run lint`, and `npm --cache .npm-cache test` passed; 685 passed, 1 skipped. `npm --cache .npm-cache run vite:build -w @itstudio/desktop` passed (main chunk 1,125.96 kB). No E2E command was run.
+
+## QA (Claude) — round 2
+- Coverage target met (85.6 % lines). After merging main: typecheck ✔, lint ✔, build ✔, integration 98/98 ✔; unit 753/754 — `TC-M4-R1-004` fails on this machine and passes in the sandbox.
+- **Defect BUG-M4-001 (S3):** UI formats numbers and dates with the **OS locale** (`Intl.NumberFormat(undefined, …)`, `toLocaleString()`, `toLocaleDateString()`) instead of the app's selected i18n locale (`en` / `vi`). An English UI on Vietnamese Windows shows `25.000`; tests are machine-dependent. Occurrences: `features/settings/fx/FxSettingsPage.tsx` (rate + asOf), `features/settings/pricing/PricingSettingsPage.tsx` (Δ %), `features/cost/LedgerTable.tsx`, `features/cost/RevenueForm.tsx`, `features/settings/api-keys/ApiKeysPage.tsx`.
+- **Fix round 2 required:**
+  1. Add `apps/desktop/src/i18n/format.ts` (pure, 100 % branches): `formatNumber(value, locale, options)`, `formatDateTime(iso, locale)`, `formatDate(iso, locale)` mapping app locale `en` → `en-US`, `vi` → `vi-VN`; components take the locale from `i18n.language`.
+  2. Replace every OS-locale call in `apps/desktop/src/**` (non-test) with these helpers; add a static test that fails on `Intl.NumberFormat(undefined`, `.toLocaleString()` and `.toLocaleDateString()` without an explicit locale in `apps/desktop/src/**`.
+  3. Make `TC-M4-R1-004` deterministic (assert the en-US and vi-VN renderings explicitly). Money stays `MoneyDisplay` from the sidecar — untouched.
+  4. Do not run E2E.
