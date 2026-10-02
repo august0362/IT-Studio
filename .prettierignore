@@ -12,3 +12,4 @@ src/types/schemas.ts
 apps/desktop/src/index.css
 **/node_modules/**
 .npm-cache/**
+apps/sidecar/src/infra/sqlite/migrations/**
