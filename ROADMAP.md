@@ -10,8 +10,8 @@
 | Milestone | Status | Tasks |
 |---|---|---|
 | M0 Environment & scaffold | **Done** | 8 / 8 |
-| M1 Sidecar core & IPC | In progress | 6 / 7 |
-| M2 LLM router & providers | In progress | 3 / 10 |
+| M1 Sidecar core & IPC | **Done** | 7 / 7 |
+| M2 LLM router & providers | In progress | 4 / 10 |
 | M3 Cost, pricing, FX, budget, P&L | In progress | 1 / 7 |
 | M4 UI shell, Settings, Chat, P&L | Not started | 0 / 7 |
 | M5 RAG | Not started | 0 / 7 |
@@ -50,7 +50,7 @@
 - [x] **M1-04** (C) UI `RpcClient` typed by `RpcMethodMap`/`RpcNotificationMap`, `useRpcQuery`/`useRpcMutation` (TanStack Query), `useNotification(name, handler)`, timeouts, fail-in-flight on restart.
 - [x] **M1-05** (C) SQLite infra (better-sqlite3 + Drizzle, WAL, migrations); repositories for `projects`, `settings`; `SettingsService` with complete defaults; `ProjectService` (`project.*`, `settings.*`). Ref: ARCH §12.
 - [x] **M1-06** (C) `ISecretStore` + keychain impl (`@napi-rs/keyring`, service name `itstudio`) + in-memory impl for tests; `secrets.set/delete/status/verify` (verify = cheapest list-models call). Ref: ARCH §11, D2.
-- [ ] **M1-07** (C) UI status bar: sidecar connection state + version; minimal Settings → API Keys page (write-only inputs, status chips with hint).
+- [x] **M1-07** (C) UI status bar: sidecar connection state + version; minimal Settings → API Keys page (write-only inputs, status chips with hint).
 
 ## M2 — LLM router & providers
 
@@ -58,7 +58,7 @@
 
 - [x] **M2-01** (C) `ILlmProvider` port, `ProviderRequest/Response`, `ProviderFailure`; shared adapter contract test suite; msw fixture harness. Ref: ARCH §5.1.
 - [x] **M2-02** (C) Anthropic adapter: complete, stream, tools, usage incl. cache reads, failure classification table. Ref: ARCH §5.2.
-- [ ] **M2-03** (C) OpenAI-compatible adapter (OpenAI, xAI, Groq, Together via baseURL config).
+- [x] **M2-03** (C) OpenAI-compatible adapter (OpenAI, xAI, Groq, Together via baseURL config).
 - [ ] **M2-04** (C) Google GenAI adapter.
 - [ ] **M2-05** (A+C) Model registry from `models.seed.json`, `models.list`; A resolves Q-02 (verify model ids via provider list endpoints) and updates seed + `RoleAssignment` defaults.
 - [x] **M2-06** (C) Pure router state machine `domain/router-machine.ts` with explicit transition table; tests for every transition incl. illegal ones. Ref: ARCH §5.3.

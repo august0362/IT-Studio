@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add status bar and write-only Settings → API Keys page ([M1-07](docs/tasks/M1-07.md))
+- Add OpenAI-compatible provider adapter for OpenAI, xAI, Groq, Together ([M2-03](docs/tasks/M2-03.md))
 - Add OS keychain secret store, provider key verification and write-only secrets RPC ([M1-06](docs/tasks/M1-06.md))
 - Add Anthropic provider adapter ([M2-02](docs/tasks/M2-02.md))
 - Add SQLite persistence (WAL, drizzle migrations), settings and project services with RPC ([M1-05](docs/tasks/M1-05.md))
