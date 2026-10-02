@@ -370,3 +370,139 @@ Heartbeat: `ping` every 15 s; 2 missed → disconnected. VS Code closed or not i
 - Code signing (Authenticode cert — user to supply), Tauri updater with signed update manifests (key pair generated in M9, private key kept out of repo).
 - Release checklist: version bump in 4 manifests (root, desktop, sidecar, ext) via script; CHANGELOG release section; smoke test on clean Windows VM.
 - macOS (`.dmg`) and Linux (`.AppImage`) targets: out of scope until requested.
+
+---
+
+# Part II — v2: Multi-Agent & Omnichannel Orchestration Hub (after v1 = M0–M7)
+
+> Decisions D18–D23 (CONTEXT §3), ADR-0003. Types: `schemas.ts` §14–§16. Built in M10–M14.
+> **Operating principle (D21): nothing runs in the background.** Every agent run, channel sync and LLM call is started by a user action (button, chat message, VS Code command). No timers, no polling loops for channels.
+
+```
+                 ┌──────────── Channel Adapters (IChannelAdapter) ────────────┐
+ User actions ──►│  app (UI)   vscode (chat panel)   gmail   facebook_page     │
+                 └──────┬──────────────┬───────────────┬──────────┬──────────┘
+                        │ AgentRequest │               │ sync()   │ sync()      (user clicks "Sync")
+                        ▼              ▼               ▼          ▼
+                 ┌──────────────────────────────────────────────────────────┐
+                 │ Agent Orchestrator                                        │
+                 │  AgentRegistry · RoutingRules · AgentRunner (tool loop)   │
+                 │  → LlmRouter (ladder per agent) → Ledger (purpose agent)  │
+                 └──────┬───────────────────┬──────────────────────┬────────┘
+                        ▼                   ▼                      ▼
+                  Agent Memory        RAG (knowledge)        Outbox (approval queue)
+                  LanceDB+SQLite       LanceDB                ── user approves ──► adapter.send()
+```
+
+## 15. Agent Orchestrator (M10)
+
+### 15.1 Agents
+
+- `AgentDefinition` rows in SQLite (`agents` table, JSON body validated by zod). Built-in templates seeded from `config/agents.seed.json`: **PM, Architect, Coder, QA, Email Assistant, Page Support** (`builtIn: true` — clone-to-edit, cannot delete). Users create `custom` agents in **Settings → Agents** (Agent Builder: name, persona prompt, model ladder, tools, channels, memory policy).
+- The v1 runtime pipeline (§8) is re-expressed as a **team workflow**: PM → Coder → Reviewer(QA) agents with the same stage machine; `RoleAssignment` maps to the agents' `modelLadder`. Behaviour of §8 is unchanged.
+- Safety rules from ROLES §2 "common rules" are always appended to every agent system prompt (not editable).
+
+### 15.2 AgentRunner (one turn)
+
+```
+AgentRequest{agentId, projectId, input, trigger}
+  → BudgetGuard
+  → build context: system prompt + recalled memories (§16.3) + optional RAG hits + conversation history (last N turns, token-capped)
+  → LlmRouter.dispatch(ladderOverride = agent.modelLadder, tools = agent.tools ∩ allowed-for-trigger)
+  → tool loop (max 6 tool calls per run): search_knowledge | recall_memory | remember | draft_reply | start_pipeline | generate_image(M8)
+  → result message + AgentRun record + ledger rows (purpose = agent)
+  → if autoExtract: queue memory extraction for when the conversation is closed (§16.2)
+```
+
+- **Trigger restrictions:** runs whose input came from an external channel (`EXTERNAL_CHANNELS`) may only use `search_knowledge`, `recall_memory`, `draft_reply`. They can never `start_pipeline`, `remember` from untrusted text, or send anything directly (prompt-injection containment, D22).
+- `draft_reply` creates an `OutboxItem{status: pending_approval}` — it never sends.
+
+### 15.3 Routing
+
+`RoutingRule[]` (ordered) map an inbound `ChannelMessage` to an agent when the user clicks **Process** on a message (or "Process all untriaged"). No match → account's `defaultAgentId` → else ask the user to choose.
+
+### 15.4 Cost
+
+Ledger purposes added in M10: `agent`, `memory_extraction`, `triage`. Every run's cost is shown on the run and rolls into project P&L.
+
+## 16. Agent Memory (M11)
+
+### 16.1 Storage
+
+- SQLite `memories` (metadata = `MemoryItem`) + LanceDB table `memories_<agentId>` (vector + id). Same embedding model as RAG (`settings.rag.embedding`).
+- Scope: `(agentId, projectId)`; `projectId = null` = agent-global. Recall includes global items only if `memory.shareAcrossProjects`.
+
+### 16.2 Write paths
+
+| Path | When | Cost |
+|---|---|---|
+| **Auto-extract** | When a user-driven conversation is closed / switched away / app exit, if `autoExtract` and ≥ 2 user turns | 1 cheap LLM call (extraction prompt ROLES §2.8) + embeddings |
+| **Explicit** | User says "remember …", clicks *Remember* on a message, or agent tool `remember` (non-external triggers only) | embeddings only |
+| **Manual** | Memory page: add / edit | embeddings only |
+
+- External-channel content is extracted only when the agent's `extractFromExternalChannels` is true (default **false**).
+- **De-duplication:** new item with cosine ≥ 0.92 to an existing item of the same agent/scope → update the existing item (merge text, max importance) instead of inserting.
+- **Secret filter:** reject items matching the secret-scanner patterns (`scripts/scan-secrets.mjs` regex set) or containing email/phone of third parties when source is external.
+
+### 16.3 Recall
+
+`score = cosine × (0.6 + 0.1·importance) × recencyDecay`, `recencyDecay = 0.5^(daysSinceLastUseOrCreate / 90)`; pinned items always included (max 5); top `recallTopK` (default 6) above cosine 0.3. Injected as a `<context name="memory">` block (data, not instructions). `lastRecalledAt` updated.
+
+### 16.4 User control (Memory page)
+
+List/search by agent & project, filter by kind; edit text/importance/expiry; pin; delete (removes vector + row); "Forget everything for this agent"; export JSON. Maintenance (purge expired, re-embed after model change) runs only when the user opens the page and clicks *Clean up*.
+
+## 17. Channels & Outbox (M12–M14)
+
+### 17.1 Adapter port
+
+```ts
+interface IChannelAdapter {
+  readonly kind: ChannelKind;
+  connect(accountInput): Promise<Result<ChannelAccount>>;          // OAuth / token entry
+  disconnect(accountId): Promise<Result<void>>;                     // deletes keychain tokens
+  sync(accountId, since?: IsoDateTime): Promise<Result<readonly ChannelMessage[]>>;  // user-triggered only; no LLM
+  send(item: OutboxItem): Promise<Result<{ externalMessageId: string }>>;            // only called by OutboxService after approval
+}
+```
+
+- `ChannelService.sync(accountId)` is invoked by RPC from a user action only. Fetched messages are stored (`channel_messages` table) with `triage = untriaged`. **Fetching costs no LLM tokens.**
+- Triage/summaries happen only when the user clicks **Triage** (batch, cheapest JSON model, purpose `triage`).
+
+### 17.2 Outbox (approval queue, D22)
+
+`OutboxItem` lifecycle: `pending_approval` → (user edits) → **Approve & send** → `sent` | `failed`; or `rejected`; Facebook items past `sendBefore` → `expired`. UI: **Inbox** tab with two panes (Inbound / Outbox), badge counts. Sending is the only code path that calls `adapter.send`, and it requires an RPC from the UI with the item id.
+
+### 17.3 App channel (built-in)
+
+The existing Chat tab becomes "chat with an agent": agent picker in the chat header (default agent per project).
+
+### 17.4 VS Code channel (M12)
+
+Webview **chat panel** in the companion extension (re-uses the M7 WebSocket bridge, new message types): agent picker, send selected code / current file as context, shows streamed replies, "Start pipeline from this" button. Same memory, ledger and project as the app. Protocol additions are versioned (`protocolVersion: 2`).
+
+### 17.5 Gmail (M13)
+
+- **Auth:** OAuth 2.0 installed-app flow with PKCE + loopback redirect (`http://127.0.0.1:<random>/callback`); user supplies their own Google Cloud OAuth client id (Desktop app type). Scopes: `gmail.modify` (read, label), `gmail.send`. Refresh token in keychain.
+- **Sync:** Gmail API `users.history.list` from stored `historyId` (fallback `messages.list q=newer_than:7d in:inbox`); bodies converted to plain text; attachments not downloaded (names only).
+- **Triage:** labels `ITStudio/Urgent|Action|FYI` applied after the user confirms triage results.
+- **Draft replies:** `draft_reply` → Outbox; on approve → `messages.send` with correct `threadId`, `In-Reply-To`, `References`.
+- **Email commands (D23):** a message is a command only if `From` ∈ `commandSenders` (default: the account's own address) **and** subject starts with `[ITS]`. Commands are processed at the next user-triggered sync, run as `trigger: channel_action`, may create tasks/pipeline runs only after an in-app confirmation, and the result is drafted to the Outbox as a reply. Sender headers are checked against SPF/DKIM `Authentication-Results: … dkim=pass` to reduce spoofing.
+- **Email reports:** "Email me this report" buttons (P&L, pipeline failure report, overnight summary) create an Outbox item addressed to the user's own address (still approved by one click).
+
+### 17.6 Facebook Page (M14)
+
+- **Auth:** user creates a Meta app, grants `pages_messaging`, `pages_read_engagement`, `pages_manage_metadata`; pastes a long-lived **Page access token** (stored in keychain). No personal-account automation (ToS).
+- **Sync:** Graph API `/{page-id}/conversations?fields=messages{message,from,created_time}` since last sync (user-triggered; no webhook, no tunnel).
+- **Reply:** Send API `POST /{page-id}/messages` with `messaging_type: RESPONSE`; only within **24 h** of the customer's last message — Outbox item gets `sendBefore`, expired items are blocked with remediation text.
+- Rate limits respected via `x-business-use-case-usage` header → backoff.
+
+### 17.7 Security additions
+
+| Threat | Control |
+|---|---|
+| Prompt injection via email/Messenger | External triggers get a restricted tool set; untrusted content wrapped in `<context source="external">`; no direct send; memory extraction off by default for external sources. |
+| Email command spoofing | Allow-listed sender + `[ITS]` subject + DKIM pass + in-app confirmation for any action with side effects. |
+| Token theft | OAuth refresh tokens / page tokens only in keychain; redaction list extended; `channels.*` RPC never returns tokens. |
+| Accidental mass sending | Outbox approval required for every item; "approve all" disabled for external channels; max 20 sends per hour per account. |
+| PII in memory | Secret/PII filter; Memory page delete/export; per-agent "forget everything". |

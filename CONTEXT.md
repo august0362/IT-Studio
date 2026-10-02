@@ -54,6 +54,12 @@ Changing any row requires an ADR in `docs/decisions/` and user approval.
 | D15 | Provider adapters: **Anthropic SDK**, **OpenAI SDK** (also used for xAI, Groq, Together via `baseURL` — OpenAI-compatible), **Google GenAI SDK**. Exact model ids live in `config/models.seed.json`, never hard-coded in logic. | Few adapters; model churn is config, not code. |
 | D16 | Runtime write safety: the Worker only writes paths inside the project root **and** inside `TaskSpec.allowedPaths`; runs only allow-listed commands from Settings, never commands proposed by a model. | Prevent model-driven path traversal / RCE. |
 | D17 | **Themes:** Settings → Theme offers 18 themes derived from the palettes in `src/image/theme/`, each with light + dark variants and a follow-system mode, designed with color psychology (mood, rationale, recommended activities per theme) and WCAG AA/AAA contrast enforced by tooling. Defaults: Arctic Focus (light) / Midnight Focus (dark). Spec: `docs/design/THEMES.md`. | User requirement (2026-10-02). |
+| D18 | **v2 Agent Orchestrator** (after v1, M10): built-in agent templates (PM, Architect, Coder, QA, Email Assistant, Page Support) + user-created agents (Agent Builder); each agent = persona + model ladder + tools + channels + memory policy; rule-based routing + user choice (no supervisor agent). The v1 pipeline becomes an agent team. | User decision 2026-10-02, ADR-0003 |
+| D19 | **Agent Memory** (M11): auto-extracted facts/preferences/instructions per agent + project (optional global), LanceDB vectors + SQLite metadata, dedupe, importance + recency scoring; user can view/edit/pin/delete/forget; extraction from external channels off by default. | ADR-0003 |
+| D20 | **Channels** (M12–M14) via `IChannelAdapter`: app, VS Code chat panel, Gmail (triage, draft replies, email commands, email reports), Facebook **Page** Messenger only (no personal accounts). | ADR-0003 |
+| D21 | **On-demand only:** no background polling, schedulers or agent runs for channels; every sync/agent run starts from a user action. Fetching from channel APIs costs no LLM tokens; triage/drafting runs only when the user clicks. | User: "only when I act — tokens cost money" |
+| D22 | **Outbox approval:** every outbound message to an external channel is a draft until the user approves it; no auto-send; external-triggered runs get a restricted tool set. | Prompt-injection & wrong-send safety |
+| D23 | **Email commands:** accepted only from allow-listed senders (default: own address), subject prefix `[ITS]`, DKIM pass; side-effecting actions need in-app confirmation. | Anti-spoofing |
 
 ## 4. Open questions (ask the user before the milestone that needs them)
 
@@ -61,6 +67,7 @@ Changing any row requires an ADR in `docs/decisions/` and user approval.
 |---|---|---|---|
 | Q-01 | One active project at a time, or several concurrently, each with its own P&L view? | M4 (UI shell) | One active project + project switcher; P&L per project. |
 | Q-02 | Exact default Coder model id (Codex-class) and PM/Reviewer Claude model id. | M2 | Verified from provider `/models` endpoints during M2; written to seed config. |
+| Q-05 | Pricing auto-update (D9) spends a few LLM tokens daily in the background, which conflicts with the on-demand spirit of D21. Keep daily auto-update, or refresh prices only when the user clicks? | M3-04 | Keep daily (cost ≈ cents/month) until the user decides. |
 | Q-03 | FX data source preference (e.g. Vietcombank vs. generic open FX API). | M3 | Generic open FX API, configurable URL. |
 
 ## 5. Glossary
@@ -79,6 +86,12 @@ Changing any row requires an ADR in `docs/decisions/` and user approval.
 | **Companion extension** | The IT Studio VS Code extension (`apps/vscode-ext`). |
 | **Task file** | `docs/tasks/<ID>.md` — the prompt Claude hands to Codex for one ROADMAP task. |
 | **ADR** | Architecture Decision Record in `docs/decisions/`. |
+| **Agent** (v2) | A configured AI worker: persona + model ladder + tools + channels + memory policy (`AgentDefinition`). |
+| **Agent Memory** | Long-term per-agent memories (`MemoryItem`) recalled by vector similarity. |
+| **Channel** | A place messages come from / go to: app, vscode, gmail, facebook_page (`IChannelAdapter`). |
+| **Outbox** | Approval queue of drafted outbound messages; nothing external is sent without approval. |
+
+> **v2 (after v1):** the sidecar also hosts the Agent Orchestrator, Agent Memory and Channel Adapters — see ARCHITECTURE Part II (§15–§17).
 
 ## 6. System map
 

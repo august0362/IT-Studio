@@ -1195,3 +1195,231 @@ export interface ImageAsset {
   readonly cost: MicroUsd;
   readonly createdAt: IsoDateTime;
 }
+
+/* ============================================================================
+ * §14. AGENTS (v2 — M10; ARCHITECTURE.md §15). Types only; RPC methods are added by M10 tasks.
+ * ========================================================================== */
+
+export type AgentId = Brand<string, 'AgentId'>;
+export type AgentRunId = Brand<string, 'AgentRunId'>;
+export type RoutingRuleId = Brand<string, 'RoutingRuleId'>;
+
+export const AgentTemplate = {
+  PM: 'pm',
+  ARCHITECT: 'architect',
+  CODER: 'coder',
+  QA: 'qa',
+  EMAIL_ASSISTANT: 'email_assistant',
+  PAGE_SUPPORT: 'page_support',
+  CUSTOM: 'custom',
+} as const;
+export type AgentTemplate = (typeof AgentTemplate)[keyof typeof AgentTemplate];
+
+/** Tools an agent may call. Anything that leaves the machine goes through the Outbox (D22). */
+export const AgentToolName = {
+  SEARCH_KNOWLEDGE: 'search_knowledge',
+  RECALL_MEMORY: 'recall_memory',
+  REMEMBER: 'remember',
+  DRAFT_REPLY: 'draft_reply',
+  START_PIPELINE: 'start_pipeline',
+  GENERATE_IMAGE: 'generate_image',
+} as const;
+export type AgentToolName = (typeof AgentToolName)[keyof typeof AgentToolName];
+
+export interface AgentMemoryPolicy {
+  readonly enabled: boolean;
+  /** Extract memories automatically after a user-driven conversation ends (D19). */
+  readonly autoExtract: boolean;
+  /** Extract from external channels (Gmail/Facebook). Default false (privacy). */
+  readonly extractFromExternalChannels: boolean;
+  readonly recallTopK: number;
+  /** Memories are scoped to agent + project; true also recalls this agent's global (projectId=null) memories. */
+  readonly shareAcrossProjects: boolean;
+}
+
+export interface AgentDefinition {
+  readonly id: AgentId;
+  readonly name: string;
+  readonly template: AgentTemplate;
+  readonly description: string;
+  /** Persona + rules; the common safety rules (ROLES §2) are appended automatically and cannot be removed. */
+  readonly systemPrompt: string;
+  /** Model fallback ladder for this agent (router ladderOverride). */
+  readonly modelLadder: readonly ModelKey[];
+  readonly tools: readonly AgentToolName[];
+  readonly channels: readonly ChannelKind[];
+  readonly memory: AgentMemoryPolicy;
+  /** Built-in templates can be cloned and edited but not deleted. */
+  readonly builtIn: boolean;
+  readonly enabled: boolean;
+  readonly createdAt: IsoDateTime;
+  readonly updatedAt: IsoDateTime;
+}
+
+/** Routes an inbound channel message to an agent. First matching enabled rule (by order) wins; no match → account's default agent. */
+export interface RoutingRule {
+  readonly id: RoutingRuleId;
+  readonly order: number;
+  readonly channel: ChannelKind;
+  /** Case-insensitive substring matches; all omitted = match all. */
+  readonly match: { readonly fromContains?: string; readonly subjectContains?: string; readonly textContains?: string };
+  readonly agentId: AgentId;
+  readonly enabled: boolean;
+}
+
+export const AgentRunStatus = {
+  RUNNING: 'running',
+  AWAITING_APPROVAL: 'awaiting_approval',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+  CANCELLED: 'cancelled',
+} as const;
+export type AgentRunStatus = (typeof AgentRunStatus)[keyof typeof AgentRunStatus];
+
+/** One agent turn. Always started by a user action (D21) — never by a background timer. */
+export interface AgentRun {
+  readonly id: AgentRunId;
+  readonly agentId: AgentId;
+  readonly projectId: ProjectId;
+  readonly trigger: { readonly kind: 'ui' | 'vscode' | 'channel_action'; readonly channelMessageId?: ChannelMessageId };
+  readonly status: AgentRunStatus;
+  readonly toolCalls: readonly ToolCall[];
+  readonly recalledMemoryIds: readonly MemoryId[];
+  readonly outboxItemIds: readonly OutboxItemId[];
+  readonly cost: MoneyDisplay;
+  readonly startedAt: IsoDateTime;
+  readonly finishedAt?: IsoDateTime;
+  readonly error?: AppError;
+}
+
+/* ============================================================================
+ * §15. AGENT MEMORY (v2 — M11; ARCHITECTURE.md §16). Vectors in LanceDB; metadata in SQLite.
+ * ========================================================================== */
+
+export type MemoryId = Brand<string, 'MemoryId'>;
+
+export const MemoryKind = {
+  FACT: 'fact',
+  PREFERENCE: 'preference',
+  INSTRUCTION: 'instruction',
+  EPISODE: 'episode',
+} as const;
+export type MemoryKind = (typeof MemoryKind)[keyof typeof MemoryKind];
+
+export interface MemoryItem {
+  readonly id: MemoryId;
+  readonly agentId: AgentId;
+  /** null = global (shared across projects for this agent). */
+  readonly projectId: ProjectId | null;
+  readonly kind: MemoryKind;
+  /** One self-contained statement, ≤ 500 chars. Never contains secrets (extractor prompt + filter enforce). */
+  readonly text: string;
+  /** 1 (trivia) … 5 (critical). */
+  readonly importance: 1 | 2 | 3 | 4 | 5;
+  readonly pinned: boolean;
+  readonly source: {
+    readonly kind: 'conversation' | 'channel' | 'manual';
+    readonly conversationId?: ConversationId;
+    readonly channelMessageId?: ChannelMessageId;
+  };
+  readonly createdAt: IsoDateTime;
+  readonly updatedAt: IsoDateTime;
+  readonly lastRecalledAt?: IsoDateTime;
+  /** Expired items are excluded from recall and purged on the next user-triggered memory maintenance. */
+  readonly expiresAt?: IsoDateTime;
+}
+
+export interface MemoryRecallHit {
+  readonly item: MemoryItem;
+  /** similarity × importance weight × recency decay (ARCH §16.3). */
+  readonly score: number;
+}
+
+/* ============================================================================
+ * §16. CHANNELS & OUTBOX (v2 — M12–M14; ARCHITECTURE.md §17)
+ * ========================================================================== */
+
+export type ChannelAccountId = Brand<string, 'ChannelAccountId'>;
+export type ChannelMessageId = Brand<string, 'ChannelMessageId'>;
+export type OutboxItemId = Brand<string, 'OutboxItemId'>;
+
+export const ChannelKind = {
+  APP: 'app',
+  VSCODE: 'vscode',
+  GMAIL: 'gmail',
+  FACEBOOK_PAGE: 'facebook_page',
+} as const;
+export type ChannelKind = (typeof ChannelKind)[keyof typeof ChannelKind];
+
+/** External channels: inbound content is untrusted; outbound always requires approval (D22). */
+export const EXTERNAL_CHANNELS: readonly ChannelKind[] = [ChannelKind.GMAIL, ChannelKind.FACEBOOK_PAGE];
+
+export interface ChannelAccount {
+  readonly id: ChannelAccountId;
+  readonly kind: ChannelKind;
+  /** Gmail address or Page name. */
+  readonly displayName: string;
+  /** OAuth / page tokens live in the OS keychain under `itstudio-channel/<id>`; never in this record. */
+  readonly connected: boolean;
+  readonly defaultAgentId: AgentId | null;
+  readonly projectId: ProjectId;
+  /** Gmail only: sender addresses allowed to issue commands by email (D23). */
+  readonly commandSenders: readonly string[];
+  readonly lastSyncedAt?: IsoDateTime;
+}
+
+export const InboundTriage = {
+  UNTRIAGED: 'untriaged',
+  URGENT: 'urgent',
+  ACTION: 'action',
+  FYI: 'fyi',
+  SPAM: 'spam',
+  COMMAND: 'command',
+} as const;
+export type InboundTriage = (typeof InboundTriage)[keyof typeof InboundTriage];
+
+/** Normalised inbound message from any channel. Content is untrusted data. */
+export interface ChannelMessage {
+  readonly id: ChannelMessageId;
+  readonly accountId: ChannelAccountId;
+  readonly kind: ChannelKind;
+  /** Provider ids for threading (Gmail threadId / FB conversation id). */
+  readonly externalThreadId: string;
+  readonly externalMessageId: string;
+  readonly from: { readonly id: string; readonly name: string };
+  readonly subject?: string;
+  /** Plain text only (HTML stripped). */
+  readonly text: string;
+  readonly receivedAt: IsoDateTime;
+  readonly triage: InboundTriage;
+  readonly summary?: string;
+  readonly handledByRunId?: AgentRunId;
+}
+
+export const OutboxStatus = {
+  PENDING_APPROVAL: 'pending_approval',
+  SENT: 'sent',
+  REJECTED: 'rejected',
+  FAILED: 'failed',
+  EXPIRED: 'expired',
+} as const;
+export type OutboxStatus = (typeof OutboxStatus)[keyof typeof OutboxStatus];
+
+/** A message an agent wants to send to an external channel. Nothing is sent until the user approves (D22). */
+export interface OutboxItem {
+  readonly id: OutboxItemId;
+  readonly accountId: ChannelAccountId;
+  readonly kind: ChannelKind;
+  readonly runId: AgentRunId | null;
+  readonly inReplyTo?: ChannelMessageId;
+  readonly to: readonly string[];
+  readonly subject?: string;
+  /** Draft body; the user may edit before approving. Plain text; Facebook ≤ 2000 chars. */
+  readonly body: string;
+  readonly status: OutboxStatus;
+  /** Facebook: replies allowed only within the 24 h messaging window; after this the item becomes `expired`. */
+  readonly sendBefore?: IsoDateTime;
+  readonly createdAt: IsoDateTime;
+  readonly decidedAt?: IsoDateTime;
+  readonly error?: AppError;
+}
