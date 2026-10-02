@@ -36,6 +36,7 @@
 | ENV-1 | Codex sandbox (Windows, `sandbox="elevated"`) could not write into the repo on the Desktop path; 5 ACL fixes failed (all reverted — repo permissions are back to original). **Solution (attempt 6): every Codex task now runs in its own git worktree under `C:\Users\admin\itstudio-wt\<ID>`**, which the sandbox can write; Claude merges the branch after QA (`scripts/dev/run-task.sh`, `land-task.sh`). Sandbox stays ON. Bonus: parallel tasks are fully isolated. | AGENTS.md §5 |
 | D17 | Theme system designed per your request: 18 themes (19 palettes, 1 duplicate) × light/dark, color-psychology metadata, all pairs pass WCAG (text 7:1). Review the catalog in docs/design/THEMES.md §4 — rename or re-describe any theme you like. | docs/design/THEMES.md |
 | ENV-2 | Two Codex runs hung for 60 min waiting on stdin (`codex exec` reads stdin when not a TTY). Fixed runner with `< /dev/null`; reruns started. Codex reasoning effort set to `high` (was `xhigh`) for faster, cheaper runs; override with `CODEX_EFFORT=xhigh`. | scripts/dev/run-task.sh |
+| ENV-3 | Session pause interrupted Codex runs for M2-03 and M1-07 mid-edit (exit 4). Orphan codex process killed; both tasks resumed in their existing worktrees (partial work kept). | — |
 | PROC-1 | New rule from user: any error surviving 6 fix attempts → skip + report, or stop session. | ROLES §1.2 |
 
 ## Needs you in the morning
