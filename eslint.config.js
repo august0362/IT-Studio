@@ -124,7 +124,12 @@ export default [
     languageOptions: {
       parserOptions: {
         projectService: {
-          allowDefaultProject: ['scripts/lint-fixtures/*.ts', 'scripts/lint-fixtures/*.tsx', 'vitest.config.ts'],
+          allowDefaultProject: [
+            'scripts/lint-fixtures/*.ts',
+            'scripts/lint-fixtures/*.tsx',
+            'vitest.config.ts',
+            'apps/desktop/vitest.config.ts',
+          ],
         },
         tsconfigRootDir: import.meta.dirname,
       },
