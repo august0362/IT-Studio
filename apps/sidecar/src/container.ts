@@ -773,13 +773,16 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
       : { ok: true, value: run };
   });
   server.register('ledger.query', (query) => ledgerService.query(query));
+  server.register('ledger.queryRows', (query) => ledgerService.queryRows(query));
   server.register('pnl.get', ({ projectId, from, to }) => pnlService.get(projectId, from, to));
   server.register('pnl.getAll', ({ from, to }) => pnlService.getAll(from, to));
   server.register('revenue.add', (input) => revenueService.add(input));
   server.register('revenue.list', ({ projectId, from, to }) => revenueService.list(projectId, from, to));
+  server.register('revenue.listRows', ({ projectId, from, to }) => revenueService.listRows(projectId, from, to));
   server.register('budget.set', ({ projectId, period, limitMicroUsd, warnAt }) =>
     budgetGuard.set({ projectId, period, limitMicroUsd, warnAt }),
   );
+  server.register('budget.setUsd', (input) => budgetGuard.setUsd(input));
   server.register('budget.status', ({ projectId }) => budgetGuard.status(projectId));
   server.register('pricing.get', () => Promise.resolve({ ok: true, value: pricingService.current() }));
   server.register('pricing.override', ({ entry }) => Promise.resolve(pricingService.override(entry)));

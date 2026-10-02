@@ -47,4 +47,13 @@ export function toMoneyDisplay(amount: MicroUsd, fx: FxRate): MoneyDisplay {
   };
 }
 
+/** Parse a plain USD decimal into integer micro-USD without floating-point arithmetic. */
+export function usdStringToMicroUsd(value: string): MicroUsd | null {
+  if (!/^\d+(?:\.\d{1,6})?$/u.test(value)) return null;
+  const [whole = '', fraction = ''] = value.split('.');
+  const amount = BigInt(whole) * 1_000_000n + BigInt(fraction.padEnd(6, '0') || '0');
+  if (amount <= 0n || amount > BigInt(Number.MAX_SAFE_INTEGER)) return null;
+  return microUsd(Number(amount));
+}
+
 export { microUsd, sumMicroUsd };

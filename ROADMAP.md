@@ -99,7 +99,7 @@
 - [x] **M4-02** (C) Shared components: `<Money>`, `<SafeMarkdown>` (+ XSS test corpus), `<ErrorPanel>` (renders `AppError.remediation`).
 - [ ] **M4-03** (C) Settings: Router ladder (dnd-kit), **Auto Fallback** toggle, lock model, Budget (+ **Hard Stop** toggle), Pricing (table, refresh, override), FX (rate, override), VS Code options, Pipeline role assignment.
 - [x] **M4-04** (C) Chat tab: conversation list, unified model dropdown (+ Lock), streaming with cancel, fallback badge + partial-reset handling, fallback modal (Auto OFF), per-message cost `<Money>`.
-- [ ] **M4-05** (C) Cost & P&L tab: revenue/cost/margin KPIs, charts by model/purpose/day (Recharts), budget bars with warning states, revenue entry form (USD/VND), ledger table with filters; live refresh on `ledger.entry`. Plus **All-projects dashboard**: per-project margin table, portfolio totals, top spend by project/model.
+- [x] **M4-05** (C) Cost & P&L tab: revenue/cost/margin KPIs, charts by model/purpose/day (Recharts), budget bars with warning states, revenue entry form (USD/VND), ledger table with filters; live refresh on `ledger.entry`. Plus **All-projects dashboard**: per-project margin table, portfolio totals, top spend by project/model.
 - [ ] **M4-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M4-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M4-report.md` sign-off. Scope: UI system tests: project tabs open/switch/close, theme switching (all 36 theme/mode pairs smoke + contrast), Settings flows, chat with fallback badge & modal, P&L dashboards; XSS corpus through chat rendering; keyboard-only navigation.
 
 ## M5 — RAG
@@ -126,7 +126,7 @@
 - [x] **M6-05** (C) `PipelineOrchestrator`: stage machine, role ladders, verdict rule, ≤ 1 fix round, per-project queue, cancel semantics, `pipeline.*` RPC + events. Ref: ARCH §8.1.
 - [x] **M6-06** (C) `FailureReportBuilder` + remediation table for every `ErrorCode`.
 - [x] **M6-08** (C) Pipeline cost attribution: `LlmRouter` forwards `pipelineRunId` to the ledger; `PipelineRun` cost = sum of its ledger rows (follow-up from M6-05 QA).
-- [ ] **M6-07** (C) Code tab: prompt box, stage timeline, spec/review viewers, Monaco diff viewer, live command output, failure report panel, run history.
+- [x] **M6-07** (C) Code tab: prompt box, stage timeline, spec/review viewers, Monaco diff viewer, live command output, failure report panel, run history.
 - [ ] **M6-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M6-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M6-report.md` sign-off. Scope: Pipeline: happy path to COMPLETED, review-reject → fix → approve, failing validation → byte-identical rollback, crash mid-commit recovery, path-traversal corpus, cancel at every stage; StrykerJS on worker/domain (score reported). **Carry-over:** case-insensitive `</context>` neutralisation (from M6-04 QA); chunker branch coverage ≥ 90 % (from M5-02 QA) belongs to M5-QA.
 
 ## M7 — VS Code companion extension
@@ -156,7 +156,7 @@ Spec: ARCH §14.1, `schemas.ts` §13.
 Spec: ARCH §14.2.
 
 - [ ] **SEC-01** (A+C) Dependency audit hardening before release: production audit (2026-10-02) = 3 high, all from @lancedb/lancedb → @huggingface/transformers → sharp (libvips CVE-2026-33327/33328/35590/35591). Options: npm `overrides` to a patched sharp, or exclude the optional transformers dependency; add `npm audit --omit=dev --audit-level=high` to the release checklist. Also (2026-10-02): low — dompurify (IN_PLACE hook XSS) via monaco-editor 0.57; upgrade when monaco ships a patched dompurify.
-- [ ] **PERF-01** (C) Sidecar cold start: dev start ≈ 4 s before `main` runs (html-to-text ≈ 1.7 s, LanceDB, parsers). Lazy-load heavy modules on first use; run the E2E crash hook before importing the container; target < 1.5 s in dev, measure the M9 bundle.
+- [ ] **PERF-01** (C) Sidecar cold start: dev start ≈ 4 s before `main` runs (html-to-text ≈ 1.7 s, LanceDB, parsers). Lazy-load heavy modules on first use; run the E2E crash hook before importing the container; target < 1.5 s in dev, measure the M9 bundle. UI: lazy-load the Cost tab (Recharts) — main chunk 1.04 MB after M4-05.
 - [ ] **M9-01** (C) esbuild sidecar bundle + Node SEA build script; native module loading from resources.
 - [ ] **M9-02** (C) Tauri `externalBin` + resources (vsix, seeds); production sidecar spawn path.
 - [ ] **M9-03** (C) NSIS + MSI bundles; WebView2 bootstrapper.

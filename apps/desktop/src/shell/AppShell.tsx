@@ -1,6 +1,6 @@
-import type { AppError } from '@itstudio/schemas';
+import type { AppError, ProjectId } from '@itstudio/schemas';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState, type JSX } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiKeysPage } from '../features/settings/api-keys/ApiKeysPage';
 import { ThemePage } from '../features/settings/theme/ThemePage';
@@ -14,6 +14,9 @@ import { NewProjectDialog } from './NewProjectDialog';
 import { ProjectTabs } from './ProjectTabs';
 import { ChatPage } from '../features/chat/ChatPage';
 import { KnowledgePage } from '../features/knowledge/KnowledgePage';
+import { CostPage } from '../features/cost/CostPage';
+
+const CodePage = lazy(() => import('../features/code/CodePage').then(({ CodePage: page }) => ({ default: page })));
 
 function asAppError(cause: unknown): AppError {
   if (cause instanceof RpcCallError) return cause.appError;
@@ -127,14 +130,18 @@ export function AppShell(): JSX.Element {
         projectId={projects.find((project) => project.id === activeId)?.id ?? null}
       />
     );
-  else if (route === 'settings-api-keys') content = <ApiKeysPage />;
-  else if (route === 'settings-theme') content = <ThemePage />;
-  else
+  else if (route === 'cost') {
+    const selectedProjectId: ProjectId | null =
+      activeId === null ? null : (projects.find((project) => project.id === activeId)?.id ?? null);
+    content = <CostPage projectId={selectedProjectId} />;
+  } else if (route === 'code')
     content = (
-      <section aria-label={route} className="rounded border border-border bg-surface p-6">
-        <p className="text-text-muted">{t('nav.empty')}</p>
-      </section>
+      <Suspense fallback={<p role="status">{t('code.loading')}</p>}>
+        <CodePage projectId={projects.find((project) => project.id === activeId)?.id ?? null} />
+      </Suspense>
     );
+  else if (route === 'settings-api-keys') content = <ApiKeysPage />;
+  else content = <ThemePage />;
 
   return (
     <div className="flex min-h-screen flex-col bg-bg text-text">

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { FxRate } from '@itstudio/schemas';
 import { isoDateTimeSchema } from '../validation/brand.js';
-import { formatUsd, formatVnd, toMoneyDisplay } from './money.js';
+import { formatUsd, formatVnd, toMoneyDisplay, usdStringToMicroUsd } from './money.js';
 import { microUsd, vnd } from './cost.js';
 
 const fx: FxRate = {
@@ -22,7 +22,6 @@ describe('money display', () => {
   ])('formats USD %i as %s', (amount, expected) => {
     expect(formatUsd(microUsd(amount))).toBe(expected);
   });
-
   it.each([
     [0, '0 ₫'],
     [999, '999 ₫'],
@@ -32,7 +31,6 @@ describe('money display', () => {
   ])('formats VND %i as %s', (amount, expected) => {
     expect(formatVnd(vnd(amount))).toBe(expected);
   });
-
   it('builds a dual-currency display with the FX timestamp', () => {
     expect(toMoneyDisplay(microUsd(-500_000), fx)).toEqual({
       microUsd: -500_000,
@@ -41,5 +39,17 @@ describe('money display', () => {
       vndText: '-12.500 ₫',
       fxAsOf: fx.asOf,
     });
+  });
+});
+
+describe('usdStringToMicroUsd', () => {
+  it.each([
+    ['0.000001', 1],
+    ['12.5', 12_500_000],
+  ])('parses %s exactly', (value, expected) => {
+    expect(usdStringToMicroUsd(value)).toBe(expected);
+  });
+  it.each(['1e3', '-1', '', '0', '1.0000001', '9000000000000'])('rejects %s', (value) => {
+    expect(usdStringToMicroUsd(value)).toBeNull();
   });
 });
