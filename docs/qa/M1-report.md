@@ -11,6 +11,7 @@
 | BUG-M1-002 | S4 (improvement) | Invalid-envelope responses (-32600) use `id: null` even when a numeric id is readable. Spec-compliant (JSON-RPC 2.0 §5) but the UI cannot correlate and waits for its 30 s timeout. UI never sends invalid envelopes → low risk. Proposal: echo the id when it is a valid integer. | Exploratory probe | TC-M1-011 | Open (deferred, low priority) |
 | BUG-M1-003 | S3 | Sidecar writes no lifecycle logs at `info` (start, version, data dir, migrations applied, ready, shutdown) → `%APPDATA%/com.itstudio.app/logs` stays empty after a normal run; "Open logs folder" useless for diagnosing restarts. ARCH §13. | System test on real app | TC-M1-001/004 | **Fixed** in M1-FIX2, verified on real run |
 | BUG-M1-004 | **S1** | UI `RpcClient` never populated `paramsById` → every UI RPC call was sent **without `params`** → sidecar rejects all calls with parameters (-32602). The real API Keys page could not save keys. Unit tests missed it (fake transport did not inspect params). | M1-QA integration work (Codex) | TC-M1-030 | Fixed in M1-QA branch (pending merge) + regression test |
+| BUG-M1-005 | S3 | API Keys Delete uses native `window.confirm`; under WebView2 Esc does not cancel → key deleted (E2E TC-M1-040). Not themeable/testable; violates M1-07 keyboard requirement. | E2E on real app | TC-M1-040 | Open → `M1-FIX3` |
 
 ## Execution log
 
@@ -41,4 +42,5 @@
 | TC-M1-004 | PASS | killed sidecar 18240 → new sidecar 8060 within 6 s |
 | TC-M1-006 | PASS | CloseMainWindow → app exited ≤ 7 s, 0 sidecars left (no restart on shutdown) |
 
+- 2026-10-02: **L4 E2E on real app** (WebdriverIO + tauri-driver + msedgedriver 154): 5/8 pass — TC-M1-001, 004, 030, 035, 041 ✔; TC-M1-040 ✖ (BUG-M1-005); TC-M1-006, TC-M1-007 ✖ (test defects → `M1-QA3`). L3 integration 20/20 ×3 runs ✔.
 - Pending: L3/L4 automation (`M1-QA` Codex task), exploratory session, coverage + mutation numbers, sign-off.
