@@ -22,3 +22,29 @@ Milestone: M6 · Role: Implementer (ROLES §1.3) · **Deps pre-installed** (`@st
 
 ## Hand-back
 Append `## Result` per AGENTS.md §3 including a table: case ID → test file → status, and the mutation score.
+
+## Result
+- Summary: Added M6 QA coverage, fixed case-insensitive context-tag neutralization, added test-gated crash hooks and validation cancellation, and published rollback reports for startup recovery.
+- Files changed: `apps/sidecar/src/container.test.ts`, `apps/sidecar/src/container.ts`, `apps/sidecar/src/domain/path-guard.test.ts`, `apps/sidecar/src/domain/template.test.ts`, `apps/sidecar/src/domain/template.ts`, `apps/sidecar/src/services/command-runner.test.ts`, `apps/sidecar/src/services/command-runner.ts`, `apps/sidecar/src/services/journal-recovery.test.ts`, `apps/sidecar/src/services/pipeline-orchestrator.test.ts`, `apps/sidecar/src/services/pipeline-orchestrator.ts`, `apps/sidecar/src/services/role-caller.test.ts`, `apps/sidecar/src/services/write-transaction.test.ts`, `apps/sidecar/src/services/write-transaction.ts`, `apps/sidecar/test/integration/pipeline.test.ts`, `e2e/specs/m6/code.spec.ts`, `package.json`, `stryker.config.mjs`, `docs/tasks/M6-QA.md`.
+- Dependencies added (with reason): None. Existing preinstalled Stryker dependencies used.
+- Decisions taken within scope: Crash injection exits only when both `ITSTUDIO_E2E=1` and the requested crash stage match. Validation cancellation now passes an `AbortSignal` to the process runner. Startup recovery emits a `pipeline.failureReport` for each restored transaction. No shared schemas changed.
+- Open issues / follow-ups:
+  - L3 integration launch is blocked in this sandbox: all 63 integration cases failed before sidecar startup because `tsx` calls `os.userInfo()` and Node reported `uv_os_get_passwd returned ENOMEM`. QA should rerun integration outside this sandbox.
+  - E2E was not run as requested; TC-M6-070/071/072 only passed TypeScript compilation.
+  - The final full `npm test` rerun had 694 passing, 1 skipped, and 1 failure: the unrelated desktop theme lint test timed out at 20 seconds under load. All 104 tests across the changed sidecar suites passed in a focused rerun; an earlier full run passed 689 tests.
+  - Stryker completed with 2.53% mutation score: 16 killed, 609 survived, 7 uncovered, 0 timed out, across 632 mutants. This is below the 80% target. Survivors by file: `path-guard.ts` 146, `write-transaction.ts` 410, `pipeline-machine.ts` 5, `template.ts` 48; uncovered mutants: 7. Stryker reported only 16 killed despite executing the initial Vitest dry run; investigate Vitest per-test coverage/test correlation before treating this as a meaningful quality score. Stryker's final cleanup also logged Windows `taskkill` access denied after producing the score.
+
+| Case ID | Test file | Status |
+|---|---|---|
+| TC-M6-001, TC-M6-002, TC-M6-023, TC-M6-030, TC-M6-031, TC-M6-041, TC-M6-042, TC-M6-044, TC-M6-052 | `apps/sidecar/test/integration/pipeline.test.ts` | Implemented; L3 execution blocked by sandbox `tsx` / `os.userInfo()` failure |
+| TC-M6-003, TC-M6-004, TC-M6-010, TC-M6-011, TC-M6-012, TC-M6-050, TC-M6-051 | `apps/sidecar/src/services/pipeline-orchestrator.test.ts` | Implemented; unit suite passed |
+| TC-M6-005, TC-M6-006, TC-M6-061 | `apps/sidecar/src/services/role-caller.test.ts` | Implemented; unit suite passed |
+| TC-M6-020, TC-M6-021, TC-M6-022, TC-M6-024, TC-M6-025, TC-M6-026 | `apps/sidecar/src/domain/path-guard.test.ts` | Implemented; 100% branch coverage |
+| TC-M6-032, TC-M6-033 | `apps/sidecar/src/services/write-transaction.test.ts` | Implemented; 100% branch coverage |
+| TC-M6-030, TC-M6-031 | `apps/sidecar/src/services/journal-recovery.test.ts` | Implemented; unit suite passed |
+| TC-M6-040, TC-M6-041, TC-M6-042, TC-M6-043, TC-M6-044 | `apps/sidecar/src/services/command-runner.test.ts` | Implemented; unit suite passed |
+| TC-M6-060 | `apps/sidecar/src/domain/template.test.ts` | Implemented; unit suite passed |
+| TC-M6-070, TC-M6-071, TC-M6-072 | `e2e/specs/m6/code.spec.ts` | Implemented and typechecked; E2E intentionally not run |
+
+Coverage: `command-runner.ts` 95.83% branches; `template.ts` 100% branches; `path-guard.ts` 100%; `write-transaction.ts` 100%. Stryker reports 48 surviving template mutants, so mutation instrumentation needs QA review.
+- Final verification note: A final full `npm test` rerun reported 694 passed, 1 skipped, and 1 unrelated failure because the desktop theme ESLint test exceeded its 20-second timeout under load; all 104 changed sidecar tests passed in the focused run. The follow-up Stryker run after adding test-only crash-hook coverage was stopped at 3%; the reported 2.53% score is from the earlier completed run.

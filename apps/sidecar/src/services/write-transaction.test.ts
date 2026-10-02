@@ -1,13 +1,13 @@
 import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { ErrorCode, type FileOperation } from '@itstudio/schemas';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createFakeClock } from '../infra/clock.js';
 import { createFakeIdGenerator } from '../infra/id.js';
 import { MemoryFileSystem } from '../infra/memory-file-system.js';
 import { projectIdSchema, sha256Schema } from '../validation/brand.js';
 import { fileOperationSchema } from '../validation/worker.js';
-import { WriteTransactionService } from './write-transaction.js';
+import { parseTransactionManifest, WriteTransactionService } from './write-transaction.js';
 
 const projectId = projectIdSchema.parse('00000000-0000-4000-8000-000000000001');
 const digest = (text: string) => sha256Schema.parse(createHash('sha256').update(text).digest('hex'));
@@ -83,7 +83,7 @@ describe('WriteTransactionService', () => {
     ).toEqual({ ok: true, value: false });
   });
 
-  it('rejects stale base hashes, wrong patch context, and create-over-existing without writes', async () => {
+  it('TC-M6-032 rejects stale base hashes, wrong patch context, and create-over-existing without writes', async () => {
     const { root, service } = await fixture({ 'src/a.txt': 'actual' });
     const stale = await service.prepare(
       root,
@@ -114,6 +114,67 @@ describe('WriteTransactionService', () => {
     );
     expect(create).toMatchObject({ ok: false, error: { code: ErrorCode.CONFLICT } });
   });
+
+  it('rejects patching a file that is not valid UTF-8', async () => {
+    const { fs, root, service } = await fixture();
+    const bytes = new Uint8Array([0xff]);
+    await fs.mkdir(join(root, 'src'), true);
+    await fs.writeFile(join(root, 'src', 'invalid.txt'), bytes);
+    const baseHash = sha256Schema.parse(createHash('sha256').update(bytes).digest('hex'));
+    const result = await service.prepare(
+      root,
+      projectId,
+      [operation({ kind: 'patch', path: 'src/invalid.txt', unifiedDiff: '@@ -1 +1 @@\n-a\n+b', baseHash })],
+      ['src'],
+    );
+    expect(result).toMatchObject({ ok: false, error: { code: ErrorCode.PATCH_CONFLICT } });
+  });
+
+  it('parses valid journal manifests and rejects invalid manifest shapes', async () => {
+    const { fs, root, service } = await fixture({ 'src/a.txt': 'before' });
+    const prepared = await service.prepare(
+      root,
+      projectId,
+      [operation({ kind: 'replace', path: 'src/a.txt', content: 'after', baseHash: digest('before') })],
+      ['src'],
+    );
+    expect(prepared.ok).toBe(true);
+    const encoded = await read(fs, root, '.itstudio/tx/00000000-0000-4000-8000-000000000002/manifest.json');
+    expect(parseTransactionManifest({})).toMatchObject({ ok: false, error: { code: ErrorCode.VALIDATION } });
+    expect(encoded).toBeDefined();
+    expect(parseTransactionManifest(JSON.parse(encoded ?? '{}'))).toMatchObject({ ok: true });
+  });
+
+  it.each(['after_prepare', 'mid_commit'] as const)(
+    'limits crash hook %s to test-only process execution',
+    async (stage) => {
+      const { root, service } = await fixture();
+      vi.stubEnv('ITSTUDIO_E2E', '1');
+      vi.stubEnv('ITSTUDIO_E2E_CRASH_AT', stage);
+      const exit = vi.spyOn(process, 'exit').mockImplementation(() => {
+        throw new Error('simulated process exit');
+      });
+      try {
+        const operations = [
+          operation({ kind: 'create', path: 'src/one.txt', content: 'one' }),
+          operation({ kind: 'create', path: 'src/two.txt', content: 'two' }),
+        ];
+        if (stage === 'after_prepare') {
+          await expect(service.prepare(root, projectId, operations, ['src'])).rejects.toThrow('simulated process exit');
+        } else {
+          vi.stubEnv('ITSTUDIO_E2E_CRASH_AT', '');
+          const prepared = await service.prepare(root, projectId, operations, ['src']);
+          if (!prepared.ok) throw new Error('Test transaction should prepare');
+          vi.stubEnv('ITSTUDIO_E2E_CRASH_AT', stage);
+          await expect(prepared.value.commit()).rejects.toThrow('simulated process exit');
+        }
+        expect(exit).toHaveBeenCalledWith(91);
+      } finally {
+        exit.mockRestore();
+        vi.unstubAllEnvs();
+      }
+    },
+  );
 
   it('rejects rename collisions and reports destination inspection failures', async () => {
     const collision = await fixture({ 'src/from.txt': 'from', 'src/to.txt': 'to' });
@@ -271,7 +332,7 @@ describe('WriteTransactionService', () => {
     expect(result.ok || result.error.remediation?.some((path) => path.includes('manifest.json'))).toBe(true);
   });
 
-  it('reports exact journal paths when rollback detects a damaged snapshot', async () => {
+  it('TC-M6-033 reports exact journal paths when rollback detects a damaged snapshot', async () => {
     const { fs, root, service } = await fixture({ 'src/a.txt': 'before' });
     const prepared = await service.prepare(
       root,
