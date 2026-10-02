@@ -25,6 +25,7 @@ import { SettingsRepository } from './infra/sqlite/settings-repository.js';
 import { ChatRepository } from './infra/sqlite/chat-repository.js';
 import { LedgerRepository } from './infra/sqlite/ledger-repository.js';
 import { PriceRepository } from './infra/sqlite/price-repository.js';
+import { FxRepository } from './infra/sqlite/fx-repository.js';
 import { ProjectService } from './services/project-service.js';
 import { SettingsService } from './services/settings-service.js';
 import { ChatService } from './services/chat-service.js';
@@ -48,9 +49,11 @@ import { ModelRegistry } from './services/model-registry.js';
 import { AlwaysOkBudgetGuard } from './ports/budget-guard.js';
 import { LlmRouter, type RouterCompleted } from './services/llm-router.js';
 import { computeTokenCost } from './domain/cost.js';
-import { isoDateTimeSchema } from './validation/brand.js';
 import { LedgerService } from './services/ledger-service.js';
 import { RepositoryPriceSource } from './services/price-source.js';
+import { FxService } from './services/fx-service.js';
+import { FxDailyJob } from './scheduler/daily-job.js';
+import type { IHttpClient } from './ports/http-client.js';
 import { PricingService } from './services/pricing-service.js';
 import { readFileSync } from 'node:fs';
 import { readdirSync } from 'node:fs';
@@ -246,6 +249,7 @@ export interface ContainerDependencies {
   readonly dataDir?: string;
   readonly secretStore?: ISecretStore;
   readonly keyVerifier?: IProviderKeyVerifier;
+  readonly fxHttpClient?: IHttpClient;
 }
 
 export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerDependencies = {}) {
@@ -277,6 +281,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const chatRepository = new ChatRepository(database.db);
   const ledgerRepository = new LedgerRepository(database.db);
   const priceRepository = new PriceRepository(database.db);
+  const fxRepository = new FxRepository(database.db);
   const settingsRepository = new SettingsRepository(database.db);
   const settingsService = new SettingsService({
     repository: settingsRepository,
@@ -297,6 +302,20 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
         : new ProviderKeyVerifier(new FetchHttpClient())),
     clock,
   });
+  const fxHttpClient: IHttpClient =
+    dependencies.fxHttpClient ??
+    (e2e
+      ? { request: () => Promise.resolve(Response.json({ rates: { VND: loadedSeeds.value.fx.seedUsdToVnd } })) }
+      : new FetchHttpClient());
+  const fxService = new FxService({
+    repository: fxRepository,
+    http: fxHttpClient,
+    settings: settingsService,
+    config: loadedSeeds.value.fx,
+    clock,
+    logger,
+  });
+  const fxDailyJob = new FxDailyJob({ fx: fxService, settings: settingsService, clock, logger });
   const providers = new ProviderRegistry({
     [ProviderId.ANTHROPIC]: () =>
       e2e
@@ -388,11 +407,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     },
   });
   const routerCompleted = new EventBus<{ completed: RouterCompleted }>();
-  const priceSource = new RepositoryPriceSource(priceRepository, {
-    usdToVnd: loadedSeeds.value.fx.seedUsdToVnd,
-    asOf: isoDateTimeSchema.parse(loadedSeeds.value.fx.seedAsOf),
-    source: 'auto',
-  });
+  const priceSource = new RepositoryPriceSource(priceRepository, fxService);
   const ledgerService = new LedgerService({
     repository: ledgerRepository,
     prices: priceSource,
@@ -464,16 +479,28 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   });
   const server = new RpcServer(transport, events, logger);
   serverRef.current = server;
+  let fxJobStopped = false;
   const service = new SystemService({
     clock,
     startedAt: clock.monotonicMs(),
     logger,
-    shutdownHooks: [() => vscodeBridge.stop()],
+    shutdownHooks: [
+      () => {
+        fxJobStopped = true;
+        return vscodeBridge.stop();
+      },
+      () => {
+        fxJobStopped = true;
+        fxDailyJob.stop();
+      },
+    ],
     ...(dependencies.exit === undefined ? {} : { exit: dependencies.exit }),
   });
   service.register(server);
   server.register('settings.get', () => settingsService.get());
   server.register('settings.update', ({ patch }) => settingsService.update(patch));
+  server.register('fx.get', () => fxService.get());
+  server.register('fx.override', ({ usdToVnd }) => fxService.override(usdToVnd));
   server.register('router.getConfig', () => routerConfigService.getConfig());
   server.register('router.updateConfig', ({ config }) => routerConfigService.updateConfig(config));
   server.register('router.resolveFallback', (decision) =>
@@ -525,6 +552,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     chatService,
     ledgerService,
     pricingService,
+    fxService,
     routerCompleted,
     projectService,
     vscodeBridge,
@@ -543,6 +571,20 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
         'seeds loaded',
       );
       transport.start();
+      void fxService.initialize().then(
+        () => {
+          if (!fxJobStopped) fxDailyJob.start();
+        },
+        (error: unknown) => {
+          if (!fxJobStopped) {
+            logger.warn(
+              { svc: 'fx', error: error instanceof Error ? error.message : 'unknown' },
+              'FX initialization failed',
+            );
+          }
+          if (!fxJobStopped) fxDailyJob.start();
+        },
+      );
       void (async () => {
         if (!vscodeBridgeEnabled) return;
         const settings = await settingsService.get();
