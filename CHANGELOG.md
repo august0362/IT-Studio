@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add Code tab: run the pipeline and watch stages, diffs, review, validation output and failure report ([M6-07](docs/tasks/M6-07.md))
 - Add RAG retrieval: minScore, MMR, numbered context injection, citations, per-conversation toggle ([M5-06](docs/tasks/M5-06.md))
 - Add VS Code launcher (no shell), extension installer and vsix packaging ([M7-03](docs/tasks/M7-03.md))
 - Add Chat tab: streaming, Stop, fallback badge and decision modal, per-message cost ([M4-04](docs/tasks/M4-04.md))

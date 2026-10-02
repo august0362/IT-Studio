@@ -1,5 +1,7 @@
 {
-  "app": { "name": "IT Studio" },
+  "app": {
+    "name": "IT Studio"
+  },
   "nav": {
     "main": "Main navigation",
     "chat": "Chat",
@@ -91,8 +93,16 @@
     "saveBudget": "Save budget",
     "invalidBudget": "Enter a valid positive USD limit.",
     "budgetContractUnavailable": "Budget update is unavailable because the budget contract does not provide a safe micro-USD constructor.",
-    "level": { "ok": "OK", "warning": "Warning", "exceeded": "Exceeded" },
-    "period": { "daily": "Daily", "monthly": "Monthly", "project_lifetime": "Project lifetime" },
+    "level": {
+      "ok": "OK",
+      "warning": "Warning",
+      "exceeded": "Exceeded"
+    },
+    "period": {
+      "daily": "Daily",
+      "monthly": "Monthly",
+      "project_lifetime": "Project lifetime"
+    },
     "revenueEntries": "Revenue entries",
     "amount": "Amount",
     "currency": "Currency",
@@ -189,5 +199,68 @@
     "filterWarm": "Warm",
     "filterCreative": "Creative",
     "filterDark": "Dark-native"
+  },
+  "code": {
+    "heading": "Build with agents",
+    "loading": "Loading code tools…",
+    "prompt": "What should we build?",
+    "counter": "{{count}} / 8000",
+    "run": "Run pipeline",
+    "queued": "Queued",
+    "pickProject": "Choose a project tab to run a pipeline. All projects is read-only.",
+    "timeline": "Pipeline stages",
+    "elapsed": "Elapsed: {{seconds}} seconds",
+    "stages": {
+      "specifying": "Specify",
+      "coding": "Code",
+      "reviewing": "Review",
+      "fixing": "Fix",
+      "re_reviewing": "Review fixes",
+      "writing": "Write changes",
+      "validating": "Validate",
+      "completed": "Completed",
+      "rolled_back": "Rolled back",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "states": {
+      "current": "current",
+      "done": "done",
+      "failed": "failed",
+      "skipped": "skipped"
+    },
+    "criteria": "Acceptance criteria",
+    "paths": "Allowed paths",
+    "constraints": "Constraints",
+    "tests": "Test plan",
+    "approved": "Approved",
+    "changesRequested": "Changes requested",
+    "severity": {
+      "blocker": "Blocker",
+      "major": "Major",
+      "minor": "Minor",
+      "nit": "Nit"
+    },
+    "diff": "Read-only diff for {{path}}",
+    "command": "Command {{id}}",
+    "stdout": "Standard output",
+    "stderr": "Standard error",
+    "truncated": "… truncated (oldest output dropped)",
+    "failure": "Pipeline failure report",
+    "failureStage": "Failed during {{stage}}",
+    "rolledBack": "Workspace changes were rolled back.",
+    "notRolledBack": "Workspace changes were not rolled back.",
+    "history": "Run history",
+    "historyError": "Run history could not be loaded.",
+    "empty": "Start a pipeline or select a previous run.",
+    "preview": "Prompt",
+    "cancel": "Cancel run",
+    "keepWorking": "Keep working",
+    "confirmCancel": "Cancel and roll back",
+    "rollbackWarning": "The pipeline is writing or validating changes. Cancelling will roll back workspace changes.",
+    "confirmTitle": "Cancel this pipeline?",
+    "actionError": "The pipeline action failed.",
+    "passed": "Passed",
+    "failed": "Failed"
   }
 }
