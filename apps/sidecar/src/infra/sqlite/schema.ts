@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { check, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { check, index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 export const projects = sqliteTable('projects', {
   id: text('id').primaryKey(),
@@ -17,4 +17,31 @@ export const settings = sqliteTable(
     updatedAt: text('updated_at').notNull(),
   },
   (table) => [check('settings_singleton_id', sql`${table.id} = 1`)],
+);
+
+export const conversations = sqliteTable('conversations', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id')
+    .notNull()
+    .references(() => projects.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  ragEnabled: integer('rag_enabled').notNull().default(0),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
+export const messages = sqliteTable(
+  'messages',
+  {
+    id: text('id').primaryKey(),
+    conversationId: text('conversation_id')
+      .notNull()
+      .references(() => conversations.id, { onDelete: 'cascade' }),
+    role: text('role').notNull(),
+    partsJson: text('parts_json').notNull(),
+    modelKey: text('model_key'),
+    usageJson: text('usage_json'),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [index('messages_conversation_created_idx').on(table.conversationId, table.createdAt)],
 );

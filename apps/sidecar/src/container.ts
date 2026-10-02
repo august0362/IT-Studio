@@ -1,4 +1,4 @@
-import { ProviderId, type RpcNotificationMap } from '@itstudio/schemas';
+import { FailureKind, ProviderId, type RpcNotificationMap } from '@itstudio/schemas';
 import { stdin, stdout } from 'node:process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,8 +16,10 @@ import { buildDefaultSettings } from './domain/default-settings.js';
 import { openDatabase } from './infra/sqlite/database.js';
 import { ProjectRepository } from './infra/sqlite/project-repository.js';
 import { SettingsRepository } from './infra/sqlite/settings-repository.js';
+import { ChatRepository } from './infra/sqlite/chat-repository.js';
 import { ProjectService } from './services/project-service.js';
 import { SettingsService } from './services/settings-service.js';
+import { ChatService } from './services/chat-service.js';
 import { RouterConfigService } from './services/router-config-service.js';
 import { UserFallbackDecider } from './services/fallback-decider.js';
 import { KeychainSecretStore } from './infra/keychain-secret-store.js';
@@ -26,6 +28,8 @@ import { SecretsService } from './services/secrets-service.js';
 import type { ISecretStore } from './ports/secret-store.js';
 import type { IProviderKeyVerifier } from './infra/http/provider-key-verifier.js';
 import { ProviderRegistry } from './providers/provider-registry.js';
+import type { ILlmProvider, ProviderRequest, ProviderResponse } from './ports/llm-provider.js';
+import type { ProviderId as ProviderIdType } from '@itstudio/schemas';
 import { AnthropicProvider } from './providers/anthropic/anthropic-provider.js';
 import { GoogleProvider } from './providers/google/google-provider.js';
 import {
@@ -110,6 +114,34 @@ class ScriptedKeyVerifier implements IProviderKeyVerifier {
   }
 }
 
+function scriptedLlmProvider(id: ProviderIdType, text: string): ILlmProvider {
+  const response = (request: ProviderRequest): ProviderResponse => ({
+    text,
+    toolCalls: [],
+    usage: { inputTokens: 12, outputTokens: 8, cachedInputTokens: 0 },
+    finishReason: 'stop',
+    providerModelId: request.modelId,
+  });
+  const unavailable = (
+    kind: FailureKind,
+  ): Result<never, { readonly kind: FailureKind; readonly billed: false; readonly message: string }> => ({
+    ok: false,
+    error: { kind, billed: false, message: 'Scripted fixture request was cancelled.' },
+  });
+  return {
+    id,
+    complete: (request, _apiKey, signal) =>
+      Promise.resolve(signal.aborted ? unavailable(FailureKind.SERVER_ERROR) : { ok: true, value: response(request) }),
+    stream: (request, _apiKey, signal, onDelta) => {
+      if (signal.aborted) return Promise.resolve(unavailable(FailureKind.SERVER_ERROR));
+      const chunks = text.match(/.{1,12}/gu) ?? [];
+      for (const chunk of chunks) onDelta(chunk);
+      return Promise.resolve({ ok: true, value: response(request) });
+    },
+    listModels: () => Promise.resolve({ ok: true, value: [] }),
+  };
+}
+
 export interface ContainerDependencies {
   readonly input?: Readable;
   readonly output?: Writable;
@@ -142,6 +174,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const migrationsDir = resolve(dirname(fileURLToPath(import.meta.url)), 'infra/sqlite/migrations');
   const migrationsApplied = readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).length;
   const projectRepository = new ProjectRepository(database.db);
+  const chatRepository = new ChatRepository(database.db);
   const settingsRepository = new SettingsRepository(database.db);
   const settingsService = new SettingsService({
     repository: settingsRepository,
@@ -163,19 +196,36 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     clock,
   });
   const providers = new ProviderRegistry({
-    [ProviderId.ANTHROPIC]: () => new AnthropicProvider(),
-    [ProviderId.GOOGLE]: () => new GoogleProvider(),
+    [ProviderId.ANTHROPIC]: () =>
+      e2e
+        ? scriptedLlmProvider(ProviderId.ANTHROPIC, env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.')
+        : new AnthropicProvider(),
+    [ProviderId.GOOGLE]: () =>
+      e2e
+        ? scriptedLlmProvider(ProviderId.GOOGLE, env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.')
+        : new GoogleProvider(),
     [ProviderId.OPENAI]: () =>
-      new OpenAiCompatibleProvider({ id: ProviderId.OPENAI, baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.OPENAI] }),
+      e2e
+        ? scriptedLlmProvider(ProviderId.OPENAI, env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.')
+        : new OpenAiCompatibleProvider({
+            id: ProviderId.OPENAI,
+            baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.OPENAI],
+          }),
     [ProviderId.XAI]: () =>
-      new OpenAiCompatibleProvider({ id: ProviderId.XAI, baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.XAI] }),
+      e2e
+        ? scriptedLlmProvider(ProviderId.XAI, env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.')
+        : new OpenAiCompatibleProvider({ id: ProviderId.XAI, baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.XAI] }),
     [ProviderId.GROQ]: () =>
-      new OpenAiCompatibleProvider({ id: ProviderId.GROQ, baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.GROQ] }),
+      e2e
+        ? scriptedLlmProvider(ProviderId.GROQ, env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.')
+        : new OpenAiCompatibleProvider({ id: ProviderId.GROQ, baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.GROQ] }),
     [ProviderId.TOGETHER]: () =>
-      new OpenAiCompatibleProvider({
-        id: ProviderId.TOGETHER,
-        baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.TOGETHER],
-      }),
+      e2e
+        ? scriptedLlmProvider(ProviderId.TOGETHER, env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.')
+        : new OpenAiCompatibleProvider({
+            id: ProviderId.TOGETHER,
+            baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.TOGETHER],
+          }),
   });
   const modelRegistry = new ModelRegistry(loadedSeeds.value.models, providers);
   const events = new EventBus<RpcNotificationMap>();
@@ -222,6 +272,17 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     completed: routerCompleted,
     fallbackDecider,
   });
+  const chatService = new ChatService({
+    repository: chatRepository,
+    router: llmRouter,
+    settings: settingsService,
+    events,
+    ids,
+    clock,
+    priceTable: () => loadedSeeds.value.pricing,
+    seedFx: () => ({ usdToVnd: loadedSeeds.value.fx.seedUsdToVnd, asOf: loadedSeeds.value.fx.seedAsOf }),
+    logger,
+  });
   const serverRef: { current?: RpcServer } = {};
   const transport = new LineTransport({
     input: dependencies.input ?? stdin,
@@ -254,6 +315,15 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   server.register('secrets.status', () => secretsService.status());
   server.register('secrets.verify', ({ provider }) => secretsService.verify(provider));
   server.register('models.list', () => Promise.resolve({ ok: true, value: modelRegistry.list() }));
+  server.register('chat.listConversations', ({ projectId }) => chatService.listConversations(projectId));
+  server.register('chat.createConversation', ({ projectId, title }) =>
+    chatService.createConversation(projectId, title),
+  );
+  server.register('chat.getMessages', ({ conversationId }) => chatService.getMessages(conversationId));
+  server.register('chat.send', ({ conversationId, text, modelOverride }) =>
+    chatService.send(conversationId, text, modelOverride),
+  );
+  server.register('chat.cancel', ({ requestId }) => chatService.cancel(requestId));
 
   return {
     clock,
@@ -264,6 +334,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     providers,
     modelRegistry,
     llmRouter,
+    chatService,
     routerCompleted,
     projectService,
     events,
