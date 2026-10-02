@@ -44,6 +44,10 @@ export class SidecarBridge {
     return () => this.handlers.delete(handler);
   }
 
+  public sendSerialized(message: string): void {
+    this.socket?.send(message);
+  }
+
   public connect(): void {
     this.stopped = false;
     this.generation += 1;
@@ -154,7 +158,9 @@ function parseMessage(data: unknown): SidecarToExt | undefined {
     case 'request_diagnostics':
       return Number.isInteger(parsed.ref) ? { type: 'request_diagnostics', ref: parsed.ref as number } : undefined;
     case 'reveal':
-      return Number.isInteger(parsed.ref) && typeof parsed.path === 'string'
+      return Number.isInteger(parsed.ref) &&
+        typeof parsed.path === 'string' &&
+        (parsed.line === undefined || (Number.isInteger(parsed.line) && (parsed.line as number) >= 1))
         ? (parsed as unknown as SidecarToExt)
         : undefined;
     case 'show_diff':
@@ -168,8 +174,9 @@ function parseMessage(data: unknown): SidecarToExt | undefined {
     case 'transaction':
       return Number.isInteger(parsed.ref) &&
         typeof parsed.transactionId === 'string' &&
-        typeof parsed.status === 'string' &&
-        Array.isArray(parsed.paths)
+        ['prepared', 'committed', 'validated', 'rolled_back', 'rollback_failed'].includes(String(parsed.status)) &&
+        Array.isArray(parsed.paths) &&
+        parsed.paths.every((candidate: unknown) => typeof candidate === 'string')
         ? (parsed as unknown as SidecarToExt)
         : undefined;
     case 'notify':

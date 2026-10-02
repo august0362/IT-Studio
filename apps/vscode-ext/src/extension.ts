@@ -1,6 +1,11 @@
 import * as vscode from 'vscode';
+import { randomUUID } from 'node:crypto';
+import { registerActions, type DiagnosticFile, type EditorDiagnostic } from './actions';
 import { SidecarBridge } from './bridge';
 import type { WebSocketLike } from './bridge';
+import { DiffDocumentProvider } from './diff-provider';
+import { DiffContentStore } from './diff-store';
+import { TransactionDecorations } from './decorations';
 import { statusLabel } from './status';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -11,6 +16,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   statusBarItem.show();
   context.subscriptions.push(statusBarItem);
   context.subscriptions.push(output);
+  const diffStore = new DiffContentStore();
+  context.subscriptions.push(
+    vscode.workspace.registerTextDocumentContentProvider(
+      DiffDocumentProvider.scheme,
+      new DiffDocumentProvider(diffStore),
+    ),
+  );
 
   const folder = await findWorkspaceFolder();
   if (!folder) return;
@@ -42,6 +54,63 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       statusBarItem.text = statusLabel(state);
     },
   });
+  const decorations = new TransactionDecorations();
+  context.subscriptions.push(decorations);
+  const unregisterActions = registerActions((handler) => bridge.onMessage(handler), {
+    workspaceRoot: folder.uri.fsPath,
+    reveal: async (absolutePath, line) => {
+      const document = await vscode.workspace.openTextDocument(vscode.Uri.file(absolutePath));
+      const editor = await vscode.window.showTextDocument(document, { preserveFocus: false });
+      if (line !== undefined) {
+        const position = new vscode.Position(Math.max(0, line - 1), 0);
+        editor.selection = new vscode.Selection(position, position);
+        editor.revealRange(new vscode.Range(position, position));
+      }
+    },
+    showDiff: async (absolutePath, before, after, title) => {
+      const id = randomUUID();
+      diffStore.set(id, { path: absolutePath, before, after });
+      const beforeUri = vscode.Uri.parse(`${DiffDocumentProvider.scheme}:/${id}/before`);
+      const afterUri = vscode.Uri.parse(`${DiffDocumentProvider.scheme}:/${id}/after`);
+      await vscode.commands.executeCommand('vscode.diff', beforeUri, afterUri, title);
+    },
+    decorate: (paths) => {
+      decorations.decorate(paths);
+    },
+    clearDecorations: () => {
+      decorations.clear();
+    },
+    notify: (level, message) => {
+      if (level === 'info') void vscode.window.showInformationMessage(message);
+      else if (level === 'warning') void vscode.window.showWarningMessage(message);
+      else void vscode.window.showErrorMessage(message);
+    },
+    getDiagnostics: (): readonly DiagnosticFile[] =>
+      vscode.languages.getDiagnostics().flatMap(([uri, values]) => {
+        if (uri.scheme !== 'file') return [];
+        const fileDiagnostics: EditorDiagnostic[] = values.map((diagnostic) => ({
+          severity: diagnostic.severity,
+          line: diagnostic.range.start.line,
+          column: diagnostic.range.start.character,
+          message: diagnostic.message,
+          ...(diagnostic.code === undefined
+            ? {}
+            : { code: typeof diagnostic.code === 'object' ? diagnostic.code.value : diagnostic.code }),
+        }));
+        return [{ path: uri.fsPath, diagnostics: fileDiagnostics }];
+      }),
+    sendDiagnostics: (diagnostics) => {
+      bridge.sendSerialized(JSON.stringify({ type: 'diagnostics', diagnostics }));
+    },
+    ack: (ref) => {
+      bridge.sendSerialized(JSON.stringify({ type: 'ack', ref }));
+    },
+    revealChangedFiles: () => vscode.workspace.getConfiguration('itstudio').get('revealChangedFiles', false),
+    log: (message) => {
+      output.appendLine(message);
+    },
+  });
+  context.subscriptions.push({ dispose: unregisterActions });
   connect();
   const watcher = vscode.workspace.createFileSystemWatcher(
     new vscode.RelativePattern(folder, '.itstudio/session.json'),
