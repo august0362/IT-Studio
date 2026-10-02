@@ -5,6 +5,7 @@ import { useRpcQuery } from '../../../hooks/use-rpc-query';
 import { RpcCallError } from '../../../rpc/rpc-client';
 import { useRpcClient } from '../../../rpc/rpc-context';
 import { neutralClasses } from '../../../components/ui/neutral-classes';
+import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 
 const PROVIDERS: readonly { readonly id: Provider; readonly name: string }[] = [
   { id: ProviderId.ANTHROPIC, name: 'Anthropic' },
@@ -56,6 +57,7 @@ export function ApiKeysPage(): JSX.Element {
   const [invalid, setInvalid] = useState<Partial<Record<Provider, boolean>>>({});
   const [busy, setBusy] = useState<Partial<Record<Provider, boolean>>>({});
   const [errors, setErrors] = useState<Partial<Record<Provider, AppError>>>({});
+  const [providerToDelete, setProviderToDelete] = useState<Provider | null>(null);
 
   function setProviderBusy(provider: Provider, value: boolean): void {
     setBusy((current) => ({ ...current, [provider]: value }));
@@ -118,8 +120,6 @@ export function ApiKeysPage(): JSX.Element {
   }
 
   async function remove(provider: Provider): Promise<void> {
-    if (!window.confirm(`Delete the ${PROVIDERS.find((item) => item.id === provider)?.name ?? provider} API key?`))
-      return;
     setProviderError(provider, undefined);
     setProviderBusy(provider, true);
     try {
@@ -199,7 +199,7 @@ export function ApiKeysPage(): JSX.Element {
                     className={`rounded border ${neutralClasses.controlBorder} px-3 py-2 ${neutralClasses.hoverSurface}`}
                     disabled={busy[id]}
                     onClick={() => {
-                      void remove(id);
+                      setProviderToDelete(id);
                     }}
                     type="button"
                   >
@@ -212,6 +212,22 @@ export function ApiKeysPage(): JSX.Element {
           );
         })}
       </div>
+      <ConfirmDialog
+        cancelLabel="Cancel"
+        confirmLabel="Delete"
+        message={`Delete the ${PROVIDERS.find((item) => item.id === providerToDelete)?.name ?? providerToDelete ?? ''} API key?`}
+        onCancel={() => {
+          setProviderToDelete(null);
+        }}
+        onConfirm={() => {
+          const provider = providerToDelete;
+          setProviderToDelete(null);
+          if (provider !== null) void remove(provider);
+        }}
+        open={providerToDelete !== null}
+        title="Delete API key?"
+        tone="danger"
+      />
     </section>
   );
 }

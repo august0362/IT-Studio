@@ -52,5 +52,12 @@ describe('M1 API Keys UI', () => {
     await browser.$('form:has(#api-key-openai) button:nth-of-type(3)').click();
     await browser.keys(['ESC']);
     expect(await browser.$('[aria-label="OpenAI key status"]').getText()).to.include('Set');
+    expect(await browser.$('[role="alertdialog"]').isExisting()).to.equal(false);
+    await browser.$('form:has(#api-key-openai) button:nth-of-type(3)').click();
+    await browser.keys(['TAB', 'ENTER']);
+    await browser.waitUntil(
+      async () => (await browser.$('[aria-label="OpenAI key status"]').getText()).includes('Not set'),
+      { timeout: 10_000 },
+    );
   });
 });

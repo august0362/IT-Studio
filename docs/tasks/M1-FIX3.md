@@ -23,3 +23,13 @@ Milestone: M1 · Depends on: M1-07 · Role: Implementer (ROLES §1.3) · **Deps 
 
 ## Hand-back
 Append `## Result` per AGENTS.md §3.
+
+## Result
+- Summary: Added a reusable accessible confirmation dialog and replaced the API key delete browser confirmation. Updated the ESLint guard and TC-M1-040 keyboard flow.
+- Files changed: `apps/desktop/src/components/ui/ConfirmDialog.tsx`, `apps/desktop/src/components/ui/ConfirmDialog.test.tsx`, `apps/desktop/src/features/settings/api-keys/ApiKeysPage.tsx`, `apps/desktop/src/features/settings/api-keys/ApiKeysPage.test.tsx`, `eslint.config.js`, `e2e/specs/m1/api-keys.spec.ts`.
+- Dependencies added (with reason): None.
+- Decisions taken within scope: The dialog restores focus to the element focused before it opened; delete remains pending until confirmation.
+- Open issues / follow-ups: QA must rerun TC-M1-040 in the E2E environment. E2E was not run in this sandbox.
+
+## QA (Claude)
+- Gates: typecheck ✔, lint ✔ (incl. new no-native-dialog guard), 308 tests ✔, no `window.confirm|alert|prompt` in apps/desktop/src ✔. E2E TC-M1-040 verified by QA after merge (see M1 report).
