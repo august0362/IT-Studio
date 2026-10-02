@@ -21,6 +21,8 @@ import type { IDocumentRepository } from '../../ports/document-repository.js';
 import type { IVectorStore } from '../../ports/vector-store.js';
 import type { SettingsService } from '../settings-service.js';
 import type { EmbeddingDispatcher } from '../embedding-dispatcher.js';
+import type { Retriever } from './retriever.js';
+import type { RetrievalQuery, RetrievalHit } from '@itstudio/schemas';
 import type { EventBus } from '../../rpc/event-bus.js';
 import { chunkDocument } from '../../domain/chunker.js';
 import { resolveSafe } from '../../domain/path-guard.js';
@@ -42,6 +44,7 @@ export interface RagServiceDependencies {
   readonly fileSystem: IFileSystem;
   readonly vectors: IVectorStore;
   readonly embeddings: Pick<EmbeddingDispatcher, 'embed'>;
+  readonly retriever?: Pick<Retriever, 'query'>;
   readonly settings: SettingsService;
   readonly events: EventBus<RpcNotificationMap>;
   readonly ids: IIdGenerator;
@@ -99,6 +102,12 @@ export class RagService {
     if ((await this.deps.projects.get(input.projectId)) === null)
       return error(ErrorCode.NOT_FOUND, 'Project was not found.');
     return { ok: true, value: await this.deps.documents.list(input.projectId) };
+  }
+
+  query(input: RetrievalQuery): Promise<Result<readonly RetrievalHit[]>> {
+    if (this.deps.retriever === undefined)
+      return Promise.resolve(error(ErrorCode.INTERNAL, 'Retrieval is not configured.'));
+    return this.deps.retriever.query(input);
   }
 
   async deleteDocument(input: { readonly documentId: DocumentId }): Promise<Result<{ readonly deleted: boolean }>> {

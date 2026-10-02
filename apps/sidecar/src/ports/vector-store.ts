@@ -24,6 +24,7 @@ export interface VectorSearchHit {
   readonly text: string;
   readonly sectionPath: readonly string[];
   readonly score: number;
+  readonly vector: readonly number[];
 }
 
 export interface IVectorStore {

@@ -933,6 +933,7 @@ export interface RpcMethodMap {
   'chat.listConversations': { params: { readonly projectId: ProjectId }; result: readonly Conversation[] };
   'chat.createConversation': { params: { readonly projectId: ProjectId; readonly title?: string }; result: Conversation };
   'chat.getMessages': { params: { readonly conversationId: ConversationId }; result: readonly ChatMessage[] };
+  'chat.setRagEnabled': { params: { readonly conversationId: ConversationId; readonly enabled: boolean }; result: Conversation };
   /** Returns immediately; content arrives via `chat.delta` / `chat.completed`. */
   'chat.send': {
     params: { readonly conversationId: ConversationId; readonly text: string; readonly modelOverride?: ModelKey };

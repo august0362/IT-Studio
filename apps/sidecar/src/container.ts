@@ -87,6 +87,7 @@ import { EmbeddingDispatcher } from './services/embedding-dispatcher.js';
 import { LanceDbVectorStore } from './infra/lancedb/vector-store.js';
 import { DocumentRepository } from './infra/sqlite/document-repository.js';
 import { RagService } from './services/rag/rag-service.js';
+import { Retriever } from './services/rag/retriever.js';
 import { isoDateTimeSchema } from './validation/brand.js';
 
 class MemorySecretStore implements ISecretStore {
@@ -531,12 +532,19 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     },
   };
   const vectorStore = new LanceDbVectorStore(resolve(dataDir, 'lancedb'));
+  const retriever = new Retriever({
+    documents: documentRepository,
+    vectors: vectorStore,
+    embeddings: embeddingDispatcher,
+    settings: settingsService,
+  });
   const ragService = new RagService({
     projects: projectRepository,
     documents: documentRepository,
     fileSystem,
     vectors: vectorStore,
     embeddings: embeddingDispatcher,
+    retriever,
     settings: settingsService,
     events,
     ids,
@@ -612,6 +620,8 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     ids,
     clock,
     logger,
+    retriever,
+    settings: settingsService,
   });
   const pricingUpdater = new PricingUpdater({
     settings: settingsService,
@@ -725,6 +735,9 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     chatService.createConversation(projectId, title),
   );
   server.register('chat.getMessages', ({ conversationId }) => chatService.getMessages(conversationId));
+  server.register('chat.setRagEnabled', ({ conversationId, enabled }) =>
+    chatService.setRagEnabled(conversationId, enabled),
+  );
   server.register('chat.send', ({ conversationId, text, modelOverride }) =>
     chatService.send(conversationId, text, modelOverride),
   );
@@ -772,6 +785,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   server.register('pricing.override', ({ entry }) => Promise.resolve(pricingService.override(entry)));
   server.register('pricing.refresh', () => pricingUpdater.refresh());
   server.register('rag.ingest', (input) => ragService.ingest(input));
+  server.register('rag.query', (input) => ragService.query(input));
   server.register('rag.listDocuments', (input) => ragService.listDocuments(input));
   server.register('rag.deleteDocument', (input) => ragService.deleteDocument(input));
 

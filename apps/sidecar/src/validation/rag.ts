@@ -90,8 +90,8 @@ export const ingestJobSchema = z
 export const retrievalQuerySchema = z
   .object({
     projectId: projectIdSchema,
-    query: z.string(),
-    topK: z.number(),
+    query: z.string().trim().min(1).max(2_000),
+    topK: z.number().int().min(1).max(20),
     minScore: z.number().min(0).max(1),
     tagFilter: z.array(z.string()).readonly().exactOptional(),
   })
