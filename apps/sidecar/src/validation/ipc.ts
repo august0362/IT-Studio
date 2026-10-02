@@ -61,6 +61,7 @@ export const rpcParamsSchemas = {
   'chat.listConversations': z.object({ projectId: projectIdSchema }).readonly(),
   'chat.createConversation': z.object({ projectId: projectIdSchema, title: z.string().exactOptional() }).readonly(),
   'chat.getMessages': z.object({ conversationId: conversationIdSchema }).readonly(),
+  'chat.setRagEnabled': z.object({ conversationId: conversationIdSchema, enabled: z.boolean() }).readonly(),
   'chat.send': z
     .object({ conversationId: conversationIdSchema, text: z.string(), modelOverride: modelKeySchema.exactOptional() })
     .readonly(),
@@ -159,6 +160,7 @@ export const rpcResultSchemas = {
   'chat.listConversations': z.array(conversationSchema).readonly(),
   'chat.createConversation': conversationSchema,
   'chat.getMessages': z.array(chatMessageSchema).readonly(),
+  'chat.setRagEnabled': conversationSchema,
   'chat.send': z.object({ requestId: llmRequestIdSchema, userMessageId: messageIdSchema }).readonly(),
   'chat.cancel': z.object({ cancelled: z.boolean() }).readonly(),
   'router.getConfig': routerConfigSchema,

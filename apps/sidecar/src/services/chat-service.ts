@@ -14,27 +14,39 @@ import {
 import type { IClock } from '../infra/clock.js';
 import type { IIdGenerator } from '../infra/id.js';
 import type { IChatRepository } from '../ports/chat-repository.js';
+import type { RetrievalHit } from '@itstudio/schemas';
+import type { Retriever } from './rag/retriever.js';
+import type { SettingsService } from './settings-service.js';
 import type { EventBus } from '../rpc/event-bus.js';
 import type { RpcNotificationMap } from '@itstudio/schemas';
 import type { LlmRouter } from './llm-router.js';
 import type { LedgerService } from './ledger-service.js';
 import type { Logger } from 'pino';
 import { estimateTokens } from '../domain/token-estimate.js';
-import { CHAT_ASSISTANT_SYSTEM_PROMPT } from '../prompts/chat-assistant.js';
 import { chatMessageSchema, conversationSchema } from '../validation/chat.js';
 import { isoDateTimeSchema, llmRequestIdSchema } from '../validation/brand.js';
+import { renderTemplate } from '../domain/template.js';
+
+const CHAT_TEMPLATE = `You are IT Studio's assistant. Be concise and accurate.
+{{#rag}}Use the numbered knowledge blocks when relevant and cite them as [n]. If they do not contain the answer, say so before answering from general knowledge.
+<context name="knowledge">{{numberedHits}}</context>{{/rag}}
+{{#tools}}You may call tools: {{toolNames}}. Call generate_image only when the user asks for an image.{{/tools}}`;
 
 const HISTORY_TOKEN_LIMIT = 12_000;
 const HISTORY_MESSAGE_LIMIT = 20;
 
 export interface ChatServiceDependencies {
-  readonly repository: IChatRepository;
+  readonly repository: IChatRepository & {
+    setRagEnabled(id: ConversationId, enabled: boolean, updatedAt: Conversation['updatedAt']): Promise<void>;
+  };
   readonly router: Pick<LlmRouter, 'dispatch'>;
   readonly ledger: Pick<LedgerService, 'trackRequest' | 'recordedCost' | 'forgetRequest'>;
   readonly events: EventBus<RpcNotificationMap>;
   readonly ids: IIdGenerator;
   readonly clock: IClock;
   readonly logger: Logger;
+  readonly retriever?: Pick<Retriever, 'query'>;
+  readonly settings?: Pick<SettingsService, 'get'>;
 }
 
 export class ChatService {
@@ -72,6 +84,15 @@ export class ChatService {
     if (conversation === null)
       return fail(ErrorCode.NOT_FOUND, 'Conversation was not found.', ['Choose an existing conversation.']);
     return { ok: true, value: await this.deps.repository.listMessages(conversationId) };
+  }
+
+  async setRagEnabled(conversationId: ConversationId, enabled: boolean): Promise<Result<Conversation>> {
+    const conversation = await this.deps.repository.getConversation(conversationId);
+    if (conversation === null)
+      return fail(ErrorCode.NOT_FOUND, 'Conversation was not found.', ['Choose an existing conversation.']);
+    const updatedAt = isoDateTimeSchema.parse(this.deps.clock.now().toISOString());
+    await this.deps.repository.setRagEnabled(conversationId, enabled, updatedAt);
+    return { ok: true, value: conversationSchema.parse({ ...conversation, ragEnabled: enabled, updatedAt }) };
   }
 
   async send(
@@ -124,12 +145,45 @@ export class ChatService {
   ): Promise<void> {
     try {
       const history = await this.deps.repository.listMessages(conversation.id);
+      let hits: readonly RetrievalHit[] = [];
+      if (conversation.ragEnabled && this.deps.retriever !== undefined && this.deps.settings !== undefined) {
+        const configured = await this.deps.settings.get();
+        const retrieval = configured.ok
+          ? await this.deps.retriever.query({
+              projectId: conversation.projectId,
+              query: lastUserText(history),
+              topK: configured.value.rag.defaultTopK,
+              minScore: configured.value.rag.minScore,
+            })
+          : configured;
+        if (retrieval.ok) hits = retrieval.value;
+        else if (retrieval.error.code === ErrorCode.BUDGET_HARD_STOP) {
+          this.deps.events.publish('chat.failed', { requestId, error: retrieval.error });
+          return;
+        } else {
+          this.deps.logger.warn(
+            {
+              requestId,
+              conversationId: conversation.id,
+              projectId: conversation.projectId,
+              error: retrieval.error.message,
+            },
+            'Chat RAG retrieval failed; continuing without knowledge context',
+          );
+        }
+      }
+      const systemPrompt = renderTemplate(CHAT_TEMPLATE, {
+        rag: hits.length > 0,
+        numberedHits: formatHits(hits),
+        tools: false,
+        toolNames: '',
+      });
       const request: LlmRequest = {
         id: requestId,
         projectId: conversation.projectId,
         purpose: 'chat',
         messages: selectHistory(history),
-        systemPrompt: CHAT_ASSISTANT_SYSTEM_PROMPT,
+        systemPrompt,
         requiredCapabilities: [ModelCapability.CHAT],
         stream: true,
         ...(modelOverride === undefined ? {} : { ladderOverride: [modelOverride] }),
@@ -145,7 +199,8 @@ export class ChatService {
         this.deps.events.publish('chat.failed', { requestId, error: result.error });
         return;
       }
-      await this.deps.repository.createMessage(result.value.message);
+      const message = addCitations(result.value.message, hits);
+      await this.deps.repository.createMessage(message);
       const firstUser = history.find((message) => message.role === 'user');
       if (conversation.title === 'New chat' && firstUser !== undefined) {
         const firstText = firstUser.parts
@@ -162,7 +217,7 @@ export class ChatService {
       if (cost === undefined) throw new Error('Completed request has no ledger cost');
       this.deps.events.publish('chat.completed', {
         requestId,
-        message: result.value.message,
+        message,
         cost,
       });
     } catch (error) {
@@ -196,6 +251,52 @@ function selectHistory(messages: readonly ChatMessage[]): readonly ChatMessage[]
     tokens += messageTokens;
   }
   return selected.reverse();
+}
+
+function lastUserText(messages: readonly ChatMessage[]): string {
+  const message = [...messages].reverse().find((item) => item.role === 'user');
+  return (
+    message?.parts
+      .filter((part) => part.type === 'text')
+      .map((part) => part.text)
+      .join('\n') ?? ''
+  );
+}
+
+function formatHits(hits: readonly RetrievalHit[]): string {
+  return hits
+    .map((hit, index) => {
+      const section = hit.sectionPath.join(' › ');
+      const title = section.length === 0 ? hit.documentTitle : `${hit.documentTitle} › ${section}`;
+      return `[${String(index + 1)}] ${neutralize(title)}\n${neutralize(hit.text)}`;
+    })
+    .join('\n\n');
+}
+
+function neutralize(text: string): string {
+  return text.replace(/<\/context>/giu, (match) => `<\\/${match.slice(2)}`);
+}
+
+function addCitations(message: ChatMessage, hits: readonly RetrievalHit[]): ChatMessage {
+  const text = message.parts
+    .filter((part) => part.type === 'text')
+    .map((part) => part.text)
+    .join('');
+  const cited = new Set<number>();
+  const citations: RetrievalHit[] = [];
+  for (const match of text.matchAll(/\[(\d+)\]/gu)) {
+    const index = Number(match[1]);
+    if (!Number.isInteger(index) || index < 1 || index > hits.length || cited.has(index)) continue;
+    const hit = hits[index - 1];
+    if (hit !== undefined) {
+      cited.add(index);
+      citations.push(hit);
+    }
+  }
+  return chatMessageSchema.parse({
+    ...message,
+    parts: [...message.parts, ...citations.map((hit) => ({ type: 'citation' as const, hit }))],
+  });
 }
 
 function fail<T = never>(code: AppError['code'], message: string, remediation: readonly string[]): Result<T> {

@@ -63,6 +63,7 @@ export class MemoryVectorStore implements IVectorStore {
         text: row.text,
         sectionPath: row.sectionPath,
         score,
+        vector: row.vector,
       }));
     return Promise.resolve(success(hits));
   }

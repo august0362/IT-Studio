@@ -25,7 +25,13 @@ export function vectorStoreContract(name: string, store: IVectorStore): void {
       expect((await store.upsertChunks(projectId, [row(chunkB, documentB, [1, 0], 'replaced')])).ok).toBe(true);
       const result = await store.search(projectId, [1, 0], { topK: 2, minScore: 0.8 });
       expect(result.ok).toBe(true);
-      if (result.ok) expect(result.value.map((hit) => hit.chunkId)).toEqual([chunkA, chunkB]);
+      if (result.ok) {
+        expect(result.value.map((hit) => hit.chunkId)).toEqual([chunkA, chunkB]);
+        expect(result.value.map((hit) => hit.vector)).toEqual([
+          [1, 0],
+          [1, 0],
+        ]);
+      }
       const count = await store.count(projectId);
       expect(count).toEqual({ ok: true, value: 3 });
       const replaced = await store.search(projectId, [1, 0], { topK: 3, minScore: 0 });

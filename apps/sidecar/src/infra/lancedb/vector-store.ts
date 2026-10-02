@@ -149,15 +149,20 @@ function parseHit(value: unknown): VectorSearchHit | undefined {
     !('documentId' in value) ||
     !('text' in value) ||
     !('sectionPath' in value) ||
+    !('vector' in value) ||
     !('_distance' in value)
   )
     return undefined;
   const row = value;
+  const vector = arrayValues(row.vector);
   if (
     typeof row.chunkId !== 'string' ||
     typeof row.documentId !== 'string' ||
     typeof row.text !== 'string' ||
     stringArray(row.sectionPath) === undefined ||
+    vector === undefined ||
+    vector.length === 0 ||
+    !vector.every((item) => typeof item === 'number' && Number.isFinite(item)) ||
     typeof row._distance !== 'number' ||
     !Number.isFinite(row._distance)
   )
@@ -169,6 +174,7 @@ function parseHit(value: unknown): VectorSearchHit | undefined {
     text: row.text,
     sectionPath: stringArray(row.sectionPath) ?? [],
     score,
+    vector: vector.map((item) => Number(item)),
   };
 }
 

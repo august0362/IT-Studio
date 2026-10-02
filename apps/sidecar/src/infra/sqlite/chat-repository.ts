@@ -43,6 +43,15 @@ export class ChatRepository implements IChatRepository {
     return Promise.resolve();
   }
 
+  setRagEnabled(id: ConversationId, ragEnabled: boolean, updatedAt: Conversation['updatedAt']): Promise<void> {
+    this.db
+      .update(conversations)
+      .set({ ragEnabled: ragEnabled ? 1 : 0, updatedAt })
+      .where(eq(conversations.id, id))
+      .run();
+    return Promise.resolve();
+  }
+
   listMessages(id: ConversationId): Promise<readonly ChatMessage[]> {
     return Promise.resolve(
       this.db
