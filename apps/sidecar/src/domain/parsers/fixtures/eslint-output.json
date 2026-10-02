@@ -1,0 +1,21 @@
+[
+  {
+    "filePath": "C:/workspace/project/src/main.ts",
+    "messages": [
+      {
+        "ruleId": "no-unused-vars",
+        "severity": 1,
+        "message": "'unused' is assigned a value but never used.",
+        "line": 3,
+        "column": 7
+      },
+      {
+        "ruleId": "@typescript-eslint/no-explicit-any",
+        "severity": 2,
+        "message": "Unexpected any. Specify a different type.",
+        "line": 8,
+        "column": 14
+      }
+    ]
+  }
+]

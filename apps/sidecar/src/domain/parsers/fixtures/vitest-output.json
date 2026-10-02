@@ -1,0 +1,16 @@
+{
+  "numPassedTests": 2,
+  "numFailedTests": 1,
+  "numPendingTests": 1,
+  "testResults": [
+    {
+      "name": "C:/workspace/project/src/math.test.ts",
+      "assertionResults": [
+        { "fullName": "adds values", "status": "passed", "failureMessages": [] },
+        { "fullName": "rejects invalid input", "status": "failed", "failureMessages": ["Expected 2, received 3"] },
+        { "fullName": "handles pending case", "status": "pending", "failureMessages": [] },
+        { "fullName": "legacy test", "status": "skipped", "failureMessages": [] }
+      ]
+    }
+  ]
+}
