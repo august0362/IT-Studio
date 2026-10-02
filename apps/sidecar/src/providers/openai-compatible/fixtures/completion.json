@@ -1,0 +1,15 @@
+{
+  "id": "chatcmpl-test",
+  "object": "chat.completion",
+  "created": 1720000000,
+  "model": "test-model",
+  "choices": [
+    { "index": 0, "message": { "role": "assistant", "content": "contract response" }, "finish_reason": "stop" }
+  ],
+  "usage": {
+    "prompt_tokens": 3,
+    "completion_tokens": 4,
+    "total_tokens": 7,
+    "prompt_tokens_details": { "cached_tokens": 1 }
+  }
+}
