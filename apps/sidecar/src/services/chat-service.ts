@@ -5,7 +5,6 @@ import {
   type ChatMessage,
   type Conversation,
   type ConversationId,
-  type FxRate,
   type LlmRequest,
   type LlmRequestId,
   type ModelKey,
@@ -18,11 +17,8 @@ import type { IChatRepository } from '../ports/chat-repository.js';
 import type { EventBus } from '../rpc/event-bus.js';
 import type { RpcNotificationMap } from '@itstudio/schemas';
 import type { LlmRouter } from './llm-router.js';
-import type { SettingsService } from './settings-service.js';
-import type { PriceTable } from '@itstudio/schemas';
+import type { LedgerService } from './ledger-service.js';
 import type { Logger } from 'pino';
-import { computeTokenCost } from '../domain/cost.js';
-import { microUsd, toMoneyDisplay } from '../domain/money.js';
 import { estimateTokens } from '../domain/token-estimate.js';
 import { CHAT_ASSISTANT_SYSTEM_PROMPT } from '../prompts/chat-assistant.js';
 import { chatMessageSchema, conversationSchema } from '../validation/chat.js';
@@ -34,12 +30,10 @@ const HISTORY_MESSAGE_LIMIT = 20;
 export interface ChatServiceDependencies {
   readonly repository: IChatRepository;
   readonly router: Pick<LlmRouter, 'dispatch'>;
-  readonly settings: Pick<SettingsService, 'get'>;
+  readonly ledger: Pick<LedgerService, 'trackRequest' | 'recordedCost' | 'forgetRequest'>;
   readonly events: EventBus<RpcNotificationMap>;
   readonly ids: IIdGenerator;
   readonly clock: IClock;
-  readonly priceTable: () => PriceTable;
-  readonly seedFx: () => { readonly usdToVnd: number; readonly asOf: string };
   readonly logger: Logger;
 }
 
@@ -140,6 +134,7 @@ export class ChatService {
         stream: true,
         ...(modelOverride === undefined ? {} : { ladderOverride: [modelOverride] }),
       };
+      this.deps.ledger.trackRequest(request);
       const result = await this.deps.router.dispatch(request, {
         signal: controller.signal,
         onDelta: (textDelta) => {
@@ -163,21 +158,12 @@ export class ChatService {
           isoDateTimeSchema.parse(this.deps.clock.now().toISOString()),
         );
       }
-      const settings = await this.deps.settings.get();
-      const manualFx = settings.ok ? settings.value.fx.manualUsdToVnd : null;
-      const fx: FxRate = {
-        usdToVnd: manualFx ?? this.deps.seedFx().usdToVnd,
-        asOf: isoDateTimeSchema.parse(
-          manualFx === null ? this.deps.seedFx().asOf : this.deps.clock.now().toISOString(),
-        ),
-        source: manualFx === null ? 'auto' : 'manual_override',
-      };
-      const price = this.deps.priceTable().entries.find((entry) => entry.modelKey === result.value.modelKey);
-      const cost = price === undefined ? microUsd(0) : computeTokenCost(result.value.usage, price);
+      const cost = await this.deps.ledger.recordedCost(requestId);
+      if (cost === undefined) throw new Error('Completed request has no ledger cost');
       this.deps.events.publish('chat.completed', {
         requestId,
         message: result.value.message,
-        cost: toMoneyDisplay(cost, fx),
+        cost,
       });
     } catch (error) {
       this.deps.logger.error({ requestId, conversationId: conversation.id, err: error }, 'Chat request failed');
@@ -189,6 +175,7 @@ export class ChatService {
       };
       this.deps.events.publish('chat.failed', { requestId, error: chatError });
     } finally {
+      this.deps.ledger.forgetRequest(requestId);
       this.inFlight.delete(requestId);
       this.busyConversations.delete(conversation.id);
     }

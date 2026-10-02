@@ -1,26 +1,15 @@
 import { PassThrough } from 'node:stream';
 import { afterEach, describe, expect, it } from 'vitest';
-import {
-  ErrorCode,
-  type ChatMessage,
-  type LlmRequest,
-  type PriceTable,
-  type RpcNotificationMap,
-} from '@itstudio/schemas';
+import { type ChatMessage, type LlmRequest, type RpcNotificationMap } from '@itstudio/schemas';
 import { createFakeClock } from '../infra/clock.js';
 import { createLogger } from '../infra/logger.js';
 import { EventBus } from '../rpc/event-bus.js';
 import type { IChatRepository } from '../ports/chat-repository.js';
 import { chatMessageSchema, conversationSchema } from '../validation/chat.js';
-import {
-  conversationIdSchema,
-  isoDateTimeSchema,
-  messageIdSchema,
-  priceTableVersionSchema,
-  projectIdSchema,
-} from '../validation/brand.js';
+import { conversationIdSchema, isoDateTimeSchema, messageIdSchema, projectIdSchema } from '../validation/brand.js';
 import { ChatService } from './chat-service.js';
 import { microUsd } from '../domain/money.js';
+import { vndSchema } from '../validation/brand.js';
 
 const projectId = projectIdSchema.parse('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
 const conversationId = conversationIdSchema.parse('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
@@ -33,12 +22,6 @@ const conversation = conversationSchema.parse({
   createdAt: now,
   updatedAt: now,
 });
-const priceTable: PriceTable = {
-  version: priceTableVersionSchema.parse('seed-v1'),
-  effectiveFrom: now,
-  entries: [],
-  origin: 'seed',
-};
 const created: ChatMessage[] = [];
 const updatedTitles: string[] = [];
 let capturedRequest: LlmRequest | undefined;
@@ -91,11 +74,16 @@ function makeService() {
         });
       },
     },
-    settings: {
-      get: () =>
+    ledger: {
+      trackRequest: () => undefined,
+      forgetRequest: () => undefined,
+      recordedCost: () =>
         Promise.resolve({
-          ok: false,
-          error: { code: ErrorCode.INTERNAL, message: 'unused', retryable: false, remediation: ['Retry.'] },
+          microUsd: microUsd(0),
+          vnd: vndSchema.parse(0),
+          usdText: '$0.00',
+          vndText: '0 â‚«',
+          fxAsOf: now,
         }),
     },
     events,
@@ -106,8 +94,6 @@ function makeService() {
       })(),
     },
     clock: createFakeClock(new Date(now)),
-    priceTable: () => priceTable,
-    seedFx: () => ({ usdToVnd: 25_000, asOf: now }),
     logger: createLogger({ streams: [new PassThrough()] }),
   });
   return { service, events };

@@ -17,6 +17,7 @@ import { openDatabase } from './infra/sqlite/database.js';
 import { ProjectRepository } from './infra/sqlite/project-repository.js';
 import { SettingsRepository } from './infra/sqlite/settings-repository.js';
 import { ChatRepository } from './infra/sqlite/chat-repository.js';
+import { LedgerRepository } from './infra/sqlite/ledger-repository.js';
 import { ProjectService } from './services/project-service.js';
 import { SettingsService } from './services/settings-service.js';
 import { ChatService } from './services/chat-service.js';
@@ -40,6 +41,9 @@ import { ModelRegistry } from './services/model-registry.js';
 import { AlwaysOkBudgetGuard } from './ports/budget-guard.js';
 import { LlmRouter, type RouterCompleted } from './services/llm-router.js';
 import { computeTokenCost } from './domain/cost.js';
+import { isoDateTimeSchema } from './validation/brand.js';
+import { LedgerService } from './services/ledger-service.js';
+import { SeedPriceSource } from './services/price-source.js';
 import { readFileSync } from 'node:fs';
 import { readdirSync } from 'node:fs';
 import { ErrorCode, type AppError, type Result } from '@itstudio/schemas';
@@ -175,6 +179,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const migrationsApplied = readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).length;
   const projectRepository = new ProjectRepository(database.db);
   const chatRepository = new ChatRepository(database.db);
+  const ledgerRepository = new LedgerRepository(database.db);
   const settingsRepository = new SettingsRepository(database.db);
   const settingsService = new SettingsService({
     repository: settingsRepository,
@@ -230,6 +235,20 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const modelRegistry = new ModelRegistry(loadedSeeds.value.models, providers);
   const events = new EventBus<RpcNotificationMap>();
   const routerCompleted = new EventBus<{ completed: RouterCompleted }>();
+  const priceSource = new SeedPriceSource(loadedSeeds.value.pricing, {
+    usdToVnd: loadedSeeds.value.fx.seedUsdToVnd,
+    asOf: isoDateTimeSchema.parse(loadedSeeds.value.fx.seedAsOf),
+    source: 'auto',
+  });
+  const ledgerService = new LedgerService({
+    repository: ledgerRepository,
+    prices: priceSource,
+    completed: routerCompleted,
+    events,
+    ids,
+    clock,
+    logger,
+  });
   const routerConfigService = new RouterConfigService({ settings: settingsService, models: modelRegistry });
   const fallbackDecider = new UserFallbackDecider({
     events,
@@ -275,12 +294,10 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const chatService = new ChatService({
     repository: chatRepository,
     router: llmRouter,
-    settings: settingsService,
+    ledger: ledgerService,
     events,
     ids,
     clock,
-    priceTable: () => loadedSeeds.value.pricing,
-    seedFx: () => ({ usdToVnd: loadedSeeds.value.fx.seedUsdToVnd, asOf: loadedSeeds.value.fx.seedAsOf }),
     logger,
   });
   const serverRef: { current?: RpcServer } = {};
@@ -324,6 +341,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     chatService.send(conversationId, text, modelOverride),
   );
   server.register('chat.cancel', ({ requestId }) => chatService.cancel(requestId));
+  server.register('ledger.query', (query) => ledgerService.query(query));
 
   return {
     clock,
@@ -335,6 +353,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     modelRegistry,
     llmRouter,
     chatService,
+    ledgerService,
     routerCompleted,
     projectService,
     events,
