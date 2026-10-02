@@ -27,4 +27,15 @@ describe('renderTemplate', () => {
       '<context name="request">x<\\/context>y</context>',
     );
   });
+
+  it('TC-M6-060 neutralizes case and whitespace variants of context closing tags', () => {
+    for (const payload of ['</CONTEXT>', '</Context >', '</context\n>']) {
+      expect(contextBlock('request', `before${payload}after`)).toBe(
+        '<context name="request">before<\\/context>after</context>',
+      );
+      expect(renderTemplate('<context>{{request}}</context>', { request: payload })).toBe(
+        '<context><\\/context></context>',
+      );
+    }
+  });
 });

@@ -12,7 +12,7 @@ afterEach(() => {
 });
 
 describe('writeVscodeSessionFile', () => {
-  it('atomically writes the session and appends the gitignore entry once', async () => {
+  it('TC-M7-008 atomically writes the session and appends the gitignore entry once', async () => {
     const root = mkdtempSync(join(tmpdir(), 'itstudio-vscode-session-'));
     directories.push(root);
     const session = { port: 43210, token: 'a'.repeat(64), protocolVersion: 1 as const };

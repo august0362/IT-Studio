@@ -27,7 +27,7 @@ export class CommandRunner {
     this.env = dependencies.env ?? process.env;
   }
 
-  async run(projectRoot: string, spec: CommandSpec): Promise<Result<CommandRun>> {
+  async run(projectRoot: string, spec: CommandSpec, signal?: AbortSignal): Promise<Result<CommandRun>> {
     const root = await this.fileSystem.realpath(projectRoot);
     if (!root.ok) return root;
     const stat = await this.fileSystem.stat(root.value);
@@ -49,6 +49,7 @@ export class CommandRunner {
       cwd: root.value,
       env: this.env,
       timeoutMs: spec.timeoutMs,
+      ...(signal === undefined ? {} : { signal }),
     });
     if (!run.ok) return run;
 

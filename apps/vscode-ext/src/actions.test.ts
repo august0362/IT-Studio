@@ -79,21 +79,21 @@ function setup(revealSetting = true): { readonly editor: FakeEditor; readonly di
 }
 
 describe('sidecar actions', () => {
-  it('reveals files and acknowledges the request', () => {
+  it('TC-M7-010 reveals files and acknowledges the request', () => {
     const { editor, dispatch } = setup();
     dispatch({ type: 'reveal', ref: 4, path: 'src/app.ts', line: 8 });
     expect(editor.revealed).toEqual([{ path: 'C:\\project\\src\\app.ts', line: 8 }]);
     expect(editor.acknowledgements).toEqual([4]);
   });
 
-  it('shows a before and after diff and acknowledges it', () => {
+  it('TC-M7-011 shows a before and after diff and acknowledges it', () => {
     const { editor, dispatch } = setup();
     dispatch({ type: 'show_diff', ref: 5, path: 'src/app.ts', before: 'old', after: 'new', title: 'Change' });
     expect(editor.diffs).toEqual([{ path: 'C:\\project\\src\\app.ts', before: 'old', after: 'new', title: 'Change' }]);
     expect(editor.acknowledgements).toEqual([5]);
   });
 
-  it('decorates all committed paths and optionally reveals the first', () => {
+  it('TC-M7-012 decorates committed paths and optionally reveals the first', () => {
     const { editor, dispatch } = setup();
     dispatch({ type: 'transaction', ref: 6, transactionId: 'tx', status: 'committed', paths: ['a.ts', 'sub/b.ts'] });
     expect(editor.decorated).toEqual([['C:\\project\\a.ts', 'C:\\project\\sub\\b.ts']]);
@@ -109,7 +109,7 @@ describe('sidecar actions', () => {
     expect(editor.acknowledgements).toEqual([7]);
   });
 
-  it('clears decorations and warns when a transaction rolls back', () => {
+  it('TC-M7-012 clears decorations and warns when a transaction rolls back', () => {
     const { editor, dispatch } = setup();
     dispatch({ type: 'transaction', ref: 8, transactionId: 'tx-8', status: 'rolled_back', paths: [] });
     expect(editor.cleared).toBe(1);
@@ -137,7 +137,7 @@ describe('sidecar actions', () => {
     expect(editor.acknowledgements).toEqual([10, 11, 12]);
   });
 
-  it('returns workspace diagnostics and acknowledges the request', () => {
+  it('TC-M7-014 returns workspace diagnostics with relative paths, 1-based lines, and mapped severity', () => {
     const { editor, dispatch } = setup();
     editor.diagnostics = [
       {
@@ -160,7 +160,7 @@ describe('sidecar actions', () => {
     expect(editor.acknowledgements).toEqual([13]);
   });
 
-  it('acks and logs rejected paths without opening or showing diffs', () => {
+  it('TC-M7-013 acknowledges and logs absolute, traversal, and escaping paths without editor actions', () => {
     const { editor, dispatch } = setup();
     for (const [index, value] of [
       '/outside/file.ts',
@@ -219,7 +219,7 @@ describe('workspace paths and diagnostics', () => {
 });
 
 describe('diff content LRU', () => {
-  it('retains the 20 newest entries and refreshes recently read entries', () => {
+  it('TC-M7-011 retains the 20 newest diff entries and refreshes recently read entries', () => {
     const store = new DiffContentStore();
     for (let index = 0; index < 20; index += 1) {
       store.set(String(index), { path: `${String(index)}.ts`, before: 'before', after: 'after' });

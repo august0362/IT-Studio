@@ -78,6 +78,52 @@ async function startPricingProject(entryChange: number): Promise<{
 }
 
 describe('pricing updater integration', () => {
+  it('TC-M3-022 requires an active project before attempting a pricing refresh', async () => {
+    sidecar = await startSidecar();
+    const response = await sidecar.call('pricing.refresh');
+    expect(response.error).toBeDefined();
+    expect(response.error?.message).toContain('active project');
+  });
+
+  it('TC-M3-011 accepts decimal USD overrides and rejects unsupported decimal forms', async () => {
+    const seeds = loadSeeds('config');
+    if (!seeds.ok) throw new Error(seeds.error.message);
+    const modelKey = seeds.value.defaultPricingExtractionModel;
+    const model = seeds.value.models.find((item) => item.key === modelKey);
+    if (model === undefined) throw new Error('Extraction model is missing');
+    sidecar = await startSidecar();
+    const workspace = resolve(sidecar.dataDir, 'manual-pricing-workspace');
+    await mkdir(workspace);
+    await sidecar.call('project.create', { name: 'Manual pricing', workspaceRoot: workspace });
+    const accepted = await sidecar.call('pricing.overrideUsd', {
+      modelKey,
+      inputPerMTokUsd: '0.15',
+      outputPerMTokUsd: '0',
+      cachedInputPerMTokUsd: '0.000001',
+    });
+    expect(accepted.error).toBeUndefined();
+    const price = priceTableSchema
+      .parse((await sidecar.call('pricing.get')).result)
+      .entries.find((entry) => entry.modelKey === modelKey);
+    expect(price).toMatchObject({
+      inputPerMTokMicroUsd: 150_000,
+      outputPerMTokMicroUsd: 0,
+      cachedInputPerMTokMicroUsd: 1,
+    });
+    for (const value of ['1000.000001', '1e3', '-1']) {
+      expect(
+        (
+          await sidecar.call('pricing.overrideUsd', {
+            modelKey,
+            inputPerMTokUsd: value,
+            outputPerMTokUsd: '1',
+            cachedInputPerMTokUsd: '1',
+          })
+        ).error,
+      ).toBeDefined();
+    }
+  });
+
   it('TC-M3-020 applies +10% and keeps an older ledger row frozen', async () => {
     const seeds = loadSeeds('config');
     if (!seeds.ok) throw new Error(seeds.error.message);
@@ -123,5 +169,21 @@ describe('pricing updater integration', () => {
     expect(run.status).toBe('rejected_validation');
     expect(run.deltas.some((delta) => delta.modelKey === setup.model.key && delta.percent === 80)).toBe(true);
     expect(priceTableSchema.parse((await app.call('pricing.get')).result)).toEqual(before);
+  }, 30_000);
+
+  it('TC-M3-024 rejects a fetched page containing prompt injection when its extracted change is unsafe', async () => {
+    const seeds = loadSeeds('config');
+    if (!seeds.ok) throw new Error(seeds.error.message);
+    const entry = seeds.value.pricing.entries.find(
+      (item) => item.modelKey === seeds.value.defaultPricingExtractionModel,
+    );
+    if (entry === undefined) throw new Error('Extraction model is missing its price');
+    const setup = await startPricingProject(entry.inputPerMTokMicroUsd);
+    const before = priceTableSchema.parse((await requireSidecar().call('pricing.get')).result);
+    const result = await requireSidecar().call('pricing.refresh');
+    expect(result.error).toBeUndefined();
+    expect(priceUpdateRunSchema.parse(result.result).status).toBe('rejected_validation');
+    expect(priceTableSchema.parse((await requireSidecar().call('pricing.get')).result)).toEqual(before);
+    expect(setup.projectId).toBeDefined();
   }, 30_000);
 });
