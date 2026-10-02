@@ -11,7 +11,7 @@
 |---|---|---|
 | M0 Environment & scaffold | **Done** | 8 / 8 |
 | M1 Sidecar core & IPC | In progress | 6 / 7 |
-| M2 LLM router & providers | In progress | 3 / 9 |
+| M2 LLM router & providers | In progress | 3 / 10 |
 | M3 Cost, pricing, FX, budget, P&L | In progress | 1 / 7 |
 | M4 UI shell, Settings, Chat, P&L | Not started | 0 / 7 |
 | M5 RAG | Not started | 0 / 7 |
@@ -19,6 +19,11 @@
 | M7 VS Code companion extension | Not started | 0 / 5 |
 | M8 Image generation *(deferred)* | Deferred | 0 / 5 |
 | M9 Packaging & release *(deferred)* | Deferred | 0 / 6 |
+| **v2** M10 Agent Orchestrator | After v1 | 0 / 7 |
+| **v2** M11 Agent Memory | After v1 | 0 / 6 |
+| **v2** M12 Channels framework + Outbox + VS Code chat | After v1 | 0 / 6 |
+| **v2** M13 Gmail channel | After v1 | 0 / 6 |
+| **v2** M14 Facebook Page channel | After v1 | 0 / 4 |
 
 ---
 
@@ -60,6 +65,7 @@
 - [ ] **M2-07** (C) `LlmRouter` service: eligibility, ordering (override → lock → ladder), retry/backoff+jitter, fallback, circuit breaker, cancel, mid-stream fallback, `router.event`s.
 - [ ] **M2-08** (C) Auto Fallback OFF: `FallbackDecisionRequest` with candidate cost estimates, `router.resolveFallback`, expiry → `FALLBACK_DECLINED`.
 - [ ] **M2-09** (C) `router.getConfig` / `router.updateConfig` with validation (unique priorities, existing models).
+- [ ] **M2-10** (C) `ChatService`: conversations/messages repos, `chat.*` RPC, streaming via router (`chat.delta/completed/failed`), optional RAG context, per-message cost. *(Gap found 2026-10-02: backend for M4-04.)*
 
 ## M3 — Cost, pricing, FX, budget, P&L
 
@@ -139,6 +145,64 @@ Spec: ARCH §14.2.
 - [ ] **M9-04** (A) Code-signing setup (user supplies certificate) + updater key pair (private key outside repo).
 - [ ] **M9-05** (C) Version bump script (4 manifests) + release CHANGELOG automation.
 - [ ] **M9-06** (A) Clean-VM smoke test checklist and execution.
+
+---
+
+# v2 — Multi-Agent & Omnichannel Hub (start only after M7; ADR-0003, ARCH Part II)
+
+## M10 — Agent Orchestrator
+
+**Exit criteria:** user creates a custom agent in the Agent Builder and chats with it; the v1 pipeline runs as an agent team with unchanged behaviour; agent costs appear in P&L.
+
+- [ ] **M10-01** (A+C) `agents` table + repo; A writes `config/agents.seed.json` (6 templates); seeded on first run; `agents.*` RPC; additive CostPurpose `agent`, `memory_extraction`, `triage` (ADR).
+- [ ] **M10-02** (C) `AgentRunner`: context building, tool loop (≤ 6 calls), trigger-based tool restrictions (ARCH §15.2), `AgentRun` persistence.
+- [ ] **M10-03** (C) Routing rules repo + matcher + `routing.*` RPC.
+- [ ] **M10-04** (C) Tools `search_knowledge`, `draft_reply` (Outbox stub until M12-02), `start_pipeline`.
+- [ ] **M10-05** (C) Re-express the §8 pipeline as a PM/Coder/QA agent team (no behaviour change; M6 regression tests).
+- [ ] **M10-06** (C) Settings → Agents: Agent Builder UI (list, clone template, edit persona/ladder/tools/channels/memory policy).
+- [ ] **M10-07** (C) Chat tab agent picker + per-project default agent.
+
+## M11 — Agent Memory
+
+**Exit criteria:** after a conversation the agent recalls a stated preference in a new conversation; the user can view/edit/pin/delete it; nothing is extracted from external channels by default.
+
+- [ ] **M11-01** (C) `memories` table + LanceDB `memories_<agentId>` store (upsert, delete, search).
+- [ ] **M11-02** (C) Extraction service (prompt ROLES §2.8), dedupe (cos ≥ 0.92), secret/PII filter; runs when a user-driven conversation closes.
+- [ ] **M11-03** (C) Recall scoring (ARCH §16.3), memory context injection, `recall_memory` tool.
+- [ ] **M11-04** (C) Explicit remember: "remember …" phrase, message action, `remember` tool (non-external triggers only).
+- [ ] **M11-05** (C) `memory.*` RPC (list/search/update/pin/delete/forgetAll/export/cleanup).
+- [ ] **M11-06** (C) Memory page UI.
+
+## M12 — Channels framework, Outbox, VS Code chat
+
+**Exit criteria:** a fake adapter syncs on click, an agent drafts a reply into the Outbox, nothing is sent until approved; the VS Code chat panel talks to agents.
+
+- [ ] **M12-01** (C) `IChannelAdapter` port, `ChannelService` (user-triggered sync), `channel_accounts` / `channel_messages` tables, `channels.*` RPC, fake adapter + contract tests.
+- [ ] **M12-02** (C) `OutboxService`: approval lifecycle, edit, send-only-on-approve, 20/h/account cap, expiry; `outbox.*` RPC.
+- [ ] **M12-03** (C) Triage service (batch, cheapest JSON model, purpose `triage`) + "Process" → routing → AgentRunner.
+- [ ] **M12-04** (C) Inbox tab UI (Inbound / Outbox panes, badges, approve/edit/reject).
+- [ ] **M12-05** (C) VS Code protocol v2 + webview chat panel (agent picker, send selection/file).
+- [ ] **M12-06** (C) Sidecar side of VS Code chat (route to AgentRunner, stream replies).
+
+## M13 — Gmail channel
+
+**Exit criteria:** on click, new mail is fetched; Triage labels it; an agent drafts a reply; approve sends it in-thread; an `[ITS]` email from the user's own address becomes a confirmed command.
+
+- [ ] **M13-01** (C) OAuth installed-app flow (PKCE, loopback) + refresh token in keychain; connect/disconnect.
+- [ ] **M13-02** (C) Sync via `history.list` (fallback `messages.list`), MIME → plain text, attachment names only.
+- [ ] **M13-03** (C) Send with threading headers; Outbox integration.
+- [ ] **M13-04** (C) Apply `ITStudio/*` labels after triage confirmation.
+- [ ] **M13-05** (C) Email commands (allow-list, `[ITS]` prefix, DKIM pass, in-app confirmation).
+- [ ] **M13-06** (A+C) "Email me this report" actions + A writes `docs/guides/gmail-setup.md`.
+
+## M14 — Facebook Page channel
+
+**Exit criteria:** on click, new Page conversations are fetched; an agent drafts; approve sends within the 24 h window; expired drafts are blocked with guidance.
+
+- [ ] **M14-01** (C) Page token connect (keychain), page info + permission check.
+- [ ] **M14-02** (C) Conversations sync (user-triggered).
+- [ ] **M14-03** (C) Send API with 24 h window enforcement + rate-limit backoff.
+- [ ] **M14-04** (A) `docs/guides/facebook-page-setup.md` (Meta app, permissions, long-lived Page token).
 
 ---
 
