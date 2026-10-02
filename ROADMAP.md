@@ -98,7 +98,7 @@
 - [x] **M4-01b** (C) Theme system per `docs/design/THEMES.md` §5–§7: token CSS variables + Tailwind mapping, no-flash startup, system-mode listener, Settings → Theme picker (cards, filters, hover preview, a11y radiogroup), Monaco theme bridge, contrast test over all 36 theme/mode pairs, ban raw colors in components. (Data `config/themes.json` done by A.)
 - [x] **M4-02** (C) Shared components: `<Money>`, `<SafeMarkdown>` (+ XSS test corpus), `<ErrorPanel>` (renders `AppError.remediation`).
 - [ ] **M4-03** (C) Settings: Router ladder (dnd-kit), **Auto Fallback** toggle, lock model, Budget (+ **Hard Stop** toggle), Pricing (table, refresh, override), FX (rate, override), VS Code options, Pipeline role assignment.
-- [ ] **M4-04** (C) Chat tab: conversation list, unified model dropdown (+ Lock), streaming with cancel, fallback badge + partial-reset handling, fallback modal (Auto OFF), per-message cost `<Money>`.
+- [x] **M4-04** (C) Chat tab: conversation list, unified model dropdown (+ Lock), streaming with cancel, fallback badge + partial-reset handling, fallback modal (Auto OFF), per-message cost `<Money>`.
 - [ ] **M4-05** (C) Cost & P&L tab: revenue/cost/margin KPIs, charts by model/purpose/day (Recharts), budget bars with warning states, revenue entry form (USD/VND), ledger table with filters; live refresh on `ledger.entry`. Plus **All-projects dashboard**: per-project margin table, portfolio totals, top spend by project/model.
 - [ ] **M4-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M4-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M4-report.md` sign-off. Scope: UI system tests: project tabs open/switch/close, theme switching (all 36 theme/mode pairs smoke + contrast), Settings flows, chat with fallback badge & modal, P&L dashboards; XSS corpus through chat rendering; keyboard-only navigation.
 
@@ -135,7 +135,7 @@
 
 - [x] **M7-01** (C) Extension skeleton: activation on `workspaceContains:.itstudio/session.json`, WS client, `ExtHello`, reconnect, status bar item.
 - [x] **M7-02** (C) Sidecar `VSCodeBridge`: WS server on loopback, token (constant-time), Origin rejection, heartbeat, `vscode.status`. Ref: ARCH §10.1.
-- [ ] **M7-03** (C) Launcher (`code` resolve, `shell:false`) + installer (`--list-extensions`, `--install-extension` bundled vsix) + vsix build script; `.itstudio/` gitignore guard.
+- [x] **M7-03** (C) Launcher (`code` resolve, `shell:false`) + installer (`--list-extensions`, `--install-extension` bundled vsix) + vsix build script; `.itstudio/` gitignore guard.
 - [x] **M7-04** (C) `reveal`, `show_diff`, `transaction` decorations, `notify`.
 - [x] **M7-05** (C) Diagnostics streaming (debounced) + `file_saved_by_user` → stale-run conflict marking.
 - [ ] **M7-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M7-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M7-report.md` sign-off. Scope: VS Code (`@vscode/test-electron`): auto-launch, handshake, reveal/diff on commit, diagnostics forwarded, VS Code closed mid-run does not fail the pipeline, bad token rejected.
@@ -155,7 +155,8 @@ Spec: ARCH §14.1, `schemas.ts` §13.
 
 Spec: ARCH §14.2.
 
-- [ ] **SEC-01** (A+C) Dependency audit hardening before release: production audit (2026-10-02) = 3 high, all from @lancedb/lancedb → @huggingface/transformers → sharp (libvips CVE-2026-33327/33328/35590/35591). Options: npm `overrides` to a patched sharp, or exclude the optional transformers dependency; add `npm audit --omit=dev --audit-level=high` to the release checklist.
+- [ ] **SEC-01** (A+C) Dependency audit hardening before release: production audit (2026-10-02) = 3 high, all from @lancedb/lancedb → @huggingface/transformers → sharp (libvips CVE-2026-33327/33328/35590/35591). Options: npm `overrides` to a patched sharp, or exclude the optional transformers dependency; add `npm audit --omit=dev --audit-level=high` to the release checklist. Also (2026-10-02): low — dompurify (IN_PLACE hook XSS) via monaco-editor 0.57; upgrade when monaco ships a patched dompurify.
+- [ ] **PERF-01** (C) Sidecar cold start: dev start ≈ 4 s before `main` runs (html-to-text ≈ 1.7 s, LanceDB, parsers). Lazy-load heavy modules on first use; run the E2E crash hook before importing the container; target < 1.5 s in dev, measure the M9 bundle.
 - [ ] **M9-01** (C) esbuild sidecar bundle + Node SEA build script; native module loading from resources.
 - [ ] **M9-02** (C) Tauri `externalBin` + resources (vsix, seeds); production sidecar spawn path.
 - [ ] **M9-03** (C) NSIS + MSI bundles; WebView2 bootstrapper.

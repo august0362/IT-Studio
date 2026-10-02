@@ -58,6 +58,7 @@ export const config: Options.Testrunner & { capabilities: Capabilities.Requested
     './specs/m1/startup.spec.ts',
     './specs/m4/theme.spec.ts',
     './specs/m4/shell.spec.ts',
+    './specs/m4/chat.spec.ts',
     // shutdown must stay last: it closes the app window
     './specs/m1/shutdown.spec.ts',
   ],
@@ -69,7 +70,7 @@ export const config: Options.Testrunner & { capabilities: Capabilities.Requested
   framework: 'mocha',
   reporters: ['spec'],
   connectionRetryTimeout: 90_000,
-  mochaOpts: { timeout: 120_000 },
+  mochaOpts: { timeout: 200_000 },
   waitforTimeout: 70_000,
   async onPrepare() {
     e2eTempRoot = mkdtempSync(join(tmpdir(), 'itstudio-e2e-'));

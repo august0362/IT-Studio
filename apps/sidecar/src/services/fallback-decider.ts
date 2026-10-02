@@ -1,4 +1,4 @@
-import type { FallbackDecision, FallbackDecisionRequest, LlmRequest, PriceTable } from '@itstudio/schemas';
+import type { FallbackDecision, FallbackDecisionRequest, FxRate, LlmRequest, PriceTable } from '@itstudio/schemas';
 import type { IClock } from '../infra/clock.js';
 import type { RpcEventBus } from '../rpc/event-bus.js';
 import { estimateRequestCost, findPrice } from '../domain/cost.js';
@@ -6,12 +6,14 @@ import { isoDateTimeSchema } from '../validation/brand.js';
 import type { FallbackDeciderResult, IFallbackDecider } from './llm-router.js';
 import type { ModelRegistry } from './model-registry.js';
 import { microUsdSchema } from '../validation/brand.js';
+import { microUsd, toMoneyDisplay } from '../domain/money.js';
 
 export interface UserFallbackDeciderDependencies {
   readonly events: RpcEventBus;
   readonly clock: IClock;
   readonly models: ModelRegistry;
   readonly priceTable: () => PriceTable;
+  readonly fxRate: () => FxRate;
 }
 
 interface PendingDecision {
@@ -25,6 +27,7 @@ export class UserFallbackDecider implements IFallbackDecider {
   private readonly clock: IClock;
   private readonly models: ModelRegistry;
   private readonly priceTable: () => PriceTable;
+  private readonly fxRate: () => FxRate;
   private readonly pending = new Map<string, PendingDecision>();
 
   constructor(dependencies: UserFallbackDeciderDependencies) {
@@ -32,6 +35,7 @@ export class UserFallbackDecider implements IFallbackDecider {
     this.clock = dependencies.clock;
     this.models = dependencies.models;
     this.priceTable = dependencies.priceTable;
+    this.fxRate = dependencies.fxRate;
   }
 
   decide(request: FallbackDecisionRequest, source: LlmRequest, timeoutMs: number): Promise<FallbackDeciderResult> {
@@ -43,16 +47,19 @@ export class UserFallbackDecider implements IFallbackDecider {
           total + message.parts.reduce((length, part) => length + (part.type === 'text' ? part.text.length : 0), 0),
         0,
       );
+    const fx = this.fxRate();
     const candidates = request.candidates.map(({ modelKey }) => {
       const price = findPrice(table, modelKey);
       const model = this.models.get(modelKey);
+      const estimatedCostMicroUsd = microUsdSchema.parse(
+        price === undefined
+          ? 0
+          : estimateRequestCost(promptChars, source.maxOutputTokens ?? model?.maxOutputTokens ?? 0, price),
+      );
       return {
         modelKey,
-        estimatedCostMicroUsd: microUsdSchema.parse(
-          price === undefined
-            ? 0
-            : estimateRequestCost(promptChars, source.maxOutputTokens ?? model?.maxOutputTokens ?? 0, price),
-        ),
+        estimatedCostMicroUsd,
+        estimatedCost: toMoneyDisplay(microUsd(estimatedCostMicroUsd), fx),
       };
     });
     const decisionRequest: FallbackDecisionRequest = {

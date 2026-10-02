@@ -9,6 +9,7 @@ import type {
   RouterEvent,
   RouterState,
 } from '@itstudio/schemas';
+import { moneyDisplaySchema } from './cost.js';
 import { modelKeySchema, z, isoDateTimeSchema, llmRequestIdSchema, projectIdSchema, microUsdSchema } from './common.js';
 import { pipelineRunIdSchema } from './brand.js';
 import { chatMessageSchema, toolDeclarationSchema } from './chat.js';
@@ -101,7 +102,15 @@ export const fallbackDecisionRequestSchema = z
     failedModel: modelKeySchema,
     reason: failureKindSchema,
     candidates: z
-      .array(z.object({ modelKey: modelKeySchema, estimatedCostMicroUsd: microUsdSchema }).readonly())
+      .array(
+        z
+          .object({
+            modelKey: modelKeySchema,
+            estimatedCostMicroUsd: microUsdSchema,
+            estimatedCost: moneyDisplaySchema.exactOptional(),
+          })
+          .readonly(),
+      )
       .readonly(),
     expiresAt: isoDateTimeSchema,
   })
