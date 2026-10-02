@@ -7,6 +7,7 @@ import { RpcClient } from './rpc/rpc-client';
 import { RpcClientProvider } from './rpc/rpc-context';
 import { TauriTransport } from './rpc/transport';
 import './index.css';
+import './i18n';
 
 const transport = new TauriTransport();
 const rpcClient = new RpcClient(transport);

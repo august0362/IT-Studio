@@ -1,12 +1,14 @@
 import { ThemeMode } from '@itstudio/schemas';
 import type { ThemeId, ThemeTokens } from '@itstudio/schemas';
 import { useState, type JSX, type KeyboardEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRpcQuery } from '../../../hooks/use-rpc-query';
 import { useRpcClient } from '../../../rpc/rpc-context';
 import { resolveTheme, themeCatalog } from '../../../theme/catalog';
 import { applyTheme } from '../../../theme/apply-theme';
 import { ErrorPanel } from '../../../components/ErrorPanel';
+import '../../../i18n';
 
 const FILTERS = ['All', 'Focus', 'Calm', 'Warm', 'Creative', 'Dark-native'] as const;
 const FILTER_IDS: Readonly<Record<(typeof FILTERS)[number], readonly string[]>> = {
@@ -18,7 +20,7 @@ const FILTER_IDS: Readonly<Record<(typeof FILTERS)[number], readonly string[]>> 
   'Dark-native': ['midnight-focus', 'deep-forest'],
 };
 
-function MiniPreview({ tokens }: { readonly tokens: ThemeTokens }): JSX.Element {
+function MiniPreview({ tokens, label }: { readonly tokens: ThemeTokens; readonly label: string }): JSX.Element {
   return (
     <div
       className="rounded border p-3"
@@ -29,7 +31,7 @@ function MiniPreview({ tokens }: { readonly tokens: ThemeTokens }): JSX.Element 
         className="inline-block rounded px-2 py-1 text-xs"
         style={{ backgroundColor: tokens.primary, color: tokens.primaryFg }}
       >
-        Preview
+        {label}
       </span>
       <div className="mt-2 h-1 w-3/4 rounded" style={{ backgroundColor: tokens.textMuted }} />
     </div>
@@ -37,6 +39,7 @@ function MiniPreview({ tokens }: { readonly tokens: ThemeTokens }): JSX.Element 
 }
 
 export function ThemePage(): JSX.Element {
+  const { t, i18n } = useTranslation();
   const rpc = useRpcClient();
   const queryClient = useQueryClient();
   const settings = useRpcQuery('settings.get', {});
@@ -45,6 +48,7 @@ export function ThemePage(): JSX.Element {
   const [detailsId, setDetailsId] = useState<string | null>(null);
   const [failure, setFailure] = useState<unknown>(null);
   const ui = settings.data?.ui;
+  const locale = ui?.locale ?? 'en';
   const mode = ui?.mode ?? ThemeMode.SYSTEM;
   const selectedId = ui?.themeId ?? themeCatalog.defaultLight;
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -56,6 +60,7 @@ export function ThemePage(): JSX.Element {
   async function save(patch: {
     readonly themeId?: ThemeId;
     readonly mode?: (typeof ThemeMode)[keyof typeof ThemeMode];
+    readonly locale?: 'en' | 'vi';
   }): Promise<void> {
     setFailure(null);
     const nextThemeId = patch.themeId ?? selectedId;
@@ -65,6 +70,7 @@ export function ThemePage(): JSX.Element {
     try {
       const result = await rpc.call('settings.update', { patch: { ui: patch } });
       queryClient.setQueryData(['settings.get', {}], result);
+      if (patch.locale !== undefined) await i18n.changeLanguage(patch.locale);
       try {
         localStorage.setItem('itstudio.theme', JSON.stringify({ themeId: result.ui.themeId, mode: result.ui.mode }));
       } catch {
@@ -100,11 +106,11 @@ export function ThemePage(): JSX.Element {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-semibold" id="theme-heading">
-            Theme
+            {t('theme.heading')}
           </h2>
-          <p className="text-text-muted">Choose a palette and display mode.</p>
+          <p className="text-text-muted">{t('theme.description')}</p>
           <p className="text-sm text-text-muted">
-            Selected: {selectedTheme.definition.name} · {mode} mode
+            {t('theme.selected', { name: selectedTheme.definition.name, mode: t(`theme.${mode}`) })}
           </p>
         </div>
         <div className="flex gap-2" aria-label="Theme mode" role="group">
@@ -116,8 +122,7 @@ export function ThemePage(): JSX.Element {
               onClick={() => void save({ mode: option })}
               type="button"
             >
-              {option[0]?.toUpperCase()}
-              {option.slice(1)}
+              {t(`theme.${option}`)}
             </button>
           ))}
           <button
@@ -130,11 +135,31 @@ export function ThemePage(): JSX.Element {
             }
             type="button"
           >
-            Reset default
+            {t('theme.reset')}
           </button>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2" aria-label="Theme filters">
+      <section
+        aria-label={t('theme.appearance')}
+        className="flex flex-wrap items-center gap-3 rounded border border-border bg-surface p-4"
+      >
+        <h3 className="font-semibold">{t('theme.appearance')}</h3>
+        <label className="flex items-center gap-2">
+          {t('theme.language')}
+          <select
+            aria-label={t('theme.language')}
+            className="rounded border border-border bg-bg px-3 py-2 text-text"
+            onChange={(event) => {
+              void save({ locale: event.target.value as 'en' | 'vi' });
+            }}
+            value={locale}
+          >
+            <option value="en">{t('theme.english')}</option>
+            <option value="vi">{t('theme.vietnamese')}</option>
+          </select>
+        </label>
+      </section>
+      <div className="flex flex-wrap gap-2" aria-label={t('theme.filtersLabel')}>
         {FILTERS.map((item) => (
           <button
             aria-pressed={filter === item}
@@ -145,7 +170,7 @@ export function ThemePage(): JSX.Element {
             }}
             type="button"
           >
-            {item}
+            {t(`theme.filter${item === 'Dark-native' ? 'Dark' : item}`)}
           </button>
         ))}
       </div>
@@ -153,7 +178,7 @@ export function ThemePage(): JSX.Element {
         <ErrorPanel
           error={{
             code: 'INTERNAL',
-            message: 'Theme settings could not be saved.',
+            message: t('theme.saveError'),
             remediation: ['Check the sidecar connection and try again.'],
             retryable: true,
           }}
@@ -164,7 +189,7 @@ export function ThemePage(): JSX.Element {
       ) : null}
       <div
         className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4"
-        aria-label="Themes"
+        aria-label={t('theme.themes')}
         role="radiogroup"
         onKeyDown={onGridKeyDown}
       >
@@ -199,7 +224,7 @@ export function ThemePage(): JSX.Element {
                     />
                   ))}
                 </span>
-                <MiniPreview tokens={variant.tokens} />
+                <MiniPreview label={t('theme.cardPreview')} tokens={variant.tokens} />
                 <span className="block font-medium">
                   {item.name}
                   {selectedId === item.id ? ' ✓' : ''}
@@ -215,12 +240,14 @@ export function ThemePage(): JSX.Element {
                 }}
                 type="button"
               >
-                ⓘ Details
+                ⓘ {t('theme.details')}
               </button>
               {detailsId === item.id ? (
                 <div className="rounded border border-border bg-surface p-3 text-sm">
                   <p>{item.psychology}</p>
-                  <p className="mt-2 text-text-muted">Recommended for: {item.recommendedFor.join(', ')}</p>
+                  <p className="mt-2 text-text-muted">
+                    {t('theme.recommended', { activities: item.recommendedFor.join(', ') })}
+                  </p>
                 </div>
               ) : null}
             </div>
@@ -228,25 +255,25 @@ export function ThemePage(): JSX.Element {
         })}
       </div>
       <aside
-        aria-label="Theme preview"
+        aria-label={t('theme.previewLabel')}
         className="grid gap-4 rounded-lg border border-border bg-surface p-4 md:grid-cols-3"
       >
         <div>
-          <h3 className="font-semibold">{active.definition.name} preview</h3>
-          <p className="text-text-muted">Hover over a card to preview it.</p>
-          <MiniPreview tokens={active.tokens} />
+          <h3 className="font-semibold">{t('theme.preview', { name: active.definition.name })}</h3>
+          <p className="text-text-muted">{t('theme.hover')}</p>
+          <MiniPreview label={t('theme.cardPreview')} tokens={active.tokens} />
         </div>
         <div
           className="rounded border border-border p-3"
           style={{ backgroundColor: active.tokens.bg, color: active.tokens.text }}
         >
-          <p>Chat bubble preview</p>
+          <p>{t('theme.chatPreview')}</p>
           <button
             className="mt-2 rounded px-3 py-2"
             style={{ backgroundColor: active.tokens.primary, color: active.tokens.primaryFg }}
             type="button"
           >
-            Send
+            {t('theme.send')}
           </button>
         </div>
         <div
@@ -254,12 +281,12 @@ export function ThemePage(): JSX.Element {
           style={{ backgroundColor: active.tokens.surface, color: active.tokens.text }}
         >
           <p>
-            Profit <span style={{ color: active.tokens.success }}>+$12.40</span>
+            {t('theme.profit')} <span style={{ color: active.tokens.success }}>+$12.40</span>
           </p>
-          <p style={{ color: active.tokens.textMuted }}>VND secondary line</p>
+          <p style={{ color: active.tokens.textMuted }}>{t('theme.vnd')}</p>
           <div className="mt-2 flex gap-2">
-            <span style={{ color: active.tokens.warning }}>Warning</span>
-            <span style={{ color: active.tokens.danger }}>Danger</span>
+            <span style={{ color: active.tokens.warning }}>{t('theme.warning')}</span>
+            <span style={{ color: active.tokens.danger }}>{t('theme.danger')}</span>
           </div>
         </div>
       </aside>
