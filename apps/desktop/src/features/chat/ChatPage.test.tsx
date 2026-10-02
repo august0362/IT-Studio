@@ -40,29 +40,38 @@ function renderChat() {
             }
           : call.method === 'chat.getMessages'
             ? []
-            : call.method === 'chat.send'
+            : call.method === 'chat.setRagEnabled'
               ? {
-                  requestId: '00000000-0000-4000-8000-000000000003',
-                  userMessageId: '00000000-0000-4000-8000-000000000004',
+                  id: '00000000-0000-4000-8000-000000000002',
+                  projectId: '00000000-0000-4000-8000-000000000001',
+                  title: 'New conversation',
+                  ragEnabled: true,
+                  createdAt: '2026-10-02T00:00:00.000Z',
+                  updatedAt: '2026-10-02T00:00:00.000Z',
                 }
-              : call.method === 'router.getConfig' || call.method === 'router.updateConfig'
-                ? config
-                : call.method === 'models.list'
-                  ? [
-                      {
-                        key: 'openai/model',
-                        provider: 'openai',
-                        providerModelId: 'model',
-                        displayName: 'Example model',
-                        capabilities: [ModelCapability.CHAT],
-                        contextWindowTokens: 1000,
-                        maxOutputTokens: 100,
-                        enabled: true,
-                      },
-                    ]
-                  : call.method === 'chat.cancel'
-                    ? { cancelled: true }
-                    : undefined;
+              : call.method === 'chat.send'
+                ? {
+                    requestId: '00000000-0000-4000-8000-000000000003',
+                    userMessageId: '00000000-0000-4000-8000-000000000004',
+                  }
+                : call.method === 'router.getConfig' || call.method === 'router.updateConfig'
+                  ? config
+                  : call.method === 'models.list'
+                    ? [
+                        {
+                          key: 'openai/model',
+                          provider: 'openai',
+                          providerModelId: 'model',
+                          displayName: 'Example model',
+                          capabilities: [ModelCapability.CHAT],
+                          contextWindowTokens: 1000,
+                          maxOutputTokens: 100,
+                          enabled: true,
+                        },
+                      ]
+                    : call.method === 'chat.cancel'
+                      ? { cancelled: true }
+                      : undefined;
     transport.receive(JSON.stringify({ jsonrpc: '2.0', id: call.id, result }));
     return Promise.resolve();
   };
@@ -104,6 +113,16 @@ describe('ChatPage', () => {
     await waitFor(() => {
       const request = transport.sent.find((line) => line.includes('"method":"router.updateConfig"'));
       expect(request).toContain('openai/model');
+    });
+  });
+
+  it('enables knowledge for the active conversation', async () => {
+    const transport = renderChat();
+    fireEvent.click(await screen.findByRole('button', { name: 'New chat' }));
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Use knowledge' }));
+    await waitFor(() => {
+      const request = transport.sent.find((line) => line.includes('"method":"chat.setRagEnabled"'));
+      expect(request).toContain('"enabled":true');
     });
   });
 });

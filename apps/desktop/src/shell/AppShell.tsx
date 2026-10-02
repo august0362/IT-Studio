@@ -13,6 +13,7 @@ import { MainNav, type ShellRoute } from './MainNav';
 import { NewProjectDialog } from './NewProjectDialog';
 import { ProjectTabs } from './ProjectTabs';
 import { ChatPage } from '../features/chat/ChatPage';
+import { KnowledgePage } from '../features/knowledge/KnowledgePage';
 import { CostPage } from '../features/cost/CostPage';
 
 const CodePage = lazy(() => import('../features/code/CodePage').then(({ CodePage: page }) => ({ default: page })));
@@ -122,6 +123,13 @@ export function AppShell(): JSX.Element {
   let content: JSX.Element;
   if (route === 'chat')
     content = <ChatPage projectId={projects.find((project) => project.id === activeId)?.id ?? null} />;
+  else if (route === 'knowledge')
+    content = (
+      <KnowledgePage
+        project={projects.find((project) => project.id === activeId)}
+        projectId={projects.find((project) => project.id === activeId)?.id ?? null}
+      />
+    );
   else if (route === 'cost') {
     const selectedProjectId: ProjectId | null =
       activeId === null ? null : (projects.find((project) => project.id === activeId)?.id ?? null);
@@ -133,13 +141,7 @@ export function AppShell(): JSX.Element {
       </Suspense>
     );
   else if (route === 'settings-api-keys') content = <ApiKeysPage />;
-  else if (route === 'settings-theme') content = <ThemePage />;
-  else
-    content = (
-      <section aria-label={route} className="rounded border border-border bg-surface p-6">
-        <p className="text-text-muted">{t('nav.empty')}</p>
-      </section>
-    );
+  else content = <ThemePage />;
 
   return (
     <div className="flex min-h-screen flex-col bg-bg text-text">
