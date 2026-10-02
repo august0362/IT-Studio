@@ -231,7 +231,7 @@ export class LlmRouter {
             }
             if (checked.value.blocking) {
               terminalError = appError(ErrorCode.BUDGET_HARD_STOP, 'The project budget blocks this request.', [
-                'Raise the project budget or turn off Hard Stop.',
+                'Raise the budget in Cost & P&L or turn off Hard Stop in Settings.',
               ]);
               publishState(RouterState.FAILED);
               return;
@@ -304,7 +304,7 @@ export class LlmRouter {
               ]);
             if (effect.error === ErrorCode.BUDGET_HARD_STOP)
               terminalError = appError(ErrorCode.BUDGET_HARD_STOP, 'The project budget blocks this request.', [
-                'Raise the project budget or turn off Hard Stop.',
+                'Raise the budget in Cost & P&L or turn off Hard Stop in Settings.',
               ]);
           }
         }

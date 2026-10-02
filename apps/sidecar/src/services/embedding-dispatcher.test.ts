@@ -84,6 +84,8 @@ function harness(overrides: {
         return sequence === 1 ? id : '00000000-0000-4000-8000-000000000003';
       },
     },
+    budget: { check: () => Promise.resolve({ ok: true, value: { level: 'ok', blocking: false } }) },
+    estimateCostMicroUsd: () => 1,
     completed,
     ...(overrides.useDefaultTiming ? {} : { sleep: () => Promise.resolve(), random: () => 0.5 }),
   });

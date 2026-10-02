@@ -14,6 +14,7 @@ import {
 import type { IIdGenerator } from '../infra/id.js';
 import type { IEmbeddingProvider } from '../ports/embedding-provider.js';
 import type { ISecretStore } from '../ports/secret-store.js';
+import type { IBudgetGuard } from '../ports/budget-guard.js';
 import { failureToAppError } from '../domain/failure.js';
 import { retryDelayMs } from '../domain/backoff.js';
 import type { EventBus } from '../rpc/event-bus.js';
@@ -40,6 +41,8 @@ export interface EmbeddingDispatcherDependencies {
   readonly providers: Readonly<Partial<Record<ProviderIdType, IEmbeddingProvider>>>;
   readonly secrets: ISecretStore;
   readonly ids: IIdGenerator;
+  readonly budget: IBudgetGuard;
+  readonly estimateCostMicroUsd: (modelKey: ModelKey, texts: readonly string[]) => number;
   readonly completed: EventBus<{ completed: RouterCompleted }>;
   readonly sleep?: (ms: number) => Promise<void>;
   readonly random?: () => number;
@@ -91,7 +94,7 @@ export class EmbeddingDispatcher {
     const vectors: number[][] = [];
     for (let start = 0; start < texts.length; start += this.deps.config.batchSize) {
       const batch = texts.slice(start, start + this.deps.config.batchSize);
-      const result = await this.embedBatch(batch);
+      const result = await this.embedBatch(batch, context.projectId);
       if (!result.ok) return result;
       vectors.push(...result.value.vectors.map(normalize));
       const modelKey = result.value.modelKey;
@@ -109,6 +112,7 @@ export class EmbeddingDispatcher {
 
   private async embedBatch(
     texts: readonly string[],
+    projectId: ProjectId,
   ): Promise<Result<{ readonly vectors: number[][]; readonly inputTokens: number; readonly modelKey: ModelKey }>> {
     let lastFailure: AppError | undefined;
     for (const key of candidateKeys(this.deps.config)) {
@@ -117,6 +121,12 @@ export class EmbeddingDispatcher {
       const provider = this.deps.providers[model.provider];
       if (provider === undefined) continue;
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
+        const checked = await this.deps.budget.check(projectId, this.deps.estimateCostMicroUsd(key, texts));
+        if (!checked.ok) return checked;
+        if (checked.value.blocking)
+          return failure(ErrorCode.BUDGET_HARD_STOP, 'The project budget blocks this request.', [
+            'Raise the budget in Cost & P&L or turn off Hard Stop in Settings.',
+          ]);
         const secretResult = await this.deps.secrets.get(model.provider);
         if (!secretResult.ok) return secretResult;
         if (secretResult.value === null)
