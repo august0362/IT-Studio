@@ -1,5 +1,6 @@
 import {
   FailureKind,
+  CostPurpose,
   ProviderId,
   type ProjectId,
   type RpcNotificationMap,
@@ -59,6 +60,7 @@ import { FxService } from './services/fx-service.js';
 import { FxDailyJob } from './scheduler/daily-job.js';
 import type { IHttpClient } from './ports/http-client.js';
 import { PricingService } from './services/pricing-service.js';
+import { PricingUpdater } from './services/pricing-updater.js';
 import { readFileSync } from 'node:fs';
 import { readdirSync } from 'node:fs';
 import { ErrorCode, type AppError, type Result } from '@itstudio/schemas';
@@ -75,6 +77,14 @@ import { JournalRecoveryService } from './services/journal-recovery.js';
 import { ProjectContextService } from './services/project-context.js';
 import { PipelineOrchestrator } from './services/pipeline-orchestrator.js';
 import { toMoneyDisplay } from './domain/money.js';
+import { OpenAiEmbeddingProvider } from './providers/embedding/openai.js';
+import { GoogleEmbeddingProvider } from './providers/embedding/google.js';
+import { FakeEmbeddingProvider } from './infra/fake-embedding-provider.js';
+import { EmbeddingDispatcher } from './services/embedding-dispatcher.js';
+import { LanceDbVectorStore } from './infra/lancedb/vector-store.js';
+import { DocumentRepository } from './infra/sqlite/document-repository.js';
+import { RagService } from './services/rag/rag-service.js';
+import { isoDateTimeSchema } from './validation/brand.js';
 
 class MemorySecretStore implements ISecretStore {
   private readonly values = new Map<ProviderId, string>();
@@ -269,6 +279,7 @@ export interface ContainerDependencies {
   readonly secretStore?: ISecretStore;
   readonly keyVerifier?: IProviderKeyVerifier;
   readonly fxHttpClient?: IHttpClient;
+  readonly pricingHttpClient?: IHttpClient;
 }
 
 export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerDependencies = {}) {
@@ -312,6 +323,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const budgetRepository = new BudgetRepository(database.db);
   const priceRepository = new PriceRepository(database.db);
   const fxRepository = new FxRepository(database.db);
+  const documentRepository = new DocumentRepository(database.db);
   const settingsRepository = new SettingsRepository(database.db);
   const settingsService = new SettingsService({
     repository: settingsRepository,
@@ -383,6 +395,22 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     clock,
   });
   pricingService.initialize();
+  const pricingHttpClient: IHttpClient =
+    dependencies.pricingHttpClient ??
+    (e2e
+      ? {
+          request: () =>
+            Promise.resolve(
+              new Response(
+                readFileSync(
+                  resolve(dirname(fileURLToPath(import.meta.url)), '../test/fixtures/pricing/pricing.html'),
+                  'utf8',
+                ),
+                { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } },
+              ),
+            ),
+        }
+      : new FetchHttpClient());
   const events = new EventBus<RpcNotificationMap>();
   const fileSystem = new NodeFileSystem();
   const vscodeInternalEvents = new EventBus<{
@@ -434,6 +462,72 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     events,
     clock,
   });
+  const embeddingProviders = {
+    [ProviderId.OPENAI]: e2e ? new FakeEmbeddingProvider(ProviderId.OPENAI) : new OpenAiEmbeddingProvider(),
+    [ProviderId.GOOGLE]: e2e ? new FakeEmbeddingProvider(ProviderId.GOOGLE) : new GoogleEmbeddingProvider(),
+  };
+  const embeddingDispatcher = {
+    embed: async (
+      texts: readonly string[],
+      context: { readonly projectId: ProjectId; readonly purpose: 'embedding' },
+    ) => {
+      const currentSettings = await settingsService.get();
+      if (!currentSettings.ok) return currentSettings;
+      const dispatcher = new EmbeddingDispatcher({
+        config: currentSettings.value.rag.embedding,
+        models: loadedSeeds.value.models,
+        providers: embeddingProviders,
+        secrets: secretStore,
+        ids,
+        budget: budgetGuard,
+        estimateCostMicroUsd: (modelKey, input) => {
+          const price = pricingService.current().entries.find((entry) => entry.modelKey === modelKey);
+          if (price === undefined) return 0;
+          return computeTokenCost(
+            {
+              inputTokens: input.reduce((sum, text) => sum + Math.ceil(text.length / 4), 0),
+              outputTokens: 0,
+              cachedInputTokens: 0,
+            },
+            price,
+          );
+        },
+        completed: routerCompleted,
+        ...(e2e ? { sleep: () => Promise.resolve() } : {}),
+      });
+      return dispatcher.embed(texts, context);
+    },
+  };
+  const vectorStore = new LanceDbVectorStore(resolve(dataDir, 'lancedb'));
+  const ragService = new RagService({
+    projects: projectRepository,
+    documents: documentRepository,
+    fileSystem,
+    vectors: vectorStore,
+    embeddings: embeddingDispatcher,
+    settings: settingsService,
+    events,
+    ids,
+    clock,
+    logger,
+    embeddingCost: async (projectId, startedAt) => {
+      let cursor: string | undefined;
+      let total = 0;
+      do {
+        const page = await ledgerService.query({
+          projectId,
+          from: isoDateTimeSchema.parse(startedAt),
+          purposes: [CostPurpose.EMBEDDING],
+          limit: 500,
+          ...(cursor === undefined ? {} : { cursor }),
+        });
+        if (!page.ok) return total;
+        total += page.value.items.reduce((sum, entry) => sum + entry.costMicroUsd, 0);
+        cursor = page.value.nextCursor ?? undefined;
+      } while (cursor !== undefined);
+      return total;
+    },
+  });
   const routerConfigService = new RouterConfigService({ settings: settingsService, models: modelRegistry });
   const fallbackDecider = new UserFallbackDecider({
     events,
@@ -482,6 +576,19 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     repository: chatRepository,
     router: llmRouter,
     ledger: ledgerService,
+    events,
+    ids,
+    clock,
+    logger,
+  });
+  const pricingUpdater = new PricingUpdater({
+    settings: settingsService,
+    projects: projectRepository,
+    pricing: pricingService,
+    router: llmRouter,
+    http: pricingHttpClient,
+    sources: loadedSeeds.value.pricingSources,
+    models: modelRegistry.list(),
     events,
     ids,
     clock,
@@ -628,6 +735,10 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   server.register('budget.status', ({ projectId }) => budgetGuard.status(projectId));
   server.register('pricing.get', () => Promise.resolve({ ok: true, value: pricingService.current() }));
   server.register('pricing.override', ({ entry }) => Promise.resolve(pricingService.override(entry)));
+  server.register('pricing.refresh', () => pricingUpdater.refresh());
+  server.register('rag.ingest', (input) => ragService.ingest(input));
+  server.register('rag.listDocuments', (input) => ragService.listDocuments(input));
+  server.register('rag.deleteDocument', (input) => ragService.deleteDocument(input));
 
   return {
     clock,
@@ -640,11 +751,13 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     llmRouter,
     chatService,
     pipelineOrchestrator,
+    ragService,
     ledgerService,
     pnlService,
     revenueService,
     budgetGuard,
     pricingService,
+    pricingUpdater,
     fxService,
     routerCompleted,
     projectService,

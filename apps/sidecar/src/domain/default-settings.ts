@@ -32,7 +32,7 @@ export function buildDefaultSettings(seeds: Seeds): AppSettings {
     },
     budget: { hardStop: false },
     pricing: {
-      autoUpdate: true,
+      autoUpdate: false,
       updateIntervalHours: 24,
       maxAutoChangePercent: 50,
       extractionModelKey: seeds.defaultPricingExtractionModel,
