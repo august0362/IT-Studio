@@ -61,3 +61,6 @@ Append `## Result` per AGENTS.md §3 including a table: case ID → test file �
 | TC-M7-050 | `apps/vscode-ext/test/e2e/suite.cjs`; `apps/vscode-ext/test/e2e/run.mjs` | Harness implemented; not run per instruction |
 | TC-M7-051 | `apps/vscode-ext/test/e2e/suite.cjs`; `apps/vscode-ext/test/e2e/run.mjs` | Harness implemented; not run per instruction |
 | TC-M7-052 | Manual QA | Manual case remains for the approved VS Code session |
+
+## QA (Claude)
+- Verdict: **PASS (L4 pending)**. Defects fixed by the new cases: own-write suppression inclusive at 2 000 ms; `autoLaunch:false` no longer installs the extension. After merging main: typecheck ✔, lint ✔, extension build ✔, 725 unit ✔, integration 83/83 (run 1); run 2 hit the known TC-M1-033 30 s timeout (4 sequential cold sidecar starts, PERF-01) — QA raised that test's budget to 90 s. L4 TC-M7-050/051 (`test:vscode-e2e`) and manual TC-M7-052 run in the batched E2E session.
