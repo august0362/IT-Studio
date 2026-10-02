@@ -144,13 +144,16 @@ function derive(meta) {
     for (const [k, h] of Object.entries(statusHue)) {
       t[k] = mode === 'light' ? ensure(toHex([0.55, 0.15, h]), t.surface, 4.5, -1) : ensure(toHex([0.75, 0.14, h]), t.surface, 4.5, 1);
     }
-    const series = [t.primary, t.accent, ...cols.map((c) => ensure(c.hex, t.surface, 3, mode === 'light' ? -1 : 1))];
+    // Every chart color must reach 3:1 against the surface it is drawn on (fixed after M4-01b QA).
+    const dir = mode === 'light' ? -1 : 1;
+    const series = [t.primary, t.accent, ...cols.map((c) => c.hex)].map((hex) => ensure(hex, t.surface, 3, dir));
     t.chart = [...new Set(series)].slice(0, 6);
     const checks = {
       'text/bg': contrast(t.text, t.bg), 'text/surface': contrast(t.text, t.surface), 'text/surfaceAlt': contrast(t.text, t.surfaceAlt),
       'muted/surfaceAlt': contrast(t.textMuted, t.surfaceAlt), 'primaryFg/primary': contrast(t.primaryFg, t.primary), 'accent/bg': contrast(t.accent, t.bg),
     };
     for (const [k, v] of Object.entries(checks)) if (v < min[k] - 0.005) throw new Error(`${meta.id} ${mode} ${k}=${v.toFixed(2)} < ${min[k]}`);
+    for (const [i, c] of t.chart.entries()) if (contrast(c, t.surface) < 2.995) throw new Error(`${meta.id} ${mode} chart-${i + 1}=${contrast(c, t.surface).toFixed(2)} < 3`);
     t.contrast = Object.fromEntries(Object.entries(checks).map(([k, v]) => [k, Math.round(v * 100) / 100]));
   }
   return {
