@@ -86,6 +86,12 @@ async function setup(
     };
     scriptedTexts['gpt-5.3-codex'] = options.invalidCoder ? '{"not":"a coder output"}' : JSON.stringify(multiFileCoder);
   }
+  // A two-file commit must be allowed by the spec, otherwise the run is (correctly) rejected before WRITING.
+  if (options.twoFiles)
+    scriptedTexts['claude-opus-5-5'] = JSON.stringify({
+      ...taskSpec,
+      allowedPaths: [...taskSpec.allowedPaths, 'src/second.txt'],
+    });
   sidecar = await startSidecar(
     {
       ITSTUDIO_E2E_LLM_TEXT: JSON.stringify(scriptedTexts),
