@@ -1423,3 +1423,166 @@ export interface OutboxItem {
   readonly decidedAt?: IsoDateTime;
   readonly error?: AppError;
 }
+
+/* ============================================================================
+ * §17. INFRASTRUCTURE / SERVERS (v3 — M15–M19; ARCHITECTURE.md Part III §18–§22)
+ * Types only; `AppSettings.monitoring` and `server.*` / `docker.*` / `sftp.*` RPC methods are added by M15 tasks.
+ * ========================================================================== */
+
+export type ServerId = Brand<string, 'ServerId'>;
+export type ContainerId = Brand<string, 'ContainerId'>;
+export type LogStreamId = Brand<string, 'LogStreamId'>;
+/** POSIX-style absolute path on the remote host (Windows hosts use `/C:/...` SFTP form). */
+export type RemotePath = Brand<string, 'RemotePath'>;
+
+export const ServerOs = {
+  LINUX: 'linux',
+  MACOS: 'macos',
+  WINDOWS: 'windows',
+  UNKNOWN: 'unknown',
+} as const;
+export type ServerOs = (typeof ServerOs)[keyof typeof ServerOs];
+
+export interface ServerConfig {
+  readonly id: ServerId;
+  readonly name: string;
+  /** Hostname, Tailscale IP or public IP. */
+  readonly host: string;
+  readonly port: number;
+  readonly username: string;
+  /** Detected on first connect (`uname -s` / PowerShell probe); may be overridden. */
+  readonly os: ServerOs;
+  /** SHA-256 host key fingerprint pinned on first connect after user confirmation (TOFU). */
+  readonly hostKeyFingerprint: string | null;
+  /** The private key is stored encrypted in the app data dir; its decryption key lives in the OS keychain (ARCH §18.2). */
+  readonly keyConfigured: boolean;
+  readonly keyHasPassphrase: boolean;
+  readonly tags: readonly string[];
+  readonly createdAt: IsoDateTime;
+}
+
+export const ServerConnectionState = {
+  DISCONNECTED: 'disconnected',
+  CONNECTING: 'connecting',
+  ONLINE: 'online',
+  OFFLINE: 'offline',
+  AUTH_FAILED: 'auth_failed',
+  HOST_KEY_MISMATCH: 'host_key_mismatch',
+} as const;
+export type ServerConnectionState = (typeof ServerConnectionState)[keyof typeof ServerConnectionState];
+
+export interface BatteryInfo {
+  readonly percent: number;
+  readonly state: 'charging' | 'discharging' | 'full' | 'not_charging' | 'unknown';
+}
+
+export interface DiskUsage {
+  readonly mount: string;
+  readonly usedBytes: number;
+  readonly totalBytes: number;
+}
+
+/** One metrics sample. Network rates are deltas between consecutive samples (first sample: 0). */
+export interface ServerMetricsSample {
+  readonly serverId: ServerId;
+  readonly at: IsoDateTime;
+  readonly uptimeSeconds: number;
+  /** 0..100 across all cores. */
+  readonly cpuPercent: number;
+  readonly load1: number | null;
+  readonly memUsedBytes: number;
+  readonly memTotalBytes: number;
+  readonly netRxBytesPerSec: number;
+  readonly netTxBytesPerSec: number;
+  readonly disks: readonly DiskUsage[];
+  /** null when the host has no battery → UI hides the widget. */
+  readonly battery: BatteryInfo | null;
+}
+
+export interface ServerStatus {
+  readonly serverId: ServerId;
+  readonly state: ServerConnectionState;
+  readonly lastSample?: ServerMetricsSample;
+  readonly lastError?: AppError;
+  readonly dockerAvailable: boolean;
+}
+
+export const AlertMetric = {
+  OFFLINE: 'offline',
+  CPU_PERCENT: 'cpu_percent',
+  MEM_PERCENT: 'mem_percent',
+  DISK_PERCENT: 'disk_percent',
+  BATTERY_PERCENT: 'battery_percent',
+  CONTAINER_EXITED: 'container_exited',
+} as const;
+export type AlertMetric = (typeof AlertMetric)[keyof typeof AlertMetric];
+
+export interface AlertRule {
+  readonly metric: AlertMetric;
+  /** Percent for percentage metrics; ignored for offline / container_exited. */
+  readonly threshold: number;
+  /** Condition must hold this long before firing (debounce). */
+  readonly forSeconds: number;
+  readonly enabled: boolean;
+}
+
+/** Added to AppSettings as `monitoring` in M15 (D25). */
+export interface MonitoringSettings {
+  /** false (default): poll only while the Servers tab is visible. true: poll continuously in the background and raise alerts. */
+  readonly backgroundMonitoring: boolean;
+  /** 3..60 s; default 5. */
+  readonly pollIntervalSeconds: number;
+  readonly alertRules: readonly AlertRule[];
+  /** Alert delivery: in-app toast always; OS notification optional. */
+  readonly osNotifications: boolean;
+}
+
+export interface ServerAlert {
+  readonly serverId: ServerId;
+  readonly metric: AlertMetric;
+  readonly value: number | null;
+  readonly message: string;
+  readonly at: IsoDateTime;
+  readonly resolved: boolean;
+}
+
+export interface ContainerInfo {
+  readonly id: ContainerId;
+  readonly name: string;
+  readonly image: string;
+  readonly state: 'running' | 'exited' | 'paused' | 'restarting' | 'created' | 'dead';
+  readonly status: string;
+  readonly ports: readonly { readonly hostPort: number | null; readonly containerPort: number; readonly protocol: 'tcp' | 'udp' }[];
+  readonly createdAt: IsoDateTime;
+}
+
+export type ContainerAction = 'start' | 'stop' | 'restart';
+
+export interface LogChunk {
+  readonly streamId: LogStreamId;
+  readonly stream: 'stdout' | 'stderr';
+  /** Newline-separated lines, ≤ 64 KB per chunk. */
+  readonly text: string;
+  readonly at: IsoDateTime;
+}
+
+export interface RemoteFileEntry {
+  readonly path: RemotePath;
+  readonly name: string;
+  readonly kind: 'file' | 'directory' | 'symlink';
+  readonly sizeBytes: number;
+  readonly modifiedAt: IsoDateTime;
+  readonly mode: number;
+}
+
+/** Save request for the remote editor (D27): rejected with CONFLICT when the remote file changed since it was opened. */
+export interface RemoteFileWriteRequest {
+  readonly serverId: ServerId;
+  readonly path: RemotePath;
+  readonly content: string;
+  readonly baseSha256: Sha256;
+  /** Default true: write `<file>.itstudio-bak-<timestamp>` before overwriting. */
+  readonly backup: boolean;
+}
+
+export type SystemAction = 'reboot' | 'shutdown';

@@ -506,3 +506,119 @@ Webview **chat panel** in the companion extension (re-uses the M7 WebSocket brid
 | Token theft | OAuth refresh tokens / page tokens only in keychain; redaction list extended; `channels.*` RPC never returns tokens. |
 | Accidental mass sending | Outbox approval required for every item; "approve all" disabled for external channels; max 20 sends per hour per account. |
 | PII in memory | Secret/PII filter; Memory page delete/export; per-agent "forget everything". |
+
+---
+
+# Part III — v3: Agentless Infrastructure Management (after v2 = M10–M14)
+
+> Decisions D24–D30 (CONTEXT §3), ADR-0004. Types: `schemas.ts` §17. Built in M15–M19.
+> Agentless: nothing is installed on the managed hosts. Everything runs over one SSH connection per server (`ssh2`): exec channels for metrics/actions, SFTP subsystem for files, `docker system dial-stdio` for the Docker API.
+
+```
+React: Servers tab ── ServerCard grid · AddServerModal · ContainerDrawer · RemoteFileManager
+   │ JSON-RPC (server.*, docker.*, sftp.*)            ▲ notifications: server.metrics, server.status, server.alert, docker.log
+   ▼                                                  │
+Sidecar ── SshConnectionManager (pool, keepalive, reconnect, host-key pinning)
+            ├─ MetricsCollector  (per-OS Strategy: Linux /proc · macOS sysctl/vm_stat · Windows PowerShell CIM)
+            ├─ AlertEngine       (rules, debounce, toast / OS notification)
+            ├─ DockerManager     (dockerode over SSH dial-stdio)
+            ├─ SftpService       (browse, read, diff-checked write + backup, upload/download)
+            └─ SystemActionService (reboot/shutdown per OS, audit log)
+                          │ ssh (key auth, keepalive 15 s)
+                          ▼
+            Dell home-lab (Tailscale IP) · VPS (public IP) · Windows Server · macOS
+```
+
+## 18. SSH foundation (M15)
+
+### 18.1 Server registry
+
+`servers` table (`ServerConfig`). AddServerModal fields: name, host, port (22), username, private key file (+ optional passphrase), tags. The private key is never sent to the webview: the UI passes the selected **file path**; the sidecar reads, validates (OpenSSH/PEM, ed25519/ECDSA/RSA) and stores it.
+
+### 18.2 Key vault (Windows Credential Manager size limit ≈ 2.5 KB)
+
+- Generate a random 256-bit data key per server → store in keychain (`itstudio-ssh/<serverId>`).
+- Encrypt the private key (AES-256-GCM, random IV) → `<dataDir>/ssh/<serverId>.key.enc`. Passphrase (if any) stored in keychain as a separate entry.
+- Decrypted key exists only in memory for the duration of the handshake; buffers are zeroed afterwards.
+- Delete server → delete both keychain entries and the encrypted file.
+
+### 18.3 Host key verification (TOFU)
+
+First connect: show SHA-256 fingerprint → user confirms → pinned in `hostKeyFingerprint`. Subsequent mismatch → state `host_key_mismatch`, connection refused, remediation explains how to re-pin after verifying the server.
+
+### 18.4 SshConnectionManager
+
+- One `ssh2` Client per server, lazily opened, shared by all services (multiplexed channels). Keepalive 15 s; reconnect with backoff 1→2→4→…→60 s while a consumer still needs the connection.
+- Reference counting: consumers (`metrics`, `docker`, `sftp`, `logs`) acquire/release; idle connections close after 60 s with zero consumers.
+- OS detection on first connect: `uname -s` (Linux/Darwin) else PowerShell `$PSVersionTable.OS` → `ServerOs`.
+- Commands executed only from a fixed, per-OS command catalog (no user/model-supplied shell strings) — same rule as §9.5.
+
+## 19. Metrics & monitoring (M16)
+
+### 19.1 Collectors (Strategy per OS; one combined exec per poll)
+
+| Metric | Linux | macOS | Windows (PowerShell) |
+|---|---|---|---|
+| CPU | `/proc/stat` delta (busy/total) + `/proc/loadavg` | `top -l 1 -n 0` CPU line + `sysctl -n vm.loadavg` | `Get-CimInstance Win32_Processor` LoadPercentage |
+| Memory | `/proc/meminfo` (MemTotal − MemAvailable) | `vm_stat` + `sysctl hw.memsize` | `Win32_OperatingSystem` Total/FreePhysicalMemory |
+| Network | `/proc/net/dev` (exclude `lo`, `docker*`, `veth*`) delta | `netstat -ib` delta | `Get-NetAdapterStatistics` delta |
+| Disk | `df -kP` (real filesystems) | `df -kP` | `Get-CimInstance Win32_LogicalDisk` |
+| Battery | `/sys/class/power_supply/BAT*/{capacity,status}` | `pmset -g batt` | `Win32_Battery` |
+| Uptime | `/proc/uptime` | `sysctl -n kern.boottime` | `Win32_OperatingSystem` LastBootUpTime |
+
+Output is a delimited block parsed by a pure parser per OS (`domain/metrics/*`), fully unit-tested with captured fixtures. Rates computed from the previous sample (first sample → 0).
+
+### 19.2 Monitoring modes (D25)
+
+- **Default (`backgroundMonitoring = false`):** polling runs only while the Servers tab (or a server card / drawer) is visible — the UI calls `server.watch(serverIds)` on mount and `server.unwatch` on unmount/hidden (Page Visibility API). No polling otherwise.
+- **Background (`true`):** all servers polled every `pollIntervalSeconds` while the app runs; AlertEngine evaluates rules on every sample.
+- Interval 3–60 s (default 5). Polls never overlap (single-flight per server); a poll exceeding 10 s marks the sample late.
+- In-memory ring buffer of the last 10 minutes per server for sparklines; no persistence of metrics history in v3.
+
+### 19.3 Alerts
+
+Default rules: offline > 30 s, CPU > 90 % for 120 s, RAM > 90 % for 60 s, disk > 90 %, battery < 15 % while discharging, container exited unexpectedly (Docker events). Fired/resolved alerts → `server.alert` notification → in-app toast + alert list; OS notification via Tauri notification plugin if `osNotifications`. Alerts only fire in background mode or while watched. (Email alerts via v2 Outbox are a later option.)
+
+### 19.4 Server Card UI
+
+Header (name, host, status badge green/red/amber, uptime) · RAM bar (amber ≥ 80 %, red ≥ 90 %, using theme status tokens) · CPU sparkline (last 10 min) · Net ↑/↓ (auto KB/s–MB/s) · disk bars · battery widget only when `battery != null` · actions menu (Containers, Files, Reboot, Shutdown). Colors come from theme tokens (THEMES.md).
+
+## 20. Docker management (M17)
+
+- `DockerManager` creates a `dockerode` instance whose transport is an SSH exec channel running `docker system dial-stdio` (works on Linux, macOS, Windows hosts with Docker CLI ≥ 18.09). No socket forwarding, no ports opened. The SSH user must be allowed to use Docker (docker group / Docker Desktop) — surfaced as `dockerAvailable=false` with remediation otherwise.
+- Operations: list (all/running), inspect, start/stop/restart (stop timeout 10 s), Docker events subscription (container die/start → alerts + UI refresh).
+- **Log streaming:** `docker.logs.open(containerId, {tail: 500, follow: true})` → `LogStreamId`; chunks pushed as `docker.log` notifications (≤ 64 KB, ≤ 20 chunks/s with coalescing; drop-oldest when the UI falls behind and notify). `docker.logs.close` on drawer close; streams auto-close when the UI disconnects.
+- **ContainerDrawer:** table (name, image, ports, state chip), Start/Stop/Restart buttons (Stop/Restart confirm when the container exposes ports), log viewer: virtualized list (react-virtuoso), auto-scroll toggle, text filter, stdout/stderr toggle, download visible log.
+
+## 21. Remote file manager (M18)
+
+- `SftpService` over the shared connection: `list(path)`, `stat`, `read(path)` (≤ 5 MB in editor; larger → download only), `download` (to a user-chosen local path via save dialog), `upload` (local file → remote dir, overwrite confirm), `mkdir`, `rename`, `delete` (confirm; no recursive delete in v3).
+- **Safe edit (D27):** open returns content + `sha256`; save sends `RemoteFileWriteRequest{baseSha256}` → sidecar re-reads and compares hash (mismatch → `CONFLICT`, UI shows 3-way choice) → writes backup `<file>.itstudio-bak-<YYYYMMDDHHmmss>` (same dir) → writes to `<file>.itstudio-tmp` → rename over target (atomic on POSIX; Windows uses replace semantics) → returns new hash. **Undo** restores the latest backup. Diff (Monaco diff editor) is shown before every save.
+- Binary detection (NUL bytes) → editor disabled. Line endings preserved.
+- UI: dual pane (directory tree / file list with size, mtime, mode), breadcrumbs, Monaco editor with language by extension (`.env`, YAML, JSON, Dockerfile, nginx conf…).
+
+## 22. System actions (M19)
+
+| OS | Reboot | Shutdown |
+|---|---|---|
+| Linux | `sudo -n systemctl reboot` | `sudo -n systemctl poweroff` |
+| macOS | `sudo -n shutdown -r now` | `sudo -n shutdown -h now` |
+| Windows | `shutdown /r /t 5` | `shutdown /s /t 5` |
+
+- `sudo -n` never prompts: requires a passwordless sudoers rule limited to these commands (setup guide `docs/guides/server-setup.md` shows the exact `visudo` line). Failure → remediation with that line.
+- Confirmation modal requires typing the server name. Every action is appended to an audit log (`server_actions` table: who/when/server/action/result).
+- After reboot: server card shows "rebooting", connection manager retries until online or 10 min timeout.
+
+## 23. Deferred: AI agents on servers (v3+, not scheduled)
+
+Recorded per user request: v2 agents may later get server tools — read-only (`server_metrics`, `container_list`, `container_logs_tail`) and approval-gated actions (`container_restart`, `remote_file_edit` via diff) — never reboot/shutdown. Requires a new ADR before implementation.
+
+## 24. v3 security additions
+
+| Threat | Control |
+|---|---|
+| Private key theft | Encrypted at rest (AES-GCM) with keychain-held data key; never sent to webview/logs; zeroed after use. |
+| MITM / server spoofing | Host-key pinning (TOFU) with hard failure on mismatch. |
+| Command injection on hosts | Fixed per-OS command catalog; parameters (container ids, paths) validated and passed via APIs (dockerode, SFTP), never interpolated into shell strings. |
+| Destructive actions | Typed-name confirmation, audit log, no recursive delete, backups before every file write. |
+| Docker = root equivalence | Documented in setup guide; Docker access is opt-in per server (dockerAvailable check). |

@@ -60,6 +60,13 @@ Changing any row requires an ADR in `docs/decisions/` and user approval.
 | D21 | **On-demand only:** no background polling, schedulers or agent runs for channels; every sync/agent run starts from a user action. Fetching from channel APIs costs no LLM tokens; triage/drafting runs only when the user clicks. | User: "only when I act — tokens cost money" |
 | D22 | **Outbox approval:** every outbound message to an external channel is a draft until the user approves it; no auto-send; external-triggered runs get a restricted tool set. | Prompt-injection & wrong-send safety |
 | D23 | **Email commands:** accepted only from allow-listed senders (default: own address), subject prefix `[ITS]`, DKIM pass; side-effecting actions need in-app confirmation. | Anti-spoofing |
+| D24 | **v3 Infrastructure (after v2, M15–M19):** agentless management of servers (Dell home-lab via Tailscale, VPS, any SSH host) — one `ssh2` connection per server shared by metrics, Docker, SFTP and system actions. | User 2026-10-02, ADR-0004 |
+| D25 | **Monitoring mode is a Settings toggle:** off (default) → poll only while the Servers tab is visible; on → background polling every 3–60 s (default 5) with alert rules (offline, CPU, RAM, disk, battery, container exited) delivered as in-app toast + optional OS notification. Metrics use no LLM tokens. | User decision |
+| D26 | **SSH key vault:** private key encrypted (AES-256-GCM) in app data, data key + passphrase in OS keychain; host keys pinned on first use (TOFU) with hard fail on mismatch. | Credential Manager 2.5 KB limit; MITM safety |
+| D27 | **Remote file edits:** diff shown before save, automatic `.itstudio-bak-<ts>` backup, conflict check by SHA-256, atomic tmp+rename, undo. | User decision |
+| D28 | **Docker via `docker system dial-stdio` over SSH** (dockerode); no socket forwarding or open ports; log streaming via sidecar notifications. | Cross-OS, simpler than forwarding |
+| D29 | **Target OS:** Linux, macOS and Windows Server — per-OS command/collector strategies; commands only from a fixed catalog. | User decision |
+| D30 | **AI agents operating servers: deferred** (documented in ARCH §23; requires a new ADR before implementation). | User decision |
 
 ## 4. Open questions (ask the user before the milestone that needs them)
 
@@ -89,9 +96,12 @@ Changing any row requires an ADR in `docs/decisions/` and user approval.
 | **Agent** (v2) | A configured AI worker: persona + model ladder + tools + channels + memory policy (`AgentDefinition`). |
 | **Agent Memory** | Long-term per-agent memories (`MemoryItem`) recalled by vector similarity. |
 | **Channel** | A place messages come from / go to: app, vscode, gmail, facebook_page (`IChannelAdapter`). |
+| **Server** (v3) | A managed SSH host (`ServerConfig`): Linux, macOS or Windows; no agent installed. |
+| **Background monitoring** | Opt-in setting: poll server metrics continuously and raise alerts (D25). |
 | **Outbox** | Approval queue of drafted outbound messages; nothing external is sent without approval. |
 
 > **v2 (after v1):** the sidecar also hosts the Agent Orchestrator, Agent Memory and Channel Adapters — see ARCHITECTURE Part II (§15–§17).
+> **v3 (after v2):** agentless server management (SSH metrics, Docker, SFTP, system actions) — see ARCHITECTURE Part III (§18–§24).
 
 ## 6. System map
 

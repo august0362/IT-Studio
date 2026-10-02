@@ -24,6 +24,11 @@
 | **v2** M12 Channels framework + Outbox + VS Code chat | After v1 | 0 / 6 |
 | **v2** M13 Gmail channel | After v1 | 0 / 6 |
 | **v2** M14 Facebook Page channel | After v1 | 0 / 4 |
+| **v3** M15 SSH foundation & server registry | After v2 | 0 / 5 |
+| **v3** M16 Metrics, monitoring & alerts | After v2 | 0 / 7 |
+| **v3** M17 Docker management | After v2 | 0 / 5 |
+| **v3** M18 Remote file manager | After v2 | 0 / 5 |
+| **v3** M19 System actions | After v2 | 0 / 3 |
 
 ---
 
@@ -203,6 +208,62 @@ Spec: ARCH §14.2.
 - [ ] **M14-02** (C) Conversations sync (user-triggered).
 - [ ] **M14-03** (C) Send API with 24 h window enforcement + rate-limit backoff.
 - [ ] **M14-04** (A) `docs/guides/facebook-page-setup.md` (Meta app, permissions, long-lived Page token).
+
+---
+
+# v3 — Agentless Infrastructure Management (start only after M14; ADR-0004, ARCH Part III)
+
+## M15 — SSH foundation & server registry
+
+**Exit criteria:** user adds a Linux, a macOS and a Windows server (key file + optional passphrase), confirms the host-key fingerprint, and the card shows Online with detected OS; a changed host key blocks the connection.
+
+- [ ] **M15-01** (C) `servers` table + repo + `server.*` CRUD RPC; `AppSettings.monitoring` (additive schema change, ADR-0004).
+- [ ] **M15-02** (C) Key vault: AES-256-GCM encrypted key file + keychain data key/passphrase; import & validate key formats; zeroing.
+- [ ] **M15-03** (C) `SshConnectionManager`: pooled ssh2 clients, ref-counted consumers, keepalive, reconnect backoff, idle close.
+- [ ] **M15-04** (C) Host-key TOFU flow (fingerprint confirm RPC + notification), mismatch handling; OS detection.
+- [ ] **M15-05** (C) AddServerModal + Servers tab skeleton (cards with connection state, fingerprint confirm dialog).
+
+## M16 — Metrics, monitoring & alerts
+
+**Exit criteria:** cards show live CPU/RAM/net/disk/battery for all three OS families from fixtures and a real host; with background monitoring off, no SSH traffic occurs when the tab is hidden; with it on, a RAM > 90 % condition raises a toast.
+
+- [ ] **M16-01** (C) Linux collector + pure parser (`/proc`, `/sys`, `df`) with fixtures.
+- [ ] **M16-02** (C) macOS collector + parser (`vm_stat`, `sysctl`, `netstat -ib`, `pmset`).
+- [ ] **M16-03** (C) Windows collector + parser (PowerShell CIM, JSON output).
+- [ ] **M16-04** (C) `MetricsCollector` scheduler: watch/unwatch, background mode, single-flight, ring buffer, `server.metrics` notifications.
+- [ ] **M16-05** (C) `AlertEngine`: rules, debounce, fire/resolve, `server.alert`; Tauri OS notifications (opt-in).
+- [ ] **M16-06** (C) ServerCard UI: gauges, sparkline, net rates, disk, conditional battery, theme status tokens.
+- [ ] **M16-07** (C) Settings → Monitoring: background toggle, interval, alert rules editor.
+
+## M17 — Docker management
+
+**Exit criteria:** containers on a remote host listed; start/stop/restart work; logs stream smoothly at high volume without freezing the UI.
+
+- [ ] **M17-01** (C) `DockerManager` over SSH `dial-stdio` (dockerode custom transport), availability check + remediation.
+- [ ] **M17-02** (C) List/inspect/start/stop/restart + Docker events → refresh + container-exited alerts.
+- [ ] **M17-03** (C) Log streaming (open/close, chunking, coalescing, back-pressure, auto-close).
+- [ ] **M17-04** (C) ContainerDrawer UI: table, actions with confirmations, state chips.
+- [ ] **M17-05** (C) Virtualized log viewer: auto-scroll toggle, filter, stdout/stderr toggle, download.
+
+## M18 — Remote file manager
+
+**Exit criteria:** browse, upload, download; edit `.env` and `docker-compose.yml` with diff + backup; a concurrent remote change is detected as a conflict; undo restores the backup.
+
+- [ ] **M18-01** (C) `SftpService`: list/stat/read/mkdir/rename/delete (non-recursive), Windows path handling.
+- [ ] **M18-02** (C) Safe write: hash conflict check, backup, tmp+rename, undo; binary detection; size limits.
+- [ ] **M18-03** (C) Upload/download via native save/open dialogs (Tauri dialog plugin, command-scoped permission).
+- [ ] **M18-04** (C) RemoteFileManager UI: dual pane, breadcrumbs, file table.
+- [ ] **M18-05** (C) Monaco editor + diff-before-save + conflict resolution dialog.
+
+## M19 — System actions
+
+**Exit criteria:** reboot and shutdown work on all three OS families with typed-name confirmation, are audited, and the card tracks reboot progress.
+
+- [ ] **M19-01** (C) `SystemActionService`: per-OS command catalog, `sudo -n` handling + remediation, audit log table.
+- [ ] **M19-02** (C) Confirmation UI (type server name) + rebooting state tracking.
+- [ ] **M19-03** (A) `docs/guides/server-setup.md`: SSH key setup, Tailscale notes, sudoers lines, Docker permissions, Windows OpenSSH, macOS remote login.
+
+> Deferred (not scheduled): AI agents operating servers — ARCH §23, needs a new ADR.
 
 ---
 
