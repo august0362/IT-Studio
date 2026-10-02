@@ -11,11 +11,25 @@ export interface SystemServiceOptions {
   readonly logger: Logger;
   readonly exit?: (code: number) => void;
   readonly shutdownHooks?: readonly (() => void | Promise<void>)[];
+  readonly timers?: SystemServiceTimers;
 }
+
+export interface SystemServiceTimers {
+  setTimeout(callback: () => void, delayMs: number): unknown;
+  clearTimeout(handle: unknown): void;
+}
+
+const systemTimers: SystemServiceTimers = {
+  setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
+  clearTimeout: (handle) => {
+    clearTimeout(handle as NodeJS.Timeout);
+  },
+};
 
 export class SystemService {
   private cachedVersion: string | undefined;
   private readonly options: SystemServiceOptions;
+  private shutdownPromise: Promise<void> | undefined;
 
   constructor(options: SystemServiceOptions) {
     this.options = options;
@@ -32,12 +46,18 @@ export class SystemService {
       }),
     );
     server.register('system.shutdown', (): Promise<Result<RpcMethodMap['system.shutdown']['result']>> => {
-      this.options.logger.info({ svc: 'sidecar' }, 'shutdown requested');
       setTimeout(() => {
-        void this.shutdown();
+        void this.shutdown('rpc');
       }, 0).unref();
       return Promise.resolve({ ok: true, value: { accepted: true } });
     });
+  }
+
+  shutdown(reason: 'rpc' | 'stdin_closed'): Promise<void> {
+    if (this.shutdownPromise !== undefined) return this.shutdownPromise;
+    this.options.logger.info({ svc: 'sidecar', reason }, 'shutdown requested');
+    this.shutdownPromise = Promise.resolve().then(() => this.runShutdown());
+    return this.shutdownPromise;
   }
 
   getVersion(): string {
@@ -49,22 +69,38 @@ export class SystemService {
     return this.cachedVersion;
   }
 
-  private async shutdown(): Promise<void> {
+  private async runShutdown(): Promise<void> {
+    const timers = this.options.timers ?? systemTimers;
     const exit =
       this.options.exit ??
       ((code: number) => {
         process.exit(code);
       });
-    const timeout = setTimeout(() => {
-      exit(0);
-    }, 5000);
-    timeout.unref();
-    try {
-      for (const hook of this.options.shutdownHooks ?? []) await hook();
-    } finally {
-      clearTimeout(timeout);
-      this.options.logger.info({ svc: 'sidecar', code: 0 }, 'sidecar exiting');
-      exit(0);
-    }
+    let timeout: unknown;
+    const deadline = new Promise<void>((resolve) => {
+      timeout = timers.setTimeout(() => {
+        this.options.logger.warn({ svc: 'sidecar', timeoutMs: 3000 }, 'shutdown deadline reached; forcing exit');
+        this.options.logger.info({ svc: 'sidecar', code: 0 }, 'sidecar exiting');
+        exit(0);
+        resolve();
+      }, 3000);
+    });
+    const hooks = Promise.all(
+      (this.options.shutdownHooks ?? []).map(async (hook, index) => {
+        try {
+          await hook();
+        } catch (error) {
+          this.options.logger.error(
+            { svc: 'sidecar', hookIndex: index, error: error instanceof Error ? error.message : 'unknown' },
+            'shutdown hook failed',
+          );
+        }
+      }),
+    );
+    const outcome = await Promise.race([hooks.then(() => 'hooks' as const), deadline.then(() => 'deadline' as const)]);
+    if (timeout !== undefined) timers.clearTimeout(timeout);
+    if (outcome === 'deadline') return;
+    this.options.logger.info({ svc: 'sidecar', code: 0 }, 'sidecar exiting');
+    exit(0);
   }
 }

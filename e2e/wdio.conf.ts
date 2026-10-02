@@ -1,6 +1,7 @@
 import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Capabilities, Options } from '@wdio/types';
 
@@ -13,6 +14,7 @@ const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const appPath = resolve(root, 'apps/desktop/src-tauri/target/debug/itstudio-desktop.exe');
 const npmCliPath = process.env.npm_execpath;
 const drivers: ChildProcess[] = [];
+let e2eTempRoot: string | undefined;
 const tauriCapabilities: TauriCapabilities[] = [{ browserName: 'wry', 'tauri:options': { application: appPath } }];
 
 // Each tauri-driver needs its own native (msedgedriver) port; the default 4445 collides with a second driver on 4445.
@@ -31,6 +33,12 @@ function startDriver(port: number, nativePort: number, crashOnStart = false): vo
       cwd: root,
       env: {
         ...process.env,
+        ...(e2eTempRoot === undefined
+          ? {}
+          : {
+              ITSTUDIO_DATA_DIR: join(e2eTempRoot, 'data'),
+              WEBVIEW2_USER_DATA_FOLDER: join(e2eTempRoot, 'webview'),
+            }),
         ITSTUDIO_E2E: '1',
         ITSTUDIO_E2E_VERIFIER_OUTCOME: 'timeout',
         ...(crashOnStart ? { ITSTUDIO_E2E_CRASH_ON_START: '1' } : {}),
@@ -49,6 +57,7 @@ export const config: Options.Testrunner & { capabilities: Capabilities.Requested
     './specs/m1/fatal.spec.ts',
     './specs/m1/startup.spec.ts',
     './specs/m4/theme.spec.ts',
+    './specs/m4/shell.spec.ts',
     // shutdown must stay last: it closes the app window
     './specs/m1/shutdown.spec.ts',
   ],
@@ -63,6 +72,7 @@ export const config: Options.Testrunner & { capabilities: Capabilities.Requested
   mochaOpts: { timeout: 120_000 },
   waitforTimeout: 70_000,
   async onPrepare() {
+    e2eTempRoot = mkdtempSync(join(tmpdir(), 'itstudio-e2e-'));
     if (!existsSync(appPath)) {
       if (npmCliPath === undefined) throw new Error('npm_execpath is unavailable; run E2E through npm run test:e2e.');
       execFileSync(
@@ -93,5 +103,6 @@ export const config: Options.Testrunner & { capabilities: Capabilities.Requested
   },
   onComplete() {
     for (const driver of drivers) driver.kill();
+    if (e2eTempRoot !== undefined) rmSync(e2eTempRoot, { recursive: true, force: true });
   },
 };

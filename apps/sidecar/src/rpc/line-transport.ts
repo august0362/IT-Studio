@@ -15,12 +15,15 @@ export interface LineTransportOptions {
   readonly input: Readable;
   readonly output: Writable;
   readonly onLine: (line: string) => void | Promise<void>;
+  readonly onEnd?: () => void | Promise<void>;
 }
 
 export class LineTransport {
   private buffer = '';
   private discardingOverlongLine = false;
   private writeQueue: Promise<void> = Promise.resolve();
+  private readonly pendingLines: Promise<void>[] = [];
+  private ending = false;
   private readonly options: LineTransportOptions;
 
   constructor(options: LineTransportOptions) {
@@ -32,9 +35,11 @@ export class LineTransport {
     this.options.input.on('data', (chunk: string | Buffer) => {
       this.consume(String(chunk));
     });
-    this.options.input.on('end', () => {
-      if (this.buffer.length > 0) this.processLine(this.buffer);
-      this.buffer = '';
+    this.options.input.once('end', () => {
+      this.finish();
+    });
+    this.options.input.once('close', () => {
+      this.finish();
     });
   }
 
@@ -74,6 +79,14 @@ export class LineTransport {
 
   private processLine(line: string): void {
     if (line.trim().length === 0) return;
-    void this.options.onLine(line);
+    this.pendingLines.push(Promise.resolve().then(() => this.options.onLine(line)));
+  }
+
+  private finish(): void {
+    if (this.ending) return;
+    this.ending = true;
+    if (this.buffer.length > 0 && !this.discardingOverlongLine) this.processLine(this.buffer);
+    this.buffer = '';
+    void Promise.allSettled(this.pendingLines).then(async () => this.options.onEnd?.());
   }
 }
