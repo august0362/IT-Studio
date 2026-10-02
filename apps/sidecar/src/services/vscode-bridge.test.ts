@@ -108,10 +108,21 @@ describe('VSCodeBridge', () => {
       expect(state.statuses).toHaveLength(1);
       socket.send(JSON.stringify({ type: 'diagnostics', diagnostics: [] }));
       socket.send(JSON.stringify({ type: 'file_saved_by_user', path: 'src/a.ts', hash: 'a'.repeat(64) }));
+      socket.send(JSON.stringify({ type: 'diagnostics', diagnostics: [{ source: 'wrong', severity: 'error' }] }));
+      socket.send(JSON.stringify({ type: 'file_saved_by_user', path: '../outside.ts', hash: 'bad' }));
       socket.send('{broken');
       await new Promise((resolveDelay) => setTimeout(resolveDelay, 10));
       expect(state.diagnostics).toHaveLength(1);
       expect(state.savedFiles).toHaveLength(1);
+      expect(state.diagnostics[0]).toMatchObject({
+        projectId: 'b1111111-1111-4111-8111-111111111111',
+        diagnostics: [],
+      });
+      expect(state.savedFiles[0]).toMatchObject({
+        projectId: 'b1111111-1111-4111-8111-111111111111',
+        path: 'src/a.ts',
+        hash: 'a'.repeat(64),
+      });
     } finally {
       socket.close();
     }
