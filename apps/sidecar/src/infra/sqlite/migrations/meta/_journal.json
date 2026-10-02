@@ -29,6 +29,13 @@
       "when": 1790924024578,
       "tag": "0003_medical_blue_shield",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1790931260625,
+      "tag": "0004_old_wendigo",
+      "breakpoints": true
     }
   ]
 }

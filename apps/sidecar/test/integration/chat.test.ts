@@ -59,6 +59,18 @@ describe('chat integration', () => {
     expect(h.notifications.at(-1)?.method).toBe('chat.completed');
   });
 
+  it('TC-M3-020 applies the FX override to the next completed chat cost', async () => {
+    const h = await setup({ 'google/gemini-3.8-flash': ['ok'] });
+    const overridden = await h.sidecar.call('fx.override', { usdToVnd: 25_000 });
+    expect(overridden.result).toMatchObject({ usdToVnd: 25_000, source: 'manual_override' });
+    await h.sidecar.call('chat.send', { conversationId: h.conversationId, text: 'check the converted cost' });
+    await completed(h);
+    const completion = observed<{ cost: { microUsd: number; vnd: number; vndText: string } }>(h, 'chat.completed')[0];
+    if (completion === undefined) throw new Error('Completed chat notification was missing');
+    expect(completion.cost.vnd).toBe(Math.round((completion.cost.microUsd * 25_000) / 1_000_000));
+    expect(completion.cost.vndText).toContain('₫');
+  });
+
   it('TC-M2-011 discards partial output before falling back', async () => {
     // 503 is retryable (ARCH §5.2): 1 attempt + maxRetries(2) must all fail mid-stream before the router falls back.
     const h = await setup({ 'google/gemini-3.8-flash': ['http:503', 'http:503', 'http:503'] });

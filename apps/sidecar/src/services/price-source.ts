@@ -1,5 +1,6 @@
 import type { FxRate, PriceTable } from '@itstudio/schemas';
 import type { IPriceRepository } from '../ports/price-repository.js';
+import type { FxService } from './fx-service.js';
 
 export interface IPriceSource {
   getPriceTable(): PriceTable;
@@ -8,9 +9,9 @@ export interface IPriceSource {
 
 export class RepositoryPriceSource implements IPriceSource {
   private readonly repository: IPriceRepository;
-  private readonly fx: FxRate;
+  private readonly fx: FxService;
 
-  constructor(repository: IPriceRepository, fx: FxRate) {
+  constructor(repository: IPriceRepository, fx: FxService) {
     this.repository = repository;
     this.fx = fx;
   }
@@ -27,6 +28,6 @@ export class RepositoryPriceSource implements IPriceSource {
   }
 
   getFxRate(): FxRate {
-    return this.fx;
+    return this.fx.getEffective();
   }
 }

@@ -10,6 +10,7 @@ import { createContainer } from './container.js';
 import { MemorySecretStore } from './infra/memory-secret-store.js';
 import type { IProviderKeyVerifier } from './infra/http/provider-key-verifier.js';
 import { ProviderId } from '@itstudio/schemas';
+import type { IHttpClient } from './ports/http-client.js';
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -22,6 +23,9 @@ function parseLine(line: string): Record<string, unknown> {
 }
 
 const tempDirectories: string[] = [];
+const testFxHttpClient: IHttpClient = {
+  request: () => Promise.resolve(Response.json({ rates: { VND: 26_300 } })),
+};
 
 describe('sidecar container', () => {
   it('logs lifecycle events in order and creates the daily log file', async () => {
@@ -44,6 +48,7 @@ describe('sidecar container', () => {
       {
         input,
         output,
+        fxHttpClient: testFxHttpClient,
         dataDir,
         exit: (code) => exits.push(code),
         secretStore: new MemorySecretStore(),
@@ -69,7 +74,7 @@ describe('sidecar container', () => {
       .trim()
       .split('\n')
       .map((line) => JSON.parse(line) as { readonly msg: string; readonly svc?: string });
-    const lifecycle = entries.map((entry) => entry.msg);
+    const lifecycle = entries.filter((entry) => entry.svc === 'sidecar').map((entry) => entry.msg);
     expect(lifecycle).toEqual([
       'sidecar starting',
       'migrations applied',
@@ -78,7 +83,7 @@ describe('sidecar container', () => {
       'shutdown requested',
       'sidecar exiting',
     ]);
-    expect(entries.every((entry) => entry.svc === 'sidecar')).toBe(true);
+    expect(entries.every((entry) => entry.svc === 'sidecar' || entry.svc === 'fx')).toBe(true);
     expect(stdoutLines.map(parseLine).some((line) => line.msg !== undefined)).toBe(false);
     expect(exits).toEqual([0]);
     container.database.client.close();
@@ -91,6 +96,7 @@ describe('sidecar container', () => {
       {
         input: fileInput,
         output: new PassThrough(),
+        fxHttpClient: testFxHttpClient,
         dataDir: fileDataDir,
         exit: () => undefined,
         secretStore: new MemorySecretStore(),
@@ -123,6 +129,7 @@ describe('sidecar container', () => {
       {
         input,
         output,
+        fxHttpClient: testFxHttpClient,
         clock: createFakeClock(),
         logger: createLogger({
           streams: [
@@ -166,6 +173,7 @@ describe('sidecar container', () => {
       {
         input,
         output,
+        fxHttpClient: testFxHttpClient,
         dataDir: ':memory:',
         exit: (code) => exitCodes.push(code),
         logger: createLogger({
@@ -225,6 +233,7 @@ describe('sidecar container', () => {
       {
         input,
         output,
+        fxHttpClient: testFxHttpClient,
         dataDir: ':memory:',
         secretStore: new MemorySecretStore(),
         keyVerifier: verifier,

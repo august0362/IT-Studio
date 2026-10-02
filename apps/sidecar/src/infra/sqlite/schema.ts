@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { check, index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { check, index, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 export const projects = sqliteTable('projects', {
   id: text('id').primaryKey(),
@@ -73,4 +73,9 @@ export const priceTables = sqliteTable('price_tables', {
   effectiveFrom: text('effective_from').notNull(),
   origin: text('origin').notNull(),
   entriesJson: text('entries_json').notNull(),
+});
+
+export const fxRates = sqliteTable('fx_rates', {
+  asOf: text('as_of').primaryKey(),
+  usdToVnd: real('usd_to_vnd').notNull(),
 });
