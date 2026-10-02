@@ -24,6 +24,7 @@ import { ProjectRepository } from './infra/sqlite/project-repository.js';
 import { SettingsRepository } from './infra/sqlite/settings-repository.js';
 import { ChatRepository } from './infra/sqlite/chat-repository.js';
 import { LedgerRepository } from './infra/sqlite/ledger-repository.js';
+import { BudgetRepository } from './infra/sqlite/budget-repository.js';
 import { PriceRepository } from './infra/sqlite/price-repository.js';
 import { FxRepository } from './infra/sqlite/fx-repository.js';
 import { ProjectService } from './services/project-service.js';
@@ -46,7 +47,7 @@ import {
   OpenAiCompatibleProvider,
 } from './providers/openai-compatible/openai-compatible-provider.js';
 import { ModelRegistry } from './services/model-registry.js';
-import { AlwaysOkBudgetGuard } from './ports/budget-guard.js';
+import { BudgetGuard } from './services/budget-guard.js';
 import { LlmRouter, type RouterCompleted } from './services/llm-router.js';
 import { computeTokenCost } from './domain/cost.js';
 import { LedgerService } from './services/ledger-service.js';
@@ -280,6 +281,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const projectRepository = new ProjectRepository(database.db);
   const chatRepository = new ChatRepository(database.db);
   const ledgerRepository = new LedgerRepository(database.db);
+  const budgetRepository = new BudgetRepository(database.db);
   const priceRepository = new PriceRepository(database.db);
   const fxRepository = new FxRepository(database.db);
   const settingsRepository = new SettingsRepository(database.db);
@@ -417,6 +419,13 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     clock,
     logger,
   });
+  const budgetGuard = new BudgetGuard({
+    repository: budgetRepository,
+    settings: settingsService,
+    prices: priceSource,
+    events,
+    clock,
+  });
   const routerConfigService = new RouterConfigService({ settings: settingsService, models: modelRegistry });
   const fallbackDecider = new UserFallbackDecider({
     events,
@@ -428,7 +437,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     models: modelRegistry,
     providers,
     secrets: secretStore,
-    budget: new AlwaysOkBudgetGuard(),
+    budget: budgetGuard,
     estimateCostMicroUsd: (request, modelKey) => {
       const price = pricingService.current().entries.find((entry) => entry.modelKey === modelKey);
       if (price === undefined) return 0;
@@ -537,6 +546,10 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   );
   server.register('chat.cancel', ({ requestId }) => chatService.cancel(requestId));
   server.register('ledger.query', (query) => ledgerService.query(query));
+  server.register('budget.set', ({ projectId, period, limitMicroUsd, warnAt }) =>
+    budgetGuard.set({ projectId, period, limitMicroUsd, warnAt }),
+  );
+  server.register('budget.status', ({ projectId }) => budgetGuard.status(projectId));
   server.register('pricing.get', () => Promise.resolve({ ok: true, value: pricingService.current() }));
   server.register('pricing.override', ({ entry }) => Promise.resolve(pricingService.override(entry)));
 
@@ -551,6 +564,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     llmRouter,
     chatService,
     ledgerService,
+    budgetGuard,
     pricingService,
     fxService,
     routerCompleted,

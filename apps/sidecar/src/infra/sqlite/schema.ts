@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { check, index, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { check, index, integer, primaryKey, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 export const projects = sqliteTable('projects', {
   id: text('id').primaryKey(),
@@ -66,6 +66,33 @@ export const ledgerEntries = sqliteTable(
     billedFailure: integer('billed_failure').notNull(),
   },
   (table) => [index('ledger_entries_project_occurred_idx').on(table.projectId, table.occurredAt)],
+);
+
+export const budgets = sqliteTable(
+  'budgets',
+  {
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    period: text('period').notNull(),
+    limitMicroUsd: integer('limit_micro_usd').notNull(),
+    warnAtJson: text('warn_at_json').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.projectId, table.period] })],
+);
+
+export const budgetAlerts = sqliteTable(
+  'budget_alerts',
+  {
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    period: text('period').notNull(),
+    windowKey: text('window_key').notNull(),
+    threshold: real('threshold').notNull(),
+    alertedAt: text('alerted_at').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.projectId, table.period, table.windowKey, table.threshold] })],
 );
 
 export const priceTables = sqliteTable('price_tables', {
