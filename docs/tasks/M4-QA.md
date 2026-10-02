@@ -59,3 +59,7 @@ Append `## Result` per AGENTS.md §3 including a table: case ID → test file �
 | TC-M4-046 | `e2e/specs/m1/api-keys.spec.ts` | Existing TC-M1-030 write-only key check; unit/UI case retained |
 | TC-M4-050 | `e2e/specs/m4/shell.spec.ts` | Authored; E2E not run |
 | TC-M4-051 | `e2e/specs/m4/shell.spec.ts` | Authored; E2E not run |
+
+## QA (Claude) — round 1
+- Work reviewed: E2E cases authored (not run), flaky theme lint test timeout fixed, unused i18n key removed.
+- **Fix round 1 required — desktop coverage 70.1 % lines (target ≥ 80 %, §2):** add component tests (fake RPC client, Testing Library) for the least-covered desktop files first (list them from the coverage report: `npx vitest run apps/desktop --coverage`), prioritising user flows: settings pages (router / budget / pricing / fx / vscode / pipeline), cost page sub-components, knowledge page, code page panels, shell (`AppShell`, `ProjectTabs`, `NewProjectDialog`). Target ≥ 80 % lines and ≥ 70 % branches for `apps/desktop/src/**`; report before/after per file. Tests only — production code only if a test exposes a defect. Do not run E2E.
