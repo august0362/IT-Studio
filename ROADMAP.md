@@ -58,6 +58,7 @@
 - [x] **M1-06** (C) `ISecretStore` + keychain impl (`@napi-rs/keyring`, service name `itstudio`) + in-memory impl for tests; `secrets.set/delete/status/verify` (verify = cheapest list-models call). Ref: ARCH §11, D2.
 - [x] **M1-07** (C) UI status bar: sidecar connection state + version; minimal Settings → API Keys page (write-only inputs, status chips with hint).
 - [ ] **M1-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M1-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M1-report.md` sign-off. Scope: Build the L3 sidecar integration harness (spawn sidecar, NDJSON client, temp data dir, `ITSTUDIO_E2E=1` fakes) and the L4 E2E harness (WebdriverIO + tauri-driver + Edge WebDriver); scripts `test:integration`, `test:e2e`, `test:all`. Cases: app launch → sidecar ready, status bar, API Keys save/verify/delete, sidecar crash → auto-restart, settings persistence across restart.
+  - Gate sub-tasks (defects found by QA, see docs/qa/M1-report.md): [x] M1-QA integration harness (20/20 ×3) · [x] M1-FIX1 flaky test (BUG-001) · [x] M1-FIX2 lifecycle logs (BUG-003) · [x] BUG-004 S1 RpcClient params (fixed in M1-QA) · [x] M1-QA2 typed tests + runnable E2E (5/8) · [ ] M1-FIX3 accessible confirm dialog (BUG-005) · [ ] M1-QA3 E2E test defects TC-006/007 · [ ] sign-off report
 
 ## M2 — LLM router & providers
 
