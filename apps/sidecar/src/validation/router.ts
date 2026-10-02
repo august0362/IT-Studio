@@ -11,6 +11,7 @@ import type {
 } from '@itstudio/schemas';
 import { moneyDisplaySchema } from './cost.js';
 import { modelKeySchema, z, isoDateTimeSchema, llmRequestIdSchema, projectIdSchema, microUsdSchema } from './common.js';
+import { pipelineRunIdSchema } from './brand.js';
 import { chatMessageSchema, toolDeclarationSchema } from './chat.js';
 import { modelCapabilitySchema } from './models.js';
 import { tokenUsageSchema } from './chat.js';
@@ -123,6 +124,7 @@ export const llmRequestSchema = z
   .object({
     id: llmRequestIdSchema,
     projectId: projectIdSchema,
+    pipelineRunId: pipelineRunIdSchema.exactOptional(),
     purpose: costPurposeSchema,
     messages: z.array(chatMessageSchema).readonly(),
     systemPrompt: z.string().exactOptional(),

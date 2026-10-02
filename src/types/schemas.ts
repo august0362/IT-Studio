@@ -269,6 +269,8 @@ export interface TokenUsage {
 export interface LlmRequest {
   readonly id: LlmRequestId;
   readonly projectId: ProjectId;
+  /** Set by RoleCaller for pipeline role calls; copied to the ledger row. */
+  readonly pipelineRunId?: PipelineRunId;
   /** What this call is for — drives ledger attribution and P&L breakdown. */
   readonly purpose: CostPurpose;
   readonly messages: readonly ChatMessage[];

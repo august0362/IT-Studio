@@ -1,9 +1,10 @@
-import type { LedgerEntry, LedgerQuery, Page } from '@itstudio/schemas';
+import type { LedgerEntry, LedgerQuery, MicroUsd, Page, PipelineRunId } from '@itstudio/schemas';
 
 /** Insert-only persistence and read access for the cost ledger. */
 export interface ILedgerRepository {
   insert(entry: LedgerEntry): Promise<void>;
   query(query: LedgerQuery, cursor: LedgerCursor | undefined, limit: number): Promise<Page<LedgerEntry>>;
+  sumByPipelineRun(runId: PipelineRunId): Promise<MicroUsd>;
 }
 
 export interface LedgerCursor {

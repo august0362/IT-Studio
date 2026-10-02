@@ -1,10 +1,11 @@
-import { and, desc, eq, gte, inArray, lt, lte, or, type SQL } from 'drizzle-orm';
-import type { LedgerEntry, LedgerQuery, Page } from '@itstudio/schemas';
+import { and, desc, eq, gte, inArray, lt, lte, or, sum, type SQL } from 'drizzle-orm';
+import type { LedgerEntry, LedgerQuery, MicroUsd, Page, PipelineRunId } from '@itstudio/schemas';
 import type { AppDatabase } from './database.js';
 import { ledgerEntries } from './schema.js';
 import type { ILedgerRepository, LedgerCursor } from '../../ports/ledger-repository.js';
 import { ledgerEntrySchema } from '../../validation/cost.js';
 import { tokenUsageSchema } from '../../validation/chat.js';
+import { microUsdSchema } from '../../validation/brand.js';
 
 export class LedgerRepository implements ILedgerRepository {
   private readonly db: AppDatabase;
@@ -80,6 +81,15 @@ export class LedgerRepository implements ILedgerRepository {
       items,
       nextCursor: hasMore && last !== undefined ? encodeCursor(last.occurredAt, last.id) : null,
     });
+  }
+
+  sumByPipelineRun(runId: PipelineRunId): Promise<MicroUsd> {
+    const row = this.db
+      .select({ total: sum(ledgerEntries.costMicroUsd) })
+      .from(ledgerEntries)
+      .where(eq(ledgerEntries.pipelineRunId, runId))
+      .get();
+    return Promise.resolve(microUsdSchema.parse(Number(row?.total ?? 0)));
   }
 }
 
