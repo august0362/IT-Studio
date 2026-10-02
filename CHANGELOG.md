@@ -6,6 +6,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add 18-theme system and Settings → Theme picker ([M4-01b](docs/tasks/M4-01b.md))
+- Add embedding providers with same-dimension fallback ([M5-03](docs/tasks/M5-03.md))
+- Add FxService with daily USD→VND rate and manual override ([M3-05](docs/tasks/M3-05.md))
 - Add sidecar VS Code bridge with token-authenticated loopback WebSocket ([M7-02](docs/tasks/M7-02.md))
 - Add Money, SafeMarkdown (XSS-hardened) and ErrorPanel components ([M4-02](docs/tasks/M4-02.md))
 - Add runtime role prompts and RoleCaller with JSON validation ([M6-04](docs/tasks/M6-04.md))
