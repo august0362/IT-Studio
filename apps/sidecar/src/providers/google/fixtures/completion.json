@@ -1,0 +1,16 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [{ "text": "contract response" }]
+      },
+      "finishReason": "STOP"
+    }
+  ],
+  "modelVersion": "test-model",
+  "usageMetadata": {
+    "promptTokenCount": 3,
+    "candidatesTokenCount": 4
+  }
+}

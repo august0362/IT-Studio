@@ -25,6 +25,7 @@ import type { ISecretStore } from './ports/secret-store.js';
 import type { IProviderKeyVerifier } from './infra/http/provider-key-verifier.js';
 import { ProviderRegistry } from './providers/provider-registry.js';
 import { AnthropicProvider } from './providers/anthropic/anthropic-provider.js';
+import { GoogleProvider } from './providers/google/google-provider.js';
 import {
   OPENAI_COMPATIBLE_BASE_URLS,
   OpenAiCompatibleProvider,
@@ -152,6 +153,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   });
   const providers = new ProviderRegistry({
     [ProviderId.ANTHROPIC]: () => new AnthropicProvider(),
+    [ProviderId.GOOGLE]: () => new GoogleProvider(),
     [ProviderId.OPENAI]: () =>
       new OpenAiCompatibleProvider({ id: ProviderId.OPENAI, baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.OPENAI] }),
     [ProviderId.XAI]: () =>
