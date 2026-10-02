@@ -1,22 +1,29 @@
 import type { FxRate, PriceTable } from '@itstudio/schemas';
+import type { IPriceRepository } from '../ports/price-repository.js';
 
-/** Temporary seed-backed price and FX source; replaced by pricing/FX services later. */
 export interface IPriceSource {
   getPriceTable(): PriceTable;
   getFxRate(): FxRate;
 }
 
-export class SeedPriceSource implements IPriceSource {
-  private readonly table: PriceTable;
+export class RepositoryPriceSource implements IPriceSource {
+  private readonly repository: IPriceRepository;
   private readonly fx: FxRate;
 
-  constructor(table: PriceTable, fx: FxRate) {
-    this.table = table;
+  constructor(repository: IPriceRepository, fx: FxRate) {
+    this.repository = repository;
     this.fx = fx;
   }
 
   getPriceTable(): PriceTable {
-    return this.table;
+    const current = this.repository.current();
+    if (current === null) throw new Error('The pricing table has not been seeded');
+    return {
+      version: current.version,
+      effectiveFrom: current.effectiveFrom,
+      origin: current.origin,
+      entries: current.entries,
+    };
   }
 
   getFxRate(): FxRate {

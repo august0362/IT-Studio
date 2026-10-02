@@ -22,6 +22,13 @@
       "when": 1790920757764,
       "tag": "0002_light_xavin",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1790924024578,
+      "tag": "0003_medical_blue_shield",
+      "breakpoints": true
     }
   ]
 }

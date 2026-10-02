@@ -18,6 +18,7 @@ import { ProjectRepository } from './infra/sqlite/project-repository.js';
 import { SettingsRepository } from './infra/sqlite/settings-repository.js';
 import { ChatRepository } from './infra/sqlite/chat-repository.js';
 import { LedgerRepository } from './infra/sqlite/ledger-repository.js';
+import { PriceRepository } from './infra/sqlite/price-repository.js';
 import { ProjectService } from './services/project-service.js';
 import { SettingsService } from './services/settings-service.js';
 import { ChatService } from './services/chat-service.js';
@@ -43,7 +44,8 @@ import { LlmRouter, type RouterCompleted } from './services/llm-router.js';
 import { computeTokenCost } from './domain/cost.js';
 import { isoDateTimeSchema } from './validation/brand.js';
 import { LedgerService } from './services/ledger-service.js';
-import { SeedPriceSource } from './services/price-source.js';
+import { RepositoryPriceSource } from './services/price-source.js';
+import { PricingService } from './services/pricing-service.js';
 import { readFileSync } from 'node:fs';
 import { readdirSync } from 'node:fs';
 import { ErrorCode, type AppError, type Result } from '@itstudio/schemas';
@@ -180,6 +182,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const projectRepository = new ProjectRepository(database.db);
   const chatRepository = new ChatRepository(database.db);
   const ledgerRepository = new LedgerRepository(database.db);
+  const priceRepository = new PriceRepository(database.db);
   const settingsRepository = new SettingsRepository(database.db);
   const settingsService = new SettingsService({
     repository: settingsRepository,
@@ -233,9 +236,17 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
           }),
   });
   const modelRegistry = new ModelRegistry(loadedSeeds.value.models, providers);
+  const pricingService = new PricingService({
+    repository: priceRepository,
+    seed: loadedSeeds.value.pricing,
+    knownModels: new Set(modelRegistry.list().map((model) => model.key)),
+    ids,
+    clock,
+  });
+  pricingService.initialize();
   const events = new EventBus<RpcNotificationMap>();
   const routerCompleted = new EventBus<{ completed: RouterCompleted }>();
-  const priceSource = new SeedPriceSource(loadedSeeds.value.pricing, {
+  const priceSource = new RepositoryPriceSource(priceRepository, {
     usdToVnd: loadedSeeds.value.fx.seedUsdToVnd,
     asOf: isoDateTimeSchema.parse(loadedSeeds.value.fx.seedAsOf),
     source: 'auto',
@@ -254,7 +265,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     events,
     clock,
     models: modelRegistry,
-    priceTable: () => loadedSeeds.value.pricing,
+    priceTable: () => pricingService.current(),
   });
   const llmRouter = new LlmRouter({
     models: modelRegistry,
@@ -262,7 +273,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     secrets: secretStore,
     budget: new AlwaysOkBudgetGuard(),
     estimateCostMicroUsd: (request, modelKey) => {
-      const price = loadedSeeds.value.pricing.entries.find((entry) => entry.modelKey === modelKey);
+      const price = pricingService.current().entries.find((entry) => entry.modelKey === modelKey);
       if (price === undefined) return 0;
       const promptText = [
         request.systemPrompt ?? '',
@@ -342,6 +353,8 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   );
   server.register('chat.cancel', ({ requestId }) => chatService.cancel(requestId));
   server.register('ledger.query', (query) => ledgerService.query(query));
+  server.register('pricing.get', () => Promise.resolve({ ok: true, value: pricingService.current() }));
+  server.register('pricing.override', ({ entry }) => Promise.resolve(pricingService.override(entry)));
 
   return {
     clock,
@@ -354,6 +367,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     llmRouter,
     chatService,
     ledgerService,
+    pricingService,
     routerCompleted,
     projectService,
     events,

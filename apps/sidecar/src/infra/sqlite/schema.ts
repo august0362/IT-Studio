@@ -67,3 +67,10 @@ export const ledgerEntries = sqliteTable(
   },
   (table) => [index('ledger_entries_project_occurred_idx').on(table.projectId, table.occurredAt)],
 );
+
+export const priceTables = sqliteTable('price_tables', {
+  version: text('version').primaryKey(),
+  effectiveFrom: text('effective_from').notNull(),
+  origin: text('origin').notNull(),
+  entriesJson: text('entries_json').notNull(),
+});
