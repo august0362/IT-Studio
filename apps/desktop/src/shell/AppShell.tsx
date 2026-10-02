@@ -12,6 +12,7 @@ import { readOpenProjects, writeOpenProjects } from '../state/open-projects';
 import { MainNav, type ShellRoute } from './MainNav';
 import { NewProjectDialog } from './NewProjectDialog';
 import { ProjectTabs } from './ProjectTabs';
+import { ChatPage } from '../features/chat/ChatPage';
 
 function asAppError(cause: unknown): AppError {
   if (cause instanceof RpcCallError) return cause.appError;
@@ -116,7 +117,9 @@ export function AppShell(): JSX.Element {
   }
 
   let content: JSX.Element;
-  if (route === 'settings-api-keys') content = <ApiKeysPage />;
+  if (route === 'chat')
+    content = <ChatPage projectId={projects.find((project) => project.id === activeId)?.id ?? null} />;
+  else if (route === 'settings-api-keys') content = <ApiKeysPage />;
   else if (route === 'settings-theme') content = <ThemePage />;
   else
     content = (

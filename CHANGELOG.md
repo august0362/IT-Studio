@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add Chat tab: streaming, Stop, fallback badge and decision modal, per-message cost ([M4-04](docs/tasks/M4-04.md))
 - Add manual pricing updater with strict validation and manual-override preservation ([M3-04](docs/tasks/M3-04.md))
 - Add RAG ingest jobs with progress, unchanged-file skip and per-file failure isolation ([M5-05](docs/tasks/M5-05.md))
 - Attribute pipeline LLM cost to its run ([M6-08](docs/tasks/M6-08.md))
