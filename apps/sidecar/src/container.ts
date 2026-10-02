@@ -782,7 +782,11 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   );
   server.register('budget.status', ({ projectId }) => budgetGuard.status(projectId));
   server.register('pricing.get', () => Promise.resolve({ ok: true, value: pricingService.current() }));
+  server.register('pricing.getRows', () =>
+    Promise.resolve({ ok: true, value: pricingService.getRows(fxService.getEffective()) }),
+  );
   server.register('pricing.override', ({ entry }) => Promise.resolve(pricingService.override(entry)));
+  server.register('pricing.overrideUsd', (input) => Promise.resolve(pricingService.overrideUsd(input)));
   server.register('pricing.refresh', () => pricingUpdater.refresh());
   server.register('rag.ingest', (input) => ragService.ingest(input));
   server.register('rag.query', (input) => ragService.query(input));

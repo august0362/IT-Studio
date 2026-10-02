@@ -112,6 +112,89 @@
     "passed": "Passed",
     "failed": "Failed"
   },
+  "settings": {
+    "nav": {
+      "router": "Router",
+      "budget": "Budget",
+      "pricing": "Pricing",
+      "fx": "FX rate",
+      "vscode": "VS Code",
+      "pipeline": "Pipeline roles"
+    },
+    "saved": "Settings saved.",
+    "save": "Save",
+    "cancel": "Cancel",
+    "loading": "Loading settings…",
+    "saveError": "Settings could not be saved.",
+    "retry": "Check the sidecar connection and try again.",
+    "router": {
+      "description": "Choose model order and fallback behaviour.",
+      "autoFallback": "Auto Fallback",
+      "fallbackHelp": "When off, you will be asked to choose a model after a failure.",
+      "lockModel": "Lock model",
+      "none": "None",
+      "timeout": "Decision timeout (seconds)",
+      "ladder": "Model ladder",
+      "drag": "Reorder {{name}}",
+      "enabled": "Enable {{name}}",
+      "enabledLabel": "Enabled",
+      "keyboardHelp": "Press Space to pick up a model, arrow keys to move it, and Space to drop it.",
+      "dragStart": "Picked up {{name}}.",
+      "dragOver": "Moving {{name}} over {{target}}.",
+      "dragEnd": "Moved {{name}} before {{target}}.",
+      "dragCancel": "Reordering cancelled."
+    },
+    "budget": {
+      "description": "Choose how the app handles project budget limits.",
+      "hardStop": "Hard Stop",
+      "warning": "Paid calls will be blocked once a budget is exceeded.",
+      "limits": "Configure budget limits in Cost & P&L."
+    },
+    "pricing": {
+      "noProject": "D31: Select a project before updating prices.",
+      "stale": "Price data is more than 30 days old. Update prices to review current rates.",
+      "update": "Update prices",
+      "updating": "Updating…",
+      "fetchError": "Prices could not be refreshed.",
+      "model": "Model",
+      "input": "Input per 1M tokens",
+      "output": "Output per 1M tokens",
+      "cached": "Cached input per 1M tokens",
+      "origin": "Origin",
+      "override": "Override",
+      "overridden": "Overridden",
+      "status": {
+        "applied": "Prices updated",
+        "no_change": "No price changes",
+        "rejected_validation": "Price update rejected",
+        "fetch_failed": "Price update failed"
+      },
+      "change": "Change",
+      "overrideTitle": "Override prices for {{model}}",
+      "invalidOverride": "Enter valid non-negative USD prices.",
+      "usdFormat": "Use USD decimals with up to six decimal places, for example 0.25."
+    },
+    "fx": {
+      "current": "Current rate: {{rate}} VND per USD",
+      "source": { "auto": "Automatic rate", "manual_override": "Manual override" },
+      "override": "VND per USD",
+      "clear": "Clear override"
+    },
+    "vscode": {
+      "autoLaunch": "Launch VS Code automatically",
+      "executable": "code executable path (blank = auto-detect)",
+      "showDiff": "Show diff before validation",
+      "reveal": "Reveal changed files"
+    },
+    "pipeline": {
+      "roles": { "pm": "PM model order", "coder": "Coder model order", "reviewer": "Reviewer model order" },
+      "moveUp": "Move model up",
+      "moveDown": "Move model down",
+      "validationCommands": "Validation commands",
+      "editLater": "These commands are read-only. Editing will be available later.",
+      "maxFix": "Maximum fix attempts: {{count}} (D5)"
+    }
+  },
   "api": {
     "heading": "API keys",
     "description": "Keys are stored securely and never displayed in full.",

@@ -13,6 +13,12 @@ import { MainNav, type ShellRoute } from './MainNav';
 import { NewProjectDialog } from './NewProjectDialog';
 import { ProjectTabs } from './ProjectTabs';
 import { ChatPage } from '../features/chat/ChatPage';
+import { RouterSettingsPage } from '../features/settings/router/RouterSettingsPage';
+import { BudgetSettingsPage } from '../features/settings/budget/BudgetSettingsPage';
+import { PricingSettingsPage } from '../features/settings/pricing/PricingSettingsPage';
+import { FxSettingsPage } from '../features/settings/fx/FxSettingsPage';
+import { VSCodeSettingsPage } from '../features/settings/vscode/VSCodeSettingsPage';
+import { PipelineSettingsPage } from '../features/settings/pipeline/PipelineSettingsPage';
 
 const CodePage = lazy(() => import('../features/code/CodePage').then(({ CodePage: page }) => ({ default: page })));
 
@@ -23,7 +29,22 @@ function asAppError(cause: unknown): AppError {
 
 function initialRoute(): ShellRoute {
   const hash = window.location.hash.slice(1);
-  if (['chat', 'code', 'knowledge', 'cost', 'settings-api-keys', 'settings-theme'].includes(hash))
+  if (
+    [
+      'chat',
+      'code',
+      'knowledge',
+      'cost',
+      'settings-api-keys',
+      'settings-theme',
+      'settings-router',
+      'settings-budget',
+      'settings-pricing',
+      'settings-fx',
+      'settings-vscode',
+      'settings-pipeline',
+    ].includes(hash)
+  )
     return hash as ShellRoute;
   return 'settings-api-keys';
 }
@@ -129,6 +150,12 @@ export function AppShell(): JSX.Element {
     );
   else if (route === 'settings-api-keys') content = <ApiKeysPage />;
   else if (route === 'settings-theme') content = <ThemePage />;
+  else if (route === 'settings-router') content = <RouterSettingsPage />;
+  else if (route === 'settings-budget') content = <BudgetSettingsPage />;
+  else if (route === 'settings-pricing') content = <PricingSettingsPage projectActive={activeId !== null} />;
+  else if (route === 'settings-fx') content = <FxSettingsPage />;
+  else if (route === 'settings-vscode') content = <VSCodeSettingsPage />;
+  else if (route === 'settings-pipeline') content = <PipelineSettingsPage />;
   else
     content = (
       <section aria-label={route} className="rounded border border-border bg-surface p-6">

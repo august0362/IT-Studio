@@ -112,6 +112,93 @@
     "passed": "Đạt",
     "failed": "Thất bại"
   },
+  "settings": {
+    "nav": {
+      "router": "Bộ định tuyến",
+      "budget": "Ngân sách",
+      "pricing": "Giá",
+      "fx": "Tỷ giá",
+      "vscode": "VS Code",
+      "pipeline": "Vai trò quy trình"
+    },
+    "saved": "Đã lưu cài đặt.",
+    "save": "Lưu",
+    "cancel": "Hủy",
+    "loading": "Đang tải cài đặt…",
+    "saveError": "Không thể lưu cài đặt.",
+    "retry": "Kiểm tra kết nối sidecar rồi thử lại.",
+    "router": {
+      "description": "Chọn thứ tự mô hình và cách dự phòng.",
+      "autoFallback": "Tự động chuyển dự phòng",
+      "fallbackHelp": "Khi tắt, bạn sẽ được hỏi chọn mô hình sau khi gặp lỗi.",
+      "lockModel": "Khóa mô hình",
+      "none": "Không",
+      "timeout": "Thời gian chờ quyết định (giây)",
+      "ladder": "Thứ tự mô hình",
+      "drag": "Sắp xếp lại {{name}}",
+      "enabled": "Bật {{name}}",
+      "enabledLabel": "Đã bật",
+      "keyboardHelp": "Nhấn Space để chọn mô hình, dùng phím mũi tên để di chuyển và nhấn Space để thả.",
+      "dragStart": "Đã chọn {{name}}.",
+      "dragOver": "Đang di chuyển {{name}} tới {{target}}.",
+      "dragEnd": "Đã chuyển {{name}} trước {{target}}.",
+      "dragCancel": "Đã hủy sắp xếp."
+    },
+    "budget": {
+      "description": "Chọn cách ứng dụng xử lý giới hạn ngân sách dự án.",
+      "hardStop": "Dừng cứng",
+      "warning": "Các lượt gọi mất phí sẽ bị chặn khi vượt ngân sách.",
+      "limits": "Đặt giới hạn ngân sách trong Chi phí & Lãi lỗ."
+    },
+    "pricing": {
+      "noProject": "D31: Hãy chọn dự án trước khi cập nhật giá.",
+      "stale": "Dữ liệu giá đã cũ hơn 30 ngày. Hãy cập nhật để xem giá hiện tại.",
+      "update": "Cập nhật giá",
+      "updating": "Đang cập nhật…",
+      "fetchError": "Không thể cập nhật giá.",
+      "model": "Mô hình",
+      "input": "Đầu vào mỗi 1 triệu token",
+      "output": "Đầu ra mỗi 1 triệu token",
+      "cached": "Đầu vào lưu đệm mỗi 1 triệu token",
+      "origin": "Nguồn",
+      "override": "Ghi đè",
+      "overridden": "Đã ghi đè",
+      "status": {
+        "applied": "Đã cập nhật giá",
+        "no_change": "Giá không đổi",
+        "rejected_validation": "Từ chối cập nhật giá",
+        "fetch_failed": "Cập nhật giá thất bại"
+      },
+      "change": "Thay đổi",
+      "overrideTitle": "Ghi đè giá cho {{model}}",
+      "invalidOverride": "Nhập giá USD không âm hợp lệ.",
+      "usdFormat": "Dùng số thập phân USD tối đa sáu chữ số, ví dụ 0.25."
+    },
+    "fx": {
+      "current": "Tỷ giá hiện tại: {{rate}} VND mỗi USD",
+      "source": { "auto": "Tỷ giá tự động", "manual_override": "Ghi đè thủ công" },
+      "override": "VND mỗi USD",
+      "clear": "Xóa ghi đè"
+    },
+    "vscode": {
+      "autoLaunch": "Tự động mở VS Code",
+      "executable": "Đường dẫn thực thi code (để trống = tự tìm)",
+      "showDiff": "Hiện khác biệt trước khi kiểm tra",
+      "reveal": "Hiện tệp đã thay đổi"
+    },
+    "pipeline": {
+      "roles": {
+        "pm": "Thứ tự mô hình PM",
+        "coder": "Thứ tự mô hình lập trình",
+        "reviewer": "Thứ tự mô hình đánh giá"
+      },
+      "moveUp": "Đưa mô hình lên",
+      "moveDown": "Đưa mô hình xuống",
+      "validationCommands": "Lệnh kiểm tra",
+      "editLater": "Các lệnh này chỉ đọc. Có thể chỉnh sửa trong tác vụ sau.",
+      "maxFix": "Số lần sửa tối đa: {{count}} (D5)"
+    }
+  },
   "api": {
     "heading": "Khóa API",
     "description": "Khóa được lưu an toàn và không bao giờ hiển thị đầy đủ.",

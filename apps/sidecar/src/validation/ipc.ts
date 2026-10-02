@@ -21,6 +21,7 @@ import {
   priceTableSchema,
   priceUpdateRunSchema,
   priceEntrySchema,
+  priceRowSchema,
   fxRateSchema,
   moneyDisplaySchema,
   pageSchema,
@@ -84,8 +85,17 @@ export const rpcParamsSchemas = {
   'budget.set': budgetSchema,
   'budget.status': z.object({ projectId: projectIdSchema }).readonly(),
   'pricing.get': empty,
+  'pricing.getRows': empty,
   'pricing.refresh': empty,
   'pricing.override': z.object({ entry: priceEntrySchema }).readonly(),
+  'pricing.overrideUsd': z
+    .object({
+      modelKey: modelKeySchema,
+      inputPerMTokUsd: z.string().regex(/^\d+(\.\d{1,6})?$/),
+      outputPerMTokUsd: z.string().regex(/^\d+(\.\d{1,6})?$/),
+      cachedInputPerMTokUsd: z.string().regex(/^\d+(\.\d{1,6})?$/),
+    })
+    .readonly(),
   'fx.get': empty,
   'fx.override': z.object({ usdToVnd: z.number().nullable() }).readonly(),
   'rag.ingest': z
@@ -174,8 +184,12 @@ export const rpcResultSchemas = {
   'budget.set': budgetStatusSchema,
   'budget.status': z.array(budgetStatusSchema).readonly(),
   'pricing.get': priceTableSchema,
+  'pricing.getRows': z
+    .object({ table: priceTableSchema, rows: z.array(priceRowSchema).readonly(), stale: z.boolean() })
+    .readonly(),
   'pricing.refresh': priceUpdateRunSchema,
   'pricing.override': priceTableSchema,
+  'pricing.overrideUsd': priceTableSchema,
   'fx.get': fxRateSchema,
   'fx.override': fxRateSchema,
   'rag.ingest': ingestJobSchema,

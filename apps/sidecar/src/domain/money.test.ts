@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { FxRate } from '@itstudio/schemas';
 import { isoDateTimeSchema } from '../validation/brand.js';
-import { formatUsd, formatVnd, toMoneyDisplay } from './money.js';
+import { formatUsd, formatVnd, parseUsdDecimal, toMoneyDisplay } from './money.js';
 import { microUsd, vnd } from './cost.js';
 
 const fx: FxRate = {
@@ -11,6 +11,19 @@ const fx: FxRate = {
 };
 
 describe('money display', () => {
+  it.each([
+    ['0', 0],
+    ['1', 1_000_000],
+    ['0.000001', 1],
+    ['12.3405', 12_340_500],
+    ['1000.000000', 1_000_000_000],
+  ])('parses USD decimal %s to micro-USD', (value, expected) => {
+    expect(parseUsdDecimal(value)).toBe(expected);
+  });
+
+  it.each(['', '.5', '1.', '-1', '1.0000001', '1000.000001', '1e2'])('rejects invalid USD decimal %s', (value) => {
+    expect(() => parseUsdDecimal(value)).toThrow(RangeError);
+  });
   it.each([
     [0, '$0.00'],
     [100, '$0.0001'],

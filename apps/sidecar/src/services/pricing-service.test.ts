@@ -68,6 +68,52 @@ function openAiEntry(): PriceEntry {
 }
 
 describe('PricingService', () => {
+  it('reports price rows with formatted values and the exact 30-day stale boundary', () => {
+    const testHarness = harness();
+    testHarness.service.initialize();
+    const fx = { usdToVnd: 25_000, asOf: isoDateTimeSchema.parse('2026-10-01T00:00:00.000Z'), source: 'auto' as const };
+    expect(testHarness.service.getRows(fx).stale).toBe(false);
+    expect(testHarness.service.getRows(fx).rows[0]?.input.usdText).toBe('$0.0001');
+    testHarness.clock.advance(30 * 24 * 60 * 60 * 1000 - 1);
+    expect(testHarness.service.getRows(fx).stale).toBe(false);
+    testHarness.clock.advance(1);
+    expect(testHarness.service.getRows(fx).stale).toBe(true);
+    expect(testHarness.service.getRows(fx).rows[0]?.overridden).toBe(false);
+  });
+
+  it('validates decimal USD overrides and marks the selected price row overridden', () => {
+    const { service } = harness();
+    service.initialize();
+    expect(
+      service.overrideUsd({
+        modelKey: 'openai/test-model',
+        inputPerMTokUsd: '0.25',
+        outputPerMTokUsd: '0.5',
+        cachedInputPerMTokUsd: '0.125',
+      }).ok,
+    ).toBe(true);
+    const fx = { usdToVnd: 25_000, asOf: isoDateTimeSchema.parse('2026-10-01T00:00:00.000Z'), source: 'auto' as const };
+    const row = service.getRows(fx).rows.find((entry) => entry.entry.modelKey === 'openai/test-model');
+    expect(row?.overridden).toBe(true);
+    expect(row?.entry.inputPerMTokMicroUsd).toBe(250_000);
+    expect(
+      service.overrideUsd({
+        modelKey: 'openai/test-model',
+        inputPerMTokUsd: '0.0000001',
+        outputPerMTokUsd: '1',
+        cachedInputPerMTokUsd: '1',
+      }).ok,
+    ).toBe(false);
+    expect(
+      service.overrideUsd({
+        modelKey: 'openai/unknown',
+        inputPerMTokUsd: '1',
+        outputPerMTokUsd: '1',
+        cachedInputPerMTokUsd: '1',
+      }).ok,
+    ).toBe(false);
+  });
+
   it('imports the seed once and creates a version with just the selected model changed', () => {
     const testHarness = harness();
     const { service } = testHarness;
