@@ -6,6 +6,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add append-only cost ledger and ledger.query RPC ([M3-02](docs/tasks/M3-02.md))
+- Add safe CommandRunner and tsc/eslint/vitest output parsers ([M6-03](docs/tasks/M6-03.md))
+- Add RAG document parsers ([M5-01](docs/tasks/M5-01.md))
 - Add ChatService with conversations, messages and streaming chat RPC ([M2-10](docs/tasks/M2-10.md))
 - Add workspace path guard and file-system port ([M6-01](docs/tasks/M6-01.md))
 - Add Auto Fallback OFF user decision flow and router config RPC ([M2-08/09](docs/tasks/M2-08.md))

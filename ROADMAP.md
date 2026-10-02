@@ -13,10 +13,10 @@
 | M0 Environment & scaffold | **Done** | 8 / 8 |
 | M1 Sidecar core & IPC | **Done** (QA signed off) | 8 / 8 |
 | M2 LLM router & providers | In progress | 10 / 11 |
-| M3 Cost, pricing, FX, budget, P&L | In progress | 1 / 8 |
+| M3 Cost, pricing, FX, budget, P&L | In progress | 2 / 8 |
 | M4 UI shell, Settings, Chat, P&L | Not started | 1 / 8 |
-| M5 RAG | In progress | 1 / 8 |
-| M6 Agent pipeline & Worker | In progress | 1 / 8 |
+| M5 RAG | In progress | 2 / 8 |
+| M6 Agent pipeline & Worker | In progress | 2 / 8 |
 | M7 VS Code companion extension | In progress | 1 / 6 |
 | M8 Image generation *(deferred)* | Deferred | 0 / 6 |
 | M9 Packaging & release *(deferred)* | Deferred | 0 / 7 |
@@ -81,7 +81,7 @@
 **Exit criteria:** every billed call creates a ledger row with frozen cost + price version; Hard Stop blocks paid calls; P&L numbers match hand-computed fixtures; prices auto-update with validation.
 
 - [x] **M3-01** (C) `domain/cost.ts`, `domain/money.ts` (integer µUSD, rounding, `MoneyDisplay` USD/VND formatting). ≥ 95 % coverage. Ref: ARCH §6.1, §6.3.
-- [ ] **M3-02** (C) Ledger repository (append-only) + `LedgerService.record` subscribed to router completions (incl. `billedFailure`), `ledger.entry` notification, `ledger.query` with cursor paging.
+- [x] **M3-02** (C) Ledger repository (append-only) + `LedgerService.record` subscribed to router completions (incl. `billedFailure`), `ledger.entry` notification, `ledger.query` with cursor paging.
 - [ ] **M3-03** (C) Price tables: seed import, versioning, `pricing.get`, `pricing.override` (manual precedence rules).
 - [ ] **M3-04** (C) Pricing updater (**manual only**, D9): `pricing.refresh` fetches sources, HTML→text, extraction via router (prompt ROLES §2.5), validation (bounds, max Δ%), apply/reject, `pricing.updated`; stale-table (> 30 days) reminder flag; set default `pricing.autoUpdate=false` in `domain/default-settings.ts`.
 - [ ] **M3-05** (C) `FxService`: daily fetch from `open.er-api.com` (no LLM), manual override, `fx.get`, `fx.override`; MoneyDisplay uses latest rate.
@@ -106,7 +106,7 @@
 
 **Exit criteria:** ingest `fixtures/docs` (md, pdf, docx, code) → re-ingest skips unchanged → question returns cited answer; embedding cost visible in P&L.
 
-- [ ] **M5-01** (C) Parsers: md, txt, code, pdf (pdfjs-dist), docx (mammoth), html; size/ext guards.
+- [x] **M5-01** (C) Parsers: md, txt, code, pdf (pdfjs-dist), docx (mammoth), html; size/ext guards.
 - [x] **M5-02** (C) Chunker (`domain/chunker.ts`): heading-aware + code-window, token target/overlap, `sectionPath`; property tests.
 - [ ] **M5-03** (C) `IEmbeddingProvider` (OpenAI, Google) + dispatcher with same-dimension fallback + ledger metering.
 - [ ] **M5-04** (C) LanceDB `IVectorStore` repo (per-project table, upsert, delete by doc, cosine search with filters).
@@ -121,7 +121,7 @@
 
 - [x] **M6-01** (C) `resolveSafe` + `IFileSystem`; traversal test suite (`..`, absolute, UNC, drive, symlink escape, NUL, `.git`). Ref: ARCH §9.1.
 - [ ] **M6-02** (C) `WriteTransaction` Unit of Work: journal, baseHash check, patch apply, tmp+rename commit, rollback, crash recovery at startup. Ref: ARCH §9.2–§9.4.
-- [ ] **M6-03** (C) `CommandRunner` (`shell:false`, env scrub, timeout, tail) + parsers (tsc, eslint json, vitest json). Ref: ARCH §9.5.
+- [x] **M6-03** (C) `CommandRunner` (`shell:false`, env scrub, timeout, tail) + parsers (tsc, eslint json, vitest json). Ref: ARCH §9.5.
 - [ ] **M6-04** (C) Role prompts (ROLES §2.1–2.3 verbatim), JSON schema generation from zod, output validation + single re-ask.
 - [ ] **M6-05** (C) `PipelineOrchestrator`: stage machine, role ladders, verdict rule, ≤ 1 fix round, per-project queue, cancel semantics, `pipeline.*` RPC + events. Ref: ARCH §8.1.
 - [ ] **M6-06** (C) `FailureReportBuilder` + remediation table for every `ErrorCode`.
