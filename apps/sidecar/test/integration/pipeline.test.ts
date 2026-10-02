@@ -8,6 +8,7 @@ import { appSettingsSchema } from '../../src/validation/settings.js';
 import { projectSchema } from '../../src/validation/projects.js';
 import { pipelineRunSchema } from '../../src/validation/pipeline.js';
 import { providerIdSchema } from '../../src/validation/common.js';
+import { isoDateTimeSchema } from '../../src/validation/brand.js';
 import { startSidecar, waitFor, type SidecarHarness } from './harness.js';
 
 let sidecar: SidecarHarness | undefined;
@@ -116,7 +117,7 @@ function observed(method: string): unknown[] {
 }
 
 describe('pipeline integration', () => {
-  it('TC-M6-001 completes a scripted pipeline and writes its allowed file', async () => {
+  it('TC-M3-045 TC-M6-001 attributes completed pipeline cost in P&L', async () => {
     const { workspace, projectId } = await setup(0);
     const response = await sidecar?.call('pipeline.start', { projectId, prompt: 'Create a greeting file' });
     const runId = pipelineRunSchema.parse(response?.result).id;
@@ -130,14 +131,31 @@ describe('pipeline integration', () => {
     const ledgerResponse = await sidecar?.call('ledger.query', { projectId, limit: 100 });
     const ledger = z
       .object({
-        items: z.array(z.object({ pipelineRunId: z.string().optional(), costMicroUsd: z.number() })),
+        items: z.array(
+          z.object({
+            pipelineRunId: z.string().optional(),
+            costMicroUsd: z.number(),
+            purpose: z.string(),
+          }),
+        ),
       })
       .parse(ledgerResponse?.result);
     const attributedCost = ledger.items
       .filter((entry) => entry.pipelineRunId === runId)
       .reduce((total, entry) => total + entry.costMicroUsd, 0);
+    expect(
+      ledger.items
+        .filter((entry) => entry.pipelineRunId === runId)
+        .every((entry) => entry.purpose.startsWith('pipeline_')),
+    ).toBe(true);
     expect(run.cost.microUsd).toBeGreaterThan(0);
     expect(run.cost.microUsd).toBe(attributedCost);
+    const pnl = await sidecar?.call('pnl.get', {
+      projectId,
+      from: isoDateTimeSchema.parse('2020-01-01T00:00:00.000Z'),
+      to: isoDateTimeSchema.parse('2030-01-01T00:00:00.000Z'),
+    });
+    expect(pnl?.result).toMatchObject({ cost: { microUsd: attributedCost } });
     expect(await readFile(resolve(workspace, 'src/greeting.txt'), 'utf8')).toBe('hello from pipeline');
   }, 30_000);
 

@@ -59,15 +59,25 @@ describe('chat integration', () => {
     expect(h.notifications.at(-1)?.method).toBe('chat.completed');
   });
 
-  it('TC-M3-020 applies the FX override to the next completed chat cost', async () => {
+  it('TC-M3-015 applies the FX override to the next completed chat cost', async () => {
     const h = await setup({ 'google/gemini-3.8-flash': ['ok'] });
+    await h.sidecar.call('chat.send', { conversationId: h.conversationId, text: 'record cost before override' });
+    await completed(h);
+    const firstCost = observed<{ cost: { microUsd: number; vnd: number } }>(h, 'chat.completed')[0]?.cost;
+    if (firstCost === undefined) throw new Error('First completed cost notification was missing');
     const overridden = await h.sidecar.call('fx.override', { usdToVnd: 25_000 });
     expect(overridden.result).toMatchObject({ usdToVnd: 25_000, source: 'manual_override' });
+    for (const usdToVnd of [0, -1, Number.NaN, 1_000_000_000]) {
+      expect((await h.sidecar.call('fx.override', { usdToVnd })).error).toBeDefined();
+    }
     await h.sidecar.call('chat.send', { conversationId: h.conversationId, text: 'check the converted cost' });
-    await completed(h);
-    const completion = observed<{ cost: { microUsd: number; vnd: number; vndText: string } }>(h, 'chat.completed')[0];
-    if (completion === undefined) throw new Error('Completed chat notification was missing');
+    await completed(h, 2);
+    const completions = observed<{ cost: { microUsd: number; vnd: number; vndText: string } }>(h, 'chat.completed');
+    const completion = completions[1];
+    if (completion === undefined) throw new Error('Second completed chat notification was missing');
+    expect(completion.cost.microUsd).toBe(firstCost.microUsd);
     expect(completion.cost.vnd).toBe(Math.round((completion.cost.microUsd * 25_000) / 1_000_000));
+    expect((await h.sidecar.call('fx.override', { usdToVnd: null })).error).toBeUndefined();
     expect(completion.cost.vndText).toContain('₫');
   });
 
