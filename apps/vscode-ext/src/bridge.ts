@@ -30,6 +30,7 @@ export class SidecarBridge {
   private timer: unknown;
   private attempt = 0;
   private stopped = false;
+  private connected = false;
   private generation = 0;
   private readonly handlers = new Set<(message: SidecarToExt) => void>();
 
@@ -45,11 +46,13 @@ export class SidecarBridge {
   }
 
   public sendSerialized(message: string): void {
-    this.socket?.send(message);
+    if (this.connected) this.socket?.send(message);
   }
 
   public connect(): void {
     this.stopped = false;
+    this.connected = false;
+    this.options.onState('disconnected');
     this.generation += 1;
     this.attempt = 0;
     this.clearTimer();
@@ -59,6 +62,7 @@ export class SidecarBridge {
 
   public dispose(): void {
     this.stopped = true;
+    this.connected = false;
     this.generation += 1;
     this.clearTimer();
     this.socket?.close();
@@ -102,6 +106,7 @@ export class SidecarBridge {
       if (!message) return;
       if (message.type === 'welcome') {
         welcomed = true;
+        this.connected = true;
         this.clearTimer();
         this.attempt = 0;
         this.options.onState('connected');
@@ -113,6 +118,7 @@ export class SidecarBridge {
     };
     const disconnected = () => {
       if (generation !== this.generation) return;
+      this.connected = false;
       this.clearTimer();
       this.options.onState('disconnected');
       this.schedule(generation);
