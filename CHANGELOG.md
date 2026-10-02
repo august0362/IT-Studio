@@ -6,6 +6,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add versioned price tables with manual overrides ([M3-03](docs/tasks/M3-03.md))
+- Add journaled atomic WriteTransaction with rollback and crash recovery ([M6-02](docs/tasks/M6-02.md))
+- Add M2 integration suite; M2 QA gate signed off ([M2-QA](docs/tasks/M2-QA.md))
 - Add LanceDB vector store behind IVectorStore with contract suite ([M5-04](docs/tasks/M5-04.md))
 - Add append-only cost ledger and ledger.query RPC ([M3-02](docs/tasks/M3-02.md))
 - Add safe CommandRunner and tsc/eslint/vitest output parsers ([M6-03](docs/tasks/M6-03.md))

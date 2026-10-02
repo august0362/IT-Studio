@@ -12,11 +12,11 @@
 |---|---|---|
 | M0 Environment & scaffold | **Done** | 8 / 8 |
 | M1 Sidecar core & IPC | **Done** (QA signed off) | 8 / 8 |
-| M2 LLM router & providers | In progress | 10 / 11 |
-| M3 Cost, pricing, FX, budget, P&L | In progress | 2 / 8 |
+| M2 LLM router & providers | **Done** (QA signed off) | 11 / 11 |
+| M3 Cost, pricing, FX, budget, P&L | In progress | 3 / 8 |
 | M4 UI shell, Settings, Chat, P&L | Not started | 1 / 8 |
 | M5 RAG | In progress | 3 / 8 |
-| M6 Agent pipeline & Worker | In progress | 2 / 8 |
+| M6 Agent pipeline & Worker | In progress | 3 / 8 |
 | M7 VS Code companion extension | In progress | 1 / 6 |
 | M8 Image generation *(deferred)* | Deferred | 0 / 6 |
 | M9 Packaging & release *(deferred)* | Deferred | 0 / 7 |
@@ -74,7 +74,7 @@
 - [x] **M2-08** (C) Auto Fallback OFF: `FallbackDecisionRequest` with candidate cost estimates, `router.resolveFallback`, expiry → `FALLBACK_DECLINED`.
 - [x] **M2-09** (C) `router.getConfig` / `router.updateConfig` with validation (unique priorities, existing models).
 - [x] **M2-10** (C) `ChatService`: conversations/messages repos, `chat.*` RPC, streaming via router (`chat.delta/completed/failed`), optional RAG context, per-message cost. *(Gap found 2026-10-02: backend for M4-04.)*
-- [ ] **M2-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M2-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M2-report.md` sign-off. Scope: Router & providers: fallback decision table, Auto Fallback OFF modal flow, circuit breaker, lock/ladder order, chat streaming via `chat.*` with fake providers; contract suite rerun for all adapters.
+- [x] **M2-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M2-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M2-report.md` sign-off. Scope: Router & providers: fallback decision table, Auto Fallback OFF modal flow, circuit breaker, lock/ladder order, chat streaming via `chat.*` with fake providers; contract suite rerun for all adapters.
 
 ## M3 — Cost, pricing, FX, budget, P&L
 
@@ -82,7 +82,7 @@
 
 - [x] **M3-01** (C) `domain/cost.ts`, `domain/money.ts` (integer µUSD, rounding, `MoneyDisplay` USD/VND formatting). ≥ 95 % coverage. Ref: ARCH §6.1, §6.3.
 - [x] **M3-02** (C) Ledger repository (append-only) + `LedgerService.record` subscribed to router completions (incl. `billedFailure`), `ledger.entry` notification, `ledger.query` with cursor paging.
-- [ ] **M3-03** (C) Price tables: seed import, versioning, `pricing.get`, `pricing.override` (manual precedence rules).
+- [x] **M3-03** (C) Price tables: seed import, versioning, `pricing.get`, `pricing.override` (manual precedence rules).
 - [ ] **M3-04** (C) Pricing updater (**manual only**, D9): `pricing.refresh` fetches sources, HTML→text, extraction via router (prompt ROLES §2.5), validation (bounds, max Δ%), apply/reject, `pricing.updated`; stale-table (> 30 days) reminder flag; set default `pricing.autoUpdate=false` in `domain/default-settings.ts`.
 - [ ] **M3-05** (C) `FxService`: daily fetch from `open.er-api.com` (no LLM), manual override, `fx.get`, `fx.override`; MoneyDisplay uses latest rate.
 - [ ] **M3-06** (C) `BudgetGuard` + budgets repo: estimate, levels, once-per-threshold alerts, Hard Stop rejection, `budget.set/status`. Ref: ARCH §6.4.
@@ -120,7 +120,7 @@
 **Exit criteria:** on `fixtures/sample-project`, a prompt reaches COMPLETED with files written and tests green; a forced failing validation produces ROLLED_BACK with byte-identical restore and a `FailureReport`; crash mid-commit recovers on restart.
 
 - [x] **M6-01** (C) `resolveSafe` + `IFileSystem`; traversal test suite (`..`, absolute, UNC, drive, symlink escape, NUL, `.git`). Ref: ARCH §9.1.
-- [ ] **M6-02** (C) `WriteTransaction` Unit of Work: journal, baseHash check, patch apply, tmp+rename commit, rollback, crash recovery at startup. Ref: ARCH §9.2–§9.4.
+- [x] **M6-02** (C) `WriteTransaction` Unit of Work: journal, baseHash check, patch apply, tmp+rename commit, rollback, crash recovery at startup. Ref: ARCH §9.2–§9.4.
 - [x] **M6-03** (C) `CommandRunner` (`shell:false`, env scrub, timeout, tail) + parsers (tsc, eslint json, vitest json). Ref: ARCH §9.5.
 - [ ] **M6-04** (C) Role prompts (ROLES §2.1–2.3 verbatim), JSON schema generation from zod, output validation + single re-ask.
 - [ ] **M6-05** (C) `PipelineOrchestrator`: stage machine, role ladders, verdict rule, ≤ 1 fix round, per-project queue, cancel semantics, `pipeline.*` RPC + events. Ref: ARCH §8.1.
