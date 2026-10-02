@@ -43,6 +43,13 @@
       "when": 1790933001718,
       "tag": "0005_blue_molten_man",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1790939400906,
+      "tag": "0006_fuzzy_mimic",
+      "breakpoints": true
     }
   ]
 }

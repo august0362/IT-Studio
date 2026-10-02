@@ -532,6 +532,21 @@ export interface ProjectPnL {
   readonly byDay: readonly CostBreakdownRow[];
 }
 
+export interface PortfolioPnL {
+  readonly from: IsoDateTime;
+  readonly to: IsoDateTime;
+  /** One entry per project (including projects with no activity), ordered by margin ascending (worst first). */
+  readonly projects: readonly ProjectPnL[];
+  readonly revenue: MoneyDisplay;
+  readonly cost: MoneyDisplay;
+  readonly margin: MoneyDisplay;
+  readonly marginPercent: number | null;
+  /** Cost per project; `key` = projectId. Sorted by cost descending. */
+  readonly byProject: readonly CostBreakdownRow[];
+  /** Cost per model across all projects. Sorted by cost descending. */
+  readonly byModel: readonly CostBreakdownRow[];
+}
+
 export interface LedgerQuery {
   readonly projectId: ProjectId;
   readonly from?: IsoDateTime;
@@ -925,6 +940,8 @@ export interface RpcMethodMap {
 
   'ledger.query': { params: LedgerQuery; result: Page<LedgerEntry> };
   'pnl.get': { params: { readonly projectId: ProjectId; readonly from: IsoDateTime; readonly to: IsoDateTime }; result: ProjectPnL };
+  'pnl.getAll': { params: { readonly from: IsoDateTime; readonly to: IsoDateTime }; result: PortfolioPnL };
+  'revenue.list': { params: { readonly projectId: ProjectId; readonly from: IsoDateTime; readonly to: IsoDateTime }; result: readonly RevenueEntry[] };
   'revenue.add': {
     params: { readonly projectId: ProjectId; readonly amount: number; readonly currency: 'USD' | 'VND'; readonly description: string };
     result: RevenueEntry;

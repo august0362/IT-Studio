@@ -24,6 +24,7 @@ import { ProjectRepository } from './infra/sqlite/project-repository.js';
 import { SettingsRepository } from './infra/sqlite/settings-repository.js';
 import { ChatRepository } from './infra/sqlite/chat-repository.js';
 import { LedgerRepository } from './infra/sqlite/ledger-repository.js';
+import { RevenueRepository } from './infra/sqlite/revenue-repository.js';
 import { BudgetRepository } from './infra/sqlite/budget-repository.js';
 import { PriceRepository } from './infra/sqlite/price-repository.js';
 import { FxRepository } from './infra/sqlite/fx-repository.js';
@@ -51,6 +52,8 @@ import { BudgetGuard } from './services/budget-guard.js';
 import { LlmRouter, type RouterCompleted } from './services/llm-router.js';
 import { computeTokenCost } from './domain/cost.js';
 import { LedgerService } from './services/ledger-service.js';
+import { PnLService } from './services/pnl-service.js';
+import { RevenueService } from './services/revenue-service.js';
 import { RepositoryPriceSource } from './services/price-source.js';
 import { FxService } from './services/fx-service.js';
 import { FxDailyJob } from './scheduler/daily-job.js';
@@ -281,6 +284,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const projectRepository = new ProjectRepository(database.db);
   const chatRepository = new ChatRepository(database.db);
   const ledgerRepository = new LedgerRepository(database.db);
+  const revenueRepository = new RevenueRepository(database.db);
   const budgetRepository = new BudgetRepository(database.db);
   const priceRepository = new PriceRepository(database.db);
   const fxRepository = new FxRepository(database.db);
@@ -419,6 +423,19 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     clock,
     logger,
   });
+  const pnlService = new PnLService({
+    ledger: ledgerRepository,
+    revenue: revenueRepository,
+    projects: projectRepository,
+    fx: priceSource,
+  });
+  const revenueService = new RevenueService({
+    repository: revenueRepository,
+    projects: projectRepository,
+    fx: fxService,
+    ids,
+    clock,
+  });
   const budgetGuard = new BudgetGuard({
     repository: budgetRepository,
     settings: settingsService,
@@ -549,6 +566,10 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   );
   server.register('chat.cancel', ({ requestId }) => chatService.cancel(requestId));
   server.register('ledger.query', (query) => ledgerService.query(query));
+  server.register('pnl.get', ({ projectId, from, to }) => pnlService.get(projectId, from, to));
+  server.register('pnl.getAll', ({ from, to }) => pnlService.getAll(from, to));
+  server.register('revenue.add', (input) => revenueService.add(input));
+  server.register('revenue.list', ({ projectId, from, to }) => revenueService.list(projectId, from, to));
   server.register('budget.set', ({ projectId, period, limitMicroUsd, warnAt }) =>
     budgetGuard.set({ projectId, period, limitMicroUsd, warnAt }),
   );
@@ -567,6 +588,8 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     llmRouter,
     chatService,
     ledgerService,
+    pnlService,
+    revenueService,
     budgetGuard,
     pricingService,
     fxService,

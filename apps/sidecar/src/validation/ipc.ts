@@ -14,6 +14,7 @@ import {
   ledgerQuerySchema,
   ledgerEntrySchema,
   projectPnLSchema,
+  portfolioPnLSchema,
   revenueEntrySchema,
   budgetSchema,
   budgetStatusSchema,
@@ -69,12 +70,14 @@ export const rpcParamsSchemas = {
   'router.resolveFallback': fallbackDecisionSchema,
   'ledger.query': ledgerQuerySchema,
   'pnl.get': z.object({ projectId: projectIdSchema, from: isoDateTimeSchema, to: isoDateTimeSchema }).readonly(),
+  'pnl.getAll': z.object({ from: isoDateTimeSchema, to: isoDateTimeSchema }).readonly(),
+  'revenue.list': z.object({ projectId: projectIdSchema, from: isoDateTimeSchema, to: isoDateTimeSchema }).readonly(),
   'revenue.add': z
     .object({
       projectId: projectIdSchema,
-      amount: z.number(),
+      amount: z.number().positive(),
       currency: z.enum(['USD', 'VND']),
-      description: z.string(),
+      description: z.string().trim().max(500),
     })
     .readonly(),
   'budget.set': budgetSchema,
@@ -163,6 +166,8 @@ export const rpcResultSchemas = {
   'router.resolveFallback': z.object({ accepted: z.boolean() }).readonly(),
   'ledger.query': pageSchema(ledgerEntrySchema),
   'pnl.get': projectPnLSchema,
+  'pnl.getAll': portfolioPnLSchema,
+  'revenue.list': z.array(revenueEntrySchema).readonly(),
   'revenue.add': revenueEntrySchema,
   'budget.set': budgetStatusSchema,
   'budget.status': z.array(budgetStatusSchema).readonly(),

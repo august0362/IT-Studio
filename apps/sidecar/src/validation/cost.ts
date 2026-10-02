@@ -12,6 +12,7 @@ import type {
   PriceEntry,
   PriceTable,
   PriceUpdateRun,
+  PortfolioPnL,
   ProjectPnL,
   RevenueEntry,
 } from '@itstudio/schemas';
@@ -22,6 +23,7 @@ import {
   llmRequestIdSchema,
   microUsdSchema,
   signedMicroUsdSchema,
+  signedVndSchema,
   modelKeySchema,
   pipelineRunIdSchema,
   priceTableVersionSchema,
@@ -103,7 +105,7 @@ export const moneyDisplaySchema = z
 export const pnlMarginDisplaySchema = z
   .object({
     microUsd: signedMicroUsdSchema,
-    vnd: vndSchema,
+    vnd: signedVndSchema,
     usdText: z.string(),
     vndText: z.string(),
     fxAsOf: isoDateTimeSchema,
@@ -178,6 +180,19 @@ export const projectPnLSchema = z
     byDay: z.array(costBreakdownRowSchema).readonly(),
   })
   .readonly() satisfies z.ZodType<ProjectPnL>;
+export const portfolioPnLSchema = z
+  .object({
+    from: isoDateTimeSchema,
+    to: isoDateTimeSchema,
+    projects: z.array(projectPnLSchema).readonly(),
+    revenue: moneyDisplaySchema,
+    cost: moneyDisplaySchema,
+    margin: pnlMarginDisplaySchema,
+    marginPercent: z.number().nullable(),
+    byProject: z.array(costBreakdownRowSchema).readonly(),
+    byModel: z.array(costBreakdownRowSchema).readonly(),
+  })
+  .readonly() satisfies z.ZodType<PortfolioPnL>;
 export const ledgerQuerySchema = z
   .object({
     projectId: projectIdSchema,
