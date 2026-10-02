@@ -57,6 +57,7 @@ export class LedgerService {
     const conversationId = request.messages[0]?.conversationId;
     this.attributions.set(request.id, {
       ...(conversationId === undefined ? {} : { conversationId }),
+      ...(request.pipelineRunId === undefined ? {} : { pipelineRunId: request.pipelineRunId }),
     });
   }
 
@@ -104,6 +105,7 @@ export class LedgerService {
     const fx = this.deps.prices.getFxRate();
     const display = toMoneyDisplay(cost, fx);
     const attribution = this.attributions.get(event.requestId);
+    const pipelineRunId = event.pipelineRunId ?? attribution?.pipelineRunId;
     if (!event.billedFailure) this.attributions.delete(event.requestId);
     const entry: LedgerEntry = {
       id: ledgerEntryIdSchema.parse(this.deps.ids.uuid()),
@@ -113,7 +115,7 @@ export class LedgerService {
       modelKey: modelKeySchema.parse(event.modelKey),
       llmRequestId: event.requestId,
       ...(attribution?.conversationId === undefined ? {} : { conversationId: attribution.conversationId }),
-      ...(attribution?.pipelineRunId === undefined ? {} : { pipelineRunId: attribution.pipelineRunId }),
+      ...(pipelineRunId === undefined ? {} : { pipelineRunId }),
       usage: event.usage,
       costMicroUsd: cost,
       priceTableVersion: priceTableVersionSchema.parse(priceTable.version),

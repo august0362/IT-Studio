@@ -14,6 +14,7 @@ import {
   messageIdSchema,
   microUsdSchema,
   projectIdSchema,
+  pipelineRunIdSchema,
 } from '../validation/brand.js';
 import { priceTableVersionSchema } from '../validation/common.js';
 import { LedgerService } from './ledger-service.js';
@@ -46,6 +47,7 @@ function harness() {
       return Promise.resolve();
     },
     query: () => Promise.resolve({ items: rows, nextCursor: null }),
+    sumByPipelineRun: () => Promise.resolve(microUsdSchema.parse(0)),
   };
   const completed = new EventBus<{ completed: RouterCompleted }>();
   const events = new EventBus<RpcNotificationMap>();
@@ -70,7 +72,12 @@ function harness() {
 
 describe('LedgerService', () => {
   it('exposes only insert and query persistence operations', () => {
-    expect(Object.getOwnPropertyNames(LedgerRepository.prototype).sort()).toEqual(['constructor', 'insert', 'query']);
+    expect(Object.getOwnPropertyNames(LedgerRepository.prototype).sort()).toEqual([
+      'constructor',
+      'insert',
+      'query',
+      'sumByPipelineRun',
+    ]);
   });
 
   it('freezes the current price, attributes a chat request, and publishes one ledger entry', async () => {
@@ -139,5 +146,21 @@ describe('LedgerService', () => {
     expect(rows.map((row) => row.billedFailure)).toEqual([true, true]);
     expect(rows.map((row) => row.costMicroUsd)).toEqual([0, 0]);
     expect(warnings).toHaveLength(1);
+  });
+
+  it('persists pipeline attribution from a completed event, including billed failures', async () => {
+    const { completed, rows } = harness();
+    const pipelineRunId = pipelineRunIdSchema.parse('99999999-9999-4999-8999-999999999999');
+    completed.publish('completed', {
+      requestId: llmRequestIdSchema.parse('cccccccc-cccc-4ccc-8ccc-cccccccccccc'),
+      projectId,
+      purpose: 'pipeline_pm',
+      modelKey: 'openai/test-model',
+      pipelineRunId,
+      usage: { inputTokens: 100, outputTokens: 10, cachedInputTokens: 0 },
+      billedFailure: true,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(rows[0]).toMatchObject({ pipelineRunId, billedFailure: true });
   });
 });

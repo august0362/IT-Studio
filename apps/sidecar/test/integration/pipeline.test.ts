@@ -125,7 +125,19 @@ describe('pipeline integration', () => {
       return notifications.some((value) => JSON.stringify(value).includes('completed'));
     });
     const result = await sidecar?.call('pipeline.get', { runId });
-    expect(pipelineRunSchema.parse(result?.result).stage).toBe('completed');
+    const run = pipelineRunSchema.parse(result?.result);
+    expect(run.stage).toBe('completed');
+    const ledgerResponse = await sidecar?.call('ledger.query', { projectId, limit: 100 });
+    const ledger = z
+      .object({
+        items: z.array(z.object({ pipelineRunId: z.string().optional(), costMicroUsd: z.number() })),
+      })
+      .parse(ledgerResponse?.result);
+    const attributedCost = ledger.items
+      .filter((entry) => entry.pipelineRunId === runId)
+      .reduce((total, entry) => total + entry.costMicroUsd, 0);
+    expect(run.cost.microUsd).toBeGreaterThan(0);
+    expect(run.cost.microUsd).toBe(attributedCost);
     expect(await readFile(resolve(workspace, 'src/greeting.txt'), 'utf8')).toBe('hello from pipeline');
   }, 30_000);
 
