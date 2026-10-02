@@ -6,6 +6,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add Google Gemini provider adapter ([M2-04](docs/tasks/M2-04.md))
+- Add L3 sidecar integration harness and M1 integration suite ([M1-QA](docs/tasks/M1-QA.md))
+
+### Fixed
+- UI RpcClient now sends request params (BUG-M1-004, S1)
+- Deterministic RpcServer concurrency test (BUG-M1-001)
 - Add VS Code extension session discovery and WebSocket bridge with handshake and reconnect ([M7-01](docs/tasks/M7-01.md))
 - Add pure RAG chunker (heading/code aware, overlap) and token estimator ([M5-02](docs/tasks/M5-02.md))
 - Add model + provider registries with eligibility checks and models.list RPC ([M2-05](docs/tasks/M2-05.md))
