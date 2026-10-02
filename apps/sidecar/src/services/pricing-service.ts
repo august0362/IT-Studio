@@ -48,6 +48,10 @@ export class PricingService {
     return toPriceTable(current);
   }
 
+  manualOverrides(): ReadonlySet<ModelKey> {
+    return new Set(this.requireCurrent().manualOverrides);
+  }
+
   isStale(now = this.clock.now()): boolean {
     const effectiveFrom = Date.parse(this.requireCurrent().effectiveFrom);
     return now.getTime() - effectiveFrom >= STALE_AFTER_MS;
@@ -77,6 +81,19 @@ export class PricingService {
     return { ok: true, value: this.insertVersion(current, current.entries, manualOverrides) };
   }
 
+  applyExtracted(entries: readonly PriceEntry[]): PriceTable {
+    const current = this.requireCurrent();
+    const incoming = new Map(entries.map((entry) => [entry.modelKey, entry]));
+    const merged = current.entries.map((entry) => {
+      if (current.manualOverrides.includes(entry.modelKey)) return entry;
+      const replacement = incoming.get(entry.modelKey);
+      if (replacement !== undefined) incoming.delete(entry.modelKey);
+      return replacement ?? entry;
+    });
+    merged.push(...incoming.values());
+    return this.insertAutoVersion(current, merged);
+  }
+
   private requireCurrent(): StoredPriceTable {
     const current = this.repository.current();
     if (current === null) throw new Error('PricingService.initialize must run before use');
@@ -98,6 +115,22 @@ export class PricingService {
       origin: 'manual_override',
       entries: [...entries],
       manualOverrides: [...manualOverrides],
+    };
+    this.repository.insert(next);
+    return toPriceTable(next);
+  }
+
+  private insertAutoVersion(previous: StoredPriceTable, entries: readonly PriceEntry[]): PriceTable {
+    const now = this.clock.now();
+    const priorTime = Date.parse(previous.effectiveFrom);
+    const effectiveFrom = isoDateTimeSchema.parse(new Date(Math.max(now.getTime(), priorTime + 1)).toISOString());
+    const version: PriceTableVersion = priceTableVersionSchema.parse(`auto-${this.ids.uuid()}`);
+    const next: StoredPriceTable = {
+      version,
+      effectiveFrom,
+      origin: 'auto_extracted',
+      entries: [...entries],
+      manualOverrides: [...previous.manualOverrides],
     };
     this.repository.insert(next);
     return toPriceTable(next);

@@ -13,6 +13,7 @@ describe('buildDefaultSettings', () => {
     expect(settings.pipeline.roleAssignment).toEqual(loaded.value.defaultRoleAssignment);
     expect(settings.rag.embedding).toEqual(loaded.value.defaultEmbedding);
     expect(settings.pricing.extractionModelKey).toBe(loaded.value.defaultPricingExtractionModel);
+    expect(settings.pricing.autoUpdate).toBe(false);
     expect(settings.pipeline.validationCommands).toEqual(loaded.value.commands);
     expect(settings.ui.themeId).toBe(loaded.value.themes.defaultLight);
   });
