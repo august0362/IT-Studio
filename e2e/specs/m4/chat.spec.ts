@@ -1,9 +1,16 @@
 import { expect } from 'chai';
-import { createTemporaryProjectFolder, waitForReady } from '../../helpers/ui.js';
+import { apiKeyInput, createTemporaryProjectFolder, navigateToSettings, waitForReady } from '../../helpers/ui.js';
 
 describe('M4 chat', () => {
   it('TC-M4-020 creates a conversation and receives the scripted reply with cost', async () => {
     await waitForReady();
+    // The router skips providers without a key (capability_mismatch); E2E uses the in-memory secret store.
+    await navigateToSettings();
+    await apiKeyInput().setValue('sk-TEST-e2e-chat');
+    await browser.$('form:has(#api-key-openai) button[type="submit"]').click();
+    await browser.waitUntil(async () =>
+      (await browser.$('[aria-label="OpenAI key status"]').getText()).includes('Set'),
+    );
     const folder = createTemporaryProjectFolder();
     await browser.$('button[aria-label="Add project"]').click();
     await browser.$('aria/Project name').setValue('Chat E2E Project');

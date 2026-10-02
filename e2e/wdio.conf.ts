@@ -70,7 +70,7 @@ export const config: Options.Testrunner & { capabilities: Capabilities.Requested
   framework: 'mocha',
   reporters: ['spec'],
   connectionRetryTimeout: 90_000,
-  mochaOpts: { timeout: 120_000 },
+  mochaOpts: { timeout: 200_000 },
   waitforTimeout: 70_000,
   async onPrepare() {
     e2eTempRoot = mkdtempSync(join(tmpdir(), 'itstudio-e2e-'));
