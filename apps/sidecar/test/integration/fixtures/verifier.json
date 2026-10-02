@@ -1,0 +1,9 @@
+{
+  "anthropic": "success",
+  "openai": "success",
+  "google": "success",
+  "xai": "success",
+  "groq": "success",
+  "together": "success",
+  "replicate": "success"
+}

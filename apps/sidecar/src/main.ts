@@ -19,4 +19,5 @@ if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === resolve(
     process.exit(1);
   });
   container.start();
+  if (process.env.ITSTUDIO_E2E_CRASH_ON_START === '1') process.exit(1);
 }

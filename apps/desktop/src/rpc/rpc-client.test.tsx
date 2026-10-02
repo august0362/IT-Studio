@@ -16,6 +16,22 @@ const listenMock = vi.hoisted(() => vi.fn());
 vi.mock('@tauri-apps/api/core', () => ({ invoke: invokeMock }));
 vi.mock('@tauri-apps/api/event', () => ({ listen: listenMock }));
 
+interface RpcClientTestInternals {
+  readonly pending: Map<
+    number,
+    {
+      readonly method: 'system.ping';
+      readonly resolve: (result: unknown) => void;
+      readonly reject: (error: RpcCallError) => void;
+      readonly signal?: AbortSignal;
+      readonly abortListener?: () => void;
+    }
+  >;
+  readonly queued: number[];
+  send(id: number, method: 'system.ping', params: Record<string, never>): Promise<void>;
+  finish(id: number): void;
+}
+
 function ready(transport: FakeTransport): void {
   transport.setStatus({ running: true, ready: true, restarts: 0 });
 }
@@ -101,6 +117,13 @@ describe('RpcClient', () => {
     await expect(client.call('settings.get', {}, { signal: alreadyAborted.signal })).rejects.toMatchObject({
       appError: { code: ErrorCode.CANCELLED },
     });
+    const waitingTransport = new FakeTransport();
+    const waitingClient = new RpcClient(waitingTransport);
+    const queuedAbort = new AbortController();
+    const queuedCall = waitingClient.call('settings.get', {}, { signal: queuedAbort.signal });
+    queuedAbort.abort();
+    await expect(queuedCall).rejects.toMatchObject({ appError: { code: ErrorCode.CANCELLED } });
+    waitingClient.dispose();
     client.dispose();
   });
 
@@ -132,6 +155,50 @@ describe('RpcClient', () => {
     client.dispose();
   });
 
+  it('preserves queued parameters and rejects transport send failures', async () => {
+    const queuedTransport = new FakeTransport();
+    const queuedClient = new RpcClient(queuedTransport);
+    const queued = queuedClient.call('project.create', { name: 'Queued', workspaceRoot: 'C:/queued' });
+    ready(queuedTransport);
+    expect(JSON.parse(queuedTransport.sent[0] ?? '{}')).toMatchObject({
+      method: 'project.create',
+      params: { name: 'Queued', workspaceRoot: 'C:/queued' },
+    });
+    response(queuedTransport, 1, { id: 'p1', name: 'Queued', workspaceRoot: 'C:/queued', createdAt: 'now' });
+    await expect(queued).resolves.toMatchObject({ name: 'Queued' });
+    queuedClient.dispose();
+
+    const failedTransport = new FakeTransport();
+    failedTransport.send = vi.fn().mockRejectedValue(new Error('pipe closed'));
+    const failedClient = new RpcClient(failedTransport);
+    ready(failedTransport);
+    await expect(failedClient.call('system.ping', {})).rejects.toMatchObject({
+      appError: { message: 'failed to send request to sidecar', retryable: true },
+    });
+    failedClient.dispose();
+
+    const failedQueuedTransport = new FakeTransport();
+    const failedQueuedClient = new RpcClient(failedQueuedTransport);
+    const pendingQueued = failedQueuedClient.call('system.ping', {});
+    failedQueuedTransport.send = vi.fn().mockRejectedValue(new Error('pipe closed'));
+    ready(failedQueuedTransport);
+    await expect(pendingQueued).rejects.toMatchObject({
+      appError: { message: 'failed to send request to sidecar', retryable: true },
+    });
+    failedQueuedClient.dispose();
+  });
+
+  it('ignores a rejected initial sidecar status lookup', async () => {
+    const transport = new FakeTransport();
+    transport.status = vi.fn().mockRejectedValue(new Error('status unavailable'));
+    const client = new RpcClient(transport);
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await Promise.resolve();
+    expect(warning).not.toHaveBeenCalled();
+    warning.mockRestore();
+    client.dispose();
+  });
+
   it('dispatches notifications and stops dispatching after unsubscribe', () => {
     const transport = new FakeTransport();
     const client = new RpcClient(transport);
@@ -145,6 +212,62 @@ describe('RpcClient', () => {
       JSON.stringify({ jsonrpc: '2.0', method: 'chat.delta', params: { requestId: 'r1', textDelta: 'again' } }),
     );
     expect(handler).toHaveBeenCalledTimes(1);
+    client.dispose();
+  });
+
+  it('keeps remaining notification listeners and ignores invalid envelopes', () => {
+    const transport = new FakeTransport();
+    const client = new RpcClient(transport);
+    const first = vi.fn();
+    const second = vi.fn();
+    const unsubscribeFirst = client.on('chat.delta', first);
+    client.on('chat.delta', second);
+    unsubscribeFirst();
+    transport.receive('null');
+    transport.receive('{"jsonrpc":"1.0","method":"chat.delta","params":{}}');
+    transport.receive('{"jsonrpc":"2.0","method":"chat.delta"}');
+    expect(first).not.toHaveBeenCalled();
+    expect(second).not.toHaveBeenCalled();
+    client.dispose();
+  });
+
+  it('ignores late responses and responses without a result', async () => {
+    const transport = new FakeTransport();
+    const client = new RpcClient(transport);
+    ready(transport);
+    const timedOut = client.call('system.ping', {}, { timeoutMs: 5 });
+    transport.receive('{"jsonrpc":"2.0","id":1}');
+    await expect(timedOut).rejects.toMatchObject({ appError: { message: 'request timed out' } });
+    transport.receive('{"jsonrpc":"2.0","id":1,"result":{}}');
+    client.dispose();
+  });
+
+  it('skips stale and malformed queue entries during readiness flush', () => {
+    const transport = new FakeTransport();
+    const client = new RpcClient(transport);
+    const queue = Reflect.get(client, 'queued') as unknown[];
+    queue.push(999, undefined);
+    ready(transport);
+    expect(transport.sent).toHaveLength(0);
+    client.dispose();
+  });
+
+  it('ignores stale internal sends and finishes calls without timers or abort listeners', async () => {
+    const transport = new FakeTransport();
+    const client = new RpcClient(transport);
+    const internals = client as unknown as RpcClientTestInternals;
+    await internals.send(404, 'system.ping', {});
+    internals.finish(404);
+    const controller = new AbortController();
+    internals.pending.set(405, {
+      method: 'system.ping',
+      resolve: () => undefined,
+      reject: () => undefined,
+      signal: controller.signal,
+    });
+    internals.queued.push(405);
+    internals.finish(405);
+    expect(internals.queued).toHaveLength(0);
     client.dispose();
   });
 
@@ -168,6 +291,28 @@ describe('RpcClient', () => {
       appError: { code: ErrorCode.INTERNAL, message: 'bad request' },
     });
     warning.mockRestore();
+    client.dispose();
+  });
+
+  it('does not log malformed sidecar messages outside development mode', () => {
+    const transport = new FakeTransport();
+    const client = new RpcClient(transport);
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.stubEnv('DEV', false);
+    transport.receive('{broken');
+    expect(warning).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
+    warning.mockRestore();
+    client.dispose();
+  });
+
+  it('uses a fallback message when an RPC error omits its message', async () => {
+    const transport = new FakeTransport();
+    const client = new RpcClient(transport);
+    ready(transport);
+    const pending = client.call('system.ping', {});
+    transport.receive(JSON.stringify({ jsonrpc: '2.0', id: 1, error: { code: -32000 } }));
+    await expect(pending).rejects.toMatchObject({ appError: { message: 'sidecar RPC error' } });
     client.dispose();
   });
 

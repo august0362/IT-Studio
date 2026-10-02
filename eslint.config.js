@@ -114,6 +114,12 @@ export default [
     },
   },
   {
+    files: ['e2e/**/*.mjs'],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.mocha, browser: 'readonly', window: 'readonly' },
+    },
+  },
+  {
     files: ['apps/desktop/src/**/*.{ts,tsx}'],
     languageOptions: {
       globals: globals.browser,
@@ -124,10 +130,12 @@ export default [
     languageOptions: {
       parserOptions: {
         projectService: {
+          defaultProject: 'apps/sidecar/tsconfig.json',
           allowDefaultProject: [
             'scripts/lint-fixtures/*.ts',
             'scripts/lint-fixtures/*.tsx',
             'vitest.config.ts',
+            'vitest.integration.config.ts',
             'apps/desktop/vitest.config.ts',
           ],
         },
