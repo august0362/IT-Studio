@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add ChatService with conversations, messages and streaming chat RPC ([M2-10](docs/tasks/M2-10.md))
+- Add workspace path guard and file-system port ([M6-01](docs/tasks/M6-01.md))
 - Add Auto Fallback OFF user decision flow and router config RPC ([M2-08/09](docs/tasks/M2-08.md))
 - Add LlmRouter service: ordering, retry/backoff, fallback, circuit breaker, cancel, mid-stream reset ([M2-07](docs/tasks/M2-07.md))
 - Add sidecar lifecycle logging ([M1-FIX2](docs/tasks/M1-FIX2.md))
