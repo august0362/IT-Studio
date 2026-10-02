@@ -26,7 +26,7 @@ describe('Money', () => {
     const value = money(-1);
     render(<Money value={value} />);
     const alert = screen.getByLabelText('USD $1.23; VND 31.456 ₫');
-    expect(within(alert).getAllByText('$1.23')[0]).toHaveClass('text-red-700');
+    expect(within(alert).getAllByText('$1.23')[0]).toHaveClass('text-danger');
   });
 
   it('renders compact values on one line and exposes both amounts accessibly', () => {

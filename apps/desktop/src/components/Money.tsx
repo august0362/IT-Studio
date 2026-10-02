@@ -1,6 +1,5 @@
 import type { MoneyDisplay } from '@itstudio/schemas';
 import type { JSX } from 'react';
-import { neutralClasses } from './ui/neutral-classes';
 
 export interface MoneyProps {
   readonly value: MoneyDisplay;
@@ -9,7 +8,7 @@ export interface MoneyProps {
 
 export function Money({ value, compact = false }: MoneyProps): JSX.Element {
   const isNegative = value.microUsd < 0;
-  const amountClass = isNegative ? 'text-red-700' : '';
+  const amountClass = isNegative ? 'text-danger' : '';
   const ariaLabel = `USD ${value.usdText}; VND ${value.vndText}`;
 
   if (compact) {
@@ -23,7 +22,7 @@ export function Money({ value, compact = false }: MoneyProps): JSX.Element {
   return (
     <span aria-label={ariaLabel} className="inline-flex flex-col">
       <span className={amountClass}>{value.usdText}</span>
-      <span className={`text-sm ${neutralClasses.secondaryText} ${amountClass}`}>{value.vndText}</span>
+      <span className={`text-sm text-text-muted ${amountClass}`}>{value.vndText}</span>
     </span>
   );
 }

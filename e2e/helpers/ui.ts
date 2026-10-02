@@ -3,7 +3,7 @@ export function statusBar() {
 }
 
 export async function navigateToSettings() {
-  await browser.$('nav[aria-label="Main navigation"] a[href="#settings"]').click();
+  await browser.$('nav[aria-label="Main navigation"] a[href="#settings-api-keys"]').click();
 }
 
 export function apiKeyInput(provider = 'openai') {

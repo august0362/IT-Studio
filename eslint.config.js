@@ -131,6 +131,15 @@ export default [
         { name: 'alert', message: 'Use an in-app message for user alerts.' },
         { name: 'prompt', message: 'Use an in-app form for user input.' },
       ],
+      'no-restricted-syntax': [
+        'error',
+        ...restrictedSyntax,
+        {
+          selector:
+            'Literal[value=/\\b(?:bg|text|border|ring|from|to|via)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\\d{2,3}\\b/]',
+          message: 'Use semantic theme color tokens instead of Tailwind palette colors.',
+        },
+      ],
       'no-restricted-properties': [
         'error',
         ...restrictedProperties,
@@ -176,6 +185,20 @@ export default [
       'no-undef': 'off',
       'no-restricted-properties': ['error', ...restrictedProperties],
       'no-restricted-syntax': ['error', ...restrictedSyntax],
+    },
+  },
+  {
+    files: ['apps/desktop/src/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...restrictedSyntax,
+        {
+          selector:
+            'Literal[value=/\\b(?:bg|text|border|ring|from|to|via)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\\d{2,3}\\b/]',
+          message: 'Use semantic theme color tokens instead of Tailwind palette colors.',
+        },
+      ],
     },
   },
   {

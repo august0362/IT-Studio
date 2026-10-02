@@ -9,7 +9,7 @@ describe('M1 startup and supervision', () => {
 
   it('TC-M1-007 rejects a UI request interrupted by a sidecar crash', async () => {
     await waitForReady();
-    await browser.$('nav[aria-label="Main navigation"] a[href="#settings"]').click();
+    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-api-keys"]').click();
 
     const apiKeyForm = browser.$('form:has(#api-key-openai)');
     await browser.$('#api-key-openai').setValue('in-flight-test-key-1234');
