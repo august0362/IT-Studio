@@ -2,7 +2,6 @@ import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import type { JSX } from 'react';
-import { neutralClasses } from './ui/neutral-classes';
 
 export interface SafeMarkdownProps {
   readonly source: string;
@@ -24,10 +23,10 @@ const markdownComponents: Components = {
     ),
   img: ({ alt }) => <span>{alt ?? ''}</span>,
   pre: ({ children }) => (
-    <pre className={`overflow-x-auto rounded border ${neutralClasses.border} bg-neutral-100 p-3`}>{children}</pre>
+    <pre className="overflow-x-auto rounded border border-border bg-surface-alt p-3">{children}</pre>
   ),
   code: ({ children, className }) => (
-    <code className={`rounded bg-neutral-100 px-1 ${className ?? ''}`}>{children}</code>
+    <code className={`rounded bg-surface-alt px-1 ${className ?? ''}`}>{children}</code>
   ),
 };
 

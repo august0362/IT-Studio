@@ -1,5 +1,4 @@
 import { useEffect, useRef, type JSX, type KeyboardEvent } from 'react';
-import { neutralClasses } from './neutral-classes';
 
 export interface ConfirmDialogProps {
   readonly open: boolean;
@@ -69,7 +68,7 @@ export function ConfirmDialog({
         aria-describedby="confirm-dialog-message"
         aria-labelledby="confirm-dialog-title"
         aria-modal="true"
-        className={`w-full max-w-md rounded-lg border ${neutralClasses.border} bg-white p-6 shadow-xl`}
+        className="w-full max-w-md rounded-lg border border-border bg-surface p-6 text-text shadow-xl"
         onKeyDown={handleKeyDown}
         ref={dialogRef}
         role="alertdialog"
@@ -77,12 +76,12 @@ export function ConfirmDialog({
         <h2 className="mb-2 text-lg font-semibold" id="confirm-dialog-title">
           {title}
         </h2>
-        <p className={`mb-6 ${neutralClasses.secondaryText}`} id="confirm-dialog-message">
+        <p className="mb-6 text-text-muted" id="confirm-dialog-message">
           {message}
         </p>
         <div className="flex justify-end gap-2">
           <button
-            className={`rounded border ${neutralClasses.controlBorder} px-3 py-2 ${neutralClasses.hoverSurface}`}
+            className="rounded border border-border px-3 py-2 hover:bg-surface-alt"
             onClick={onCancel}
             ref={cancelRef}
             type="button"
@@ -90,7 +89,7 @@ export function ConfirmDialog({
             {cancelLabel}
           </button>
           <button
-            className="rounded border border-red-700 bg-red-700 px-3 py-2 text-white hover:bg-red-800"
+            className="rounded border border-danger bg-danger px-3 py-2 text-primary-fg"
             data-tone={tone}
             onClick={onConfirm}
             type="button"

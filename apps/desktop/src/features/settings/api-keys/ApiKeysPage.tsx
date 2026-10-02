@@ -4,7 +4,6 @@ import { useState, type JSX, type SyntheticEvent } from 'react';
 import { useRpcQuery } from '../../../hooks/use-rpc-query';
 import { RpcCallError } from '../../../rpc/rpc-client';
 import { useRpcClient } from '../../../rpc/rpc-context';
-import { neutralClasses } from '../../../components/ui/neutral-classes';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { ErrorPanel } from '../../../components/ErrorPanel';
 
@@ -126,20 +125,16 @@ export function ApiKeysPage(): JSX.Element {
       <h2 className="mb-2 text-2xl font-semibold" id="api-keys-heading">
         API keys
       </h2>
-      <p className={`mb-6 ${neutralClasses.secondaryText}`}>Keys are stored securely and never displayed in full.</p>
+      <p className="mb-6 text-text-muted">Keys are stored securely and never displayed in full.</p>
       {statuses.isError ? <ErrorPanel error={errorFrom(statuses.error)} /> : null}
-      <div className={`divide-y ${neutralClasses.border} border-y`}>
+      <div className="divide-y divide-border border-y border-border">
         {PROVIDERS.map(({ id, name }) => {
           const error = errors[id];
           return (
             <article className="grid gap-4 py-5 md:grid-cols-[minmax(10rem,1fr)_2fr]" key={id}>
               <div>
                 <h3 className="font-medium">{name}</h3>
-                <p
-                  aria-label={`${name} key status`}
-                  className={`mt-1 text-sm ${neutralClasses.secondaryText}`}
-                  role="status"
-                >
+                <p aria-label={`${name} key status`} className="mt-1 text-sm text-text-muted" role="status">
                   {statusText(statusByProvider.get(id), invalid[id] === true)}
                 </p>
               </div>
@@ -155,7 +150,7 @@ export function ApiKeysPage(): JSX.Element {
                   </label>
                   <input
                     autoComplete="new-password"
-                    className={`min-w-0 flex-1 rounded border ${neutralClasses.controlBorder} px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2`}
+                    className="min-w-0 flex-1 rounded border border-border px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
                     id={`api-key-${id}`}
                     onChange={(event) => {
                       setKeys((current) => ({ ...current, [id]: event.target.value }));
@@ -165,14 +160,14 @@ export function ApiKeysPage(): JSX.Element {
                     value={keys[id] ?? ''}
                   />
                   <button
-                    className={`rounded border ${neutralClasses.controlBorder} px-3 py-2 ${neutralClasses.hoverSurface}`}
+                    className="rounded border border-border px-3 py-2 hover:bg-surface-alt"
                     disabled={busy[id]}
                     type="submit"
                   >
                     Save
                   </button>
                   <button
-                    className={`rounded border ${neutralClasses.controlBorder} px-3 py-2 ${neutralClasses.hoverSurface}`}
+                    className="rounded border border-border px-3 py-2 hover:bg-surface-alt"
                     disabled={busy[id]}
                     onClick={() => {
                       void verify(id);
@@ -182,7 +177,7 @@ export function ApiKeysPage(): JSX.Element {
                     Verify
                   </button>
                   <button
-                    className={`rounded border ${neutralClasses.controlBorder} px-3 py-2 ${neutralClasses.hoverSurface}`}
+                    className="rounded border border-border px-3 py-2 hover:bg-surface-alt"
                     disabled={busy[id]}
                     onClick={() => {
                       setProviderToDelete(id);
