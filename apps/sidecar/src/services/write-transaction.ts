@@ -52,6 +52,10 @@ function asBytes(value: string): Uint8Array {
   return new TextEncoder().encode(value);
 }
 
+function crashAt(stage: 'after_prepare' | 'mid_commit'): void {
+  if (process.env.ITSTUDIO_E2E === '1' && process.env.ITSTUDIO_E2E_CRASH_AT === stage) process.exit(91);
+}
+
 export interface WriteTransactionDependencies {
   readonly fileSystem: IFileSystem;
   readonly ids: IIdGenerator;
@@ -186,6 +190,7 @@ export class WriteTransactionService {
     const manifestPath = join(journalDir, 'manifest.json');
     const manifestWritten = await this.writeManifest(manifestPath, { transaction, originals: entries });
     if (!manifestWritten.ok) return manifestWritten;
+    crashAt('after_prepare');
     return {
       ok: true,
       value: new PreparedWriteTransaction(this.fs, root, journalDir, manifestPath, transaction, entries, prepared),
@@ -258,6 +263,7 @@ export class PreparedWriteTransaction {
           return failure(ErrorCode.CONFLICT, 'A rename destination appeared after transaction preparation.');
       }
     }
+    let committedOperations = 0;
     for (const item of [...ordinary, ...final]) {
       const op = item.operation;
       if (op.kind === 'delete') {
@@ -281,6 +287,8 @@ export class PreparedWriteTransaction {
         const moved = await this.fs.rename(temp, item.source);
         if (!moved.ok) return this.failAndRollback();
       }
+      committedOperations += 1;
+      if (committedOperations === 1 && this.prepared.length > 1) crashAt('mid_commit');
     }
     this.status = 'committed';
     const updated = await this.saveStatus('committed');

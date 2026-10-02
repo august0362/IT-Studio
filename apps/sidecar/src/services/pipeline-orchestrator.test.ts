@@ -49,6 +49,7 @@ const firstAllowedPath = spec.allowedPaths[0] ?? workspaceRelativePathSchema.par
 interface HarnessOptions {
   readonly commandResult?: () => Promise<Result<CommandRun>>;
   readonly beforeRole?: (role: 'pm' | 'coder' | 'reviewer') => Promise<void>;
+  readonly beforeCommit?: () => Promise<void>;
   readonly roleFailure?: 'pm' | 'coder' | 'reviewer';
   readonly projectMissing?: boolean;
   readonly hardStop?: () => Promise<boolean>;
@@ -158,6 +159,13 @@ function harness(
               return commit();
             };
           }
+          if (options.beforeCommit !== undefined) {
+            const commit = prepared.value.commit.bind(prepared.value);
+            prepared.value.commit = async () => {
+              await options.beforeCommit?.();
+              return commit();
+            };
+          }
           if (options.markValidatedFailure)
             prepared.value.markValidated = () =>
               Promise.resolve({
@@ -259,7 +267,7 @@ describe('PipelineOrchestrator', () => {
     expect(file.ok && new TextDecoder().decode(file.value)).toBe('hello');
   });
 
-  it('fails after the one permitted rejected fix without writing files', async () => {
+  it('TC-M6-004 fails after the one permitted rejected fix without writing files', async () => {
     const rejected: ReviewVerdict = {
       approved: false,
       findings: [
@@ -283,7 +291,7 @@ describe('PipelineOrchestrator', () => {
     expect(exists.ok && exists.value).toBe(false);
   });
 
-  it('runs one fix round and writes after the second review approves', async () => {
+  it('TC-M6-003 runs one fix round and writes after the second review approves', async () => {
     const rejected: ReviewVerdict = {
       approved: false,
       findings: [
@@ -347,7 +355,7 @@ describe('PipelineOrchestrator', () => {
     await expectNoUserWrites(h.fs);
   });
 
-  it.each(['pm', 'coder', 'reviewer'] as const)('cancels during %s before writing', async (pausedRole) => {
+  it.each(['pm', 'coder', 'reviewer'] as const)('TC-M6-010 cancels during %s before writing', async (pausedRole) => {
     const entered = deferred();
     const release = deferred();
     const h = harness([accepted], created, {
@@ -367,7 +375,7 @@ describe('PipelineOrchestrator', () => {
     await expectNoUserWrites(h.fs);
   });
 
-  it('cancels during validation and rolls back the committed write', async () => {
+  it('TC-M6-012 cancels during validation and rolls back the committed write', async () => {
     const entered = deferred();
     const release = deferred();
     const h = harness([accepted], created, {
@@ -398,7 +406,25 @@ describe('PipelineOrchestrator', () => {
     await expectNoUserWrites(h.fs);
   });
 
-  it('queues same-project runs and lists them in start order', async () => {
+  it('TC-M6-011 cancels during writing and rolls back the committed write', async () => {
+    const entered = deferred();
+    const release = deferred();
+    const h = harness([accepted], created, {
+      beforeCommit: async () => {
+        entered.resolve();
+        await release.promise;
+      },
+    });
+    await h.rootDirectory;
+    const run = await h.orchestrator.start({ projectId, prompt: 'Create greeting' });
+    await entered.promise;
+    await h.orchestrator.cancel(run.id);
+    release.resolve();
+    expect((await waitForTerminal(h.orchestrator, run.id)).stage).toBe(PipelineStage.ROLLED_BACK);
+    await expectNoUserWrites(h.fs);
+  });
+
+  it('TC-M6-050 queues same-project runs and lists them in start order', async () => {
     const entered = deferred();
     const release = deferred();
     let pmCalls = 0;
@@ -464,7 +490,7 @@ describe('PipelineOrchestrator', () => {
     expect(pmCalls).toBe(2);
   });
 
-  it('stops at the pre-write budget boundary without writing', async () => {
+  it('TC-M6-051 stops at the pre-write budget boundary without writing', async () => {
     const h = harness([accepted], created, { hardStop: () => Promise.resolve(true) });
     await h.rootDirectory;
     const run = await h.orchestrator.start({ projectId, prompt: 'Create greeting' });
@@ -474,7 +500,7 @@ describe('PipelineOrchestrator', () => {
     await expectNoUserWrites(h.fs);
   });
 
-  it('rolls back when the budget hard stop is reached during validation', async () => {
+  it('TC-M6-051 rolls back when the budget hard stop is reached during validation', async () => {
     let checks = 0;
     const h = harness([accepted], created, {
       hardStop: () => Promise.resolve(++checks >= 5),

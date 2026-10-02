@@ -75,6 +75,7 @@ export class PipelineOrchestrator {
   private readonly deps: PipelineOrchestratorDependencies;
   private readonly runs = new Map<PipelineRunId, PipelineRun>();
   private readonly cancelRequested = new Set<PipelineRunId>();
+  private readonly validationControllers = new Map<PipelineRunId, AbortController>();
   private readonly tails = new Map<ProjectId, Promise<void>>();
   private readonly transactions = new Map<PipelineRunId, PreparedWriteTransaction>();
 
@@ -127,6 +128,7 @@ export class PipelineOrchestrator {
     const run = await this.get(runId);
     if (run === null || isTerminal(run.stage)) return run;
     this.cancelRequested.add(runId);
+    this.validationControllers.get(runId)?.abort();
     return this.runs.get(runId) ?? run;
   }
 
@@ -256,8 +258,10 @@ export class PipelineOrchestrator {
         return;
       }
       const validation = [...(run.validation ?? [])];
+      const validationController = new AbortController();
+      this.validationControllers.set(run.id, validationController);
       for (const command of currentSettings.value.validationCommands) {
-        const commandRun = await this.deps.commands.run(project.workspaceRoot, command);
+        const commandRun = await this.deps.commands.run(project.workspaceRoot, command, validationController.signal);
         if (!commandRun.ok) {
           await this.fail(run, commandRun.error, true, true, validation);
           return;
@@ -297,6 +301,7 @@ export class PipelineOrchestrator {
           return;
         }
       }
+      this.validationControllers.delete(run.id);
       const marked = await prepared.value.markValidated();
       if (!marked.ok) {
         await this.fail(run, marked.error, true, true, validation);
@@ -407,6 +412,7 @@ export class PipelineOrchestrator {
     rolledBackStage = false,
     commandRuns: PipelineRun['validation'] = run.validation,
   ): Promise<void> {
+    this.validationControllers.delete(run.id);
     run = await this.refreshCost(run);
     const transaction = this.transactions.get(run.id);
     let rolledBack = false;
