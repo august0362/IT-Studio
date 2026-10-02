@@ -12,6 +12,7 @@
     "@types/better-sqlite3": "^9.6.0",
     "@types/html-to-text": "^9.0.4",
     "@types/node": "^24.0.0",
+    "@types/ws": "^8.18.2",
     "drizzle-kit": "^0.31.11",
     "tsx": "^4.0.0"
   },
@@ -28,6 +29,7 @@
     "openai": "^7.25.0",
     "pdfjs-dist": "^6.3.289",
     "pino": "^10.3.1",
+    "ws": "^8.22.0",
     "zod": "^4.6.5"
   }
 }
