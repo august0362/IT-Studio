@@ -9,7 +9,7 @@
 | BUG-M1-001 | S3 (test defect) | `rpc-server.test.ts` "keeps concurrent request ids…" flaky (~1/8 full runs): completion order forced by real 5 ms/0 ms timers inverts under load. Product behaviour correct. | Regression loop on `main` after M7-01 merge | TC-M1-015 (related) | **Fixed** in M1-FIX1, verified 50/50 |
 
 | BUG-M1-002 | S4 (improvement) | Invalid-envelope responses (-32600) use `id: null` even when a numeric id is readable. Spec-compliant (JSON-RPC 2.0 §5) but the UI cannot correlate and waits for its 30 s timeout. UI never sends invalid envelopes → low risk. Proposal: echo the id when it is a valid integer. | Exploratory probe | TC-M1-011 | Open (deferred, low priority) |
-| BUG-M1-003 | S3 | Sidecar writes no lifecycle logs at `info` (start, version, data dir, migrations applied, ready, shutdown) → `%APPDATA%/com.itstudio.app/logs` stays empty after a normal run; "Open logs folder" useless for diagnosing restarts. ARCH §13. | System test on real app | TC-M1-001/004 | Open → `M1-FIX2` |
+| BUG-M1-003 | S3 | Sidecar writes no lifecycle logs at `info` (start, version, data dir, migrations applied, ready, shutdown) → `%APPDATA%/com.itstudio.app/logs` stays empty after a normal run; "Open logs folder" useless for diagnosing restarts. ARCH §13. | System test on real app | TC-M1-001/004 | **Fixed** in M1-FIX2, verified on real run |
 | BUG-M1-004 | **S1** | UI `RpcClient` never populated `paramsById` → every UI RPC call was sent **without `params`** → sidecar rejects all calls with parameters (-32602). The real API Keys page could not save keys. Unit tests missed it (fake transport did not inspect params). | M1-QA integration work (Codex) | TC-M1-030 | Fixed in M1-QA branch (pending merge) + regression test |
 
 ## Execution log
