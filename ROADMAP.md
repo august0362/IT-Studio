@@ -112,7 +112,7 @@
 - [x] **M5-04** (C) LanceDB `IVectorStore` repo (per-project table, upsert, delete by doc, cosine search with filters).
 - [x] **M5-05** (C) `RagService` ingest jobs: discovery, hash skip, progress events, per-file failure isolation, `rag.*` RPC.
 - [x] **M5-06** (C) Retrieval: minScore filter, MMR, context injection, citation parts, `search_knowledge` tool; chat `ragEnabled` toggle.
-- [ ] **M5-07** (C) Knowledge tab: add files/folder, document list (format, chunks, model, date), re-index, delete, test-query panel.
+- [x] **M5-07** (C) Knowledge tab: add files/folder, document list (format, chunks, model, date), re-index, delete, test-query panel.
 - [ ] **M5-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M5-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M5-report.md` sign-off. Scope: RAG: ingest md/pdf/docx/code, unchanged-file skip, per-file failure isolation, cited answers, embedding cost in P&L, re-index on model change.
 
 ## M6 — Agent pipeline & Worker
