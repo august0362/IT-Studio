@@ -31,6 +31,9 @@ import {
   OpenAiCompatibleProvider,
 } from './providers/openai-compatible/openai-compatible-provider.js';
 import { ModelRegistry } from './services/model-registry.js';
+import { AlwaysOkBudgetGuard } from './ports/budget-guard.js';
+import { LlmRouter, type RouterCompleted } from './services/llm-router.js';
+import { computeTokenCost } from './domain/cost.js';
 import { readFileSync } from 'node:fs';
 import { readdirSync } from 'node:fs';
 import { ErrorCode, type AppError, type Result } from '@itstudio/schemas';
@@ -147,8 +150,9 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     logger,
   });
   const projectService = new ProjectService({ repository: projectRepository, settings: settingsService, ids, clock });
+  const secretStore = dependencies.secretStore ?? (e2e ? new MemorySecretStore() : new KeychainSecretStore());
   const secretsService = new SecretsService({
-    store: dependencies.secretStore ?? (e2e ? new MemorySecretStore() : new KeychainSecretStore()),
+    store: secretStore,
     verifier:
       dependencies.keyVerifier ??
       (e2e
@@ -173,6 +177,41 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   });
   const modelRegistry = new ModelRegistry(loadedSeeds.value.models, providers);
   const events = new EventBus<RpcNotificationMap>();
+  const routerCompleted = new EventBus<{ completed: RouterCompleted }>();
+  const llmRouter = new LlmRouter({
+    models: modelRegistry,
+    providers,
+    secrets: secretStore,
+    budget: new AlwaysOkBudgetGuard(),
+    estimateCostMicroUsd: (request, modelKey) => {
+      const price = loadedSeeds.value.pricing.entries.find((entry) => entry.modelKey === modelKey);
+      if (price === undefined) return 0;
+      const promptText = [
+        request.systemPrompt ?? '',
+        ...request.messages.flatMap((message) =>
+          message.parts.flatMap((part) => (part.type === 'text' ? [part.text] : [])),
+        ),
+      ].join(' ');
+      const model = modelRegistry.get(modelKey);
+      return computeTokenCost(
+        {
+          inputTokens: Math.ceil(promptText.length / 4),
+          outputTokens: request.maxOutputTokens ?? model?.maxOutputTokens ?? 0,
+          cachedInputTokens: 0,
+        },
+        price,
+      );
+    },
+    config: async () => {
+      const settings = await settingsService.get();
+      return settings.ok ? { ok: true, value: settings.value.router } : settings;
+    },
+    clock,
+    ids,
+    logger,
+    events,
+    completed: routerCompleted,
+  });
   const serverRef: { current?: RpcServer } = {};
   const transport = new LineTransport({
     input: dependencies.input ?? stdin,
@@ -209,6 +248,8 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     secretsService,
     providers,
     modelRegistry,
+    llmRouter,
+    routerCompleted,
     projectService,
     events,
     logger,
