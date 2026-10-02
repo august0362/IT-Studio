@@ -97,7 +97,10 @@ export function ChatPage({ projectId }: { readonly projectId: ProjectId | null }
   async function createConversation(): Promise<void> {
     if (projectId === null) return;
     const conversation = await rpc.call('chat.createConversation', { projectId });
-    await queryClient.invalidateQueries({ queryKey: ['chat.listConversations', { projectId }] });
+    queryClient.setQueryData<readonly Conversation[]>(['chat.listConversations', { projectId }], (current) => [
+      conversation,
+      ...(current ?? []).filter((item) => item.id !== conversation.id),
+    ]);
     setConversationId(conversation.id);
   }
 
@@ -174,6 +177,26 @@ export function ChatPage({ projectId }: { readonly projectId: ProjectId | null }
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between gap-4 border-b border-border p-3">
           <h1 className="truncate font-semibold">{active?.title ?? t('chat.heading')}</h1>
+          {active !== undefined ? (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                aria-label={t('chat.useKnowledge')}
+                checked={active.ragEnabled}
+                onChange={(event) => {
+                  void rpc
+                    .call('chat.setRagEnabled', { conversationId: active.id, enabled: event.target.checked })
+                    .then((updated) => {
+                      queryClient.setQueryData<readonly Conversation[]>(
+                        ['chat.listConversations', { projectId }],
+                        (current) => (current ?? []).map((item) => (item.id === updated.id ? updated : item)),
+                      );
+                    });
+                }}
+                type="checkbox"
+              />
+              {t('chat.useKnowledge')}
+            </label>
+          ) : null}
           <ModelPicker
             config={routerConfig}
             models={modelsQuery.data ?? []}

@@ -10,6 +10,7 @@ import type {
   MessageId,
   MicroUsd,
   ModelKey,
+  RetrievalHit,
 } from '@itstudio/schemas';
 import '../../i18n';
 import { Composer } from './Composer';
@@ -126,5 +127,28 @@ describe('chat components', () => {
     );
     expect(document.querySelector('img')).toBeNull();
     expect(screen.getByText('answer')).toBeVisible();
+  });
+
+  it('opens a plain text citation popover from its numbered chip', () => {
+    const hit: RetrievalHit = {
+      chunkId: '00000000-0000-4000-8000-000000000005' as RetrievalHit['chunkId'],
+      documentId: '00000000-0000-4000-8000-000000000006' as RetrievalHit['documentId'],
+      documentTitle: 'Guide',
+      sectionPath: ['Setup'],
+      text: '<script>plain text</script>',
+      score: 0.9,
+    };
+    const message: ChatMessage = {
+      id: asMessageId('00000000-0000-4000-8000-000000000003'),
+      conversationId: asConversationId('00000000-0000-4000-8000-000000000002'),
+      role: 'assistant',
+      parts: [{ type: 'citation', hit }],
+      createdAt: asDate('2026-10-02T00:00:00.000Z'),
+    };
+    render(<MessageList bubbles={[{ kind: 'message', message }]} costs={{}} fallbacks={{}} models={[]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Citation 1' }));
+    expect(screen.getByRole('dialog')).toHaveTextContent('Guide › Setup');
+    expect(screen.getByText('<script>plain text</script>')).toBeVisible();
+    expect(document.querySelector('script')).toBeNull();
   });
 });

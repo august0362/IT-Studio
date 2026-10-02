@@ -13,6 +13,7 @@ import { MainNav, type ShellRoute } from './MainNav';
 import { NewProjectDialog } from './NewProjectDialog';
 import { ProjectTabs } from './ProjectTabs';
 import { ChatPage } from '../features/chat/ChatPage';
+import { KnowledgePage } from '../features/knowledge/KnowledgePage';
 
 function asAppError(cause: unknown): AppError {
   if (cause instanceof RpcCallError) return cause.appError;
@@ -119,6 +120,13 @@ export function AppShell(): JSX.Element {
   let content: JSX.Element;
   if (route === 'chat')
     content = <ChatPage projectId={projects.find((project) => project.id === activeId)?.id ?? null} />;
+  else if (route === 'knowledge')
+    content = (
+      <KnowledgePage
+        project={projects.find((project) => project.id === activeId)}
+        projectId={projects.find((project) => project.id === activeId)?.id ?? null}
+      />
+    );
   else if (route === 'settings-api-keys') content = <ApiKeysPage />;
   else if (route === 'settings-theme') content = <ThemePage />;
   else
