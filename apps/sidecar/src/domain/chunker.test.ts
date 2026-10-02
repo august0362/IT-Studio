@@ -51,11 +51,50 @@ describe('chunkDocument', () => {
     expect(chunk(source, 'text')).toEqual(a);
     expect(a.map((item) => item.ordinal)).toEqual(a.map((_, index) => index));
   });
-  it('adds sentence aligned overlap within sections', () => {
+  it('TC-M5-040 keeps chunks near the target and adds sentence-aligned overlap', () => {
     const result = chunk('First sentence. '.repeat(14), 'text');
     expect(result.length).toBeGreaterThan(1);
     expect(result[1]?.text).toMatch(/sentence\./);
     expect(result[1]?.tokenCount).toBeLessThanOrEqual(config.targetTokens + config.overlapTokens + 5);
+  });
+  it('TC-M5-041 tracks heading trails and resets the path at a new H1', () => {
+    const result = chunk('# First\n\nfirst body\n\n## Nested\n\nbody\n\n# Second\n\nsecond body\n\n## Child\n\nlast');
+    expect(result.map((item) => item.sectionPath)).toEqual([
+      ['First'],
+      ['First', 'Nested'],
+      ['Second'],
+      ['Second', 'Child'],
+    ]);
+  });
+  it('TC-M5-042 handles empty, single-token, unheaded, and long code documents deterministically', () => {
+    expect(chunk('')).toEqual([]);
+    const single = chunk('token', 'text');
+    expect(single.map((item) => item.ordinal)).toEqual([0]);
+    expect(single[0]?.text).toBe('token');
+    const unheaded = chunk('one two three four', 'markdown', {
+      targetTokens: 2,
+      overlapTokens: 0,
+      respectHeadings: true,
+    });
+    expect(unheaded.length).toBeGreaterThan(1);
+    expect(unheaded.every((item) => item.sectionPath.length === 0)).toBe(true);
+    const code = chunk(
+      Array.from({ length: 10_000 }, (_, index) => `const value${String(index)} = ${String(index)};`).join('\n'),
+      'code',
+    );
+    expect(code.length).toBeGreaterThan(100);
+    expect(code.map((item) => item.ordinal)).toEqual(code.map((_, index) => index));
+    const withPrelude = chunk('// module note\nfunction process() {\n  return true;\n}', 'code');
+    expect(withPrelude.map((item) => item.sectionPath)).toEqual([[], ['process']]);
+  });
+  it('keeps a small atomic code fence with its paragraph when it fits and separates it when it does not', () => {
+    const source = 'Intro paragraph.\n\n```ts\nconst answer = 42;\n```\n\nClosing paragraph.';
+    const combined = chunk(source, 'markdown', { targetTokens: 30, overlapTokens: 0, respectHeadings: false });
+    expect(combined).toHaveLength(1);
+    expect(combined[0]?.text).toContain('```ts');
+    const separated = chunk(source, 'markdown', { targetTokens: 6, overlapTokens: 0, respectHeadings: false });
+    expect(separated.length).toBeGreaterThan(1);
+    expect(separated.some((item) => item.text.includes('```ts'))).toBe(true);
   });
   it('preserves source content ordering across chunks', () => {
     const source = 'alpha one. beta two. gamma three. delta four. epsilon five.';

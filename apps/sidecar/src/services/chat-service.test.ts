@@ -177,7 +177,7 @@ describe('ChatService', () => {
     expect(created.map((message) => message.role)).toEqual(['user', 'assistant']);
   });
 
-  it('renders neutralized numbered knowledge and attaches referenced citations in first-use order', async () => {
+  it('TC-M5-014 neutralizes hostile knowledge; TC-M5-017 deduplicates citations in first-use order', async () => {
     const hit = {
       chunkId: chunkIdSchema.parse('11111111-1111-4111-8111-111111111111'),
       documentId: documentIdSchema.parse('22222222-2222-4222-8222-222222222222'),
@@ -202,7 +202,7 @@ describe('ChatService', () => {
     ]);
   });
 
-  it('continues without RAG and warns when retrieval fails', async () => {
+  it('TC-M5-016 continues without RAG and warns when retrieval fails', async () => {
     const { service, logger } = makeService({ ragEnabled: true, retrievalFailure: ErrorCode.INTERNAL });
     const warning = vi.spyOn(logger, 'warn');
     const sent = await service.send(conversationId, 'question');
