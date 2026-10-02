@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add sidecar VS Code bridge with token-authenticated loopback WebSocket ([M7-02](docs/tasks/M7-02.md))
 - Add Money, SafeMarkdown (XSS-hardened) and ErrorPanel components ([M4-02](docs/tasks/M4-02.md))
 - Add runtime role prompts and RoleCaller with JSON validation ([M6-04](docs/tasks/M6-04.md))
 - Add versioned price tables with manual overrides ([M3-03](docs/tasks/M3-03.md))

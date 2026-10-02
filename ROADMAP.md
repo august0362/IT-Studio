@@ -17,7 +17,7 @@
 | M4 UI shell, Settings, Chat, P&L | In progress | 2 / 8 |
 | M5 RAG | In progress | 3 / 8 |
 | M6 Agent pipeline & Worker | In progress | 4 / 8 |
-| M7 VS Code companion extension | In progress | 1 / 6 |
+| M7 VS Code companion extension | In progress | 2 / 6 |
 | M8 Image generation *(deferred)* | Deferred | 0 / 6 |
 | M9 Packaging & release *(deferred)* | Deferred | 0 / 7 |
 | **v2** M10 Agent Orchestrator | After v1 | 0 / 8 |
@@ -133,7 +133,7 @@
 **Exit criteria:** starting a pipeline auto-opens VS Code on the project, changed files are revealed with diff, diagnostics appear in the app; closing VS Code mid-run does not fail the run.
 
 - [x] **M7-01** (C) Extension skeleton: activation on `workspaceContains:.itstudio/session.json`, WS client, `ExtHello`, reconnect, status bar item.
-- [ ] **M7-02** (C) Sidecar `VSCodeBridge`: WS server on loopback, token (constant-time), Origin rejection, heartbeat, `vscode.status`. Ref: ARCH §10.1.
+- [x] **M7-02** (C) Sidecar `VSCodeBridge`: WS server on loopback, token (constant-time), Origin rejection, heartbeat, `vscode.status`. Ref: ARCH §10.1.
 - [ ] **M7-03** (C) Launcher (`code` resolve, `shell:false`) + installer (`--list-extensions`, `--install-extension` bundled vsix) + vsix build script; `.itstudio/` gitignore guard.
 - [ ] **M7-04** (C) `reveal`, `show_diff`, `transaction` decorations, `notify`.
 - [ ] **M7-05** (C) Diagnostics streaming (debounced) + `file_saved_by_user` → stale-run conflict marking.
