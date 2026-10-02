@@ -1,6 +1,6 @@
 import { PassThrough } from 'node:stream';
 import { Writable } from 'node:stream';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createLogger } from '../infra/logger.js';
 import { EventBus } from './event-bus.js';
 import { LineTransport } from './line-transport.js';
@@ -11,6 +11,14 @@ function parseLine(line: string): Record<string, unknown> {
   const value: unknown = JSON.parse(line);
   if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error('Expected JSON object');
   return value as Record<string, unknown>;
+}
+
+function deferred(): { readonly promise: Promise<void>; readonly resolve: () => void } {
+  let resolvePromise: () => void = () => undefined;
+  const promise = new Promise<void>((resolve) => {
+    resolvePromise = resolve;
+  });
+  return { promise, resolve: resolvePromise };
 }
 
 function setup() {
@@ -72,16 +80,28 @@ describe('RpcServer', () => {
 
   it('keeps concurrent request ids and forwards notifications', async () => {
     const { server, events, lines } = setup();
+    const requests = new Map([
+      [1, deferred()],
+      [2, deferred()],
+    ]);
     server.register('system.ping', async (params, context) => {
-      await new Promise((resolve) => setTimeout(resolve, context.requestId === 1 ? 5 : 0));
+      await requests.get(context.requestId)?.promise;
       return { ok: true, value: { version: String(context.requestId), uptimeMs: 0 } };
     });
     const first = server.handleLine('{"jsonrpc":"2.0","id":1,"method":"system.ping","params":{}}');
     const second = server.handleLine('{"jsonrpc":"2.0","id":2,"method":"system.ping","params":{}}');
-    await Promise.all([first, second]);
+    requests.get(2)?.resolve();
+    await second;
+    requests.get(1)?.resolve();
+    await first;
+
     events.publish('system.ready', { version: '1', recoveredTransactions: 0 });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(lines.map((line) => parseLine(line).id).filter((id) => id !== undefined)).toEqual([2, 1]);
+    await vi.waitFor(() => { expect(lines).toHaveLength(3); });
+
+    const responses = lines.slice(0, 2).map(parseLine);
+    expect(responses.map((response) => response.id)).toEqual([2, 1]);
+    expect(responses[0]).toMatchObject({ id: 2, result: { version: '2' } });
+    expect(responses[1]).toMatchObject({ id: 1, result: { version: '1' } });
     expect(parseLine(lines[2] ?? '{}')).toMatchObject({ method: 'system.ready' });
   });
 });
