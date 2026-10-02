@@ -18,6 +18,90 @@ afterEach(async () => {
 });
 
 describe('ledger integration', () => {
+  it('TC-M3-004 writes a zero-cost ledger row for a free-tier model', async () => {
+    sidecar = await startSidecar({ ITSTUDIO_E2E_LLM_TEXT: 'Free model reply.' });
+    const workspace = resolve(sidecar.dataDir, 'free-tier-workspace');
+    await mkdir(workspace);
+    const projectId = projectSchema.parse(
+      (await sidecar.call('project.create', { name: 'Free tier', workspaceRoot: workspace })).result,
+    ).id;
+    const settings = appSettingsSchema.parse((await sidecar.call('settings.get')).result);
+    const modelKey = modelKeySchema.parse(settings.router.ladder[0]?.modelKey);
+    const provider = providerIdSchema.parse(modelKey.split('/')[0]);
+    await sidecar.call('secrets.set', { provider, apiKey: 'integration-only-scripted-key' });
+    const current = priceTableSchema.parse((await sidecar.call('pricing.get')).result);
+    const original = current.entries.find((entry) => entry.modelKey === modelKey);
+    if (original === undefined) throw new Error('Selected model does not have a price entry');
+    await sidecar.call('pricing.override', {
+      entry: {
+        ...original,
+        inputPerMTokMicroUsd: microUsdSchema.parse(0),
+        outputPerMTokMicroUsd: microUsdSchema.parse(0),
+        cachedInputPerMTokMicroUsd: microUsdSchema.parse(0),
+        freeTier: true,
+      },
+    });
+    const conversationId = conversationSchema.parse(
+      (await sidecar.call('chat.createConversation', { projectId })).result,
+    ).id;
+    let entries = 0;
+    sidecar.notifications.on('notification', (value: unknown) => {
+      if (typeof value === 'object' && value !== null && 'method' in value && value.method === 'ledger.entry')
+        entries += 1;
+    });
+    await sidecar.call('chat.send', { conversationId, text: 'record free usage' });
+    await waitFor(() => entries === 1);
+    const page = z
+      .object({ items: z.array(ledgerEntrySchema) })
+      .parse((await sidecar.call('ledger.query', { projectId, limit: 10 })).result);
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]?.costMicroUsd).toBe(0);
+  }, 30_000);
+
+  it('TC-M3-051 paginates 250 scripted chat ledger rows without gaps or duplicates', async () => {
+    const total = 250;
+    sidecar = await startSidecar({ ITSTUDIO_E2E_LLM_TEXT: 'Paginated ledger reply.' });
+    const workspace = resolve(sidecar.dataDir, 'ledger-pagination-workspace');
+    await mkdir(workspace);
+    const projectId = projectSchema.parse(
+      (await sidecar.call('project.create', { name: 'Ledger pagination', workspaceRoot: workspace })).result,
+    ).id;
+    const settings = appSettingsSchema.parse((await sidecar.call('settings.get')).result);
+    const modelKey = modelKeySchema.parse(settings.router.ladder[0]?.modelKey);
+    const provider = providerIdSchema.parse(modelKey.split('/')[0]);
+    await sidecar.call('secrets.set', { provider, apiKey: 'integration-only-scripted-key' });
+    let ledgerNotifications = 0;
+    sidecar.notifications.on('notification', (value: unknown) => {
+      if (typeof value === 'object' && value !== null && 'method' in value && value.method === 'ledger.entry')
+        ledgerNotifications += 1;
+    });
+    for (let index = 0; index < total; index += 1) {
+      const conversationId = conversationSchema.parse(
+        (await sidecar.call('chat.createConversation', { projectId })).result,
+      ).id;
+      await sidecar.call('chat.send', { conversationId, text: `page ledger row ${String(index)}` });
+    }
+    await waitFor(() => ledgerNotifications === total, 60_000);
+    const entries: z.infer<typeof ledgerEntrySchema>[] = [];
+    const pageSizes: number[] = [];
+    let cursor: string | undefined;
+    for (;;) {
+      const page = z
+        .object({ items: z.array(ledgerEntrySchema), nextCursor: z.string().nullable() })
+        .parse(
+          (await sidecar.call('ledger.query', { projectId, limit: 100, ...(cursor === undefined ? {} : { cursor }) }))
+            .result,
+        );
+      entries.push(...page.items);
+      pageSizes.push(page.items.length);
+      cursor = page.nextCursor ?? undefined;
+      if (cursor === undefined) break;
+    }
+    expect(pageSizes).toEqual([100, 100, 50]);
+    expect(entries).toHaveLength(total);
+    expect(new Set(entries.map((entry) => entry.id)).size).toBe(total);
+  }, 90_000);
+
   it('TC-M3-001 records one scripted chat completion visible through ledger.query over stdio', async () => {
     sidecar = await startSidecar({ ITSTUDIO_E2E_LLM_TEXT: 'Ledger integration reply.' });
     const workspace = resolve(sidecar.dataDir, 'ledger-workspace');
