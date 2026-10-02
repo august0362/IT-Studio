@@ -30,7 +30,7 @@ import { SecretsService } from './services/secrets-service.js';
 import type { ISecretStore } from './ports/secret-store.js';
 import type { IProviderKeyVerifier } from './infra/http/provider-key-verifier.js';
 import { ProviderRegistry } from './providers/provider-registry.js';
-import type { ILlmProvider, ProviderRequest, ProviderResponse } from './ports/llm-provider.js';
+import type { ILlmProvider, ProviderFailure, ProviderRequest, ProviderResponse } from './ports/llm-provider.js';
 import type { ProviderId as ProviderIdType } from '@itstudio/schemas';
 import { AnthropicProvider } from './providers/anthropic/anthropic-provider.js';
 import { GoogleProvider } from './providers/google/google-provider.js';
@@ -120,7 +120,14 @@ class ScriptedKeyVerifier implements IProviderKeyVerifier {
   }
 }
 
-function scriptedLlmProvider(id: ProviderIdType, text: string): ILlmProvider {
+const scriptedLlmFixtureSchema = z.object({ models: z.record(z.string(), z.array(z.string())) });
+
+function scriptedLlmProvider(
+  id: ProviderIdType,
+  text: string,
+  scripts: Readonly<Record<string, readonly string[]>>,
+  cursors: Map<string, number>,
+): ILlmProvider {
   const response = (request: ProviderRequest): ProviderResponse => ({
     text,
     toolCalls: [],
@@ -128,22 +135,96 @@ function scriptedLlmProvider(id: ProviderIdType, text: string): ILlmProvider {
     finishReason: 'stop',
     providerModelId: request.modelId,
   });
-  const unavailable = (
-    kind: FailureKind,
-  ): Result<never, { readonly kind: FailureKind; readonly billed: false; readonly message: string }> => ({
-    ok: false,
-    error: { kind, billed: false, message: 'Scripted fixture request was cancelled.' },
-  });
+  const next = (request: ProviderRequest): string => {
+    const key = `${id}/${request.modelId}`;
+    const cursor = cursors.get(key) ?? 0;
+    cursors.set(key, cursor + 1);
+    return scripts[key]?.[cursor] ?? scripts[request.modelId]?.[cursor] ?? 'ok';
+  };
+  const wait = async (ms: number, signal: AbortSignal): Promise<boolean> => {
+    if (signal.aborted) return false;
+    await new Promise<void>((resolveDelay) => {
+      const timer = setTimeout(resolveDelay, ms);
+      signal.addEventListener(
+        'abort',
+        () => {
+          clearTimeout(timer);
+          resolveDelay();
+        },
+        { once: true },
+      );
+    });
+    return !signal.aborted;
+  };
+  const failed = (outcome: string): Result<never, ProviderFailure> => {
+    if (outcome === 'quota')
+      return {
+        ok: false,
+        error: { kind: FailureKind.QUOTA_EXHAUSTED, billed: false, message: 'Scripted quota failure.' },
+      };
+    if (outcome === 'auth')
+      return {
+        ok: false,
+        error: { kind: FailureKind.AUTH, billed: false, httpStatus: 401, message: 'Scripted authentication failure.' },
+      };
+    if (outcome === 'content_filter')
+      return {
+        ok: false,
+        error: { kind: FailureKind.CONTENT_FILTERED, billed: false, message: 'Scripted content filter.' },
+      };
+    const http = /^http:(\d{3})(?::(\d+))?$/u.exec(outcome);
+    if (http !== null) {
+      const status = Number(http[1]);
+      const kind =
+        status === 429 ? FailureKind.RATE_LIMITED : status >= 500 ? FailureKind.SERVER_ERROR : FailureKind.SERVER_ERROR;
+      return {
+        ok: false,
+        error: {
+          kind,
+          billed: false,
+          httpStatus: status,
+          ...(http[2] === undefined ? {} : { retryAfterMs: Number(http[2]) }),
+          message: `Scripted HTTP ${String(status)} failure with body key ${['sk', 'fake', 'provider', 'error', 'body'].join('-')}.`,
+        },
+      };
+    }
+    return {
+      ok: false,
+      error: { kind: FailureKind.SERVER_ERROR, billed: false, message: 'Unknown scripted outcome.' },
+    };
+  };
+  const run = async (
+    request: ProviderRequest,
+    signal: AbortSignal,
+    onDelta?: (chunk: string) => void,
+  ): Promise<Result<ProviderResponse, ProviderFailure>> => {
+    const outcome = next(request);
+    const delay = /^delay:(\d+)$/u.exec(outcome);
+    if (delay !== null && !(await wait(Number(delay[1]), signal)))
+      return { ok: false, error: { kind: FailureKind.TIMEOUT, billed: false, message: 'Scripted request cancelled.' } };
+    if (signal.aborted)
+      return { ok: false, error: { kind: FailureKind.TIMEOUT, billed: false, message: 'Scripted request cancelled.' } };
+    const stream = /^stream:(\d+)$/u.exec(outcome);
+    const chunks = text.match(/.{1,12}/gu) ?? [text];
+    if (stream !== null) {
+      const count = Number(stream[1]);
+      for (let index = 0; index < count; index += 1) onDelta?.(chunks[index % Math.max(1, chunks.length)] ?? 'x');
+    } else if (outcome === 'ok' || outcome.startsWith('delay:')) {
+      if (onDelta !== undefined) for (const chunk of chunks) onDelta(chunk);
+    } else {
+      if (onDelta !== undefined && outcome.startsWith('http:')) {
+        const chunks = text.match(/.{1,12}/gu) ?? [text];
+        onDelta(chunks.at(0) ?? 'partial');
+        onDelta(chunks.at(1) ?? 'partial');
+      }
+      return failed(outcome);
+    }
+    return { ok: true, value: response(request) };
+  };
   return {
     id,
-    complete: (request, _apiKey, signal) =>
-      Promise.resolve(signal.aborted ? unavailable(FailureKind.SERVER_ERROR) : { ok: true, value: response(request) }),
-    stream: (request, _apiKey, signal, onDelta) => {
-      if (signal.aborted) return Promise.resolve(unavailable(FailureKind.SERVER_ERROR));
-      const chunks = text.match(/.{1,12}/gu) ?? [];
-      for (const chunk of chunks) onDelta(chunk);
-      return Promise.resolve({ ok: true, value: response(request) });
-    },
+    complete: (request, _apiKey, signal) => run(request, signal),
+    stream: (request, _apiKey, signal, onDelta) => run(request, signal, onDelta),
     listModels: () => Promise.resolve({ ok: true, value: [] }),
   };
 }
@@ -172,6 +253,11 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const ids = dependencies.ids ?? systemIdGenerator;
   const dataDir = dependencies.dataDir ?? env.ITSTUDIO_DATA_DIR ?? resolve('data');
   const e2e = env.ITSTUDIO_E2E === '1';
+  const llmScripts =
+    e2e && env.ITSTUDIO_E2E_LLM_SCRIPT !== undefined
+      ? scriptedLlmFixtureSchema.parse(JSON.parse(readFileSync(env.ITSTUDIO_E2E_LLM_SCRIPT, 'utf8'))).models
+      : {};
+  const llmScriptCursors = new Map<string, number>();
   const loadedSeeds = loadSeeds(resolve(dirname(fileURLToPath(import.meta.url)), '../../..', 'config'));
   if (!loadedSeeds.ok) throw new Error(loadedSeeds.error.message);
   for (const warning of loadedSeeds.value.warnings)
@@ -206,30 +292,60 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const providers = new ProviderRegistry({
     [ProviderId.ANTHROPIC]: () =>
       e2e
-        ? scriptedLlmProvider(ProviderId.ANTHROPIC, env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.')
+        ? scriptedLlmProvider(
+            ProviderId.ANTHROPIC,
+            env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.',
+            llmScripts,
+            llmScriptCursors,
+          )
         : new AnthropicProvider(),
     [ProviderId.GOOGLE]: () =>
       e2e
-        ? scriptedLlmProvider(ProviderId.GOOGLE, env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.')
+        ? scriptedLlmProvider(
+            ProviderId.GOOGLE,
+            env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.',
+            llmScripts,
+            llmScriptCursors,
+          )
         : new GoogleProvider(),
     [ProviderId.OPENAI]: () =>
       e2e
-        ? scriptedLlmProvider(ProviderId.OPENAI, env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.')
+        ? scriptedLlmProvider(
+            ProviderId.OPENAI,
+            env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.',
+            llmScripts,
+            llmScriptCursors,
+          )
         : new OpenAiCompatibleProvider({
             id: ProviderId.OPENAI,
             baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.OPENAI],
           }),
     [ProviderId.XAI]: () =>
       e2e
-        ? scriptedLlmProvider(ProviderId.XAI, env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.')
+        ? scriptedLlmProvider(
+            ProviderId.XAI,
+            env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.',
+            llmScripts,
+            llmScriptCursors,
+          )
         : new OpenAiCompatibleProvider({ id: ProviderId.XAI, baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.XAI] }),
     [ProviderId.GROQ]: () =>
       e2e
-        ? scriptedLlmProvider(ProviderId.GROQ, env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.')
+        ? scriptedLlmProvider(
+            ProviderId.GROQ,
+            env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.',
+            llmScripts,
+            llmScriptCursors,
+          )
         : new OpenAiCompatibleProvider({ id: ProviderId.GROQ, baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.GROQ] }),
     [ProviderId.TOGETHER]: () =>
       e2e
-        ? scriptedLlmProvider(ProviderId.TOGETHER, env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.')
+        ? scriptedLlmProvider(
+            ProviderId.TOGETHER,
+            env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.',
+            llmScripts,
+            llmScriptCursors,
+          )
         : new OpenAiCompatibleProvider({
             id: ProviderId.TOGETHER,
             baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.TOGETHER],
@@ -301,6 +417,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     events,
     completed: routerCompleted,
     fallbackDecider,
+    ...(e2e ? { sleep: () => Promise.resolve() } : {}),
   });
   const chatService = new ChatService({
     repository: chatRepository,

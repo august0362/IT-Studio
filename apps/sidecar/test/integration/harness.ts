@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -49,8 +49,16 @@ function dirnameOf(path: string): string {
   return path.slice(0, Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')));
 }
 
-export async function startSidecar(extraEnv: Readonly<Record<string, string>> = {}): Promise<SidecarHarness> {
+export async function startSidecar(
+  extraEnv: Readonly<Record<string, string>> = {},
+  scriptedModels?: Readonly<Record<string, readonly string[]>>,
+): Promise<SidecarHarness> {
   const dataDir = await mkdtemp(resolve(tmpdir(), 'itstudio-m1-'));
+  if (scriptedModels !== undefined) {
+    const fixturePath = resolve(dataDir, 'llm-script.json');
+    await writeFile(fixturePath, JSON.stringify({ models: scriptedModels }), 'utf8');
+    extraEnv = { ...extraEnv, ITSTUDIO_E2E_LLM_SCRIPT: fixturePath };
+  }
   const stdoutLines: string[] = [];
   const stderr: string[] = [];
   const notifications = new EventEmitter();
