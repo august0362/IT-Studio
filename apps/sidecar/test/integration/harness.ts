@@ -9,14 +9,14 @@ import type { RpcMethod, RpcMethodMap } from '@itstudio/schemas';
 
 interface RpcResponse {
   readonly jsonrpc: string;
-  readonly id?: number | null;
+  readonly id: number | null;
   readonly result?: unknown;
   readonly error?: { readonly code: number; readonly message: string; readonly data?: unknown };
 }
 
 const rpcResponseSchema = z.object({
   jsonrpc: z.string(),
-  id: z.number().nullable().optional(),
+  id: z.number().nullable(),
   result: z.unknown().optional(),
   error: z.object({ code: z.number(), message: z.string(), data: z.unknown().optional() }).optional(),
 });
@@ -92,7 +92,12 @@ export async function startSidecar(extraEnv: Readonly<Record<string, string>> = 
               const resolvePending = pending.get(rpcResponse.data.id);
               if (resolvePending !== undefined) {
                 pending.delete(rpcResponse.data.id);
-                resolvePending(rpcResponse.data);
+                resolvePending({
+                  jsonrpc: rpcResponse.data.jsonrpc,
+                  id: rpcResponse.data.id,
+                  ...(rpcResponse.data.result === undefined ? {} : { result: rpcResponse.data.result }),
+                  ...(rpcResponse.data.error === undefined ? {} : { error: rpcResponse.data.error }),
+                });
               }
             } else if (
               typeof message === 'object' &&

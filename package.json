@@ -10,9 +10,9 @@
     "node": ">=24.19"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json --noEmit && npm run typecheck --workspaces --if-present",
+    "typecheck": "tsc -p tsconfig.json --noEmit && npm --cache .npm-cache run typecheck --workspaces --if-present && npm --cache .npm-cache run typecheck:tests",
     "dev": "npm run tauri:dev -w @itstudio/desktop",
-    "lint": "eslint . --max-warnings 0 && prettier --check . --log-level warn && node scripts/scan-secrets.mjs",
+    "lint": "eslint . --max-warnings 0 && prettier --check . --log-level warn && node -e \"const{execFileSync,spawnSync}=require('node:child_process');const{existsSync}=require('node:fs');const files=execFileSync('git',['ls-files','-z','-co','--exclude-standard'],{encoding:'utf8'}).split('\\0').filter((file)=>file&&!file.startsWith('scripts/lint-fixtures/')&&existsSync(file));const result=spawnSync(process.execPath,['scripts/scan-secrets.mjs',...files],{stdio:'inherit'});process.exitCode=result.status??1\"",
     "lint:selftest": "node scripts/lint-fixtures/selftest.mjs",
     "pretest": "npm run lint:selftest",
     "test": "vitest run --project sidecar --project desktop --project vscode-ext",

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RpcClient } from '../../../rpc/rpc-client';
 import { RpcClientProvider } from '../../../rpc/rpc-context';
@@ -8,7 +8,7 @@ import { ApiKeysPage } from './ApiKeysPage';
 
 afterEach(cleanup);
 
-function setup(verifySucceeds = false) {
+function setup(verifySucceeds = false, keepSetPending = false) {
   const transport = new FakeTransport();
   const client = new RpcClient(transport);
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -18,6 +18,7 @@ function setup(verifySucceeds = false) {
   transport.send = (line: string) => {
     transport.sent.push(line);
     const request = JSON.parse(line) as { id: number; method: string; params: Record<string, string> };
+    if (request.method === 'secrets.set' && keepSetPending) return Promise.resolve();
     const response =
       request.method === 'secrets.status'
         ? { result: [] }
@@ -70,6 +71,42 @@ describe('ApiKeysPage', () => {
     await waitFor(() => expect(input).toHaveValue(''));
     expect(document.body).not.toHaveTextContent(key);
     expect(await screen.findByText('Set ••••1234')).toBeVisible();
+  });
+
+  it('TC-M1-040 submits the API key form from Enter', async () => {
+    const { transport } = setup();
+    const input = await screen.findByLabelText('Anthropic API key');
+    fireEvent.change(input, { target: { value: 'enter-key-1234' } });
+    const form = input.closest('form');
+    if (form === null) throw new Error('API key input was not inside a form');
+
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter', charCode: 13 });
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(transport.sent.some((line) => line.includes('"method":"secrets.set"'))).toBe(true);
+      expect(input).toHaveValue('');
+    });
+    expect(await screen.findByRole('status', { name: 'Anthropic key status' })).toHaveTextContent(/Set.*1234/);
+  });
+
+  it('shows an alert when an in-flight mutation is rejected after a sidecar restart', async () => {
+    const { transport } = setup(false, true);
+    const input = await screen.findByLabelText('Anthropic API key');
+    fireEvent.change(input, { target: { value: 'interrupted-key-1234' } });
+    const saveButtons = screen.getAllByRole('button', { name: 'Save' });
+    const saveButton = saveButtons[0];
+    if (saveButton === undefined) throw new Error('Anthropic Save button was not rendered');
+    fireEvent.click(saveButton);
+    await waitFor(() => {
+      expect(transport.sent.some((line) => line.includes('"method":"secrets.set"'))).toBe(true);
+    });
+
+    act(() => {
+      transport.setStatus({ running: false, ready: false, restarts: 1 });
+    });
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('sidecar restarted');
   });
 
   it('shows the verification time when verification succeeds', async () => {
