@@ -8,6 +8,7 @@ import { useRpcClient } from '../../../rpc/rpc-context';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { ErrorPanel } from '../../../components/ErrorPanel';
 import '../../../i18n';
+import { formatDateTime } from '../../../i18n/format';
 
 const PROVIDERS: readonly { readonly id: Provider; readonly name: string }[] = [
   { id: ProviderId.ANTHROPIC, name: 'Anthropic' },
@@ -30,7 +31,7 @@ function errorFrom(cause: unknown): AppError {
 }
 
 export function ApiKeysPage(): JSX.Element {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const rpc = useRpcClient();
   const queryClient = useQueryClient();
   const statuses = useRpcQuery('secrets.status', {});
@@ -119,7 +120,7 @@ export function ApiKeysPage(): JSX.Element {
   function statusText(status: SecretStatus | undefined, isInvalid: boolean): string {
     if (isInvalid) return t('api.invalid');
     if (status?.lastVerifiedAt !== undefined)
-      return t('api.verified', { date: new Date(status.lastVerifiedAt).toLocaleString() });
+      return t('api.verified', { date: formatDateTime(status.lastVerifiedAt, i18n.language) });
     if (status?.configured) return t('api.configured', { hint: status.hint ?? '' });
     return t('api.notSet');
   }

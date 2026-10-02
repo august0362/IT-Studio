@@ -16,7 +16,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import '../i18n';
+import { i18n } from '../i18n';
 import { RpcClient } from '../rpc/rpc-client';
 import { RpcClientProvider } from '../rpc/rpc-context';
 import { FakeTransport } from '../rpc/transport';
@@ -169,9 +169,13 @@ describe('M4 round 1 settings coverage', () => {
     });
   });
 
-  it('TC-M4-R1-004 overrides and clears the FX rate', async () => {
+  it('TC-M4-R1-004 renders FX values with en-US and vi-VN before overriding and clearing the rate', async () => {
+    await i18n.changeLanguage('en');
     const transport = renderRpc(<FxSettingsPage />, (method) => settingsResponder(method));
+    expect(await screen.findByText(/25,000/)).toBeVisible();
+    await i18n.changeLanguage('vi');
     expect(await screen.findByText(/25\.000/)).toBeVisible();
+    await i18n.changeLanguage('en');
     const input = screen.getByLabelText('VND per USD');
     fireEvent.change(input, { target: { value: '26000' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));

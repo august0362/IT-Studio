@@ -88,3 +88,16 @@ Append `## Result` per AGENTS.md §3 including a table: case ID → test file �
   2. Replace every OS-locale call in `apps/desktop/src/**` (non-test) with these helpers; add a static test that fails on `Intl.NumberFormat(undefined`, `.toLocaleString()` and `.toLocaleDateString()` without an explicit locale in `apps/desktop/src/**`.
   3. Make `TC-M4-R1-004` deterministic (assert the en-US and vi-VN renderings explicitly). Money stays `MoneyDisplay` from the sidecar — untouched.
   4. Do not run E2E.
+
+## Result (fix round 2)
+- Summary: Added locale-aware number/date helpers mapping English to `en-US` and Vietnamese to `vi-VN`, replaced OS-locale formatting in desktop UI, added pure formatter and static regression tests, and made the FX test assert both locale renderings.
+- Files changed: `apps/desktop/src/i18n/format.ts`, `apps/desktop/src/i18n/format.test.tsx`, `apps/desktop/src/features/settings/fx/FxSettingsPage.tsx`, `apps/desktop/src/features/settings/pricing/PricingSettingsPage.tsx`, `apps/desktop/src/features/cost/LedgerTable.tsx`, `apps/desktop/src/features/cost/RevenueForm.tsx`, `apps/desktop/src/features/settings/api-keys/ApiKeysPage.tsx`, `apps/desktop/src/features/knowledge/DocumentTable.tsx`, `apps/desktop/src/features/round1-coverage.test.tsx`, `docs/tasks/M4-QA.md`.
+- Dependencies added (with reason): None.
+- Decisions taken within scope: Unknown locale tags fall back to `en-US`; date helpers preserve the user's local time zone while applying the selected app locale. Money formatting remains in the sidecar.
+- Open issues / follow-ups: None. E2E was not run as requested.
+- Verification: `npm --cache .npm-cache run typecheck`, `npm --cache .npm-cache run lint`, and `npm --cache .npm-cache test` passed; 757 passed, 1 skipped. No E2E command was run.
+
+| Case ID | Test file | Status |
+|---|---|---|
+| TC-M4-R1-004 | `apps/desktop/src/features/round1-coverage.test.tsx` | Pass; asserts explicit en-US and vi-VN FX number renderings |
+| TC-M4-R2-001 | `apps/desktop/src/i18n/format.test.tsx` | Pass; formatter coverage and static OS-locale regression check |

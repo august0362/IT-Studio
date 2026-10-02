@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useRpcQuery } from '../../hooks/use-rpc-query';
 import { useRpcClient } from '../../rpc/rpc-context';
 import { Money } from '../../components/Money';
+import { formatDateTime } from '../../i18n/format';
 
 export function LedgerTable({
   projectId,
@@ -17,7 +18,7 @@ export function LedgerTable({
   readonly to: IsoDateTime;
   readonly initial: Page<LedgerRow>;
 }): JSX.Element {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const rpc = useRpcClient();
   const [page, setPage] = useState(initial);
   const [model, setModel] = useState('');
@@ -105,7 +106,7 @@ export function LedgerTable({
           <tbody>
             {page.items.map(({ entry, cost }) => (
               <tr className="border-t border-border" key={entry.id}>
-                <td className="p-2">{new Date(entry.occurredAt).toLocaleString()}</td>
+                <td className="p-2">{formatDateTime(entry.occurredAt, i18n.language)}</td>
                 <td className="p-2">{entry.modelKey}</td>
                 <td className="p-2">{t(`cost.purpose.${entry.purpose}`)}</td>
                 <td className="p-2">{entry.usage.inputTokens}</td>

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRpcClient } from '../../rpc/rpc-context';
 import { Money } from '../../components/Money';
+import { formatDate } from '../../i18n/format';
 
 export function RevenueForm({
   projectId,
@@ -14,7 +15,7 @@ export function RevenueForm({
   readonly rows: readonly RevenueRow[];
   readonly onAdded: () => void;
 }): JSX.Element {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const rpc = useRpcClient();
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState<'USD' | 'VND'>('USD');
@@ -92,7 +93,7 @@ export function RevenueForm({
         {rows.map((row) => (
           <li className="flex justify-between py-2" key={row.entry.id}>
             <span>
-              {row.entry.description} · {new Date(row.entry.occurredAt).toLocaleDateString()}
+              {row.entry.description} · {formatDate(row.entry.occurredAt, i18n.language)}
             </span>
             <Money value={row.amount} compact />
           </li>

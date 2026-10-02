@@ -2,6 +2,7 @@ import type { AppError, IngestJob, ProjectId, SourceDocument } from '@itstudio/s
 import type { JSX } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { formatDate } from '../../i18n/format';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useRpcClient } from '../../rpc/rpc-context';
 
@@ -90,9 +91,7 @@ export function DocumentTable({
                 <td className="border-b border-border p-2">{document.format}</td>
                 <td className="border-b border-border p-2">{document.chunkCount}</td>
                 <td className="border-b border-border p-2">{document.embeddingModel}</td>
-                <td className="border-b border-border p-2">
-                  {new Intl.DateTimeFormat(i18n.language).format(new Date(document.ingestedAt))}
-                </td>
+                <td className="border-b border-border p-2">{formatDate(document.ingestedAt, i18n.language)}</td>
                 <td className="border-b border-border p-2">{document.tags.join(', ')}</td>
                 <td className="space-x-2 border-b border-border p-2">
                   {workspaceRoot !== null && relativeSource(document.sourcePath, workspaceRoot) !== null ? (
