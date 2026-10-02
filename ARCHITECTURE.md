@@ -20,7 +20,7 @@
 
 | Process | Tech | Responsibility | Lifetime |
 |---|---|---|---|
-| Tauri main | Rust (Tauri v2) | Window, spawn/supervise sidecar, relay NDJSON, expose 1 command + 1 event to webview | App lifetime |
+| Tauri main | Rust (Tauri v2) | Window, spawn/supervise sidecar, relay NDJSON; exposes 2 commands (`sidecar_send`, `sidecar_status`) + 3 events (`sidecar://message|status|fatal`) to the webview | App lifetime |
 | Webview | React 19 + Vite + TS | UI | App lifetime |
 | Sidecar | Node 24 (tsx in dev; bundled in M9) | All services | Supervised child of Tauri |
 | VS Code | Electron (external) | Live viewer | Launched by sidecar; survives app exit |
@@ -47,7 +47,7 @@
 - **Framing:** NDJSON — one JSON object per line, UTF-8, `\n` terminated. Max line 8 MiB (larger payloads must be chunked or referenced by id).
 - **Sidecar stdout = protocol only.** Logs go to stderr + file. Any non-JSON stdout line is a bug.
 - **Rust is a dumb pipe:** Tauri command `sidecar_send(line: String)` writes to sidecar stdin; each stdout line is emitted to the webview as event `sidecar://message`. Rust does not parse payloads (except recognizing `system.ready`).
-- Tauri capability file grants the webview **only** `sidecar_send`, the event listener, and window APIs. No shell, fs, or http plugins exposed to the webview.
+- Tauri capability file grants the webview **only** `sidecar_send`, `sidecar_status`, the three `sidecar://` event listeners, and window APIs (as implemented in M1-03). No shell, fs, or http plugins exposed to the webview.
 
 ### 3.2 Messages
 
