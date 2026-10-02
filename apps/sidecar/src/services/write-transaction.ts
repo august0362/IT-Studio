@@ -201,6 +201,7 @@ export class WriteTransactionService {
 }
 
 export class PreparedWriteTransaction {
+  readonly transactionId: WriteTransactionContract['id'];
   private readonly fs: IFileSystem;
   private readonly root: string;
   private readonly journalDir: string;
@@ -224,6 +225,7 @@ export class PreparedWriteTransaction {
     this.journalDir = journalDir;
     this.manifestPath = manifestPath;
     this.transaction = transaction;
+    this.transactionId = transaction.id;
     this.originals = originals;
     this.prepared = prepared;
   }

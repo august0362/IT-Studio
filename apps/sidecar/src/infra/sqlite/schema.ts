@@ -121,3 +121,19 @@ export const fxRates = sqliteTable('fx_rates', {
   asOf: text('as_of').primaryKey(),
   usdToVnd: real('usd_to_vnd').notNull(),
 });
+
+export const pipelineRuns = sqliteTable(
+  'pipeline_runs',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    prompt: text('prompt').notNull(),
+    stage: text('stage').notNull(),
+    artifactsJson: text('artifacts_json').notNull(),
+    startedAt: text('started_at').notNull(),
+    finishedAt: text('finished_at'),
+  },
+  (table) => [index('pipeline_runs_project_started_idx').on(table.projectId, table.startedAt)],
+);
