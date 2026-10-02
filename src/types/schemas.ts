@@ -384,7 +384,11 @@ export interface FallbackDecisionRequest {
   readonly failedModel: ModelKey;
   readonly reason: FailureKind;
   /** Remaining eligible models, ladder order, with estimated cost for this request. */
-  readonly candidates: readonly { readonly modelKey: ModelKey; readonly estimatedCostMicroUsd: MicroUsd }[];
+  readonly candidates: readonly {
+    readonly modelKey: ModelKey;
+    readonly estimatedCostMicroUsd: MicroUsd;
+    readonly estimatedCost?: MoneyDisplay;
+  }[];
   readonly expiresAt: IsoDateTime;
 }
 
