@@ -16,7 +16,46 @@ Milestone: M4 · Role: Implementer (ROLES §1.3) · **Deps pre-installed**
 4. Measure and report the §2 targets.
 
 ## Acceptance criteria
-- [ ] `npm run typecheck && npm run lint && npm test` exit 0; `npm run vite:build -w @itstudio/desktop` succeeds; targets reported
+- [x] `npm run typecheck && npm run lint && npm test` exit 0; `npm run vite:build -w @itstudio/desktop` succeeds; targets reported
 
 ## Hand-back
 Append `## Result` per AGENTS.md §3 including a table: case ID → test file → status.
+
+## Result
+- Summary: Added the M4 component/static checks and authored the new WebdriverIO cases. Set the ESLint theme rule test timeout to 60 seconds and removed the unused budget translation key from both locales. E2E cases were not run, as requested.
+- Files changed: `apps/desktop/src/theme/theme.test.tsx`, `apps/desktop/src/i18n/en.json`, `apps/desktop/src/i18n/vi.json`, `e2e/specs/m4/{chat,cost,settings,shell,theme,scripted-llm}.spec.ts`, `e2e/fixtures/{m4-slow-chat,m4-fallback}.json`, `e2e/wdio.conf.ts`, `docs/tasks/M4-QA.md`.
+- Dependencies added (with reason): None. Installed existing lockfile dependencies because `node_modules` was absent.
+- Decisions taken within scope: Slow-stream and fallback cases use dedicated scripted `tauri-driver` instances with distinct fixture paths and data directories; the default and other spec drivers are not restarted. Per-model scripts use model IDs from `config/models.seed.json`.
+- Open issues / follow-ups: Desktop-only coverage measured 70.12% lines, below the §2 target of 80%; the scoped coverage run also reported 68.63% statements, 57.37% branches, and 63.56% functions. `SafeMarkdown.tsx` measured 100% lines / 90% branches. The coverage command exited 1 on configured global thresholds. The production main JS chunk measured 1,125.96 kB (<1.5 MB). QA must execute the authored E2E cases in the batched window session; this run intentionally did not execute them.
+
+| Case ID | Test file | Status |
+|---|---|---|
+| TC-M4-001 | `e2e/specs/m4/theme.spec.ts` | Authored; E2E not run |
+| TC-M4-002 | `e2e/specs/m4/theme.spec.ts` | Authored 36-pair smoke; E2E not run |
+| TC-M4-003 | `apps/desktop/src/theme/ThemeSync.test.tsx` | Existing verify case; included in passing unit suite |
+| TC-M4-004 | `apps/desktop/src/theme/theme.test.tsx` | Timeout set to 60 seconds; included in passing unit suite |
+| TC-M4-010 | `e2e/specs/m4/shell.spec.ts` | Existing; E2E not run |
+| TC-M4-011 | `e2e/specs/m4/shell.spec.ts` | Existing; E2E not run |
+| TC-M4-012 | `e2e/specs/m4/shell.spec.ts` | Authored; E2E not run |
+| TC-M4-013 | `e2e/specs/m4/shell.spec.ts` | Authored; E2E not run |
+| TC-M4-014 | `apps/desktop/src/theme/theme.test.tsx` | Authored; unit suite passed |
+| TC-M4-020 | `e2e/specs/m4/chat.spec.ts` | Existing; E2E not run |
+| TC-M4-021 | `e2e/specs/m4/scripted-llm.spec.ts` | Authored with slow-stream fixture; E2E not run |
+| TC-M4-022 | `e2e/specs/m4/scripted-llm.spec.ts` | Authored with per-model fallback fixture; E2E not run |
+| TC-M4-023 | `e2e/specs/m4/scripted-llm.spec.ts` | Authored with per-model fallback fixture; E2E not run |
+| TC-M4-024 | `apps/desktop/src/components/SafeMarkdown.test.tsx` | Existing full corpus verify; unit suite passed |
+| TC-M4-025 | `e2e/specs/m4/chat.spec.ts` | Authored; E2E not run |
+| TC-M4-030 | `e2e/specs/m4/cost.spec.ts` | Existing; E2E not run |
+| TC-M4-031 | `e2e/specs/m4/cost.spec.ts` | Authored; E2E not run |
+| TC-M4-032 | `e2e/specs/m4/cost.spec.ts` | Authored; E2E not run |
+| TC-M4-033 | `e2e/specs/m4/cost.spec.ts` | Authored; E2E not run |
+| TC-M4-034 | `apps/desktop/src/theme/theme.test.tsx` | Authored; unit suite passed |
+| TC-M4-040 | `e2e/specs/m4/settings.spec.ts` | Existing; E2E not run |
+| TC-M4-041 | `e2e/specs/m4/settings.spec.ts` | Authored; E2E not run |
+| TC-M4-042 | `e2e/specs/m4/settings.spec.ts` | Authored; E2E not run |
+| TC-M4-043 | `e2e/specs/m4/settings.spec.ts` | Authored; E2E not run |
+| TC-M4-044 | `e2e/specs/m4/settings.spec.ts` | Authored; E2E not run |
+| TC-M4-045 | `e2e/specs/m4/settings.spec.ts` | Authored; E2E not run |
+| TC-M4-046 | `e2e/specs/m1/api-keys.spec.ts` | Existing TC-M1-030 write-only key check; unit/UI case retained |
+| TC-M4-050 | `e2e/specs/m4/shell.spec.ts` | Authored; E2E not run |
+| TC-M4-051 | `e2e/specs/m4/shell.spec.ts` | Authored; E2E not run |

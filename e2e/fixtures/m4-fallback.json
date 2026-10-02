@@ -1,0 +1,16 @@
+{
+  "models": {
+    "gpt-5.4-mini": [
+      "http:503",
+      "http:503",
+      "http:503",
+      "http:503",
+      "http:503",
+      "http:503",
+      "http:503",
+      "http:503",
+      "http:503"
+    ],
+    "llama-3.3-70b-versatile": ["ok", "ok"]
+  }
+}

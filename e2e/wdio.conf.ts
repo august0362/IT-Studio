@@ -18,7 +18,11 @@ let e2eTempRoot: string | undefined;
 const tauriCapabilities: TauriCapabilities[] = [{ browserName: 'wry', 'tauri:options': { application: appPath } }];
 
 // Each tauri-driver needs its own native (msedgedriver) port; the default 4445 collides with a second driver on 4445.
-function startDriver(port: number, nativePort: number, crashOnStart = false): void {
+function startDriver(
+  port: number,
+  nativePort: number,
+  options: { readonly crashOnStart?: boolean; readonly llmScript?: string } = {},
+): void {
   const driver = spawn(
     'tauri-driver',
     [
@@ -36,12 +40,13 @@ function startDriver(port: number, nativePort: number, crashOnStart = false): vo
         ...(e2eTempRoot === undefined
           ? {}
           : {
-              ITSTUDIO_DATA_DIR: join(e2eTempRoot, 'data'),
-              WEBVIEW2_USER_DATA_FOLDER: join(e2eTempRoot, 'webview'),
+              ITSTUDIO_DATA_DIR: join(e2eTempRoot, `data-${String(port)}`),
+              WEBVIEW2_USER_DATA_FOLDER: join(e2eTempRoot, `webview-${String(port)}`),
             }),
         ITSTUDIO_E2E: '1',
         ITSTUDIO_E2E_VERIFIER_OUTCOME: 'timeout',
-        ...(crashOnStart ? { ITSTUDIO_E2E_CRASH_ON_START: '1' } : {}),
+        ...(options.llmScript === undefined ? {} : { ITSTUDIO_E2E_LLM_SCRIPT: resolve(root, options.llmScript) }),
+        ...(options.crashOnStart === true ? { ITSTUDIO_E2E_CRASH_ON_START: '1' } : {}),
       },
       stdio: 'ignore',
       windowsHide: true,
@@ -59,6 +64,7 @@ export const config: Options.Testrunner & { capabilities: Capabilities.Requested
     './specs/m4/theme.spec.ts',
     './specs/m4/shell.spec.ts',
     './specs/m4/chat.spec.ts',
+    './specs/m4/scripted-llm.spec.ts',
     './specs/m4/settings.spec.ts',
     './specs/m5/knowledge.spec.ts',
     './specs/m4/cost.spec.ts',
@@ -103,7 +109,9 @@ export const config: Options.Testrunner & { capabilities: Capabilities.Requested
       );
     }
     startDriver(4444, 4454);
-    startDriver(4445, 4455, true);
+    startDriver(4445, 4455, { crashOnStart: true });
+    startDriver(4446, 4456, { llmScript: 'e2e/fixtures/m4-slow-chat.json' });
+    startDriver(4447, 4457, { llmScript: 'e2e/fixtures/m4-fallback.json' });
     await new Promise((resolveReady) => setTimeout(resolveReady, 1200));
   },
   onComplete() {
