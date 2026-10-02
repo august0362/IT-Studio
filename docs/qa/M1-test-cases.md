@@ -38,7 +38,7 @@
 | TC-M1-021 | Settings persist across restart | L3 | Use case | M1-05 | P1 | Update `router.autoFallback=false` → restart sidecar → get | Value persisted | integration |
 | TC-M1-022 | Invalid settings patch rejected | L3 | EP | M1-05 | P1 | `pipeline.maxFixAttempts = 2`; unknown `ui.themeId` | VALIDATION; stored settings unchanged | integration |
 | TC-M1-023 | Corrupted settings row recovery | L3 | Error guessing | M1-05 | P2 | Write invalid JSON into settings row, start | Defaults restored; backup file `settings_backup_*.json` created; warning logged | integration |
-| TC-M1-024 | Project path partitions | L3 | EP | M1-05 | P1 | relative path / non-existent / a file / filesystem root / valid dir / duplicate | VALIDATION ×4, created, CONFLICT | integration |
+| TC-M1-024 | Project path partitions | L3 | EP | M1-05 | P1 | relative path / non-existent / a file / filesystem root / valid dir / duplicate | relative → VALIDATION · missing → NOT_FOUND · file → VALIDATION · root → VALIDATION · valid → created · duplicate → CONFLICT *(oracle corrected 2026-10-02: missing path is NOT_FOUND)* | integration |
 | TC-M1-025 | Set active project | L3 | Use case | M1-05 | P2 | create → `project.setActive` → `settings.get` | `activeProjectId` matches | integration |
 
 ### 1.4 Secrets / API keys (EP, BVA, security negatives)
