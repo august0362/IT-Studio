@@ -104,7 +104,7 @@ async function settle(): Promise<void> {
 }
 
 describe('SidecarBridge', () => {
-  it('completes the hello and welcome handshake', async () => {
+  it('TC-M7-001 completes the hello and welcome handshake', async () => {
     const { bridge, sockets } = setup();
     bridge.connect();
     await settle();

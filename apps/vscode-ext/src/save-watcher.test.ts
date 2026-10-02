@@ -32,7 +32,7 @@ describe('SaveWatcher', () => {
     expect(sent).toEqual([]);
   });
 
-  it('ignores sidecar writes for the same path for two seconds', () => {
+  it('TC-M7-022 ignores sidecar writes through 2000 ms and reports at 2001 ms', () => {
     let now = 10;
     const sent: string[] = [];
     const watcher = new SaveWatcher({
@@ -43,10 +43,10 @@ describe('SaveWatcher', () => {
     });
     watcher.committed(['src/app.ts']);
     watcher.saved('C:/project/src/app.ts', 'own write');
-    now = 2009;
+    now = 2010;
     watcher.saved('C:/project/src/app.ts', 'still in window');
     expect(sent).toEqual([]);
-    now = 2010;
+    now = 2011;
     watcher.saved('C:/project/src/app.ts', 'user edit');
     expect(sent).toEqual(['src/app.ts']);
   });
