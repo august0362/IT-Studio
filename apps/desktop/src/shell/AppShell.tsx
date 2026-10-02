@@ -1,4 +1,4 @@
-import type { AppError } from '@itstudio/schemas';
+import type { AppError, ProjectId } from '@itstudio/schemas';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,7 @@ import { MainNav, type ShellRoute } from './MainNav';
 import { NewProjectDialog } from './NewProjectDialog';
 import { ProjectTabs } from './ProjectTabs';
 import { ChatPage } from '../features/chat/ChatPage';
+import { CostPage } from '../features/cost/CostPage';
 
 function asAppError(cause: unknown): AppError {
   if (cause instanceof RpcCallError) return cause.appError;
@@ -119,7 +120,11 @@ export function AppShell(): JSX.Element {
   let content: JSX.Element;
   if (route === 'chat')
     content = <ChatPage projectId={projects.find((project) => project.id === activeId)?.id ?? null} />;
-  else if (route === 'settings-api-keys') content = <ApiKeysPage />;
+  else if (route === 'cost') {
+    const selectedProjectId: ProjectId | null =
+      activeId === null ? null : (projects.find((project) => project.id === activeId)?.id ?? null);
+    content = <CostPage projectId={selectedProjectId} />;
+  } else if (route === 'settings-api-keys') content = <ApiKeysPage />;
   else if (route === 'settings-theme') content = <ThemePage />;
   else
     content = (

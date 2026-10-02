@@ -127,6 +127,24 @@ describe('LedgerService', () => {
     expect(published).toHaveLength(1);
   });
 
+  it('returns ledger rows with MoneyDisplay at the current effective FX rate', async () => {
+    const { service, completed } = harness();
+    completed.publish('completed', {
+      requestId: llmRequestIdSchema.parse('cccccccc-cccc-4ccc-8ccc-cccccccccccc'),
+      projectId,
+      purpose: 'chat',
+      modelKey: 'openai/test-model',
+      usage: { inputTokens: 100, outputTokens: 10, cachedInputTokens: 20 },
+      billedFailure: false,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const result = await service.queryRows({ projectId, limit: 10 });
+    expect(result).toMatchObject({
+      ok: true,
+      value: { items: [{ entry: { costMicroUsd: 110 }, cost: { microUsd: 110, usdText: '$0.0001' } }] },
+    });
+  });
+
   it('records billed failures and warns once when a model has no price', async () => {
     const { completed, rows, warnings } = harness();
     for (const requestId of [

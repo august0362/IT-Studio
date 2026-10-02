@@ -122,4 +122,15 @@ describe('BudgetGuard', () => {
     expect(invalid).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
     h.close();
   });
+
+  it('parses a USD decimal string to integer micro-USD', async () => {
+    const h = harness(new Date('2026-10-02T12:00:00.000Z'));
+    await expect(
+      h.guard.setUsd({ projectId, period: 'monthly', limitUsd: '12.5', warnAt: [0.5, 0.8, 1] }),
+    ).resolves.toMatchObject({ ok: true, value: { budget: { limitMicroUsd: 12_500_000 } } });
+    await expect(
+      h.guard.setUsd({ projectId, period: 'monthly', limitUsd: '1e3', warnAt: [0.5] }),
+    ).resolves.toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
+    h.close();
+  });
 });
