@@ -24,6 +24,8 @@ import {
   fxRateSchema,
   moneyDisplaySchema,
   pageSchema,
+  ledgerRowSchema,
+  revenueRowSchema,
 } from './cost.js';
 import { retrievalQuerySchema, ingestJobSchema, sourceDocumentSchema, retrievalHitSchema } from './rag.js';
 import { pipelineRunSchema, pipelineEventSchema, failureReportSchema } from './pipeline.js';
@@ -70,9 +72,13 @@ export const rpcParamsSchemas = {
   'router.updateConfig': z.object({ config: routerConfigSchema }).readonly(),
   'router.resolveFallback': fallbackDecisionSchema,
   'ledger.query': ledgerQuerySchema,
+  'ledger.queryRows': ledgerQuerySchema,
   'pnl.get': z.object({ projectId: projectIdSchema, from: isoDateTimeSchema, to: isoDateTimeSchema }).readonly(),
   'pnl.getAll': z.object({ from: isoDateTimeSchema, to: isoDateTimeSchema }).readonly(),
   'revenue.list': z.object({ projectId: projectIdSchema, from: isoDateTimeSchema, to: isoDateTimeSchema }).readonly(),
+  'revenue.listRows': z
+    .object({ projectId: projectIdSchema, from: isoDateTimeSchema, to: isoDateTimeSchema })
+    .readonly(),
   'revenue.add': z
     .object({
       projectId: projectIdSchema,
@@ -82,6 +88,14 @@ export const rpcParamsSchemas = {
     })
     .readonly(),
   'budget.set': budgetSchema,
+  'budget.setUsd': z
+    .object({
+      projectId: projectIdSchema,
+      period: z.enum(['daily', 'monthly', 'project_lifetime']),
+      limitUsd: z.string(),
+      warnAt: z.array(z.number()).readonly(),
+    })
+    .readonly(),
   'budget.status': z.object({ projectId: projectIdSchema }).readonly(),
   'pricing.get': empty,
   'pricing.refresh': empty,
@@ -167,11 +181,14 @@ export const rpcResultSchemas = {
   'router.updateConfig': routerConfigSchema,
   'router.resolveFallback': z.object({ accepted: z.boolean() }).readonly(),
   'ledger.query': pageSchema(ledgerEntrySchema),
+  'ledger.queryRows': pageSchema(ledgerRowSchema),
   'pnl.get': projectPnLSchema,
   'pnl.getAll': portfolioPnLSchema,
   'revenue.list': z.array(revenueEntrySchema).readonly(),
+  'revenue.listRows': z.array(revenueRowSchema).readonly(),
   'revenue.add': revenueEntrySchema,
   'budget.set': budgetStatusSchema,
+  'budget.setUsd': budgetStatusSchema,
   'budget.status': z.array(budgetStatusSchema).readonly(),
   'pricing.get': priceTableSchema,
   'pricing.refresh': priceUpdateRunSchema,

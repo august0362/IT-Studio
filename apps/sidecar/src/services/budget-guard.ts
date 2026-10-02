@@ -3,6 +3,7 @@ import {
   type AppError,
   type Budget,
   type BudgetStatus,
+  type BudgetPeriod,
   type ProjectId,
   type Result,
   type RpcNotificationMap,
@@ -15,7 +16,7 @@ import type { SettingsService } from './settings-service.js';
 import type { IPriceSource } from './price-source.js';
 import { budgetLevel, crossedThresholds, fractionUsed, periodWindow } from '../domain/budget.js';
 import { microUsd } from '../domain/cost.js';
-import { toMoneyDisplay } from '../domain/money.js';
+import { toMoneyDisplay, usdStringToMicroUsd } from '../domain/money.js';
 import { budgetSchema } from '../validation/cost.js';
 import { microUsdSchema } from '../validation/brand.js';
 
@@ -40,6 +41,18 @@ export class BudgetGuard implements IBudgetGuard {
     await this.deps.repository.upsert(validated.value);
     const status = await this.statusFor(validated.value, await this.hardStopEnabled());
     return { ok: true, value: status };
+  }
+
+  async setUsd(input: {
+    readonly projectId: ProjectId;
+    readonly period: BudgetPeriod;
+    readonly limitUsd: string;
+    readonly warnAt: readonly number[];
+  }): Promise<Result<BudgetStatus>> {
+    const limitMicroUsd = usdStringToMicroUsd(input.limitUsd);
+    if (limitMicroUsd === null)
+      return validationFailure('Budget limit must be a positive USD decimal with at most 6 decimal places.');
+    return this.set({ projectId: input.projectId, period: input.period, limitMicroUsd, warnAt: input.warnAt });
   }
 
   async status(projectId: ProjectId): Promise<Result<readonly BudgetStatus[]>> {

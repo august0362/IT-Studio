@@ -61,9 +61,27 @@ describe('P&L integration', () => {
     });
     expect(revenueA.error).toBeUndefined();
     expect(revenueB.error).toBeUndefined();
+    const from = isoDateTimeSchema.parse('2020-01-01T00:00:00.000Z');
+    const to = isoDateTimeSchema.parse('2030-01-01T00:00:00.000Z');
+    const revenueRows = await sidecar.call('revenue.listRows', { projectId: projectA.id, from, to });
+    expect(revenueRows.error).toBeUndefined();
+    expect((revenueRows.result as { readonly amount: { readonly microUsd: number } }[])[0]?.amount.microUsd).toBe(
+      (revenueA.result as { readonly amountMicroUsd: number }).amountMicroUsd,
+    );
     const expectedCosts: number[] = [];
     for (const project of [projectA, projectB]) {
       const ledgerPage = await sidecar.call('ledger.query', { projectId: project.id, limit: 10 });
+      const displayRows = await sidecar.call('ledger.queryRows', { projectId: project.id, limit: 10 });
+      expect(displayRows.error).toBeUndefined();
+      const displayed = displayRows.result as {
+        readonly items: readonly {
+          readonly entry: { readonly costMicroUsd: number };
+          readonly cost: { readonly microUsd: number };
+        }[];
+      };
+      expect(displayed.items.map((row) => row.cost.microUsd)).toEqual(
+        displayed.items.map((row) => row.entry.costMicroUsd),
+      );
       expectedCosts.push(
         z
           .object({ items: z.array(ledgerEntrySchema) })
@@ -71,8 +89,6 @@ describe('P&L integration', () => {
           .items.reduce((sum, row) => sum + row.costMicroUsd, 0),
       );
     }
-    const from = isoDateTimeSchema.parse('2020-01-01T00:00:00.000Z');
-    const to = isoDateTimeSchema.parse('2030-01-01T00:00:00.000Z');
     const first = await sidecar.call('pnl.get', { projectId: projectA.id, from, to });
     const all = await sidecar.call('pnl.getAll', { from, to });
     expect(first.error).toBeUndefined();

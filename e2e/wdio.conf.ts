@@ -59,6 +59,7 @@ export const config: Options.Testrunner & { capabilities: Capabilities.Requested
     './specs/m4/theme.spec.ts',
     './specs/m4/shell.spec.ts',
     './specs/m4/chat.spec.ts',
+    './specs/m4/cost.spec.ts',
     './specs/m6/code.spec.ts',
     // shutdown must stay last: it closes the app window
     './specs/m1/shutdown.spec.ts',
