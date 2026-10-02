@@ -534,6 +534,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     clock,
     models: modelRegistry,
     priceTable: () => pricingService.current(),
+    fxRate: () => fxService.getEffective(),
   });
   const llmRouter = new LlmRouter({
     models: modelRegistry,

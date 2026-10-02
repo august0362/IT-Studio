@@ -22,6 +22,7 @@ import {
 } from '../validation/brand.js';
 import { modelKeySchema } from '../validation/common.js';
 import { UserFallbackDecider } from './fallback-decider.js';
+import { toMoneyDisplay } from '../domain/money.js';
 
 const modelA = modelKeySchema.parse('openai/model-a');
 const modelB = modelKeySchema.parse('anthropic/model-b');
@@ -85,7 +86,8 @@ const source: LlmRequest = {
 function createHarness(timeoutMs = 10_000) {
   const clock = createFakeClock(now);
   const events = new EventBus<RpcNotificationMap>();
-  const decider = new UserFallbackDecider({ events, clock, models, priceTable: () => priceTable });
+  const fx = { usdToVnd: 25_000, asOf: isoDateTimeSchema.parse(now.toISOString()), source: 'manual_override' as const };
+  const decider = new UserFallbackDecider({ events, clock, models, priceTable: () => priceTable, fxRate: () => fx });
   const request: FallbackDecisionRequest = {
     requestId: source.id,
     failedModel: modelA,
@@ -93,7 +95,7 @@ function createHarness(timeoutMs = 10_000) {
     candidates: [{ modelKey: modelB, estimatedCostMicroUsd: microUsdSchema.parse(0) }],
     expiresAt: isoDateTimeSchema.parse(new Date(now.getTime() + timeoutMs).toISOString()),
   };
-  return { clock, events, decider, request };
+  return { clock, events, decider, request, fx };
 }
 
 describe('UserFallbackDecider', () => {
@@ -106,6 +108,7 @@ describe('UserFallbackDecider', () => {
       });
       const waiting = h.decider.decide(h.request, source, 10_000);
       expect(published?.candidates[0]?.estimatedCostMicroUsd).toBe(202);
+      expect(published?.candidates[0]?.estimatedCost).toEqual(toMoneyDisplay(microUsdSchema.parse(202), h.fx));
       const decision =
         action === 'use_model' ? { requestId: source.id, action, modelKey: modelB } : { requestId: source.id, action };
       expect(h.decider.resolve(decision)).toEqual({ accepted: true });

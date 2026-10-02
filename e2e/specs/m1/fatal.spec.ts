@@ -22,7 +22,8 @@ describe('M1 fatal restart limit', () => {
     });
     try {
       const banner = fatalBrowser.$('footer[role="alert"]');
-      await banner.waitForDisplayed({ timeout: 70_000 });
+      // 6 cold sidecar starts (~4 s each in dev, tsx) + restart backoff 1+2+4+8+16 s; see PERF-01.
+      await banner.waitForDisplayed({ timeout: 150_000 });
       expect(await banner.getText()).to.include('Sidecar restarted more than 5 times');
       expect(await banner.getText()).to.include('Logs:');
     } finally {
