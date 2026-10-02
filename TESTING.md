@@ -20,6 +20,7 @@ VS Code extension E2E uses `@vscode/test-electron` (M7+). Real-provider smoke te
 ## 2. Test environment for L3/L4
 
 - `ITSTUDIO_E2E=1` makes the composition root use: `FakeLlmProvider` scripts (from `test/fixtures/llm/*.json`), `MemorySecretStore`, fake FX/pricing HTTP, a fresh temp `ITSTUDIO_DATA_DIR`, and a temp project workspace copied from `test/fixtures/sample-project/`. No network, no keychain, no real money.
+- **E2E drivers (installed by QA 2026-10-02):** `tauri-driver` in `%USERPROFILE%.cargoin`; Edge WebDriver `C:Usersadmin.itstudio-toolsmsedgedriver.exe` (154.0.4258.48 = installed WebView2). Start with `tauri-driver --native-driver <msedgedriver path>`; the wdio config reads `ITSTUDIO_MSEDGEDRIVER` (default: that path). Re-download when WebView2 updates.
 - Deterministic clock option `ITSTUDIO_FAKE_NOW=<iso>` for time-dependent cases.
 - Commands: `npm run test` (L1–L2), `npm run test:integration` (L3), `npm run test:e2e` (L4, builds the debug app first), `npm run test:all`.
 
