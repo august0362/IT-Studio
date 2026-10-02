@@ -42,6 +42,10 @@ export const vndSchema = z
   .int()
   .nonnegative()
   .transform((value) => value as Vnd);
+export const signedVndSchema = z
+  .number()
+  .int()
+  .transform((value) => value as Vnd);
 export const workspaceRelativePathSchema = z
   .string()
   .min(1)
