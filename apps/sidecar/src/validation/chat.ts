@@ -91,7 +91,7 @@ export const generateImageArgsSchema = z
   })
   .readonly() satisfies z.ZodType<GenerateImageArgs>;
 export const searchKnowledgeArgsSchema = z
-  .object({ query: z.string(), topK: z.number().exactOptional() })
+  .object({ query: z.string().trim().min(1).max(2_000), topK: z.number().int().min(1).max(20).exactOptional() })
   .readonly() satisfies z.ZodType<SearchKnowledgeArgs>;
 export const tokenUsageSchema = z
   .object({
