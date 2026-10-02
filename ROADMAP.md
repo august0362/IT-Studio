@@ -12,7 +12,7 @@
 |---|---|---|
 | M0 Environment & scaffold | **Done** | 8 / 8 |
 | M1 Sidecar core & IPC | In progress (QA gate pending) | 7 / 8 |
-| M2 LLM router & providers | In progress | 4 / 11 |
+| M2 LLM router & providers | In progress | 5 / 11 |
 | M3 Cost, pricing, FX, budget, P&L | In progress | 1 / 8 |
 | M4 UI shell, Settings, Chat, P&L | Not started | 1 / 8 |
 | M5 RAG | Not started | 0 / 8 |
@@ -67,7 +67,7 @@
 - [x] **M2-02** (C) Anthropic adapter: complete, stream, tools, usage incl. cache reads, failure classification table. Ref: ARCH §5.2.
 - [x] **M2-03** (C) OpenAI-compatible adapter (OpenAI, xAI, Groq, Together via baseURL config).
 - [ ] **M2-04** (C) Google GenAI adapter.
-- [ ] **M2-05** (A+C) Model registry from `models.seed.json`, `models.list`; A resolves Q-02 (verify model ids via provider list endpoints) and updates seed + `RoleAssignment` defaults.
+- [x] **M2-05** (A+C) Model registry from `models.seed.json`, `models.list`; A resolves Q-02 (verify model ids via provider list endpoints) and updates seed + `RoleAssignment` defaults.
 - [x] **M2-06** (C) Pure router state machine `domain/router-machine.ts` with explicit transition table; tests for every transition incl. illegal ones. Ref: ARCH §5.3.
 - [ ] **M2-07** (C) `LlmRouter` service: eligibility, ordering (override → lock → ladder), retry/backoff+jitter, fallback, circuit breaker, cancel, mid-stream fallback, `router.event`s.
 - [ ] **M2-08** (C) Auto Fallback OFF: `FallbackDecisionRequest` with candidate cost estimates, `router.resolveFallback`, expiry → `FALLBACK_DECLINED`.

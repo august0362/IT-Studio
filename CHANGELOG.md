@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add model + provider registries with eligibility checks and models.list RPC ([M2-05](docs/tasks/M2-05.md))
 - Add status bar and write-only Settings → API Keys page ([M1-07](docs/tasks/M1-07.md))
 - Add OpenAI-compatible provider adapter for OpenAI, xAI, Groq, Together ([M2-03](docs/tasks/M2-03.md))
 - Add OS keychain secret store, provider key verification and write-only secrets RPC ([M1-06](docs/tasks/M1-06.md))
