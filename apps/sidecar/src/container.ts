@@ -75,7 +75,7 @@ import { FailureReportBuilder } from './services/failure-report-builder.js';
 import { JournalRecoveryService } from './services/journal-recovery.js';
 import { ProjectContextService } from './services/project-context.js';
 import { PipelineOrchestrator } from './services/pipeline-orchestrator.js';
-import { microUsd, toMoneyDisplay } from './domain/money.js';
+import { toMoneyDisplay } from './domain/money.js';
 import { OpenAiEmbeddingProvider } from './providers/embedding/openai.js';
 import { GoogleEmbeddingProvider } from './providers/embedding/google.js';
 import { FakeEmbeddingProvider } from './infra/fake-embedding-provider.js';
@@ -585,7 +585,8 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     events,
     ids,
     clock,
-    money: () => toMoneyDisplay(microUsd(0), fxService.getEffective()),
+    runCost: (runId) => ledgerRepository.sumByPipelineRun(runId),
+    moneyDisplay: (amount) => toMoneyDisplay(amount, fxService.getEffective()),
     budgetHardStop: async (projectId) => {
       const status = await budgetGuard.status(projectId);
       return status.ok && status.value.some((item) => item.blocking);

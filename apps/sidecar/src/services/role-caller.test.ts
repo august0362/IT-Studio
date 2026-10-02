@@ -78,6 +78,7 @@ describe('RoleCaller', () => {
     );
     expect(result).toMatchObject({ ok: true, value: { title: 'T' } });
     expect(h.requests[0]).toMatchObject({
+      pipelineRunId,
       purpose: 'pipeline_pm',
       responseFormat: 'json',
       ladderOverride: ladder,
@@ -94,6 +95,7 @@ describe('RoleCaller', () => {
     );
     expect(result.ok).toBe(true);
     expect(h.requests).toHaveLength(2);
+    expect(h.requests.map((request) => request.pipelineRunId)).toEqual([pipelineRunId, pipelineRunId]);
     expect(h.requests[1]?.systemPrompt).toContain('validation_error');
     expect(h.requests[1]?.systemPrompt).toContain('title');
   });
