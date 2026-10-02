@@ -1,0 +1,161 @@
+import { dirname, isAbsolute, join, parse, relative, resolve, sep } from 'node:path';
+import type { AppError, Result } from '@itstudio/schemas';
+import type { FileStat, IFileSystem } from '../ports/file-system.js';
+
+type Entry =
+  | { readonly kind: 'directory' }
+  | { readonly kind: 'file'; data: Uint8Array }
+  | { readonly kind: 'symlink'; target: string };
+
+function failed(operation: string): Result<never> {
+  const error: AppError = {
+    code: 'INTERNAL',
+    message: `In-memory file system operation failed: ${operation}.`,
+    remediation: ['Check the requested path and retry.'],
+    retryable: false,
+  };
+  return { ok: false, error };
+}
+
+function isInside(root: string, path: string): boolean {
+  const fromRoot = relative(root, path);
+  return fromRoot === '' || (fromRoot !== '..' && !fromRoot.startsWith(`..${sep}`) && !isAbsolute(fromRoot));
+}
+
+export class MemoryFileSystem implements IFileSystem {
+  private readonly entries = new Map<string, Entry>();
+
+  constructor() {
+    this.entries.set(resolve(parse(process.cwd()).root), { kind: 'directory' });
+  }
+
+  addSymlink(path: string, target: string): void {
+    this.entries.set(resolve(path), {
+      kind: 'symlink',
+      target: isAbsolute(target) ? resolve(target) : resolve(dirname(path), target),
+    });
+  }
+
+  private resolvePath(path: string, depth = 0, requireExists = true): string | undefined {
+    if (depth > 32) return undefined;
+    const absolute = resolve(path);
+    let current = parse(absolute).root;
+    const rest = relative(current, absolute).split(sep).filter(Boolean);
+    for (let index = 0; index < rest.length; index += 1) {
+      current = join(current, rest[index] ?? '');
+      const entry = this.entries.get(resolve(current));
+      if (entry?.kind === 'symlink') {
+        const suffix = rest.slice(index + 1).join(sep);
+        return this.resolvePath(suffix ? join(entry.target, suffix) : entry.target, depth + 1, requireExists);
+      }
+    }
+    return requireExists && !this.entries.has(absolute) ? undefined : absolute;
+  }
+
+  private ensureDirectory(path: string): boolean {
+    const absolute = resolve(path);
+    if (absolute === parse(absolute).root) return true;
+    if (this.entries.get(absolute)?.kind === 'directory') return true;
+    const parent = dirname(absolute);
+    if (parent === absolute || !this.ensureDirectory(parent)) return false;
+    this.entries.set(absolute, { kind: 'directory' });
+    return true;
+  }
+
+  private ensureParent(path: string): boolean {
+    return this.resolvePath(path) !== undefined || this.ensureDirectory(path);
+  }
+
+  readFile(path: string): Promise<Result<Uint8Array>> {
+    const resolved = this.resolvePath(path);
+    const entry = resolved ? this.entries.get(resolved) : undefined;
+    return Promise.resolve(entry?.kind === 'file' ? { ok: true, value: entry.data.slice() } : failed('read'));
+  }
+
+  writeFile(path: string, data: string | Uint8Array): Promise<Result<void>> {
+    const absolute = resolve(path);
+    if (!this.ensureParent(dirname(absolute))) return Promise.resolve(failed('write'));
+    const resolved = this.resolvePath(absolute, 0, false) ?? absolute;
+    this.entries.set(resolved, {
+      kind: 'file',
+      data: typeof data === 'string' ? new TextEncoder().encode(data) : data.slice(),
+    });
+    return Promise.resolve({ ok: true, value: undefined });
+  }
+
+  rename(from: string, to: string): Promise<Result<void>> {
+    const source = this.resolvePath(from);
+    const entry = source ? this.entries.get(source) : undefined;
+    const destination = resolve(to);
+    if (!source || !entry || !this.ensureParent(dirname(destination))) return Promise.resolve(failed('rename'));
+    this.entries.delete(source);
+    this.entries.set(destination, entry);
+    return Promise.resolve({ ok: true, value: undefined });
+  }
+
+  unlink(path: string): Promise<Result<void>> {
+    const resolved = this.resolvePath(path);
+    if (!resolved || this.entries.get(resolved)?.kind === 'directory') return Promise.resolve(failed('remove'));
+    this.entries.delete(resolved);
+    return Promise.resolve({ ok: true, value: undefined });
+  }
+
+  mkdir(path: string, recursive: boolean): Promise<Result<void>> {
+    const absolute = resolve(path);
+    if (
+      recursive
+        ? this.ensureDirectory(absolute)
+        : this.entries.get(dirname(absolute))?.kind === 'directory' && !this.entries.has(absolute)
+    ) {
+      if (!this.entries.has(absolute)) this.entries.set(absolute, { kind: 'directory' });
+      return Promise.resolve({ ok: true, value: undefined });
+    }
+    return Promise.resolve(failed('create directory'));
+  }
+
+  stat(path: string): Promise<Result<FileStat>> {
+    const resolved = this.resolvePath(path);
+    const entry = resolved ? this.entries.get(resolved) : undefined;
+    if (!entry) return Promise.resolve(failed('stat'));
+    return Promise.resolve({
+      ok: true,
+      value: {
+        isFile: entry.kind === 'file',
+        isDirectory: entry.kind === 'directory',
+        isSymbolicLink: false,
+        size: entry.kind === 'file' ? entry.data.byteLength : 0,
+      },
+    });
+  }
+
+  realpath(path: string): Promise<Result<string>> {
+    const resolved = this.resolvePath(path);
+    return Promise.resolve(resolved ? { ok: true, value: resolved } : failed('resolve path'));
+  }
+
+  exists(path: string): Promise<Result<boolean>> {
+    return Promise.resolve({ ok: true, value: this.resolvePath(path) !== undefined });
+  }
+
+  readdir(path: string): Promise<Result<readonly string[]>> {
+    const directory = this.resolvePath(path);
+    if (!directory || this.entries.get(directory)?.kind !== 'directory')
+      return Promise.resolve(failed('list directory'));
+    const names = new Set<string>();
+    for (const entryPath of this.entries.keys()) {
+      if (!isInside(directory, entryPath) || entryPath === directory) continue;
+      const child = relative(directory, entryPath).split(sep);
+      if (child.length === 1 && child[0]) names.add(child[0]);
+    }
+    return Promise.resolve({ ok: true, value: [...names] });
+  }
+
+  async copyFile(from: string, to: string): Promise<Result<void>> {
+    const source = await this.readFile(from);
+    return source.ok ? this.writeFile(to, source.value) : failed('copy');
+  }
+
+  fsync(path: string): Promise<Result<void>> {
+    return Promise.resolve(this.resolvePath(path) ? { ok: true, value: undefined } : failed('sync'));
+  }
+}
