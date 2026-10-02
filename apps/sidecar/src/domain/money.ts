@@ -57,3 +57,15 @@ export function usdStringToMicroUsd(value: string): MicroUsd | null {
 }
 
 export { microUsd, sumMicroUsd };
+
+/** Parse a decimal USD amount into integer micro-USD without floating point. */
+export function parseUsdDecimal(value: string): MicroUsd {
+  const match = /^(\d+)(?:\.(\d{1,6}))?$/.exec(value);
+  if (match === null) throw new RangeError('USD amount must have at most six decimal places');
+  const whole = match[1];
+  if (whole === undefined) throw new RangeError('USD amount is invalid');
+  const fraction = (match[2] ?? '').padEnd(6, '0');
+  const amount = BigInt(whole) * 1_000_000n + BigInt(fraction || '0');
+  if (amount > 1_000_000_000n) throw new RangeError('USD amount exceeds the supported price range');
+  return microUsd(Number(amount));
+}

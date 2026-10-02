@@ -427,6 +427,16 @@ export interface PriceEntry {
   readonly sourceUrl: string;
 }
 
+export interface PriceRow {
+  readonly entry: PriceEntry;
+  readonly input: MoneyDisplay;
+  readonly output: MoneyDisplay;
+  readonly cachedInput: MoneyDisplay;
+  readonly perImage?: MoneyDisplay;
+  /** True when a manual override is active for this model. */
+  readonly overridden: boolean;
+}
+
 export interface PriceTable {
   readonly version: PriceTableVersion;
   readonly effectiveFrom: IsoDateTime;
@@ -963,8 +973,13 @@ export interface RpcMethodMap {
   'budget.status': { params: { readonly projectId: ProjectId }; result: readonly BudgetStatus[] };
 
   'pricing.get': { params: Empty; result: PriceTable };
+  'pricing.getRows': { params: Empty; result: { readonly table: PriceTable; readonly rows: readonly PriceRow[]; readonly stale: boolean } };
   'pricing.refresh': { params: Empty; result: PriceUpdateRun };
   'pricing.override': { params: { readonly entry: PriceEntry }; result: PriceTable };
+  'pricing.overrideUsd': {
+    params: { readonly modelKey: ModelKey; readonly inputPerMTokUsd: string; readonly outputPerMTokUsd: string; readonly cachedInputPerMTokUsd: string };
+    result: PriceTable;
+  };
   'fx.get': { params: Empty; result: FxRate };
   'fx.override': { params: { readonly usdToVnd: number | null }; result: FxRate };
 

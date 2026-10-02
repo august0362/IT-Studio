@@ -11,6 +11,7 @@ import type {
   MoneyDisplay,
   Page,
   PriceEntry,
+  PriceRow,
   PriceTable,
   PriceUpdateRun,
   PortfolioPnL,
@@ -104,6 +105,16 @@ export const moneyDisplaySchema = z
     fxAsOf: isoDateTimeSchema,
   })
   .readonly() satisfies z.ZodType<MoneyDisplay>;
+export const priceRowSchema = z
+  .object({
+    entry: priceEntrySchema,
+    input: moneyDisplaySchema,
+    output: moneyDisplaySchema,
+    cachedInput: moneyDisplaySchema,
+    perImage: moneyDisplaySchema.exactOptional(),
+    overridden: z.boolean(),
+  })
+  .readonly() satisfies z.ZodType<PriceRow>;
 export const pnlMarginDisplaySchema = z
   .object({
     microUsd: signedMicroUsdSchema,

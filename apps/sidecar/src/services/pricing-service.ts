@@ -1,8 +1,10 @@
 import {
   ErrorCode,
   type AppError,
+  type FxRate,
   type ModelKey,
   type PriceEntry,
+  type PriceRow,
   type PriceTable,
   type PriceTableVersion,
   type Result,
@@ -12,6 +14,7 @@ import type { IIdGenerator } from '../infra/id.js';
 import type { IPriceRepository, StoredPriceTable } from '../ports/price-repository.js';
 import { isoDateTimeSchema, modelKeySchema, priceTableVersionSchema } from '../validation/common.js';
 import { priceEntrySchema } from '../validation/cost.js';
+import { parseUsdDecimal, toMoneyDisplay } from '../domain/money.js';
 
 const STALE_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -46,6 +49,43 @@ export class PricingService {
   current(): PriceTable {
     const current = this.requireCurrent();
     return toPriceTable(current);
+  }
+
+  getRows(fx: FxRate): { readonly table: PriceTable; readonly rows: readonly PriceRow[]; readonly stale: boolean } {
+    const table = this.current();
+    const overrides = this.manualOverrides();
+    return {
+      table,
+      stale: this.isStale(),
+      rows: table.entries.map((entry) => ({
+        entry,
+        input: toMoneyDisplay(entry.inputPerMTokMicroUsd, fx),
+        output: toMoneyDisplay(entry.outputPerMTokMicroUsd, fx),
+        cachedInput: toMoneyDisplay(entry.cachedInputPerMTokMicroUsd, fx),
+        ...(entry.perImageMicroUsd === undefined ? {} : { perImage: toMoneyDisplay(entry.perImageMicroUsd, fx) }),
+        overridden: overrides.has(entry.modelKey),
+      })),
+    };
+  }
+
+  overrideUsd(input: {
+    readonly modelKey: ModelKey;
+    readonly inputPerMTokUsd: string;
+    readonly outputPerMTokUsd: string;
+    readonly cachedInputPerMTokUsd: string;
+  }): Result<PriceTable> {
+    try {
+      const previous = this.current().entries.find((entry) => entry.modelKey === input.modelKey);
+      if (previous === undefined) return validationError('Price entry refers to an unknown model.');
+      return this.override({
+        ...previous,
+        inputPerMTokMicroUsd: parseUsdDecimal(input.inputPerMTokUsd),
+        outputPerMTokMicroUsd: parseUsdDecimal(input.outputPerMTokUsd),
+        cachedInputPerMTokMicroUsd: parseUsdDecimal(input.cachedInputPerMTokUsd),
+      });
+    } catch {
+      return validationError('USD prices must be non-negative decimals with at most six decimal places.');
+    }
   }
 
   manualOverrides(): ReadonlySet<ModelKey> {

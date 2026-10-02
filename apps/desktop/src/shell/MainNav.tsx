@@ -1,7 +1,19 @@
 import type { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 
-export type ShellRoute = 'chat' | 'code' | 'knowledge' | 'cost' | 'settings-api-keys' | 'settings-theme';
+export type ShellRoute =
+  | 'chat'
+  | 'code'
+  | 'knowledge'
+  | 'cost'
+  | 'settings-api-keys'
+  | 'settings-theme'
+  | 'settings-router'
+  | 'settings-budget'
+  | 'settings-pricing'
+  | 'settings-fx'
+  | 'settings-vscode'
+  | 'settings-pipeline';
 
 export function MainNav({
   route,
@@ -74,6 +86,29 @@ export function MainNav({
         >
           {t('nav.theme')}
         </a>
+        {(
+          [
+            'settings-router',
+            'settings-budget',
+            'settings-pricing',
+            'settings-fx',
+            'settings-vscode',
+            'settings-pipeline',
+          ] as const
+        ).map((target) => (
+          <a
+            aria-current={route === target ? 'page' : undefined}
+            className="block rounded px-3 py-2 hover:bg-surface-alt focus-visible:outline-2 focus-visible:outline-focus-ring"
+            href={`#${target}`}
+            key={target}
+            onClick={(event) => {
+              event.preventDefault();
+              navigate(target);
+            }}
+          >
+            {t(`settings.nav.${target.replace('settings-', '')}`)}
+          </a>
+        ))}
       </div>
     </nav>
   );
