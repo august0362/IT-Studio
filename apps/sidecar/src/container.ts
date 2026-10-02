@@ -32,6 +32,7 @@ import {
 } from './providers/openai-compatible/openai-compatible-provider.js';
 import { ModelRegistry } from './services/model-registry.js';
 import { readFileSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { ErrorCode, type AppError, type Result } from '@itstudio/schemas';
 import { z } from 'zod';
 
@@ -117,6 +118,7 @@ export interface ContainerDependencies {
 }
 
 export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerDependencies = {}) {
+  const startupStartedAt = (dependencies.clock ?? systemClock).monotonicMs();
   const clock = dependencies.clock ?? systemClock;
   const logger =
     dependencies.logger ??
@@ -129,8 +131,11 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const e2e = env.ITSTUDIO_E2E === '1';
   const loadedSeeds = loadSeeds(resolve(dirname(fileURLToPath(import.meta.url)), '../../..', 'config'));
   if (!loadedSeeds.ok) throw new Error(loadedSeeds.error.message);
-  for (const warning of loadedSeeds.value.warnings) logger.warn({ warning }, 'Seed configuration warning');
+  for (const warning of loadedSeeds.value.warnings)
+    logger.warn({ svc: 'sidecar', warning }, 'Seed configuration warning');
   const database = openDatabase(dataDir);
+  const migrationsDir = resolve(dirname(fileURLToPath(import.meta.url)), 'infra/sqlite/migrations');
+  const migrationsApplied = readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).length;
   const projectRepository = new ProjectRepository(database.db);
   const settingsRepository = new SettingsRepository(database.db);
   const settingsService = new SettingsService({
@@ -181,6 +186,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const service = new SystemService({
     clock,
     startedAt: clock.monotonicMs(),
+    logger,
     ...(dependencies.exit === undefined ? {} : { exit: dependencies.exit }),
   });
   service.register(server);
@@ -208,8 +214,18 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     logger,
     server,
     start(): void {
+      logger.info(
+        { svc: 'sidecar', version: service.getVersion(), nodeVersion: process.version, dataDir },
+        'sidecar starting',
+      );
+      logger.info({ svc: 'sidecar', count: migrationsApplied }, 'migrations applied');
+      logger.info(
+        { svc: 'sidecar', models: loadedSeeds.value.models.length, warningsCount: loadedSeeds.value.warnings.length },
+        'seeds loaded',
+      );
       transport.start();
       events.publish('system.ready', { version: service.getVersion(), recoveredTransactions: 0 });
+      logger.info({ svc: 'sidecar', startupMs: Math.max(0, clock.monotonicMs() - startupStartedAt) }, 'sidecar ready');
     },
   };
 }
