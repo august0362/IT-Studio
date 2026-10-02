@@ -1,11 +1,13 @@
 import { ProviderId, type AppError, type ProviderId as Provider, type SecretStatus } from '@itstudio/schemas';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState, type JSX, type SyntheticEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useRpcQuery } from '../../../hooks/use-rpc-query';
 import { RpcCallError } from '../../../rpc/rpc-client';
 import { useRpcClient } from '../../../rpc/rpc-context';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { ErrorPanel } from '../../../components/ErrorPanel';
+import '../../../i18n';
 
 const PROVIDERS: readonly { readonly id: Provider; readonly name: string }[] = [
   { id: ProviderId.ANTHROPIC, name: 'Anthropic' },
@@ -27,14 +29,8 @@ function errorFrom(cause: unknown): AppError {
   };
 }
 
-function statusText(status: SecretStatus | undefined, invalid: boolean): string {
-  if (invalid) return 'Invalid';
-  if (status?.lastVerifiedAt !== undefined) return `Verified at ${new Date(status.lastVerifiedAt).toLocaleString()}`;
-  if (status?.configured) return `Set ••••${status.hint ?? ''}`;
-  return 'Not set';
-}
-
 export function ApiKeysPage(): JSX.Element {
+  const { t } = useTranslation();
   const rpc = useRpcClient();
   const queryClient = useQueryClient();
   const statuses = useRpcQuery('secrets.status', {});
@@ -120,12 +116,20 @@ export function ApiKeysPage(): JSX.Element {
 
   const statusByProvider = new Map((statuses.data ?? []).map((status) => [status.provider, status]));
 
+  function statusText(status: SecretStatus | undefined, isInvalid: boolean): string {
+    if (isInvalid) return t('api.invalid');
+    if (status?.lastVerifiedAt !== undefined)
+      return t('api.verified', { date: new Date(status.lastVerifiedAt).toLocaleString() });
+    if (status?.configured) return t('api.configured', { hint: status.hint ?? '' });
+    return t('api.notSet');
+  }
+
   return (
     <section aria-labelledby="api-keys-heading" className="mx-auto max-w-4xl">
       <h2 className="mb-2 text-2xl font-semibold" id="api-keys-heading">
-        API keys
+        {t('api.heading')}
       </h2>
-      <p className="mb-6 text-text-muted">Keys are stored securely and never displayed in full.</p>
+      <p className="mb-6 text-text-muted">{t('api.description')}</p>
       {statuses.isError ? <ErrorPanel error={errorFrom(statuses.error)} /> : null}
       <div className="divide-y divide-border border-y border-border">
         {PROVIDERS.map(({ id, name }) => {
@@ -155,7 +159,7 @@ export function ApiKeysPage(): JSX.Element {
                     onChange={(event) => {
                       setKeys((current) => ({ ...current, [id]: event.target.value }));
                     }}
-                    placeholder="Enter API key"
+                    placeholder={t('api.enter')}
                     type="password"
                     value={keys[id] ?? ''}
                   />
@@ -164,7 +168,7 @@ export function ApiKeysPage(): JSX.Element {
                     disabled={busy[id]}
                     type="submit"
                   >
-                    Save
+                    {t('api.save')}
                   </button>
                   <button
                     className="rounded border border-border px-3 py-2 hover:bg-surface-alt"
@@ -174,7 +178,7 @@ export function ApiKeysPage(): JSX.Element {
                     }}
                     type="button"
                   >
-                    Verify
+                    {t('api.verify')}
                   </button>
                   <button
                     className="rounded border border-border px-3 py-2 hover:bg-surface-alt"
@@ -184,7 +188,7 @@ export function ApiKeysPage(): JSX.Element {
                     }}
                     type="button"
                   >
-                    Delete
+                    {t('api.delete')}
                   </button>
                 </form>
                 {error !== undefined ? <ErrorPanel error={error} /> : null}
@@ -194,9 +198,11 @@ export function ApiKeysPage(): JSX.Element {
         })}
       </div>
       <ConfirmDialog
-        cancelLabel="Cancel"
-        confirmLabel="Delete"
-        message={`Delete the ${PROVIDERS.find((item) => item.id === providerToDelete)?.name ?? providerToDelete ?? ''} API key?`}
+        cancelLabel={t('api.cancel')}
+        confirmLabel={t('api.delete')}
+        message={t('api.deletePrompt', {
+          provider: PROVIDERS.find((item) => item.id === providerToDelete)?.name ?? providerToDelete ?? '',
+        })}
         onCancel={() => {
           setProviderToDelete(null);
         }}
@@ -206,7 +212,7 @@ export function ApiKeysPage(): JSX.Element {
           if (provider !== null) void remove(provider);
         }}
         open={providerToDelete !== null}
-        title="Delete API key?"
+        title={t('api.deleteTitle')}
         tone="danger"
       />
     </section>

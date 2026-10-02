@@ -1,11 +1,19 @@
 import * as vscode from 'vscode';
-import { randomUUID } from 'node:crypto';
-import { registerActions, type DiagnosticFile, type EditorDiagnostic } from './actions';
+import { createHash, randomUUID } from 'node:crypto';
+import {
+  mapDiagnostics,
+  registerActions,
+  type DiagnosticFile,
+  type DiagnosticMessage,
+  type EditorDiagnostic,
+} from './actions';
 import { SidecarBridge } from './bridge';
 import type { WebSocketLike } from './bridge';
+import { DiagnosticsPush } from './diagnostics-push';
 import { DiffDocumentProvider } from './diff-provider';
 import { DiffContentStore } from './diff-store';
 import { TransactionDecorations } from './decorations';
+import { SaveWatcher } from './save-watcher';
 import { statusLabel } from './status';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -32,6 +40,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   function connect(): void {
     bridge.connect();
   }
+  const diagnosticsPushRef: { current?: DiagnosticsPush<DiagnosticMessage> } = {};
   const bridge = new SidecarBridge({
     workspaceRoot: folder.uri.fsPath,
     extensionVersion,
@@ -52,6 +61,42 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     },
     onState: (state) => {
       statusBarItem.text = statusLabel(state);
+      diagnosticsPushRef.current?.setConnected(state === 'connected');
+    },
+  });
+  const readDiagnostics = (): readonly DiagnosticFile[] =>
+    vscode.languages.getDiagnostics().flatMap(([uri, values]) => {
+      if (uri.scheme !== 'file') return [];
+      const fileDiagnostics: EditorDiagnostic[] = values.map((diagnostic) => ({
+        severity: diagnostic.severity,
+        line: diagnostic.range.start.line,
+        column: diagnostic.range.start.character,
+        message: diagnostic.message,
+        ...(diagnostic.code === undefined
+          ? {}
+          : { code: typeof diagnostic.code === 'object' ? diagnostic.code.value : diagnostic.code }),
+      }));
+      return [{ path: uri.fsPath, diagnostics: fileDiagnostics }];
+    });
+  const diagnosticsPush = new DiagnosticsPush({
+    timer: {
+      setTimeout: (callback, delay) => setTimeout(callback, delay),
+      clearTimeout: (handle) => {
+        clearTimeout(handle as ReturnType<typeof setTimeout>);
+      },
+    },
+    snapshot: () => mapDiagnostics(folder.uri.fsPath, readDiagnostics()),
+    send: (diagnostics) => {
+      bridge.sendSerialized(JSON.stringify({ type: 'diagnostics', diagnostics }));
+    },
+  });
+  diagnosticsPushRef.current = diagnosticsPush;
+  const saveWatcher = new SaveWatcher({
+    workspaceRoot: folder.uri.fsPath,
+    now: () => Date.now(),
+    hash: (text) => createHash('sha256').update(text, 'utf8').digest('hex'),
+    send: (path, hash) => {
+      bridge.sendSerialized(JSON.stringify({ type: 'file_saved_by_user', path, hash }));
     },
   });
   const decorations = new TransactionDecorations();
@@ -85,20 +130,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       else if (level === 'warning') void vscode.window.showWarningMessage(message);
       else void vscode.window.showErrorMessage(message);
     },
-    getDiagnostics: (): readonly DiagnosticFile[] =>
-      vscode.languages.getDiagnostics().flatMap(([uri, values]) => {
-        if (uri.scheme !== 'file') return [];
-        const fileDiagnostics: EditorDiagnostic[] = values.map((diagnostic) => ({
-          severity: diagnostic.severity,
-          line: diagnostic.range.start.line,
-          column: diagnostic.range.start.character,
-          message: diagnostic.message,
-          ...(diagnostic.code === undefined
-            ? {}
-            : { code: typeof diagnostic.code === 'object' ? diagnostic.code.value : diagnostic.code }),
-        }));
-        return [{ path: uri.fsPath, diagnostics: fileDiagnostics }];
-      }),
+    getDiagnostics: readDiagnostics,
     sendDiagnostics: (diagnostics) => {
       bridge.sendSerialized(JSON.stringify({ type: 'diagnostics', diagnostics }));
     },
@@ -111,6 +143,23 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     },
   });
   context.subscriptions.push({ dispose: unregisterActions });
+  const ownWriteSubscription = bridge.onMessage((message) => {
+    if (message.type === 'transaction' && message.status === 'committed') saveWatcher.committed(message.paths);
+  });
+  context.subscriptions.push({ dispose: ownWriteSubscription });
+  context.subscriptions.push(
+    vscode.languages.onDidChangeDiagnostics(() => {
+      diagnosticsPush.changed();
+    }),
+    vscode.workspace.onDidSaveTextDocument((document) => {
+      if (document.uri.scheme === 'file') saveWatcher.saved(document.uri.fsPath, document.getText());
+    }),
+    {
+      dispose: () => {
+        diagnosticsPush.dispose();
+      },
+    },
+  );
   connect();
   const watcher = vscode.workspace.createFileSystemWatcher(
     new vscode.RelativePattern(folder, '.itstudio/session.json'),

@@ -8,6 +8,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ### Added
 - Add BudgetGuard with Hard Stop ([M3-06](docs/tasks/M3-06.md))
 - Add VS Code extension actions: reveal, diff, decorations, notify ([M7-04](docs/tasks/M7-04.md))
+- Add VS Code diagnostics streaming and user-save conflict signal ([M7-05](docs/tasks/M7-05.md))
 - Add FailureReportBuilder and exhaustive remediation table ([M6-06](docs/tasks/M6-06.md))
 - Add 18-theme system and Settings → Theme picker ([M4-01b](docs/tasks/M4-01b.md))
 - Add embedding providers with same-dimension fallback ([M5-03](docs/tasks/M5-03.md))

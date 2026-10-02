@@ -68,6 +68,21 @@ export const ledgerEntries = sqliteTable(
   (table) => [index('ledger_entries_project_occurred_idx').on(table.projectId, table.occurredAt)],
 );
 
+export const revenueEntries = sqliteTable(
+  'revenue_entries',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    occurredAt: text('occurred_at').notNull(),
+    amountMicroUsd: integer('amount_micro_usd').notNull(),
+    enteredCurrency: text('entered_currency').notNull(),
+    description: text('description').notNull(),
+  },
+  (table) => [index('revenue_entries_project_occurred_idx').on(table.projectId, table.occurredAt)],
+);
+
 export const budgets = sqliteTable(
   'budgets',
   {
