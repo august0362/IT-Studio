@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Attribute pipeline LLM cost to its run ([M6-08](docs/tasks/M6-08.md))
 - Add pipeline orchestrator PM → Coder → Reviewer → Worker with journaled writes and rollback ([M6-05](docs/tasks/M6-05.md))
 - Add revenue entries, per-project and portfolio P&L (`pnl.getAll`) ([M3-07](docs/tasks/M3-07.md))
 - Add app shell with project tabs and i18n en/vi ([M4-01](docs/tasks/M4-01.md))
