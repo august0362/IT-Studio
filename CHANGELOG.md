@@ -6,6 +6,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add pipeline orchestrator PM → Coder → Reviewer → Worker with journaled writes and rollback ([M6-05](docs/tasks/M6-05.md))
+- Add revenue entries, per-project and portfolio P&L (`pnl.getAll`) ([M3-07](docs/tasks/M3-07.md))
+- Add app shell with project tabs and i18n en/vi ([M4-01](docs/tasks/M4-01.md))
 - Add BudgetGuard with Hard Stop ([M3-06](docs/tasks/M3-06.md))
 - Add VS Code extension actions: reveal, diff, decorations, notify ([M7-04](docs/tasks/M7-04.md))
 - Add VS Code diagnostics streaming and user-save conflict signal ([M7-05](docs/tasks/M7-05.md))
@@ -32,6 +35,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 - Add L3 sidecar integration harness and M1 integration suite ([M1-QA](docs/tasks/M1-QA.md))
 
 ### Fixed
+- Sidecar shuts down when stdin closes, so it no longer outlives a crashed or killed app (BUG-M7-001, [M1-FIX4](docs/tasks/M1-FIX4.md))
 - Accessible in-app ConfirmDialog replaces window.confirm (BUG-M1-005)
 - UI RpcClient now sends request params (BUG-M1-004, S1)
 - Deterministic RpcServer concurrency test (BUG-M1-001)
