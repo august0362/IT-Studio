@@ -4,6 +4,7 @@ import {
   ProviderId,
   type ProjectId,
   type RpcNotificationMap,
+  type VSCodeStatus,
   type WorkspaceRelativePath,
 } from '@itstudio/schemas';
 import { stdin, stdout } from 'node:process';
@@ -66,8 +67,10 @@ import { readdirSync } from 'node:fs';
 import { ErrorCode, type AppError, type Result } from '@itstudio/schemas';
 import { z } from 'zod';
 import { VSCodeBridge } from './services/vscode-bridge.js';
+import { VSCodeLauncher } from './services/vscode-launcher.js';
 import { NodeFileSystem } from './infra/node-file-system.js';
 import { NodeProcessRunner } from './infra/node-process-runner.js';
+import { NodeCodeCliRunner } from './infra/node-code-cli-runner.js';
 import { PipelineRepository } from './infra/sqlite/pipeline-repository.js';
 import { RoleCaller } from './services/role-caller.js';
 import { WriteTransactionService } from './services/write-transaction.js';
@@ -413,6 +416,12 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
       : new FetchHttpClient());
   const events = new EventBus<RpcNotificationMap>();
   const fileSystem = new NodeFileSystem();
+  let vscodeConnected = false;
+  let vscodeStatus: VSCodeStatus = {
+    installed: false,
+    extensionInstalled: false,
+    connected: false,
+  };
   const vscodeInternalEvents = new EventBus<{
     file_saved_by_user: { readonly projectId: ProjectId; readonly path: WorkspaceRelativePath; readonly hash: string };
   }>();
@@ -421,7 +430,14 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     logger,
     events: {
       publishStatus: (value) => {
-        events.publish('vscode.status', value);
+        vscodeConnected = value.connected;
+        vscodeStatus = {
+          ...vscodeStatus,
+          connected: value.connected,
+          ...(value.workspaceRoot === undefined ? {} : { workspaceRoot: value.workspaceRoot }),
+          ...(value.extensionVersion === undefined ? {} : { extensionVersion: value.extensionVersion }),
+        };
+        events.publish('vscode.status', vscodeStatus);
       },
       publishDiagnostics: (value) => {
         events.publish('vscode.diagnostics', value);
@@ -430,6 +446,22 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
         vscodeInternalEvents.publish('file_saved_by_user', value);
       },
     },
+  });
+  const vscodeLauncher = new VSCodeLauncher({
+    fileSystem,
+    runner: new NodeCodeCliRunner(env),
+    logger,
+    events: {
+      publishStatus: (value) => {
+        vscodeStatus = { ...value, connected: vscodeConnected };
+        events.publish('vscode.status', vscodeStatus);
+      },
+    },
+    env,
+    platform: process.platform,
+    repositoryRoot: resolve(dirname(fileURLToPath(import.meta.url)), '../../..'),
+    e2e,
+    connected: () => vscodeConnected,
   });
   const routerCompleted = new EventBus<{ completed: RouterCompleted }>();
   const priceSource = new RepositoryPriceSource(priceRepository, fxService);
@@ -670,6 +702,9 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     if (result.ok && vscodeBridgeEnabled) {
       try {
         await vscodeBridge.activate(result.value.id, result.value.workspaceRoot);
+        const settings = await settingsService.get();
+        if (settings.ok)
+          await vscodeLauncher.activate({ workspaceRoot: result.value.workspaceRoot, settings: settings.value.vscode });
       } catch (error) {
         logger.error(
           { svc: 'vscode-bridge', projectId, error: error instanceof Error ? error.message : 'unknown' },
@@ -799,6 +834,10 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
         const activeProject = projects.value.find((project) => project.id === settings.value.activeProjectId);
         if (activeProject === undefined) return;
         await vscodeBridge.activate(activeProject.id, activeProject.workspaceRoot);
+        await vscodeLauncher.activate({
+          workspaceRoot: activeProject.workspaceRoot,
+          settings: settings.value.vscode,
+        });
       })().catch((error: unknown) => {
         logger.error(
           { svc: 'vscode-bridge', error: error instanceof Error ? error.message : 'unknown' },
