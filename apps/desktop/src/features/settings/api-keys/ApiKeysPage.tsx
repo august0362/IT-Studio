@@ -6,6 +6,7 @@ import { RpcCallError } from '../../../rpc/rpc-client';
 import { useRpcClient } from '../../../rpc/rpc-context';
 import { neutralClasses } from '../../../components/ui/neutral-classes';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
+import { ErrorPanel } from '../../../components/ErrorPanel';
 
 const PROVIDERS: readonly { readonly id: Provider; readonly name: string }[] = [
   { id: ProviderId.ANTHROPIC, name: 'Anthropic' },
@@ -25,21 +26,6 @@ function errorFrom(cause: unknown): AppError {
     remediation: ['Check the sidecar connection and try again.'],
     retryable: true,
   };
-}
-
-function ErrorDetails({ error }: { readonly error: AppError }): JSX.Element {
-  return (
-    <div className="mt-2 text-sm font-medium" role="alert">
-      <p>{error.message}</p>
-      {error.remediation !== undefined ? (
-        <ul className="list-disc pl-5">
-          {error.remediation.map((step) => (
-            <li key={step}>{step}</li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
-  );
 }
 
 function statusText(status: SecretStatus | undefined, invalid: boolean): string {
@@ -141,7 +127,7 @@ export function ApiKeysPage(): JSX.Element {
         API keys
       </h2>
       <p className={`mb-6 ${neutralClasses.secondaryText}`}>Keys are stored securely and never displayed in full.</p>
-      {statuses.isError ? <ErrorDetails error={errorFrom(statuses.error)} /> : null}
+      {statuses.isError ? <ErrorPanel error={errorFrom(statuses.error)} /> : null}
       <div className={`divide-y ${neutralClasses.border} border-y`}>
         {PROVIDERS.map(({ id, name }) => {
           const error = errors[id];
@@ -206,7 +192,7 @@ export function ApiKeysPage(): JSX.Element {
                     Delete
                   </button>
                 </form>
-                {error !== undefined ? <ErrorDetails error={error} /> : null}
+                {error !== undefined ? <ErrorPanel error={error} /> : null}
               </div>
             </article>
           );
