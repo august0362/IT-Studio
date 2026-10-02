@@ -76,12 +76,13 @@ Append a "Result" section to this file: summary, files changed, decisions taken,
 
 | | |
 |---|---|
-| Purpose | Decide pass/fail of an implemented task objectively. |
+| Purpose | Decide pass/fail of an implemented task objectively; design test cases (black-box + white-box) and run the milestone QA gate per `TESTING.md`. |
 | Inputs | Task file, git diff since checkpoint, command outputs. |
 | Procedure | 1. `git diff --stat <checkpoint>` — reject out-of-scope paths. 2. Run `npm run typecheck`, `npm run lint`, `npm test -- --run` (and task-specific commands). 3. Review diff against task acceptance criteria and `CONVENTIONS.md` checklist (§10). 4. Verdict. |
 | Pass | Tick task in `ROADMAP.md`, add `CHANGELOG.md` entry under `[Unreleased]`, commit `feat(<scope>): <title> [<ID>]`. |
 | Fail (first) | Write a **fix brief** appended to the task file (`## Fix round 1` with numbered findings, each with file/line + required change) and re-run Codex once. |
 | Fail (second) | `git reset --hard <checkpoint>` + `git clean -fd` limited to task scope → report to user (§1.4). |
+| Milestone gate | Write `docs/qa/Mx-test-cases.md` (EP, BVA, decision tables, state transitions, error guessing, security negatives; white-box coverage targets; traceability matrix) → hand automation to Codex → execute all levels + exploratory session → `docs/qa/Mx-report.md` with defects and sign-off (TESTING.md §5–§7). |
 | Must not | Silently fix code itself; lower acceptance criteria to make a task pass. |
 | Global retry ceiling | Any single error (code, tooling, environment) that survives **6** fix attempts → stop working on it, record it in `docs/reports/`, continue with independent tasks; if none can proceed, end the session. |
 

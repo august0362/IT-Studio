@@ -30,7 +30,7 @@
 ### 2.2 Startup sequence
 
 1. Tauri starts → resolves app data dir (`%APPDATA%/com.itstudio.app/`) → spawns sidecar with env `ITSTUDIO_DATA_DIR`, `ITSTUDIO_LOG_LEVEL`.
-2. Sidecar: load config → open SQLite + run migrations → open LanceDB → **recover journals** (§9.4) → start scheduler (pricing, FX) → start VSCodeBridge WS server → emit notification `system.ready` (`RpcNotificationMap`).
+2. Sidecar: load config → open SQLite + run migrations → open LanceDB → **recover journals** (§9.4) → start scheduler (FX daily fetch only — no LLM; pricing updates are manual, D9) → start VSCodeBridge WS server → emit notification `system.ready` (`RpcNotificationMap`).
 3. Rust forwards `system.ready`; UI then calls `settings.get`, `project.list`, `secrets.status`.
 4. If `settings.vscode.autoLaunch` and a project is active → `workspace.openInVSCode`.
 
@@ -88,7 +88,7 @@ apps/sidecar/src/
 ```
 
 - **Event bus:** typed `EventBus<RpcNotificationMap>` (Observer). Services publish; `RpcServer` forwards to stdout. Services never write to stdout directly.
-- **Concurrency:** one pipeline run per project at a time (queue others). Chat requests are concurrent. SQLite in WAL mode; writes serialized through repositories.
+- **Concurrency:** one pipeline run per project at a time (queue others); different projects run in parallel (D13). Chat requests are concurrent. SQLite in WAL mode; writes serialized through repositories.
 
 ## 5. LLM Router
 
@@ -177,7 +177,7 @@ Integer math only. Price lookup by `modelKey` in the **current** `PriceTable`; t
 
 ### 6.2 Pricing updater (D9)
 
-1. Scheduler every `updateIntervalHours` (default 24) or `pricing.refresh`.
+1. Triggered **only** by `pricing.refresh` (user clicks "Update prices", D9). The UI shows a reminder when the current table is older than 30 days. `PricingSettings.autoUpdate` defaults to `false` and is not exposed in the UI.
 2. For each provider: fetch configured pricing URL(s) (`config/pricing.sources.json`) via HTTP GET, strip to text (HTML → text, max 200 KB).
 3. LLM extraction through the router (`purpose = pricing_extraction`, `responseFormat = json`) with a fixed prompt (`ROLES.md` §2.5) → zod-validate into `PriceEntry[]`.
 4. Validation: every known model present or explicitly omitted; all rates ≥ 0; `|Δ%| ≤ maxAutoChangePercent` (default 50) versus current; else `rejected_validation`.
@@ -185,7 +185,7 @@ Integer math only. Price lookup by `modelKey` in the **current** `PriceTable`; t
 
 ### 6.3 FX (D8)
 
-- Fetch `usdToVnd` daily from `settings` FX URL (default open FX API, Q-03). Manual override wins when non-null.
+- Fetch `usdToVnd` daily from `settings` FX URL (default `https://open.er-api.com/v6/latest/USD`, decided 2026-10-02). Plain HTTP GET — no LLM tokens. Manual override wins when non-null.
 - `MoneyDisplay` built **only** in the sidecar (`domain/money.ts`): `usdText` = `$` + 4 decimals if < $1 else 2; `vndText` = vi-VN grouping, no decimals, suffix ` ₫`.
 - UI component `<Money value={MoneyDisplay} />` renders two lines: USD (primary) / VND (secondary, muted).
 
@@ -197,7 +197,7 @@ Integer math only. Price lookup by `modelKey` in the **current** `PriceTable`; t
 
 ### 6.5 P&L
 
-`pnl.get` aggregates `ledger` and `revenue` tables for a range → `ProjectPnL` (by model, purpose, day). Live view: UI subscribes to `ledger.entry` and re-queries debounced (1 s).
+`pnl.get` aggregates `ledger` and `revenue` tables for a range → `ProjectPnL` (by model, purpose, day). **Aggregate P&L (D13):** `pnl.getAll` (added in M3-07 together with its validator) returns one `ProjectPnL` per project plus a portfolio total, for the "All projects" dashboard. Live view: UI subscribes to `ledger.entry` and re-queries debounced (1 s).
 
 ## 7. RAG (Method 2)
 

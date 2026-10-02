@@ -4,31 +4,32 @@
 > `- [ ]` pending · `- [x]` done (QA-verified) · `- [~]` in progress · `- [!]` blocked (reason inline).
 > Only the QA role ticks boxes (ROLES §1.2). Each task's full prompt lives in `docs/tasks/<ID>.md` (created just-in-time by the Architect).
 > Owner: **A** = Architect/Claude · **C** = Codex.
+> **Every milestone ends with an `Mx-QA` gate** (TESTING.md §7): a milestone is Done only after its QA report is signed off.
 
 ## Progress
 
 | Milestone | Status | Tasks |
 |---|---|---|
 | M0 Environment & scaffold | **Done** | 8 / 8 |
-| M1 Sidecar core & IPC | **Done** | 7 / 7 |
-| M2 LLM router & providers | In progress | 4 / 10 |
-| M3 Cost, pricing, FX, budget, P&L | In progress | 1 / 7 |
-| M4 UI shell, Settings, Chat, P&L | Not started | 0 / 7 |
-| M5 RAG | Not started | 0 / 7 |
-| M6 Agent pipeline & Worker | Not started | 0 / 7 |
-| M7 VS Code companion extension | Not started | 0 / 5 |
-| M8 Image generation *(deferred)* | Deferred | 0 / 5 |
-| M9 Packaging & release *(deferred)* | Deferred | 0 / 6 |
-| **v2** M10 Agent Orchestrator | After v1 | 0 / 7 |
-| **v2** M11 Agent Memory | After v1 | 0 / 6 |
-| **v2** M12 Channels framework + Outbox + VS Code chat | After v1 | 0 / 6 |
-| **v2** M13 Gmail channel | After v1 | 0 / 6 |
-| **v2** M14 Facebook Page channel | After v1 | 0 / 4 |
-| **v3** M15 SSH foundation & server registry | After v2 | 0 / 5 |
-| **v3** M16 Metrics, monitoring & alerts | After v2 | 0 / 7 |
-| **v3** M17 Docker management | After v2 | 0 / 5 |
-| **v3** M18 Remote file manager | After v2 | 0 / 5 |
-| **v3** M19 System actions | After v2 | 0 / 3 |
+| M1 Sidecar core & IPC | In progress (QA gate pending) | 7 / 8 |
+| M2 LLM router & providers | In progress | 4 / 11 |
+| M3 Cost, pricing, FX, budget, P&L | In progress | 1 / 8 |
+| M4 UI shell, Settings, Chat, P&L | Not started | 1 / 8 |
+| M5 RAG | Not started | 0 / 8 |
+| M6 Agent pipeline & Worker | Not started | 0 / 8 |
+| M7 VS Code companion extension | Not started | 0 / 6 |
+| M8 Image generation *(deferred)* | Deferred | 0 / 6 |
+| M9 Packaging & release *(deferred)* | Deferred | 0 / 7 |
+| **v2** M10 Agent Orchestrator | After v1 | 0 / 8 |
+| **v2** M11 Agent Memory | After v1 | 0 / 7 |
+| **v2** M12 Channels framework + Outbox + VS Code chat | After v1 | 0 / 7 |
+| **v2** M13 Gmail channel | After v1 | 0 / 7 |
+| **v2** M14 Facebook Page channel | After v1 | 0 / 5 |
+| **v3** M15 SSH foundation & server registry | After v2 | 0 / 6 |
+| **v3** M16 Metrics, monitoring & alerts | After v2 | 0 / 8 |
+| **v3** M17 Docker management | After v2 | 0 / 6 |
+| **v3** M18 Remote file manager | After v2 | 0 / 6 |
+| **v3** M19 System actions | After v2 | 0 / 4 |
 
 ---
 
@@ -56,6 +57,7 @@
 - [x] **M1-05** (C) SQLite infra (better-sqlite3 + Drizzle, WAL, migrations); repositories for `projects`, `settings`; `SettingsService` with complete defaults; `ProjectService` (`project.*`, `settings.*`). Ref: ARCH §12.
 - [x] **M1-06** (C) `ISecretStore` + keychain impl (`@napi-rs/keyring`, service name `itstudio`) + in-memory impl for tests; `secrets.set/delete/status/verify` (verify = cheapest list-models call). Ref: ARCH §11, D2.
 - [x] **M1-07** (C) UI status bar: sidecar connection state + version; minimal Settings → API Keys page (write-only inputs, status chips with hint).
+- [ ] **M1-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M1-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M1-report.md` sign-off. Scope: Build the L3 sidecar integration harness (spawn sidecar, NDJSON client, temp data dir, `ITSTUDIO_E2E=1` fakes) and the L4 E2E harness (WebdriverIO + tauri-driver + Edge WebDriver); scripts `test:integration`, `test:e2e`, `test:all`. Cases: app launch → sidecar ready, status bar, API Keys save/verify/delete, sidecar crash → auto-restart, settings persistence across restart.
 
 ## M2 — LLM router & providers
 
@@ -71,6 +73,7 @@
 - [ ] **M2-08** (C) Auto Fallback OFF: `FallbackDecisionRequest` with candidate cost estimates, `router.resolveFallback`, expiry → `FALLBACK_DECLINED`.
 - [ ] **M2-09** (C) `router.getConfig` / `router.updateConfig` with validation (unique priorities, existing models).
 - [ ] **M2-10** (C) `ChatService`: conversations/messages repos, `chat.*` RPC, streaming via router (`chat.delta/completed/failed`), optional RAG context, per-message cost. *(Gap found 2026-10-02: backend for M4-04.)*
+- [ ] **M2-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M2-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M2-report.md` sign-off. Scope: Router & providers: fallback decision table, Auto Fallback OFF modal flow, circuit breaker, lock/ladder order, chat streaming via `chat.*` with fake providers; contract suite rerun for all adapters.
 
 ## M3 — Cost, pricing, FX, budget, P&L
 
@@ -79,22 +82,24 @@
 - [x] **M3-01** (C) `domain/cost.ts`, `domain/money.ts` (integer µUSD, rounding, `MoneyDisplay` USD/VND formatting). ≥ 95 % coverage. Ref: ARCH §6.1, §6.3.
 - [ ] **M3-02** (C) Ledger repository (append-only) + `LedgerService.record` subscribed to router completions (incl. `billedFailure`), `ledger.entry` notification, `ledger.query` with cursor paging.
 - [ ] **M3-03** (C) Price tables: seed import, versioning, `pricing.get`, `pricing.override` (manual precedence rules).
-- [ ] **M3-04** (C) Pricing updater: sources fetch, HTML→text, extraction via router (prompt ROLES §2.5), validation (bounds, max Δ%), apply/reject, scheduler single-flight, `pricing.updated`. Ref: ARCH §6.2.
-- [ ] **M3-05** (C) `FxService`: daily fetch, manual override, `fx.get`, `fx.override`; MoneyDisplay uses latest rate.
+- [ ] **M3-04** (C) Pricing updater (**manual only**, D9): `pricing.refresh` fetches sources, HTML→text, extraction via router (prompt ROLES §2.5), validation (bounds, max Δ%), apply/reject, `pricing.updated`; stale-table (> 30 days) reminder flag; set default `pricing.autoUpdate=false` in `domain/default-settings.ts`.
+- [ ] **M3-05** (C) `FxService`: daily fetch from `open.er-api.com` (no LLM), manual override, `fx.get`, `fx.override`; MoneyDisplay uses latest rate.
 - [ ] **M3-06** (C) `BudgetGuard` + budgets repo: estimate, levels, once-per-threshold alerts, Hard Stop rejection, `budget.set/status`. Ref: ARCH §6.4.
-- [ ] **M3-07** (C) Revenue entries (`revenue.add`, VND→µUSD at entry), `PnLService`, `pnl.get` breakdowns.
+- [ ] **M3-07** (C) Revenue entries (`revenue.add`, VND→µUSD at entry), `PnLService`, `pnl.get` breakdowns, **`pnl.getAll` aggregate across projects** (add RPC method + validator, D13).
+- [ ] **M3-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M3-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M3-report.md` sign-off. Scope: Ledger/P&L: cost frozen per price version, budget BVA (thresholds) × Hard Stop decision table, manual price update with validation reject, FX override, revenue in VND, per-project and aggregate P&L numbers vs hand-computed oracle.
 
 ## M4 — UI shell, Settings, Chat, P&L
 
 **Exit criteria:** manual script `docs/qa/M4-smoke.md` passes: add key → chat streams → force fallback shows badge/modal → cost appears live in P&L in USD+VND.
 
-- [ ] **M4-00** (A) Resolve Q-01 (single vs multi project) with user; update CONTEXT §3/§4.
-- [ ] **M4-01** (C) App shell: tabs (Chat, Code, Knowledge, Gallery-disabled, Cost & P&L, Settings), project switcher, i18n scaffolding (en, vi) via react-i18next.
+- [x] **M4-00** (A) Resolve Q-01 — decided 2026-10-02: multiple open projects (tabs) + switcher, per-project P&L and aggregate P&L (D13).
+- [ ] **M4-01** (C) App shell: tabs (Chat, Code, Knowledge, Gallery-disabled, Cost & P&L, Settings), **project tabs** (open several projects, switch, close) + "All projects" entry, i18n scaffolding (en, vi) via react-i18next.
 - [ ] **M4-01b** (C) Theme system per `docs/design/THEMES.md` §5–§7: token CSS variables + Tailwind mapping, no-flash startup, system-mode listener, Settings → Theme picker (cards, filters, hover preview, a11y radiogroup), Monaco theme bridge, contrast test over all 36 theme/mode pairs, ban raw colors in components. (Data `config/themes.json` done by A.)
 - [ ] **M4-02** (C) Shared components: `<Money>`, `<SafeMarkdown>` (+ XSS test corpus), `<ErrorPanel>` (renders `AppError.remediation`).
 - [ ] **M4-03** (C) Settings: Router ladder (dnd-kit), **Auto Fallback** toggle, lock model, Budget (+ **Hard Stop** toggle), Pricing (table, refresh, override), FX (rate, override), VS Code options, Pipeline role assignment.
 - [ ] **M4-04** (C) Chat tab: conversation list, unified model dropdown (+ Lock), streaming with cancel, fallback badge + partial-reset handling, fallback modal (Auto OFF), per-message cost `<Money>`.
-- [ ] **M4-05** (C) Cost & P&L tab: revenue/cost/margin KPIs, charts by model/purpose/day (Recharts), budget bars with warning states, revenue entry form (USD/VND), ledger table with filters; live refresh on `ledger.entry`.
+- [ ] **M4-05** (C) Cost & P&L tab: revenue/cost/margin KPIs, charts by model/purpose/day (Recharts), budget bars with warning states, revenue entry form (USD/VND), ledger table with filters; live refresh on `ledger.entry`. Plus **All-projects dashboard**: per-project margin table, portfolio totals, top spend by project/model.
+- [ ] **M4-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M4-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M4-report.md` sign-off. Scope: UI system tests: project tabs open/switch/close, theme switching (all 36 theme/mode pairs smoke + contrast), Settings flows, chat with fallback badge & modal, P&L dashboards; XSS corpus through chat rendering; keyboard-only navigation.
 
 ## M5 — RAG
 
@@ -107,6 +112,7 @@
 - [ ] **M5-05** (C) `RagService` ingest jobs: discovery, hash skip, progress events, per-file failure isolation, `rag.*` RPC.
 - [ ] **M5-06** (C) Retrieval: minScore filter, MMR, context injection, citation parts, `search_knowledge` tool; chat `ragEnabled` toggle.
 - [ ] **M5-07** (C) Knowledge tab: add files/folder, document list (format, chunks, model, date), re-index, delete, test-query panel.
+- [ ] **M5-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M5-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M5-report.md` sign-off. Scope: RAG: ingest md/pdf/docx/code, unchanged-file skip, per-file failure isolation, cited answers, embedding cost in P&L, re-index on model change.
 
 ## M6 — Agent pipeline & Worker
 
@@ -119,6 +125,7 @@
 - [ ] **M6-05** (C) `PipelineOrchestrator`: stage machine, role ladders, verdict rule, ≤ 1 fix round, per-project queue, cancel semantics, `pipeline.*` RPC + events. Ref: ARCH §8.1.
 - [ ] **M6-06** (C) `FailureReportBuilder` + remediation table for every `ErrorCode`.
 - [ ] **M6-07** (C) Code tab: prompt box, stage timeline, spec/review viewers, Monaco diff viewer, live command output, failure report panel, run history.
+- [ ] **M6-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M6-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M6-report.md` sign-off. Scope: Pipeline: happy path to COMPLETED, review-reject → fix → approve, failing validation → byte-identical rollback, crash mid-commit recovery, path-traversal corpus, cancel at every stage; StrykerJS on worker/domain (score reported).
 
 ## M7 — VS Code companion extension
 
@@ -129,6 +136,7 @@
 - [ ] **M7-03** (C) Launcher (`code` resolve, `shell:false`) + installer (`--list-extensions`, `--install-extension` bundled vsix) + vsix build script; `.itstudio/` gitignore guard.
 - [ ] **M7-04** (C) `reveal`, `show_diff`, `transaction` decorations, `notify`.
 - [ ] **M7-05** (C) Diagnostics streaming (debounced) + `file_saved_by_user` → stale-run conflict marking.
+- [ ] **M7-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M7-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M7-report.md` sign-off. Scope: VS Code (`@vscode/test-electron`): auto-launch, handshake, reveal/diff on commit, diagnostics forwarded, VS Code closed mid-run does not fail the pipeline, bad token rejected.
 
 ## M8 — Image generation *(deferred — do not start without user go-ahead)*
 
@@ -139,6 +147,7 @@ Spec: ARCH §14.1, `schemas.ts` §13.
 - [ ] **M8-03** (C) `generate_image` tool dispatch: validation, BudgetGuard, provider fallback, download-and-store, ledger (`purpose=image`).
 - [ ] **M8-04** (C) Chat inline image rendering via asset protocol.
 - [ ] **M8-05** (C) Gallery tab.
+- [ ] **M8-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M8-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M8-report.md` sign-off. Scope: Image generation: tool call → image stored locally, provider fallback, cost per image, gallery.
 
 ## M9 — Packaging & release *(deferred)*
 
@@ -150,6 +159,7 @@ Spec: ARCH §14.2.
 - [ ] **M9-04** (A) Code-signing setup (user supplies certificate) + updater key pair (private key outside repo).
 - [ ] **M9-05** (C) Version bump script (4 manifests) + release CHANGELOG automation.
 - [ ] **M9-06** (A) Clean-VM smoke test checklist and execution.
+- [ ] **M9-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M9-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M9-report.md` sign-off. Scope: Packaging: install on clean VM, first run, sidecar SEA starts, native modules load, update flow.
 
 ---
 
@@ -166,6 +176,7 @@ Spec: ARCH §14.2.
 - [ ] **M10-05** (C) Re-express the §8 pipeline as a PM/Coder/QA agent team (no behaviour change; M6 regression tests).
 - [ ] **M10-06** (C) Settings → Agents: Agent Builder UI (list, clone template, edit persona/ladder/tools/channels/memory policy).
 - [ ] **M10-07** (C) Chat tab agent picker + per-project default agent.
+- [ ] **M10-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M10-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M10-report.md` sign-off. Scope: Agents: create/clone/edit agent, team pipeline regression (M6 suite), external-trigger tool restrictions (decision table), agent cost in P&L.
 
 ## M11 — Agent Memory
 
@@ -177,6 +188,7 @@ Spec: ARCH §14.2.
 - [ ] **M11-04** (C) Explicit remember: "remember …" phrase, message action, `remember` tool (non-external triggers only).
 - [ ] **M11-05** (C) `memory.*` RPC (list/search/update/pin/delete/forgetAll/export/cleanup).
 - [ ] **M11-06** (C) Memory page UI.
+- [ ] **M11-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M11-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M11-report.md` sign-off. Scope: Memory: extraction, dedupe, recall ranking, pin/delete/forget, external extraction off by default, secret/PII filter negatives.
 
 ## M12 — Channels framework, Outbox, VS Code chat
 
@@ -188,6 +200,7 @@ Spec: ARCH §14.2.
 - [ ] **M12-04** (C) Inbox tab UI (Inbound / Outbox panes, badges, approve/edit/reject).
 - [ ] **M12-05** (C) VS Code protocol v2 + webview chat panel (agent picker, send selection/file).
 - [ ] **M12-06** (C) Sidecar side of VS Code chat (route to AgentRunner, stream replies).
+- [ ] **M12-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M12-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M12-report.md` sign-off. Scope: Channels/Outbox: sync only on click (no background traffic), approval lifecycle state transitions, 20/h cap BVA, VS Code chat panel round trip, prompt-injection corpus.
 
 ## M13 — Gmail channel
 
@@ -199,6 +212,7 @@ Spec: ARCH §14.2.
 - [ ] **M13-04** (C) Apply `ITStudio/*` labels after triage confirmation.
 - [ ] **M13-05** (C) Email commands (allow-list, `[ITS]` prefix, DKIM pass, in-app confirmation).
 - [ ] **M13-06** (A+C) "Email me this report" actions + A writes `docs/guides/gmail-setup.md`.
+- [ ] **M13-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M13-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M13-report.md` sign-off. Scope: Gmail (fake Gmail API + optional live run): OAuth flow, history sync, threading on send, labels, email-command decision table (sender × prefix × DKIM), report emails.
 
 ## M14 — Facebook Page channel
 
@@ -208,6 +222,7 @@ Spec: ARCH §14.2.
 - [ ] **M14-02** (C) Conversations sync (user-triggered).
 - [ ] **M14-03** (C) Send API with 24 h window enforcement + rate-limit backoff.
 - [ ] **M14-04** (A) `docs/guides/facebook-page-setup.md` (Meta app, permissions, long-lived Page token).
+- [ ] **M14-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M14-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M14-report.md` sign-off. Scope: Facebook (fake Graph API + optional live): sync, send within window, 24 h BVA expiry, rate-limit backoff.
 
 ---
 
@@ -222,6 +237,7 @@ Spec: ARCH §14.2.
 - [ ] **M15-03** (C) `SshConnectionManager`: pooled ssh2 clients, ref-counted consumers, keepalive, reconnect backoff, idle close.
 - [ ] **M15-04** (C) Host-key TOFU flow (fingerprint confirm RPC + notification), mismatch handling; OS detection.
 - [ ] **M15-05** (C) AddServerModal + Servers tab skeleton (cards with connection state, fingerprint confirm dialog).
+- [ ] **M15-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M15-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M15-report.md` sign-off. Scope: SSH foundation: add server (ed25519/RSA/passphrase EP), TOFU confirm, host-key mismatch blocks, reconnect, key vault encryption round trip (fake SSH server in tests).
 
 ## M16 — Metrics, monitoring & alerts
 
@@ -234,6 +250,7 @@ Spec: ARCH §14.2.
 - [ ] **M16-05** (C) `AlertEngine`: rules, debounce, fire/resolve, `server.alert`; Tauri OS notifications (opt-in).
 - [ ] **M16-06** (C) ServerCard UI: gauges, sparkline, net rates, disk, conditional battery, theme status tokens.
 - [ ] **M16-07** (C) Settings → Monitoring: background toggle, interval, alert rules editor.
+- [ ] **M16-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M16-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M16-report.md` sign-off. Scope: Metrics: parser fixtures for Linux/macOS/Windows, tab-visible vs background mode (no traffic when hidden & off), alert BVA + debounce, battery widget hidden when null.
 
 ## M17 — Docker management
 
@@ -244,6 +261,7 @@ Spec: ARCH §14.2.
 - [ ] **M17-03** (C) Log streaming (open/close, chunking, coalescing, back-pressure, auto-close).
 - [ ] **M17-04** (C) ContainerDrawer UI: table, actions with confirmations, state chips.
 - [ ] **M17-05** (C) Virtualized log viewer: auto-scroll toggle, filter, stdout/stderr toggle, download.
+- [ ] **M17-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M17-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M17-report.md` sign-off. Scope: Docker: list/start/stop/restart via fake dial-stdio daemon, events → alerts, high-volume log stream without UI freeze (performance budget).
 
 ## M18 — Remote file manager
 
@@ -254,6 +272,7 @@ Spec: ARCH §14.2.
 - [ ] **M18-03** (C) Upload/download via native save/open dialogs (Tauri dialog plugin, command-scoped permission).
 - [ ] **M18-04** (C) RemoteFileManager UI: dual pane, breadcrumbs, file table.
 - [ ] **M18-05** (C) Monaco editor + diff-before-save + conflict resolution dialog.
+- [ ] **M18-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M18-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M18-report.md` sign-off. Scope: SFTP: browse/upload/download, edit with diff + backup, conflict detection, undo, binary/size limits, Windows path handling.
 
 ## M19 — System actions
 
@@ -262,6 +281,7 @@ Spec: ARCH §14.2.
 - [ ] **M19-01** (C) `SystemActionService`: per-OS command catalog, `sudo -n` handling + remediation, audit log table.
 - [ ] **M19-02** (C) Confirmation UI (type server name) + rebooting state tracking.
 - [ ] **M19-03** (A) `docs/guides/server-setup.md`: SSH key setup, Tailscale notes, sudoers lines, Docker permissions, Windows OpenSSH, macOS remote login.
+- [ ] **M19-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M19-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M19-report.md` sign-off. Scope: System actions: per-OS command catalog, sudo -n failure remediation, typed-name confirmation, audit log, reboot tracking.
 
 > Deferred (not scheduled): AI agents operating servers — ARCH §23, needs a new ADR.
 

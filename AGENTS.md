@@ -8,6 +8,7 @@ You are the **Implementer** (ROLES.md §1.3). Claude is the Architect/QA. You wr
 2. `CONTEXT.md` — product, decisions, glossary.
 3. `CONVENTIONS.md` — binding coding rules + review checklist (§10).
 4. The `ARCHITECTURE.md` sections and `src/types/schemas.ts` sections the task cites.
+5. For `Mx-QA` tasks or any test work: `TESTING.md` and the milestone test-case document `docs/qa/Mx-test-cases.md` — implement every case marked automated, using the case ID in the test name (e.g. `it('TC-M2-014 429 on A falls back to B')`).
 
 ## 2. Hard rules
 

@@ -95,6 +95,8 @@ Enforced by `eslint-plugin-boundaries` (M0-05).
 
 ## 6. Testing
 
+> Full strategy, levels, black-box/white-box techniques and the milestone QA gate: **`TESTING.md`**. Safety-critical modules require 100 % branch coverage (TESTING.md §4).
+
 - Runner: **vitest** (all packages). UI: @testing-library/react. Extension: `@vscode/test-electron` for 1 smoke test.
 - Coverage gate: `domain/` ≥ 90 % lines; services ≥ 80 %; overall ≥ 70 % (M0-06 sets thresholds).
 - No real network in tests: providers tested via recorded fixtures (`msw` for HTTP). No real keychain: in-memory `ISecretStore`.

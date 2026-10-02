@@ -45,11 +45,11 @@ Changing any row requires an ADR in `docs/decisions/` and user approval.
 | D6 | **P&L = revenue − cost** per project. Revenue entered manually (USD or VND). Cost = LLM + embedding + image + pricing-extraction calls. | User sells project work; needs margin. |
 | D7 | Budget exceeded → **warning** by default. Settings toggle **Hard Stop** blocks every paid call once exceeded. | User choice. |
 | D8 | Money displayed as **USD on line 1, VND on line 2**. FX rate auto-fetched daily; manual override in Settings. | User requirement. |
-| D9 | Price tables **auto-update**: fetch provider pricing pages → LLM extracts into `PriceTable` → validate (schema + bounds + max % change) → apply, else keep last-known-good and warn. Seed table shipped in repo. Ledger rows freeze cost at write time. | Prices change; history must stay correct. |
+| D9 | Price tables update **only when the user clicks "Update prices"** (Q-05, 2026-10-02): fetch provider pricing pages → LLM extracts into `PriceTable` → validate (schema + bounds + max % change) → apply, else keep last-known-good and warn. The app reminds the user when the table is older than 30 days. Seed table shipped in repo. Ledger rows freeze cost at write time. | Prices change; history must stay correct; no token spend without user action. |
 | D10 | Router fallback is mandatory. Settings toggle **Auto Fallback**: ON → automatic switch down the ladder; OFF → UI modal asks which model to use. Drag-and-drop ladder ordering; optional lock-to-model. | User requirement. |
 | D11 | Failure policy everywhere: **snapshot before write → rollback on failure → report with next steps.** Runtime uses a per-transaction file journal; dev loop uses git checkpoints. | Never leave a half-written workspace. |
 | D12 | **Image generation** (DALL·E 3, FLUX via Together/Replicate; Midjourney adapter disabled — no official API) and **packaging/installer** are **specified now, implemented later** (M8, M9). Contracts already exist in `schemas.ts` §13. | Scope control without future breaking changes. |
-| D13 | Every persisted entity carries `projectId`. Whether the UI supports **one or many concurrent projects** is an **open question** (Q-01); the data model supports both. | Defer decision without lock-in. |
+| D13 | **Multiple projects (Q-01, 2026-10-02):** several projects can be open at once (project tabs) and run pipelines in parallel (one run per project at a time); the user can switch freely; every project has its own P&L **and** an aggregate P&L dashboard covers all projects. Every persisted entity carries `projectId`. | User decision |
 | D14 | Single user, local only, no auth/multi-tenant. Windows first; macOS/Linux not tested in v1. | Scope. |
 | D15 | Provider adapters: **Anthropic SDK**, **OpenAI SDK** (also used for xAI, Groq, Together via `baseURL` — OpenAI-compatible), **Google GenAI SDK**. Exact model ids live in `config/models.seed.json`, never hard-coded in logic. | Few adapters; model churn is config, not code. |
 | D16 | Runtime write safety: the Worker only writes paths inside the project root **and** inside `TaskSpec.allowedPaths`; runs only allow-listed commands from Settings, never commands proposed by a model. | Prevent model-driven path traversal / RCE. |
@@ -72,10 +72,9 @@ Changing any row requires an ADR in `docs/decisions/` and user approval.
 
 | ID | Question | Needed by | Default if unanswered |
 |---|---|---|---|
-| Q-01 | One active project at a time, or several concurrently, each with its own P&L view? | M4 (UI shell) | One active project + project switcher; P&L per project. |
 | Q-02 | Exact default Coder model id (Codex-class) and PM/Reviewer Claude model id. | M2 | Verified from provider `/models` endpoints during M2; written to seed config. |
-| Q-05 | Pricing auto-update (D9) spends a few LLM tokens daily in the background, which conflicts with the on-demand spirit of D21. Keep daily auto-update, or refresh prices only when the user clicks? | M3-04 | Keep daily (cost ≈ cents/month) until the user decides. |
-| Q-03 | FX data source preference (e.g. Vietcombank vs. generic open FX API). | M3 | Generic open FX API, configurable URL. |
+
+**Resolved 2026-10-02:** Q-01 → D13 (multi-project + aggregate P&L) · Q-03 → generic open FX API (`open.er-api.com`, no key, daily fetch — no LLM tokens) · Q-05 → D9 (manual price updates) · Sandbox/worktree workflow kept (AGENTS.md §5).
 
 ## 5. Glossary
 
@@ -183,4 +182,5 @@ IT Studio/
 | What an agent may / may not do | `ROLES.md` |
 | What to work on next | `ROADMAP.md` (first unchecked task whose dependencies are checked) |
 | How to write code / commit / log changes | `CONVENTIONS.md` |
+| How we test, QA gates, test cases & reports | `TESTING.md`, `docs/qa/` |
 | Why something was decided | §3 above, then `docs/decisions/` |
