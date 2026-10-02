@@ -12,7 +12,7 @@ You are the **Implementer** (ROLES.md §1.3). Claude is the Architect/QA. You wr
 
 ## 2. Hard rules
 
-- Touch **only** the paths listed in the task's *Scope*.
+- Touch **only** the paths listed in the task's *Scope*. **Exception (always allowed):** append `## Result` / `## Blocked` to your own task file `docs/tasks/<ID>.md`.
 - Do **not** edit: `CONTEXT.md`, `ARCHITECTURE.md`, `ROLES.md`, `ROADMAP.md`, `CONVENTIONS.md`, `AGENTS.md`, `CHANGELOG.md`.
 - Do **not** change existing shapes in `src/types/schemas.ts`. Additive changes only when the task explicitly allows.
 - Import contracts from `@itstudio/schemas`; never redeclare them.
@@ -48,7 +48,9 @@ scripts/dev/run-task.sh <ID>            # creates worktree C:/Users/admin/itstud
 scripts/dev/land-task.sh <ID> "feat(scope): subject [<ID>]"   # commit in worktree, merge --no-ff into main, remove worktree
 ```
 
-**Codex always works in its own git worktree** (not in the main checkout): the Codex Windows sandbox cannot write to the repo's Desktop path, and worktrees isolate parallel tasks. You (Codex) will see a normal repo checkout; `node_modules` may be absent — run `npm --cache .npm-cache install` first.
+**Codex should work in its own git worktree** (`C:/Users/admin/itstudio-wt/<ID>`). If you were started in the main checkout, still touch only your task's Scope — other Codex sessions may be working in the same tree; never run repo-wide formatters or `git` write commands there.
+
+**Worktree note:** (not in the main checkout): the Codex Windows sandbox cannot write to the repo's Desktop path, and worktrees isolate parallel tasks. You (Codex) will see a normal repo checkout; `node_modules` may be absent — run `npm --cache .npm-cache install` first.
 Verified 2026-10-02 with codex-cli 0.159.3 (ChatGPT login): writes in worktree + network (npm registry) work.
 In the sandbox npm uses a repo-local `.npm-cache/` (gitignored). Max 2 Codex runs in parallel, only on tasks with disjoint *Scope* (never two tasks editing the same `package.json` / lockfile).
 From M1 on, the Architect pre-installs each milestone's dependencies in one commit; tasks marked **"deps pre-installed"** must NOT run `npm install <pkg>` or edit any `package.json` / `package-lock.json` — if a needed package is missing, write `## Blocked`.
