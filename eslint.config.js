@@ -124,6 +124,23 @@ export default [
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        { name: 'confirm', message: 'Use ConfirmDialog for user confirmation.' },
+        { name: 'alert', message: 'Use an in-app message for user alerts.' },
+        { name: 'prompt', message: 'Use an in-app form for user input.' },
+      ],
+      'no-restricted-properties': [
+        'error',
+        ...restrictedProperties,
+        ...['confirm', 'alert', 'prompt'].map((property) => ({
+          object: 'window',
+          property,
+          message: 'Use an accessible in-app UI instead of a native browser dialog.',
+        })),
+      ],
+    },
   },
   {
     files: typescriptFiles,

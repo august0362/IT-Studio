@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
 import { RpcClient } from '../../../rpc/rpc-client';
 import { RpcClientProvider } from '../../../rpc/rpc-context';
 import { FakeTransport } from '../../../rpc/transport';
@@ -133,33 +133,31 @@ describe('ApiKeysPage', () => {
     expect(screen.getByText('Check the key and try again.')).toBeVisible();
   });
 
-  it('asks for confirmation before deleting a key', () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
-    const { queryClient } = setup();
+  it('cancels deletion from the accessible dialog', async () => {
+    const { transport } = setup();
     const deleteButtons = screen.getAllByRole('button', { name: 'Delete' });
     const deleteButton = deleteButtons[0];
     if (deleteButton === undefined) throw new Error('Anthropic Delete button was not rendered');
     fireEvent.click(deleteButton);
-    expect(confirm).toHaveBeenCalledWith('Delete the Anthropic API key?');
-    expect(queryClient.getQueryCache().findAll({ queryKey: ['secrets.status', {}] })).toHaveLength(1);
-    confirm.mockRestore();
+    expect(await screen.findByRole('alertdialog', { name: 'Delete API key?' })).toHaveTextContent(
+      'Delete the Anthropic API key?',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(transport.sent.some((line) => line.includes('"method":"secrets.delete"'))).toBe(false);
   });
 
-  it('deletes a key after confirmation', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  it('deletes a key after accessible confirmation', async () => {
     const { transport } = setup();
     expect(await screen.findByRole('status', { name: 'Anthropic key status' })).toHaveTextContent('Not set');
     const deleteButtons = screen.getAllByRole('button', { name: 'Delete' });
     const deleteButton = deleteButtons[0];
     if (deleteButton === undefined) throw new Error('Anthropic Delete button was not rendered');
     fireEvent.click(deleteButton);
-
-    await waitFor(() => {
-      expect(confirm).toHaveBeenCalledWith('Delete the Anthropic API key?');
-    });
+    const dialog = await screen.findByRole('alertdialog', { name: 'Delete API key?' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
     await waitFor(() => {
       expect(transport.sent.some((line) => line.includes('"method":"secrets.delete"'))).toBe(true);
     });
-    confirm.mockRestore();
   });
 });
