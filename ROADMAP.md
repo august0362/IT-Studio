@@ -13,11 +13,11 @@
 | M0 Environment & scaffold | **Done** | 8 / 8 |
 | M1 Sidecar core & IPC | **Done** (QA signed off) | 8 / 8 |
 | M2 LLM router & providers | **Done** (QA signed off) | 11 / 11 |
-| M3 Cost, pricing, FX, budget, P&L | In progress | 4 / 8 |
+| M3 Cost, pricing, FX, budget, P&L | In progress | 5 / 8 |
 | M4 UI shell, Settings, Chat, P&L | In progress | 3 / 8 |
 | M5 RAG | In progress | 4 / 8 |
 | M6 Agent pipeline & Worker | In progress | 5 / 8 |
-| M7 VS Code companion extension | In progress | 2 / 6 |
+| M7 VS Code companion extension | In progress | 3 / 6 |
 | M8 Image generation *(deferred)* | Deferred | 0 / 6 |
 | M9 Packaging & release *(deferred)* | Deferred | 0 / 7 |
 | **v2** M10 Agent Orchestrator | After v1 | 0 / 8 |
@@ -85,7 +85,7 @@
 - [x] **M3-03** (C) Price tables: seed import, versioning, `pricing.get`, `pricing.override` (manual precedence rules).
 - [ ] **M3-04** (C) Pricing updater (**manual only**, D9): `pricing.refresh` fetches sources, HTML→text, extraction via router (prompt ROLES §2.5), validation (bounds, max Δ%), apply/reject, `pricing.updated`; stale-table (> 30 days) reminder flag; set default `pricing.autoUpdate=false` in `domain/default-settings.ts`.
 - [x] **M3-05** (C) `FxService`: daily fetch from `open.er-api.com` (no LLM), manual override, `fx.get`, `fx.override`; MoneyDisplay uses latest rate.
-- [ ] **M3-06** (C) `BudgetGuard` + budgets repo: estimate, levels, once-per-threshold alerts, Hard Stop rejection, `budget.set/status`. Ref: ARCH §6.4.
+- [x] **M3-06** (C) `BudgetGuard` + budgets repo: estimate, levels, once-per-threshold alerts, Hard Stop rejection, `budget.set/status`. Ref: ARCH §6.4.
 - [ ] **M3-07** (C) Revenue entries (`revenue.add`, VND→µUSD at entry), `PnLService`, `pnl.get` breakdowns, **`pnl.getAll` aggregate across projects** (add RPC method + validator, D13).
 - [ ] **M3-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M3-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M3-report.md` sign-off. Scope: Ledger/P&L: cost frozen per price version, budget BVA (thresholds) × Hard Stop decision table, manual price update with validation reject, FX override, revenue in VND, per-project and aggregate P&L numbers vs hand-computed oracle.
 
@@ -135,7 +135,7 @@
 - [x] **M7-01** (C) Extension skeleton: activation on `workspaceContains:.itstudio/session.json`, WS client, `ExtHello`, reconnect, status bar item.
 - [x] **M7-02** (C) Sidecar `VSCodeBridge`: WS server on loopback, token (constant-time), Origin rejection, heartbeat, `vscode.status`. Ref: ARCH §10.1.
 - [ ] **M7-03** (C) Launcher (`code` resolve, `shell:false`) + installer (`--list-extensions`, `--install-extension` bundled vsix) + vsix build script; `.itstudio/` gitignore guard.
-- [ ] **M7-04** (C) `reveal`, `show_diff`, `transaction` decorations, `notify`.
+- [x] **M7-04** (C) `reveal`, `show_diff`, `transaction` decorations, `notify`.
 - [ ] **M7-05** (C) Diagnostics streaming (debounced) + `file_saved_by_user` → stale-run conflict marking.
 - [ ] **M7-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M7-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M7-report.md` sign-off. Scope: VS Code (`@vscode/test-electron`): auto-launch, handshake, reveal/diff on commit, diagnostics forwarded, VS Code closed mid-run does not fail the pipeline, bad token rejected.
 
