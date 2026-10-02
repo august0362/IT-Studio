@@ -500,6 +500,9 @@ export interface RevenueEntry {
   readonly description: string;
 }
 
+export interface LedgerRow { readonly entry: LedgerEntry; readonly cost: MoneyDisplay; }
+export interface RevenueRow { readonly entry: RevenueEntry; readonly amount: MoneyDisplay; }
+
 export const BudgetPeriod = {
   DAILY: 'daily',
   MONTHLY: 'monthly',
@@ -956,14 +959,17 @@ export interface RpcMethodMap {
   'router.resolveFallback': { params: FallbackDecision; result: { readonly accepted: boolean } };
 
   'ledger.query': { params: LedgerQuery; result: Page<LedgerEntry> };
+  'ledger.queryRows': { params: LedgerQuery; result: Page<LedgerRow> };
   'pnl.get': { params: { readonly projectId: ProjectId; readonly from: IsoDateTime; readonly to: IsoDateTime }; result: ProjectPnL };
   'pnl.getAll': { params: { readonly from: IsoDateTime; readonly to: IsoDateTime }; result: PortfolioPnL };
   'revenue.list': { params: { readonly projectId: ProjectId; readonly from: IsoDateTime; readonly to: IsoDateTime }; result: readonly RevenueEntry[] };
+  'revenue.listRows': { params: { readonly projectId: ProjectId; readonly from: IsoDateTime; readonly to: IsoDateTime }; result: readonly RevenueRow[] };
   'revenue.add': {
     params: { readonly projectId: ProjectId; readonly amount: number; readonly currency: 'USD' | 'VND'; readonly description: string };
     result: RevenueEntry;
   };
   'budget.set': { params: Budget; result: BudgetStatus };
+  'budget.setUsd': { params: { readonly projectId: ProjectId; readonly period: BudgetPeriod; readonly limitUsd: string; readonly warnAt: readonly number[] }; result: BudgetStatus };
   'budget.status': { params: { readonly projectId: ProjectId }; result: readonly BudgetStatus[] };
 
   'pricing.get': { params: Empty; result: PriceTable };

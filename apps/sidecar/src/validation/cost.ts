@@ -6,6 +6,7 @@ import type {
   CostPurpose,
   FxRate,
   LedgerEntry,
+  LedgerRow,
   LedgerQuery,
   MoneyDisplay,
   Page,
@@ -16,6 +17,7 @@ import type {
   PortfolioPnL,
   ProjectPnL,
   RevenueEntry,
+  RevenueRow,
 } from '@itstudio/schemas';
 import {
   conversationIdSchema,
@@ -149,6 +151,12 @@ export const revenueEntrySchema = z
     description: z.string(),
   })
   .readonly() satisfies z.ZodType<RevenueEntry>;
+export const ledgerRowSchema = z
+  .object({ entry: ledgerEntrySchema, cost: moneyDisplaySchema })
+  .readonly() satisfies z.ZodType<LedgerRow>;
+export const revenueRowSchema = z
+  .object({ entry: revenueEntrySchema, amount: moneyDisplaySchema })
+  .readonly() satisfies z.ZodType<RevenueRow>;
 export const budgetPeriodSchema = z.enum(['daily', 'monthly', 'project_lifetime']) satisfies z.ZodType<BudgetPeriod>;
 export const budgetSchema = z
   .object({

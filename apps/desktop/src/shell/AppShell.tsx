@@ -1,4 +1,4 @@
-import type { AppError } from '@itstudio/schemas';
+import type { AppError, ProjectId } from '@itstudio/schemas';
 import { useQueryClient } from '@tanstack/react-query';
 import { lazy, Suspense, useEffect, useMemo, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -19,6 +19,8 @@ import { PricingSettingsPage } from '../features/settings/pricing/PricingSetting
 import { FxSettingsPage } from '../features/settings/fx/FxSettingsPage';
 import { VSCodeSettingsPage } from '../features/settings/vscode/VSCodeSettingsPage';
 import { PipelineSettingsPage } from '../features/settings/pipeline/PipelineSettingsPage';
+import { KnowledgePage } from '../features/knowledge/KnowledgePage';
+import { CostPage } from '../features/cost/CostPage';
 
 const CodePage = lazy(() => import('../features/code/CodePage').then(({ CodePage: page }) => ({ default: page })));
 
@@ -142,7 +144,18 @@ export function AppShell(): JSX.Element {
   let content: JSX.Element;
   if (route === 'chat')
     content = <ChatPage projectId={projects.find((project) => project.id === activeId)?.id ?? null} />;
-  else if (route === 'code')
+  else if (route === 'knowledge')
+    content = (
+      <KnowledgePage
+        project={projects.find((project) => project.id === activeId)}
+        projectId={projects.find((project) => project.id === activeId)?.id ?? null}
+      />
+    );
+  else if (route === 'cost') {
+    const selectedProjectId: ProjectId | null =
+      activeId === null ? null : (projects.find((project) => project.id === activeId)?.id ?? null);
+    content = <CostPage projectId={selectedProjectId} />;
+  } else if (route === 'code')
     content = (
       <Suspense fallback={<p role="status">{t('code.loading')}</p>}>
         <CodePage projectId={projects.find((project) => project.id === activeId)?.id ?? null} />
@@ -155,13 +168,7 @@ export function AppShell(): JSX.Element {
   else if (route === 'settings-pricing') content = <PricingSettingsPage projectActive={activeId !== null} />;
   else if (route === 'settings-fx') content = <FxSettingsPage />;
   else if (route === 'settings-vscode') content = <VSCodeSettingsPage />;
-  else if (route === 'settings-pipeline') content = <PipelineSettingsPage />;
-  else
-    content = (
-      <section aria-label={route} className="rounded border border-border bg-surface p-6">
-        <p className="text-text-muted">{t('nav.empty')}</p>
-      </section>
-    );
+  else content = <PipelineSettingsPage />;
 
   return (
     <div className="flex min-h-screen flex-col bg-bg text-text">

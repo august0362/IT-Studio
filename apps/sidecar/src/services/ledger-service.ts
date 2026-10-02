@@ -3,6 +3,7 @@ import {
   type AppError,
   type LedgerEntry,
   type LedgerQuery,
+  type LedgerRow,
   type LlmRequest,
   type MoneyDisplay,
   type Page,
@@ -87,6 +88,19 @@ export class LedgerService {
     return {
       ok: true,
       value: await this.deps.repository.query(query, cursor ?? undefined, query.limit),
+    };
+  }
+
+  async queryRows(query: LedgerQuery): Promise<Result<Page<LedgerRow>>> {
+    const page = await this.query(query);
+    if (!page.ok) return page;
+    const fx = this.deps.prices.getFxRate();
+    return {
+      ok: true,
+      value: {
+        ...page.value,
+        items: page.value.items.map((entry) => ({ entry, cost: toMoneyDisplay(entry.costMicroUsd, fx) })),
+      },
     };
   }
 

@@ -6,6 +6,7 @@ import { ErrorPanel } from '../../components/ErrorPanel';
 import { Money } from '../../components/Money';
 import { SafeMarkdown } from '../../components/SafeMarkdown';
 import type { ChatBubble, FallbackInfo } from './chat-store';
+import { useState } from 'react';
 
 function messageText(message: ChatMessage): string {
   return message.parts
@@ -28,6 +29,7 @@ export function MessageList({
   const { t } = useTranslation();
   const listRef = useRef<HTMLOListElement>(null);
   const atBottomRef = useRef(true);
+  const [openCitation, setOpenCitation] = useState<string | null>(null);
   useEffect(() => {
     const list = listRef.current;
     if (list !== null && atBottomRef.current) list.scrollTop = list.scrollHeight;
@@ -74,6 +76,39 @@ export function MessageList({
             ) : (
               <p className="whitespace-pre-wrap">{text}</p>
             )}
+            {message.role === 'assistant'
+              ? message.parts
+                  .filter((part) => part.type === 'citation')
+                  .map((part, citationIndex) => (
+                    <span
+                      className="relative mr-2 inline-block"
+                      key={`${part.hit.chunkId}-${citationIndex.toString()}`}
+                    >
+                      <button
+                        aria-expanded={openCitation === part.hit.chunkId}
+                        aria-label={t('chat.citation', { number: citationIndex + 1 })}
+                        className="mt-2 rounded-full border border-border px-2 py-1 text-xs"
+                        onClick={() => {
+                          setOpenCitation(openCitation === part.hit.chunkId ? null : part.hit.chunkId);
+                        }}
+                        type="button"
+                      >
+                        [{citationIndex + 1}]
+                      </button>
+                      {openCitation === part.hit.chunkId ? (
+                        <span
+                          className="absolute left-0 top-full z-10 mt-1 block w-72 rounded border border-border bg-surface p-3 text-sm shadow-lg"
+                          role="dialog"
+                        >
+                          <strong>
+                            {part.hit.documentTitle} › {part.hit.sectionPath.join(' › ')}
+                          </strong>
+                          <span className="mt-2 block whitespace-pre-wrap">{part.hit.text}</span>
+                        </span>
+                      ) : null}
+                    </span>
+                  ))
+              : null}
             {message.role === 'assistant' && name !== null ? (
               <p className="mt-2 text-xs text-text-muted">{t('chat.modelName', { name })}</p>
             ) : null}

@@ -1,5 +1,7 @@
 {
-  "app": { "name": "IT Studio" },
+  "app": {
+    "name": "IT Studio"
+  },
   "nav": {
     "main": "Main navigation",
     "chat": "Chat",
@@ -57,7 +59,9 @@
       "content_filtered": "content filtered",
       "capability_mismatch": "capability mismatch",
       "circuit_open": "circuit open"
-    }
+    },
+    "useKnowledge": "Use knowledge",
+    "citation": "Citation {{number}}"
   },
   "code": {
     "heading": "Build with agents",
@@ -82,14 +86,24 @@
       "failed": "Failed",
       "cancelled": "Cancelled"
     },
-    "states": { "current": "current", "done": "done", "failed": "failed", "skipped": "skipped" },
+    "states": {
+      "current": "current",
+      "done": "done",
+      "failed": "failed",
+      "skipped": "skipped"
+    },
     "criteria": "Acceptance criteria",
     "paths": "Allowed paths",
     "constraints": "Constraints",
     "tests": "Test plan",
     "approved": "Approved",
     "changesRequested": "Changes requested",
-    "severity": { "blocker": "Blocker", "major": "Major", "minor": "Minor", "nit": "Nit" },
+    "severity": {
+      "blocker": "Blocker",
+      "major": "Major",
+      "minor": "Minor",
+      "nit": "Nit"
+    },
     "diff": "Read-only diff for {{path}}",
     "command": "Command {{id}}",
     "stdout": "Standard output",
@@ -176,7 +190,10 @@
     },
     "fx": {
       "current": "Current rate: {{rate}} VND per USD",
-      "source": { "auto": "Automatic rate", "manual_override": "Manual override" },
+      "source": {
+        "auto": "Automatic rate",
+        "manual_override": "Manual override"
+      },
       "override": "VND per USD",
       "clear": "Clear override"
     },
@@ -187,7 +204,11 @@
       "reveal": "Reveal changed files"
     },
     "pipeline": {
-      "roles": { "pm": "PM model order", "coder": "Coder model order", "reviewer": "Reviewer model order" },
+      "roles": {
+        "pm": "PM model order",
+        "coder": "Coder model order",
+        "reviewer": "Reviewer model order"
+      },
       "moveUp": "Move model up",
       "moveDown": "Move model down",
       "validationCommands": "Validation commands",
@@ -244,5 +265,146 @@
     "filterWarm": "Warm",
     "filterCreative": "Creative",
     "filterDark": "Dark-native"
+  },
+  "knowledge": {
+    "heading": "Knowledge",
+    "pickProject": "Choose a project tab to manage its knowledge base.",
+    "addHeading": "Add sources",
+    "paths": "Workspace-relative file or folder paths (one per line)",
+    "pathsHint": "docs/guide.md\nsrc/",
+    "tags": "Optional tags (comma separated)",
+    "add": "Add sources",
+    "addError": "Sources could not be added.",
+    "addRemediation": "Check that every path is inside the project workspace and try again.",
+    "progress": "Ingestion progress",
+    "progressLabel": "Ingestion progress",
+    "progressCount": "{{processed}} of {{total}} files processed",
+    "ingestFailed": "Ingestion failed.",
+    "skipped": "Unchanged files skipped: {{count}}",
+    "status": {
+      "queued": "Queued",
+      "parsing": "Parsing",
+      "chunking": "Chunking",
+      "embedding": "Embedding",
+      "indexed": "Indexed",
+      "failed": "Failed",
+      "skipped_unchanged": "Unchanged"
+    },
+    "documents": "Indexed documents",
+    "noDocuments": "No indexed documents yet.",
+    "column": {
+      "title": "Title",
+      "format": "Format",
+      "chunks": "Chunks",
+      "model": "Embedding model",
+      "date": "Ingested",
+      "tags": "Tags",
+      "actions": "Actions"
+    },
+    "reindex": "Re-index",
+    "delete": "Delete",
+    "deleteTitle": "Delete document?",
+    "deletePrompt": "Delete {{title}} from this project's knowledge base?",
+    "cancel": "Cancel",
+    "deleteError": "The document could not be deleted.",
+    "reindexError": "The document could not be re-indexed.",
+    "retry": "Check the project and try again.",
+    "testQuery": "Test a query",
+    "query": "Query",
+    "queryError": "The query could not be completed.",
+    "topK": "Top results",
+    "minScore": "Minimum score",
+    "search": "Search knowledge",
+    "reindexRequired": "Re-index required: the embedding model has changed.",
+    "reindexAll": "Re-index all documents"
+  },
+  "cost": {
+    "heading": "Cost & P&L",
+    "project": "Project",
+    "loading": "Loading cost data…",
+    "empty": "No cost activity in this range.",
+    "revenue": "Revenue",
+    "cost": "Cost",
+    "margin": "Margin",
+    "marginPercent": "Margin %",
+    "dateRange": "Date range",
+    "from": "From",
+    "to": "To",
+    "ranges": {
+      "today": "Today",
+      "last7Days": "Last 7 days",
+      "thisMonth": "This month",
+      "lastMonth": "Last month",
+      "allTime": "All time",
+      "custom": "Custom"
+    },
+    "byModel": "Cost by model",
+    "byPurpose": "Cost by purpose",
+    "byDay": "Cost by day",
+    "noChartData": "No data to chart.",
+    "budgets": "Budgets",
+    "budgetUsage": "budget used",
+    "hardStop": "Hard Stop active",
+    "periodLabel": "Period",
+    "budgetLimitUsd": "Limit (USD)",
+    "saveBudget": "Save budget",
+    "invalidBudget": "Enter a valid positive USD limit.",
+    "budgetContractUnavailable": "Budget update is unavailable because the budget contract does not provide a safe micro-USD constructor.",
+    "level": {
+      "ok": "OK",
+      "warning": "Warning",
+      "exceeded": "Exceeded"
+    },
+    "period": {
+      "daily": "Daily",
+      "monthly": "Monthly",
+      "project_lifetime": "Project lifetime"
+    },
+    "revenueEntries": "Revenue entries",
+    "amount": "Amount",
+    "currency": "Currency",
+    "description": "Description",
+    "addRevenue": "Add revenue",
+    "invalidRevenue": "Enter a positive amount and description.",
+    "revenueError": "Revenue could not be saved.",
+    "ledger": "Ledger",
+    "loadMore": "Load more",
+    "ledgerError": "Ledger could not be loaded.",
+    "yes": "Yes",
+    "no": "No",
+    "ledgerColumns": {
+      "time": "Time",
+      "model": "Model",
+      "purpose": "Purpose",
+      "input": "Tokens in",
+      "output": "Tokens out",
+      "cost": "Cost",
+      "billed": "Billed failure"
+    },
+    "purpose": {
+      "chat": "Chat",
+      "pipeline_pm": "Pipeline PM",
+      "pipeline_coder": "Pipeline coder",
+      "pipeline_reviewer": "Pipeline reviewer",
+      "embedding": "Embedding",
+      "image": "Image",
+      "pricing_extraction": "Pricing extraction"
+    },
+    "filterModel": "Model",
+    "filterPurpose": "Purpose",
+    "all": "All",
+    "projectResults": "Projects",
+    "portfolioColumns": {
+      "project": "Project",
+      "revenue": "Revenue",
+      "cost": "Cost",
+      "margin": "Margin",
+      "marginPercent": "Margin %"
+    },
+    "topProjects": "Top spend by project",
+    "topModels": "Top spend by model",
+    "kpis": "Profit and loss summary",
+    "budgetError": "Budget could not be saved.",
+    "applyFilters": "Apply filters"
   }
 }

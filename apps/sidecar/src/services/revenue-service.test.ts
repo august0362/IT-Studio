@@ -26,11 +26,11 @@ function harness() {
     },
     list: () => Promise.resolve(stored),
   };
-  const rates = { current: 25_000 };
+  const rates = { current: { usdToVnd: 25_000, asOf: now, source: 'auto' as const } };
   const service = new RevenueService({
     repository,
     projects: projectRepository,
-    fx: { getEffective: () => ({ usdToVnd: rates.current }) },
+    fx: { getEffective: () => rates.current },
     ids: { uuid: () => 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' },
     clock: createFakeClock(new Date(now)),
   });
@@ -47,7 +47,7 @@ describe('RevenueService', () => {
     });
     const vnd = await service.add({ projectId, amount: 1, currency: 'VND', description: '' });
     expect(vnd).toMatchObject({ ok: true, value: { amountMicroUsd: 40 } });
-    rates.current = 20_000;
+    rates.current = { ...rates.current, usdToVnd: 20_000 };
     const overridden = await service.add({ projectId, amount: 1, currency: 'VND', description: 'override' });
     expect(overridden).toMatchObject({ ok: true, value: { amountMicroUsd: 50 } });
     expect(stored).toHaveLength(3);
@@ -66,5 +66,15 @@ describe('RevenueService', () => {
       description: '',
     });
     expect(missing).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
+  });
+
+  it('returns revenue rows with a display derived from the current FX rate', async () => {
+    const { service } = harness();
+    await service.add({ projectId, amount: 2, currency: 'USD', description: 'Invoice' });
+    const result = await service.listRows(projectId, '2020-01-01T00:00:00.000Z', '2030-01-01T00:00:00.000Z');
+    expect(result).toMatchObject({
+      ok: true,
+      value: [{ entry: { amountMicroUsd: 2_000_000 }, amount: { microUsd: 2_000_000, usdText: '$2.00' } }],
+    });
   });
 });

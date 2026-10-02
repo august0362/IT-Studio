@@ -1,15 +1,23 @@
-import { ErrorCode, type AppError, type ProjectId, type Result, type RevenueEntry } from '@itstudio/schemas';
+import {
+  ErrorCode,
+  type AppError,
+  type FxRate,
+  type ProjectId,
+  type Result,
+  type RevenueEntry,
+  type RevenueRow,
+} from '@itstudio/schemas';
 import type { IClock } from '../infra/clock.js';
 import type { IIdGenerator } from '../infra/id.js';
 import type { IProjectRepository } from '../ports/project-repository.js';
 import type { IRevenueRepository } from '../ports/revenue-repository.js';
-import { microUsd } from '../domain/money.js';
+import { microUsd, toMoneyDisplay } from '../domain/money.js';
 import { isoDateTimeSchema, projectIdSchema, revenueEntryIdSchema } from '../validation/brand.js';
 
 export interface RevenueServiceDependencies {
   readonly repository: IRevenueRepository;
   readonly projects: IProjectRepository;
-  readonly fx: { getEffective(): { readonly usdToVnd: number } };
+  readonly fx: { getEffective(): FxRate };
   readonly ids: IIdGenerator;
   readonly clock: IClock;
 }
@@ -59,6 +67,16 @@ export class RevenueService {
     if ((await this.deps.projects.get(projectId)) === null)
       return failure(ErrorCode.NOT_FOUND, 'Project was not found.');
     return { ok: true, value: await this.deps.repository.list({ projectId, from, to }) };
+  }
+
+  async listRows(projectId: ProjectId, from: string, to: string): Promise<Result<readonly RevenueRow[]>> {
+    const entries = await this.list(projectId, from, to);
+    if (!entries.ok) return entries;
+    const fx = this.deps.fx.getEffective();
+    return {
+      ok: true,
+      value: entries.value.map((entry) => ({ entry, amount: toMoneyDisplay(entry.amountMicroUsd, fx) })),
+    };
   }
 }
 

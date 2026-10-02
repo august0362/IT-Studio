@@ -1,5 +1,7 @@
 {
-  "app": { "name": "IT Studio" },
+  "app": {
+    "name": "IT Studio"
+  },
   "nav": {
     "main": "Điều hướng chính",
     "chat": "Trò chuyện",
@@ -57,7 +59,9 @@
       "content_filtered": "nội dung bị lọc",
       "capability_mismatch": "không tương thích chức năng",
       "circuit_open": "mạch ngắt kết nối đang mở"
-    }
+    },
+    "useKnowledge": "Sử dụng kiến thức",
+    "citation": "Trích dẫn {{number}}"
   },
   "code": {
     "heading": "Xây dựng cùng tác nhân",
@@ -82,14 +86,24 @@
       "failed": "Thất bại",
       "cancelled": "Đã hủy"
     },
-    "states": { "current": "hiện tại", "done": "xong", "failed": "thất bại", "skipped": "bỏ qua" },
+    "states": {
+      "current": "hiện tại",
+      "done": "xong",
+      "failed": "thất bại",
+      "skipped": "bỏ qua"
+    },
     "criteria": "Tiêu chí chấp nhận",
     "paths": "Đường dẫn được phép",
     "constraints": "Ràng buộc",
     "tests": "Kế hoạch kiểm thử",
     "approved": "Đã duyệt",
     "changesRequested": "Yêu cầu chỉnh sửa",
-    "severity": { "blocker": "Chặn", "major": "Nghiêm trọng", "minor": "Nhẹ", "nit": "Góp ý" },
+    "severity": {
+      "blocker": "Chặn",
+      "major": "Nghiêm trọng",
+      "minor": "Nhẹ",
+      "nit": "Góp ý"
+    },
     "diff": "So sánh chỉ đọc cho {{path}}",
     "command": "Lệnh {{id}}",
     "stdout": "Đầu ra",
@@ -176,7 +190,10 @@
     },
     "fx": {
       "current": "Tỷ giá hiện tại: {{rate}} VND mỗi USD",
-      "source": { "auto": "Tỷ giá tự động", "manual_override": "Ghi đè thủ công" },
+      "source": {
+        "auto": "Tỷ giá tự động",
+        "manual_override": "Ghi đè thủ công"
+      },
       "override": "VND mỗi USD",
       "clear": "Xóa ghi đè"
     },
@@ -248,5 +265,146 @@
     "filterWarm": "Ấm áp",
     "filterCreative": "Sáng tạo",
     "filterDark": "Tối"
+  },
+  "knowledge": {
+    "heading": "Kiến thức",
+    "pickProject": "Chọn một dự án để quản lý kho kiến thức.",
+    "addHeading": "Thêm nguồn",
+    "paths": "Đường dẫn tệp hoặc thư mục tương đối trong workspace (mỗi dòng một đường dẫn)",
+    "pathsHint": "docs/guide.md\nsrc/",
+    "tags": "Thẻ tùy chọn (phân cách bằng dấu phẩy)",
+    "add": "Thêm nguồn",
+    "addError": "Không thể thêm nguồn.",
+    "addRemediation": "Kiểm tra các đường dẫn nằm trong workspace của dự án rồi thử lại.",
+    "progress": "Tiến độ nhập dữ liệu",
+    "progressLabel": "Tiến độ nhập dữ liệu",
+    "progressCount": "Đã xử lý {{processed}} trên {{total}} tệp",
+    "ingestFailed": "Nhập dữ liệu thất bại.",
+    "skipped": "Tệp không đổi được bỏ qua: {{count}}",
+    "status": {
+      "queued": "Đang chờ",
+      "parsing": "Đang phân tích",
+      "chunking": "Đang chia đoạn",
+      "embedding": "Đang tạo embedding",
+      "indexed": "Đã lập chỉ mục",
+      "failed": "Thất bại",
+      "skipped_unchanged": "Không thay đổi"
+    },
+    "documents": "Tài liệu đã lập chỉ mục",
+    "noDocuments": "Chưa có tài liệu nào.",
+    "column": {
+      "title": "Tiêu đề",
+      "format": "Định dạng",
+      "chunks": "Số đoạn",
+      "model": "Mô hình embedding",
+      "date": "Ngày nhập",
+      "tags": "Thẻ",
+      "actions": "Thao tác"
+    },
+    "reindex": "Lập chỉ mục lại",
+    "delete": "Xóa",
+    "deleteTitle": "Xóa tài liệu?",
+    "deletePrompt": "Xóa {{title}} khỏi kho kiến thức của dự án?",
+    "cancel": "Hủy",
+    "deleteError": "Không thể xóa tài liệu.",
+    "reindexError": "Không thể lập chỉ mục lại tài liệu.",
+    "retry": "Kiểm tra dự án rồi thử lại.",
+    "testQuery": "Thử truy vấn",
+    "query": "Truy vấn",
+    "queryError": "Không thể thực hiện truy vấn.",
+    "topK": "Số kết quả tối đa",
+    "minScore": "Điểm tối thiểu",
+    "search": "Tìm trong kiến thức",
+    "reindexRequired": "Cần lập chỉ mục lại: mô hình embedding đã thay đổi.",
+    "reindexAll": "Lập chỉ mục lại tất cả tài liệu"
+  },
+  "cost": {
+    "heading": "Chi phí & Lãi lỗ",
+    "project": "Dự án",
+    "loading": "Đang tải dữ liệu chi phí…",
+    "empty": "Không có hoạt động chi phí trong khoảng thời gian này.",
+    "revenue": "Doanh thu",
+    "cost": "Chi phí",
+    "margin": "Lãi lỗ",
+    "marginPercent": "% lãi lỗ",
+    "dateRange": "Khoảng thời gian",
+    "from": "Từ",
+    "to": "Đến",
+    "ranges": {
+      "today": "Hôm nay",
+      "last7Days": "7 ngày qua",
+      "thisMonth": "Tháng này",
+      "lastMonth": "Tháng trước",
+      "allTime": "Toàn bộ",
+      "custom": "Tùy chỉnh"
+    },
+    "byModel": "Chi phí theo mô hình",
+    "byPurpose": "Chi phí theo mục đích",
+    "byDay": "Chi phí theo ngày",
+    "noChartData": "Không có dữ liệu biểu đồ.",
+    "budgets": "Ngân sách",
+    "budgetUsage": "đã sử dụng",
+    "hardStop": "Đang bật chặn cứng",
+    "periodLabel": "Chu kỳ",
+    "budgetLimitUsd": "Hạn mức (USD)",
+    "saveBudget": "Lưu ngân sách",
+    "invalidBudget": "Nhập hạn mức USD hợp lệ lớn hơn 0.",
+    "budgetContractUnavailable": "Không thể cập nhật ngân sách vì hợp đồng chưa có hàm tạo micro-USD an toàn.",
+    "level": {
+      "ok": "Ổn",
+      "warning": "Cảnh báo",
+      "exceeded": "Vượt mức"
+    },
+    "period": {
+      "daily": "Hằng ngày",
+      "monthly": "Hằng tháng",
+      "project_lifetime": "Toàn dự án"
+    },
+    "revenueEntries": "Khoản doanh thu",
+    "amount": "Số tiền",
+    "currency": "Tiền tệ",
+    "description": "Mô tả",
+    "addRevenue": "Thêm doanh thu",
+    "invalidRevenue": "Nhập số tiền lớn hơn 0 và mô tả.",
+    "revenueError": "Không thể lưu doanh thu.",
+    "ledger": "Sổ chi phí",
+    "loadMore": "Tải thêm",
+    "ledgerError": "Không thể tải sổ chi phí.",
+    "yes": "Có",
+    "no": "Không",
+    "ledgerColumns": {
+      "time": "Thời gian",
+      "model": "Mô hình",
+      "purpose": "Mục đích",
+      "input": "Token vào",
+      "output": "Token ra",
+      "cost": "Chi phí",
+      "billed": "Lỗi vẫn tính phí"
+    },
+    "purpose": {
+      "chat": "Trò chuyện",
+      "pipeline_pm": "PM quy trình",
+      "pipeline_coder": "Lập trình",
+      "pipeline_reviewer": "Đánh giá",
+      "embedding": "Embedding",
+      "image": "Hình ảnh",
+      "pricing_extraction": "Trích xuất giá"
+    },
+    "filterModel": "Mô hình",
+    "filterPurpose": "Mục đích",
+    "all": "Tất cả",
+    "projectResults": "Dự án",
+    "portfolioColumns": {
+      "project": "Dự án",
+      "revenue": "Doanh thu",
+      "cost": "Chi phí",
+      "margin": "Lãi lỗ",
+      "marginPercent": "% lãi lỗ"
+    },
+    "topProjects": "Chi phí cao nhất theo dự án",
+    "topModels": "Chi phí cao nhất theo mô hình",
+    "kpis": "Tóm tắt lợi nhuận và chi phí",
+    "budgetError": "Không thể lưu ngân sách.",
+    "applyFilters": "Áp dụng bộ lọc"
   }
 }
