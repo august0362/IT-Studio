@@ -10,6 +10,18 @@
   "activationEvents": [
     "workspaceContains:.itstudio/session.json"
   ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "itstudio.reconnect",
+        "title": "IT Studio: Reconnect"
+      },
+      {
+        "command": "itstudio.showLog",
+        "title": "IT Studio: Show Log"
+      }
+    ]
+  },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build": "node build.mjs"
