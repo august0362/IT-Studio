@@ -101,3 +101,6 @@ Append `## Result` per AGENTS.md §3 including a table: case ID → test file �
 |---|---|---|
 | TC-M4-R1-004 | `apps/desktop/src/features/round1-coverage.test.tsx` | Pass; asserts explicit en-US and vi-VN FX number renderings |
 | TC-M4-R2-001 | `apps/desktop/src/i18n/format.test.tsx` | Pass; formatter coverage and static OS-locale regression check |
+
+## QA (Claude) — final
+- Verdict: **PASS (L4 pending)**. Round 1 raised desktop coverage 70.1 % → 85.6 % lines (70.4 % branches; tests sit in one `round1-coverage.test.tsx` — split per feature later). Round 2 fixed BUG-M4-001 (S3: numbers/dates followed the OS locale instead of the app locale; 6 places) with `i18n/format.ts` + a static guard. After merging main: typecheck ✔, lint ✔, unit 757/757 ×2, `vite:build` ✔, integration 98/98 (before round 2, desktop-only change since). L4 cases run in the batched E2E session.
