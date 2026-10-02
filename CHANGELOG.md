@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add Settings: router ladder (drag & keyboard), Auto Fallback, lock model, Hard Stop, pricing table with refresh and USD override, FX override, VS Code, pipeline roles ([M4-03](docs/tasks/M4-03.md))
 - Add Knowledge tab, chat "Use knowledge" toggle and citation chips ([M5-07](docs/tasks/M5-07.md))
 - Add Cost & P&L tab and All-projects dashboard; sidecar money display rows and decimal-USD budget input ([M4-05](docs/tasks/M4-05.md))
 - Add Code tab: run the pipeline and watch stages, diffs, review, validation output and failure report ([M6-07](docs/tasks/M6-07.md))
