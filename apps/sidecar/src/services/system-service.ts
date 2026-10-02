@@ -3,10 +3,12 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { IClock } from '../infra/clock.js';
 import type { RpcServer } from '../rpc/rpc-server.js';
+import type { Logger } from 'pino';
 
 export interface SystemServiceOptions {
   readonly clock: IClock;
   readonly startedAt: number;
+  readonly logger: Logger;
   readonly exit?: (code: number) => void;
   readonly shutdownHooks?: readonly (() => void | Promise<void>)[];
 }
@@ -30,6 +32,7 @@ export class SystemService {
       }),
     );
     server.register('system.shutdown', (): Promise<Result<RpcMethodMap['system.shutdown']['result']>> => {
+      this.options.logger.info({ svc: 'sidecar' }, 'shutdown requested');
       setTimeout(() => {
         void this.shutdown();
       }, 0).unref();
@@ -60,6 +63,7 @@ export class SystemService {
       for (const hook of this.options.shutdownHooks ?? []) await hook();
     } finally {
       clearTimeout(timeout);
+      this.options.logger.info({ svc: 'sidecar', code: 0 }, 'sidecar exiting');
       exit(0);
     }
   }

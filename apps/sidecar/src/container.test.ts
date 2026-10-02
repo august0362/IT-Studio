@@ -1,6 +1,6 @@
 import { PassThrough } from 'node:stream';
 import { Writable } from 'node:stream';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -24,6 +24,89 @@ function parseLine(line: string): Record<string, unknown> {
 const tempDirectories: string[] = [];
 
 describe('sidecar container', () => {
+  it('logs lifecycle events in order and creates the daily log file', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'itstudio-lifecycle-'));
+    tempDirectories.push(dataDir);
+    const input = new PassThrough();
+    const output = new PassThrough();
+    const stdoutLines: string[] = [];
+    let pendingOutput = '';
+    output.on('data', (chunk: Buffer) => {
+      pendingOutput += chunk.toString('utf8');
+      const chunks = pendingOutput.split('\n');
+      pendingOutput = chunks.pop() ?? '';
+      stdoutLines.push(...chunks.filter(Boolean));
+    });
+    let logOutput = '';
+    const exits: number[] = [];
+    const container = createContainer(
+      {},
+      {
+        input,
+        output,
+        dataDir,
+        exit: (code) => exits.push(code),
+        secretStore: new MemorySecretStore(),
+        logger: createLogger({
+          dataDir,
+          streams: [
+            new Writable({
+              write(chunk: Buffer, _encoding, callback) {
+                logOutput += chunk.toString('utf8');
+                callback();
+              },
+            }),
+          ],
+        }),
+      },
+    );
+
+    container.start();
+    input.write('{"jsonrpc":"2.0","id":1,"method":"system.shutdown","params":{}}\n');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    const entries = logOutput
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as { readonly msg: string; readonly svc?: string });
+    const lifecycle = entries.map((entry) => entry.msg);
+    expect(lifecycle).toEqual([
+      'sidecar starting',
+      'migrations applied',
+      'seeds loaded',
+      'sidecar ready',
+      'shutdown requested',
+      'sidecar exiting',
+    ]);
+    expect(entries.every((entry) => entry.svc === 'sidecar')).toBe(true);
+    expect(stdoutLines.map(parseLine).some((line) => line.msg !== undefined)).toBe(false);
+    expect(exits).toEqual([0]);
+    container.database.client.close();
+
+    const fileDataDir = mkdtempSync(join(tmpdir(), 'itstudio-lifecycle-file-'));
+    tempDirectories.push(fileDataDir);
+    const fileInput = new PassThrough();
+    const fileContainer = createContainer(
+      {},
+      {
+        input: fileInput,
+        output: new PassThrough(),
+        dataDir: fileDataDir,
+        exit: () => undefined,
+        secretStore: new MemorySecretStore(),
+        logger: createLogger({ dataDir: fileDataDir }),
+      },
+    );
+    fileContainer.start();
+    fileInput.write('{"jsonrpc":"2.0","id":2,"method":"system.shutdown","params":{}}\n');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const logFiles = readdirSync(join(fileDataDir, 'logs'));
+    expect(logFiles).toHaveLength(1);
+    const fileContents = readFileSync(join(fileDataDir, 'logs', logFiles[0] ?? ''), 'utf8');
+    for (const message of lifecycle) expect(fileContents).toContain(`"msg":"${message}"`);
+    fileContainer.database.client.close();
+  });
+
   it('publishes ready first, then answers system.ping over injected streams', async () => {
     const input = new PassThrough();
     const output = new PassThrough();
