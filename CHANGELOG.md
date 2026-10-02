@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add LanceDB vector store behind IVectorStore with contract suite ([M5-04](docs/tasks/M5-04.md))
 - Add append-only cost ledger and ledger.query RPC ([M3-02](docs/tasks/M3-02.md))
 - Add safe CommandRunner and tsc/eslint/vitest output parsers ([M6-03](docs/tasks/M6-03.md))
 - Add RAG document parsers ([M5-01](docs/tasks/M5-01.md))

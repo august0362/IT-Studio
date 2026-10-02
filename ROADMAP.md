@@ -15,7 +15,7 @@
 | M2 LLM router & providers | In progress | 10 / 11 |
 | M3 Cost, pricing, FX, budget, P&L | In progress | 2 / 8 |
 | M4 UI shell, Settings, Chat, P&L | Not started | 1 / 8 |
-| M5 RAG | In progress | 2 / 8 |
+| M5 RAG | In progress | 3 / 8 |
 | M6 Agent pipeline & Worker | In progress | 2 / 8 |
 | M7 VS Code companion extension | In progress | 1 / 6 |
 | M8 Image generation *(deferred)* | Deferred | 0 / 6 |
@@ -109,7 +109,7 @@
 - [x] **M5-01** (C) Parsers: md, txt, code, pdf (pdfjs-dist), docx (mammoth), html; size/ext guards.
 - [x] **M5-02** (C) Chunker (`domain/chunker.ts`): heading-aware + code-window, token target/overlap, `sectionPath`; property tests.
 - [ ] **M5-03** (C) `IEmbeddingProvider` (OpenAI, Google) + dispatcher with same-dimension fallback + ledger metering.
-- [ ] **M5-04** (C) LanceDB `IVectorStore` repo (per-project table, upsert, delete by doc, cosine search with filters).
+- [x] **M5-04** (C) LanceDB `IVectorStore` repo (per-project table, upsert, delete by doc, cosine search with filters).
 - [ ] **M5-05** (C) `RagService` ingest jobs: discovery, hash skip, progress events, per-file failure isolation, `rag.*` RPC.
 - [ ] **M5-06** (C) Retrieval: minScore filter, MMR, context injection, citation parts, `search_knowledge` tool; chat `ragEnabled` toggle.
 - [ ] **M5-07** (C) Knowledge tab: add files/folder, document list (format, chunks, model, date), re-index, delete, test-query panel.
