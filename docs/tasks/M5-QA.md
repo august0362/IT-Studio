@@ -71,3 +71,12 @@ Append `## Result` per AGENTS.md §3 including a table: case ID → test file �
 - Branch coverage: `chunker.ts` 90.81%; `parse-document.ts` 92.95%; `rag-service.ts` 90.76%; `vector-store.ts` 80.48%.
 - `npm --cache .npm-cache run test:integration`: blocked because child sidecar startup failed in Node `os.userInfo()` with `uv_os_get_passwd returned ENOMEM`.
 - E2E suite: not run, as requested.
+
+## QA (Claude) — round 1
+- QA test-design fixes applied in `rag-retrieval.test.ts` (TC-M5-010 waited for indexing; TC-M5-011/016 needed `minScore 0` for fake embeddings and a second chat key). Retrieval file 8/8.
+- **Defect BUG-M5-001 (S2) exposed by TC-M5-001:** when the first file indexed into a project's LanceDB table is a code file (empty `sectionPath`), LanceDB fails table creation: `Failed to infer data type for field sectionPath at row 0. Consider providing an explicit schema.` The file is logged as failed while the job ends `indexed` — code-first projects silently lose their code files.
+- **Fix round 1 required:**
+  1. `apps/sidecar/src/infra/lancedb/vector-store.ts`: create tables with an explicit Apache Arrow schema (all `VectorChunkRow` fields; `vector` as fixed-size list of float32 with the row dimension; `sectionPath` as list<utf8>), so empty lists and first-row nulls never break inference. Use the `apache-arrow` version already bundled with `@lancedb/lancedb` (import from its dependency; **do not add a new package** — if not importable, write `## Blocked`).
+  2. Unit/contract test in `vector-store.test.ts`: first upsert into a new table with `sectionPath: []` succeeds; mixed rows afterwards succeed.
+  3. TC-M5-001 must pass as written (md + ts + corrupt pdf → 2 documents). Add `TC-M5-036` (L3): ingest a folder containing only one `.ts` file into a fresh project → 1 document.
+  4. Do not run E2E.

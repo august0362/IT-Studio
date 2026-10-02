@@ -18,11 +18,11 @@ afterEach(async () => {
 
 describe('RAG retrieval integration', () => {
   it('TC-M5-010 returns score-ordered hits and keeps the minScore boundary', async () => {
-    const { projectId } = await setupWorkspace([
+    const { projectId, progress } = await setupWorkspace([
       ['guide.md', '# Guide\n\nThe blue lantern is in the north archive room.'],
       ['other.md', '# Other\n\nThe red compass is in the map cabinet.'],
     ]);
-    await sidecar?.call('settings.update', { patch: { rag: { minScore: 0 } } });
+    await waitFor(() => progress.some((status) => status === 'indexed'));
     const result = await sidecar?.call('rag.query', {
       projectId,
       query: 'Where is the blue lantern?',
@@ -144,6 +144,11 @@ describe('RAG retrieval integration', () => {
       (await sidecar?.call('chat.createConversation', { projectId }))?.result,
     );
     await sidecar?.call('chat.setRagEnabled', { conversationId: conversation.id, enabled: true });
+    // The embedding provider may also serve chat; keep another provider's key so only retrieval loses credentials.
+    await sidecar?.call('secrets.set', {
+      provider: embeddingProvider === 'anthropic' ? 'openai' : 'anthropic',
+      apiKey: 'integration-only-fake-key',
+    });
     await sidecar?.call('secrets.delete', { provider: embeddingProvider });
     await sidecar?.call('chat.send', { conversationId: conversation.id, text: 'Answer even if retrieval fails.' });
     await waitFor(() => sidecar?.stdoutLines.some((line) => line.includes('chat.completed')) === true);
@@ -196,6 +201,8 @@ async function setupWorkspace(
   const settings = appSettingsSchema.parse((await sidecar.call('settings.get')).result);
   const embeddingProvider = providerIdSchema.parse(settings.rag.embedding.modelKey.split('/')[0]);
   await sidecar.call('secrets.set', { provider: embeddingProvider, apiKey: 'integration-only-fake-key' });
+  // Fake (hash-based) embeddings give low cosine scores; chat retrieval uses settings.rag.minScore.
+  await sidecar.call('settings.update', { patch: { rag: { minScore: 0 } } });
   const progress: string[] = [];
   sidecar.notifications.on('notification', (value: unknown) => {
     const parsed = z.object({ method: z.string(), params: z.object({ status: z.string() }) }).safeParse(value);
