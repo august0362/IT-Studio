@@ -1,4 +1,10 @@
-import { FailureKind, ProviderId, type RpcNotificationMap } from '@itstudio/schemas';
+import {
+  FailureKind,
+  ProviderId,
+  type ProjectId,
+  type RpcNotificationMap,
+  type WorkspaceRelativePath,
+} from '@itstudio/schemas';
 import { stdin, stdout } from 'node:process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -50,6 +56,7 @@ import { readFileSync } from 'node:fs';
 import { readdirSync } from 'node:fs';
 import { ErrorCode, type AppError, type Result } from '@itstudio/schemas';
 import { z } from 'zod';
+import { VSCodeBridge } from './services/vscode-bridge.js';
 
 class MemorySecretStore implements ISecretStore {
   private readonly values = new Map<ProviderId, string>();
@@ -253,6 +260,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const ids = dependencies.ids ?? systemIdGenerator;
   const dataDir = dependencies.dataDir ?? env.ITSTUDIO_DATA_DIR ?? resolve('data');
   const e2e = env.ITSTUDIO_E2E === '1';
+  const vscodeBridgeEnabled = dataDir !== ':memory:' || e2e;
   const llmScripts =
     e2e && env.ITSTUDIO_E2E_LLM_SCRIPT !== undefined
       ? scriptedLlmFixtureSchema.parse(JSON.parse(readFileSync(env.ITSTUDIO_E2E_LLM_SCRIPT, 'utf8'))).models
@@ -361,6 +369,24 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   });
   pricingService.initialize();
   const events = new EventBus<RpcNotificationMap>();
+  const vscodeInternalEvents = new EventBus<{
+    file_saved_by_user: { readonly projectId: ProjectId; readonly path: WorkspaceRelativePath; readonly hash: string };
+  }>();
+  const vscodeBridge = new VSCodeBridge({
+    ids,
+    logger,
+    events: {
+      publishStatus: (value) => {
+        events.publish('vscode.status', value);
+      },
+      publishDiagnostics: (value) => {
+        events.publish('vscode.diagnostics', value);
+      },
+      publishInternal: (value) => {
+        vscodeInternalEvents.publish('file_saved_by_user', value);
+      },
+    },
+  });
   const routerCompleted = new EventBus<{ completed: RouterCompleted }>();
   const priceSource = new RepositoryPriceSource(priceRepository, {
     usdToVnd: loadedSeeds.value.fx.seedUsdToVnd,
@@ -442,6 +468,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     clock,
     startedAt: clock.monotonicMs(),
     logger,
+    shutdownHooks: [() => vscodeBridge.stop()],
     ...(dependencies.exit === undefined ? {} : { exit: dependencies.exit }),
   });
   service.register(server);
@@ -454,7 +481,20 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   );
   server.register('project.list', () => projectService.list());
   server.register('project.create', ({ name, workspaceRoot }) => projectService.create(name, workspaceRoot));
-  server.register('project.setActive', ({ projectId }) => projectService.setActive(projectId));
+  server.register('project.setActive', async ({ projectId }) => {
+    const result = await projectService.setActive(projectId);
+    if (result.ok && vscodeBridgeEnabled) {
+      try {
+        await vscodeBridge.activate(result.value.id, result.value.workspaceRoot);
+      } catch (error) {
+        logger.error(
+          { svc: 'vscode-bridge', projectId, error: error instanceof Error ? error.message : 'unknown' },
+          'Could not prepare VS Code session',
+        );
+      }
+    }
+    return result;
+  });
   server.register('secrets.set', ({ provider, apiKey }) => secretsService.set(provider, apiKey));
   server.register('secrets.delete', ({ provider }) => secretsService.delete(provider));
   server.register('secrets.status', () => secretsService.status());
@@ -487,6 +527,8 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     pricingService,
     routerCompleted,
     projectService,
+    vscodeBridge,
+    vscodeInternalEvents,
     events,
     logger,
     server,
@@ -501,6 +543,21 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
         'seeds loaded',
       );
       transport.start();
+      void (async () => {
+        if (!vscodeBridgeEnabled) return;
+        const settings = await settingsService.get();
+        if (!settings.ok || settings.value.activeProjectId === null) return;
+        const projects = await projectService.list();
+        if (!projects.ok) return;
+        const activeProject = projects.value.find((project) => project.id === settings.value.activeProjectId);
+        if (activeProject === undefined) return;
+        await vscodeBridge.activate(activeProject.id, activeProject.workspaceRoot);
+      })().catch((error: unknown) => {
+        logger.error(
+          { svc: 'vscode-bridge', error: error instanceof Error ? error.message : 'unknown' },
+          'Could not restore active VS Code session',
+        );
+      });
       events.publish('system.ready', { version: service.getVersion(), recoveredTransactions: 0 });
       logger.info({ svc: 'sidecar', startupMs: Math.max(0, clock.monotonicMs() - startupStartedAt) }, 'sidecar ready');
     },
