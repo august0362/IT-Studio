@@ -15,7 +15,7 @@
 | M2 LLM router & providers | In progress | 5 / 11 |
 | M3 Cost, pricing, FX, budget, P&L | In progress | 1 / 8 |
 | M4 UI shell, Settings, Chat, P&L | Not started | 1 / 8 |
-| M5 RAG | Not started | 0 / 8 |
+| M5 RAG | In progress | 1 / 8 |
 | M6 Agent pipeline & Worker | Not started | 0 / 8 |
 | M7 VS Code companion extension | Not started | 0 / 6 |
 | M8 Image generation *(deferred)* | Deferred | 0 / 6 |
@@ -106,7 +106,7 @@
 **Exit criteria:** ingest `fixtures/docs` (md, pdf, docx, code) → re-ingest skips unchanged → question returns cited answer; embedding cost visible in P&L.
 
 - [ ] **M5-01** (C) Parsers: md, txt, code, pdf (pdfjs-dist), docx (mammoth), html; size/ext guards.
-- [ ] **M5-02** (C) Chunker (`domain/chunker.ts`): heading-aware + code-window, token target/overlap, `sectionPath`; property tests.
+- [x] **M5-02** (C) Chunker (`domain/chunker.ts`): heading-aware + code-window, token target/overlap, `sectionPath`; property tests.
 - [ ] **M5-03** (C) `IEmbeddingProvider` (OpenAI, Google) + dispatcher with same-dimension fallback + ledger metering.
 - [ ] **M5-04** (C) LanceDB `IVectorStore` repo (per-project table, upsert, delete by doc, cosine search with filters).
 - [ ] **M5-05** (C) `RagService` ingest jobs: discovery, hash skip, progress events, per-file failure isolation, `rag.*` RPC.

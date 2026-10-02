@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add pure RAG chunker (heading/code aware, overlap) and token estimator ([M5-02](docs/tasks/M5-02.md))
 - Add model + provider registries with eligibility checks and models.list RPC ([M2-05](docs/tasks/M2-05.md))
 - Add status bar and write-only Settings → API Keys page ([M1-07](docs/tasks/M1-07.md))
 - Add OpenAI-compatible provider adapter for OpenAI, xAI, Groq, Together ([M2-03](docs/tasks/M2-03.md))
