@@ -92,6 +92,7 @@ export class RpcClient {
         reject,
         ...(opts.signal === undefined ? {} : { signal: opts.signal }),
       };
+      this.paramsById.set(id, params);
       entry.timeout = setTimeout(() => {
         this.finish(id, syntheticError(ErrorCode.INTERNAL, 'request timed out'));
       }, opts.timeoutMs ?? DEFAULT_TIMEOUT_MS);

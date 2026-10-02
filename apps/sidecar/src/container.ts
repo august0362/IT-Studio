@@ -30,6 +30,78 @@ import {
   OpenAiCompatibleProvider,
 } from './providers/openai-compatible/openai-compatible-provider.js';
 import { ModelRegistry } from './services/model-registry.js';
+import { readFileSync } from 'node:fs';
+import { ErrorCode, type AppError, type Result } from '@itstudio/schemas';
+import { z } from 'zod';
+
+class MemorySecretStore implements ISecretStore {
+  private readonly values = new Map<ProviderId, string>();
+
+  get(provider: ProviderId): Promise<Result<string | null>> {
+    return Promise.resolve({ ok: true, value: this.values.get(provider) ?? null });
+  }
+
+  set(provider: ProviderId, key: string): Promise<Result<void>> {
+    this.values.set(provider, key);
+    return Promise.resolve({ ok: true, value: undefined });
+  }
+
+  delete(provider: ProviderId): Promise<Result<void>> {
+    this.values.delete(provider);
+    return Promise.resolve({ ok: true, value: undefined });
+  }
+}
+
+type VerifierOutcome = 'success' | 'auth' | 'server' | 'timeout';
+const verifierOutcomeSchema = z.enum(['success', 'auth', 'server', 'timeout']);
+const verifierFixtureSchema = z.record(z.string(), verifierOutcomeSchema);
+
+class ScriptedKeyVerifier implements IProviderKeyVerifier {
+  private readonly outcomes: Readonly<Record<string, VerifierOutcome>>;
+  private readonly override: VerifierOutcome | undefined;
+
+  constructor(override: string | undefined) {
+    const fixturePath = resolve(dirname(fileURLToPath(import.meta.url)), '../test/integration/fixtures/verifier.json');
+    this.outcomes = verifierFixtureSchema.parse(JSON.parse(readFileSync(fixturePath, 'utf8')));
+    const parsedOverride = verifierOutcomeSchema.safeParse(override);
+    this.override = parsedOverride.success ? parsedOverride.data : undefined;
+  }
+
+  async verify(provider: ProviderId): Promise<Result<void>> {
+    const outcome = this.override ?? this.outcomes[provider] ?? 'success';
+    if (outcome === 'success') return { ok: true, value: undefined };
+    if (outcome === 'timeout') {
+      await new Promise((resolveTimeout) => setTimeout(resolveTimeout, 10_000));
+      const error: AppError = {
+        code: ErrorCode.PROVIDER_TIMEOUT,
+        message: `The ${provider} verification request timed out.`,
+        retryable: true,
+        remediation: ['Try verifying the API key again.'],
+      };
+      return { ok: false, error };
+    }
+    if (outcome === 'auth') {
+      return {
+        ok: false,
+        error: {
+          code: ErrorCode.PROVIDER_AUTH,
+          message: `The API key for ${provider} was rejected.`,
+          retryable: false,
+          remediation: [`Re-enter the API key for ${provider}.`],
+        },
+      };
+    }
+    return {
+      ok: false,
+      error: {
+        code: ErrorCode.PROVIDER_SERVER,
+        message: `The ${provider} service is unavailable.`,
+        retryable: true,
+        remediation: ['Try verifying the API key again shortly.'],
+      },
+    };
+  }
+}
 
 export interface ContainerDependencies {
   readonly input?: Readable;
@@ -53,6 +125,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     });
   const ids = dependencies.ids ?? systemIdGenerator;
   const dataDir = dependencies.dataDir ?? env.ITSTUDIO_DATA_DIR ?? resolve('data');
+  const e2e = env.ITSTUDIO_E2E === '1';
   const loadedSeeds = loadSeeds(resolve(dirname(fileURLToPath(import.meta.url)), '../../..', 'config'));
   if (!loadedSeeds.ok) throw new Error(loadedSeeds.error.message);
   for (const warning of loadedSeeds.value.warnings) logger.warn({ warning }, 'Seed configuration warning');
@@ -69,8 +142,12 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   });
   const projectService = new ProjectService({ repository: projectRepository, settings: settingsService, ids, clock });
   const secretsService = new SecretsService({
-    store: dependencies.secretStore ?? new KeychainSecretStore(),
-    verifier: dependencies.keyVerifier ?? new ProviderKeyVerifier(new FetchHttpClient()),
+    store: dependencies.secretStore ?? (e2e ? new MemorySecretStore() : new KeychainSecretStore()),
+    verifier:
+      dependencies.keyVerifier ??
+      (e2e
+        ? new ScriptedKeyVerifier(env.ITSTUDIO_E2E_VERIFIER_OUTCOME)
+        : new ProviderKeyVerifier(new FetchHttpClient())),
     clock,
   });
   const providers = new ProviderRegistry({
