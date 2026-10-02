@@ -1,9 +1,17 @@
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 export function statusBar() {
   return browser.$('footer[role="status"]');
 }
 
 export async function navigateToSettings() {
   await browser.$('nav[aria-label="Main navigation"] a[href="#settings-api-keys"]').click();
+}
+
+export function createTemporaryProjectFolder(): string {
+  return mkdtempSync(join(tmpdir(), 'itstudio-e2e-project-'));
 }
 
 export function apiKeyInput(provider = 'openai') {

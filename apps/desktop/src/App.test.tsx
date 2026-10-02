@@ -21,7 +21,7 @@ describe('App', () => {
 
     expect(screen.getByRole('heading', { name: 'IT Studio' })).toBeVisible();
     expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Settings' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'API Keys' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'API keys' })).toBeVisible();
     expect(screen.getByText('Connecting…')).toBeVisible();
   });

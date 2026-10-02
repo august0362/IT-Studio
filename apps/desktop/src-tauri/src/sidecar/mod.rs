@@ -1,5 +1,5 @@
 mod line_codec;
-mod spawn;
+pub(crate) mod spawn;
 
 use std::{
     path::PathBuf,

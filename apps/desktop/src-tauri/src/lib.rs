@@ -9,7 +9,11 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_log::Builder::new().build())
         .setup(|app| {
-            let data_dir = app.path().app_data_dir()?;
+            let default_data_dir = app.path().app_data_dir()?;
+            let data_dir = sidecar::spawn::resolve_data_dir(
+                default_data_dir,
+                std::env::var_os("ITSTUDIO_DATA_DIR"),
+            );
             std::fs::create_dir_all(&data_dir)?;
             std::fs::create_dir_all(data_dir.join("logs"))?;
 

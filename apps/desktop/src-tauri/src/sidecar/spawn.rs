@@ -1,7 +1,20 @@
-use std::path::Path;
+use std::{
+    ffi::OsString,
+    path::{Path, PathBuf},
+};
 
 use thiserror::Error;
 use tokio::process::Command;
+
+#[cfg(debug_assertions)]
+pub fn resolve_data_dir(default_dir: PathBuf, override_dir: Option<OsString>) -> PathBuf {
+    override_dir.map_or(default_dir, PathBuf::from)
+}
+
+#[cfg(not(debug_assertions))]
+pub fn resolve_data_dir(default_dir: PathBuf, _override_dir: Option<OsString>) -> PathBuf {
+    default_dir
+}
 
 #[derive(Debug, Error)]
 pub enum SpawnError {
@@ -47,4 +60,28 @@ pub fn command(data_dir: &Path) -> Result<Command, SpawnError> {
 #[cfg(not(debug_assertions))]
 pub fn command(_data_dir: &Path) -> Result<Command, SpawnError> {
     Err(SpawnError::PackagedSidecar)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_data_dir;
+    use std::{ffi::OsString, path::PathBuf};
+
+    #[test]
+    fn data_dir_resolution_respects_build_mode() {
+        let default_dir = PathBuf::from("default-data");
+        let resolved = resolve_data_dir(default_dir, Some(OsString::from("isolated-data")));
+
+        if cfg!(debug_assertions) {
+            assert_eq!(resolved, PathBuf::from("isolated-data"));
+        } else {
+            assert_eq!(resolved, PathBuf::from("default-data"));
+        }
+    }
+
+    #[test]
+    fn data_dir_resolution_uses_default_without_override() {
+        let default_dir = PathBuf::from("default-data");
+        assert_eq!(resolve_data_dir(default_dir.clone(), None), default_dir);
+    }
 }
