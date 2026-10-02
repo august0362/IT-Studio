@@ -12,7 +12,7 @@
 | ID | Item | Input | Expected | Level | Pri | Status |
 |---|---|---|---|---|---|---|
 | TC-M3-001 | Ledger row from a chat completion | scripted chat, 1 call | 1 `ledger.entry`; row visible via `ledger.query`; cost = tokens × frozen price | L3 | P1 | exists |
-| TC-M3-002 | Rounding of token cost | 1 token at 1 µUSD/MTok; 999 999 / 1 000 000 / 1 000 001 tokens | half-up rounding to integer µUSD, never negative, never float | L1 | P1 | new (table) |
+| TC-M3-002 | Rounding of token cost | 0 / 1 / 999 999 / 1 000 000 / 1 000 001 tokens at 1 µUSD/MTok | **ceil** to integer µUSD per ARCH §6.1 (0 → 0, any usage ≥ 1 µUSD), never negative, never float (QA corrected: first draft said half-up) | L1 | P1 | new (table) |
 | TC-M3-003 | Cached-input pricing | usage with `cachedInputTokens` > 0 | cached tokens billed at cached rate, not double-counted | L1 | P1 | new |
 | TC-M3-004 | Free-tier model | `freeTier=true`, price 0 | cost 0, row still written (metered) | L1+L3 | P2 | new |
 | TC-M3-005 | Billed failure | provider bills a failed attempt | row with `billedFailure=true`, counted in P&L | L2 | P1 | new |
