@@ -67,6 +67,7 @@ Changing any row requires an ADR in `docs/decisions/` and user approval.
 | D28 | **Docker via `docker system dial-stdio` over SSH** (dockerode); no socket forwarding or open ports; log streaming via sidecar notifications. | Cross-OS, simpler than forwarding |
 | D29 | **Target OS:** Linux, macOS and Windows Server — per-OS command/collector strategies; commands only from a fixed catalog. | User decision |
 | D30 | **AI agents operating servers: deferred** (documented in ARCH §23; requires a new ADR before implementation). | User decision |
+| D31 | **App-overhead LLM costs** (pricing extraction) are attributed to the **active project**; `pricing.refresh` without an active project fails `VALIDATION` ("Open or create a project first"). No separate system project. | Architect decision (M3-04) |
 
 ## 4. Open questions (ask the user before the milestone that needs them)
 
