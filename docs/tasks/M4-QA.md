@@ -63,3 +63,19 @@ Append `## Result` per AGENTS.md §3 including a table: case ID → test file �
 ## QA (Claude) — round 1
 - Work reviewed: E2E cases authored (not run), flaky theme lint test timeout fixed, unused i18n key removed.
 - **Fix round 1 required — desktop coverage 70.1 % lines (target ≥ 80 %, §2):** add component tests (fake RPC client, Testing Library) for the least-covered desktop files first (list them from the coverage report: `npx vitest run apps/desktop --coverage`), prioritising user flows: settings pages (router / budget / pricing / fx / vscode / pipeline), cost page sub-components, knowledge page, code page panels, shell (`AppShell`, `ProjectTabs`, `NewProjectDialog`). Target ≥ 80 % lines and ≥ 70 % branches for `apps/desktop/src/**`; report before/after per file. Tests only — production code only if a test exposes a defect. Do not run E2E.
+
+## Result (fix round 1)
+- Summary: Added 16 component tests using the fake RPC transport for settings, cost, knowledge, code panels, and shell behavior. Desktop source coverage is now 85.56% lines and 70.44% branches, above the round target. No production code changed.
+- Files changed: `apps/desktop/src/features/round1-coverage.test.tsx`, `docs/tasks/M4-QA.md`.
+- Dependencies added (with reason): None.
+- Decisions taken within scope: Kept the coverage tests in a single feature test file to share one RPC test harness; all test responses are local and deterministic.
+- Open issues / follow-ups: `npm --cache .npm-cache exec -- vitest run apps/desktop --coverage` runs desktop tests but applies the root coverage thresholds to all workspaces, so the command exits 1 for unselected sidecar/vscode-ext files (0% in this desktop-only run). The desktop-only metrics meet the requested targets. E2E was not run.
+
+| Case / file | Before this fix | After this fix |
+|---|---:|---:|
+| Desktop overall lines / branches | 70.12% / 57.37% | 85.56% / 70.44% |
+| `features/settings/pipeline/PipelineSettingsPage.tsx` lines / branches | 67.85% / 53.12% | 96.42% / 88.23% |
+| `features/cost/BudgetBars.tsx` lines / branches | 85.00% / 7.14% | 90.00% / 78.57% |
+| `features/cost/BreakdownCharts.tsx` lines / branches | 71.42% / 16.66% | 100% / 100% |
+| `features/cost/PortfolioPage.tsx` lines / branches | 0% / 0% | 100% / 100% |
+- Verification: `npm --cache .npm-cache run typecheck`, `npm --cache .npm-cache run lint`, and `npm --cache .npm-cache test` passed; 685 passed, 1 skipped. `npm --cache .npm-cache run vite:build -w @itstudio/desktop` passed (main chunk 1,125.96 kB). No E2E command was run.
