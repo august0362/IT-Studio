@@ -114,6 +114,8 @@ describe('sidecar container', () => {
   });
 
   it('publishes ready first, then answers system.ping over injected streams', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'itstudio-ping-'));
+    tempDirectories.push(dataDir);
     const input = new PassThrough();
     const output = new PassThrough();
     const lines: string[] = [];
@@ -130,6 +132,7 @@ describe('sidecar container', () => {
         input,
         output,
         fxHttpClient: testFxHttpClient,
+        dataDir,
         clock: createFakeClock(),
         logger: createLogger({
           streams: [
@@ -152,6 +155,7 @@ describe('sidecar container', () => {
     if (!isJsonObject(result)) throw new Error('Expected ping result');
     expect(typeof result.version).toBe('string');
     expect(result.uptimeMs).toBe(0);
+    container.database.client.close();
   });
 
   it('round trips all project and settings RPC methods', async () => {

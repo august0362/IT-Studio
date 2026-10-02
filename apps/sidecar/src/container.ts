@@ -2,6 +2,7 @@ import {
   FailureKind,
   CostPurpose,
   ProviderId,
+  PipelineStage,
   type ProjectId,
   type RpcNotificationMap,
   type VSCodeStatus,
@@ -872,8 +873,23 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
         const projects = await projectRepository.list();
         for (const project of projects) {
           const recovered = await journalRecovery.recover(project.workspaceRoot);
-          if (recovered.ok) recoveredTransactions += recovered.value;
-          else
+          if (recovered.ok) {
+            recoveredTransactions += recovered.value;
+            for (let index = 0; index < recovered.value; index += 1) {
+              events.publish('pipeline.failureReport', {
+                stage: PipelineStage.ROLLED_BACK,
+                error: {
+                  code: ErrorCode.INTERNAL,
+                  message: 'An interrupted pipeline transaction was recovered after restart.',
+                  retryable: false,
+                  remediation: ['Review the restored project files, then run the pipeline again if needed.'],
+                },
+                rolledBack: true,
+                nextSteps: ['Review the restored project files, then run the pipeline again if needed.'],
+                logExcerpt: 'Recovered an interrupted workspace transaction during sidecar startup.',
+              });
+            }
+          } else
             logger.error(
               { svc: 'journal-recovery', projectId: project.id, remediation: recovered.error.remediation },
               'Journal recovery failed',

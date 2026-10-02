@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { existsSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { cp, mkdir, readFile, readdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
@@ -62,8 +63,43 @@ async function projectHash(root: string): Promise<string> {
   return hash.digest('hex');
 }
 
-async function setup(validationExitCode: 0 | 1) {
-  sidecar = await startSidecar({ ITSTUDIO_E2E_LLM_TEXT: JSON.stringify(responseTexts) }, modelScripts);
+async function setup(
+  validationExitCode: 0 | 1,
+  options: {
+    readonly crashAt?: 'after_prepare' | 'mid_commit';
+    readonly twoFiles?: boolean;
+    readonly coderPath?: string;
+    readonly invalidCoder?: boolean;
+    readonly validationArgs?: readonly string[];
+    readonly validationTimeoutMs?: number;
+    readonly parentSecret?: string;
+  } = {},
+) {
+  const scriptedTexts = { ...responseTexts };
+  if (options.twoFiles || options.coderPath !== undefined || options.invalidCoder) {
+    const multiFileCoder = {
+      ...coderOutput,
+      operations:
+        options.coderPath === undefined
+          ? [...coderOutput.operations, { kind: 'create', path: 'src/second.txt', content: 'second file' }]
+          : [{ kind: 'create', path: options.coderPath, content: 'outside TaskSpec' }],
+    };
+    scriptedTexts['gpt-5.3-codex'] = options.invalidCoder ? '{"not":"a coder output"}' : JSON.stringify(multiFileCoder);
+  }
+  // A two-file commit must be allowed by the spec, otherwise the run is (correctly) rejected before WRITING.
+  if (options.twoFiles)
+    scriptedTexts['claude-opus-5-5'] = JSON.stringify({
+      ...taskSpec,
+      allowedPaths: [...taskSpec.allowedPaths, 'src/second.txt'],
+    });
+  sidecar = await startSidecar(
+    {
+      ITSTUDIO_E2E_LLM_TEXT: JSON.stringify(scriptedTexts),
+      ...(options.parentSecret === undefined ? {} : { OPENAI_API_KEY: options.parentSecret }),
+      ...(options.crashAt === undefined ? {} : { ITSTUDIO_E2E_CRASH_AT: options.crashAt }),
+    },
+    modelScripts,
+  );
   const fixture = resolve(dirname(fileURLToPath(import.meta.url)), '../fixtures/sample-project');
   const workspace = resolve(sidecar.dataDir, 'sample-project');
   await cp(fixture, workspace, { recursive: true });
@@ -82,6 +118,7 @@ async function setup(validationExitCode: 0 | 1) {
     const provider = providerIdSchema.parse(modelKey.split('/')[0]);
     await sidecar.call('secrets.set', { provider, apiKey: `integration-only-${provider}-key` });
   }
+  const defaultValidationArgs = ['-e', `process.exit(${String(validationExitCode)})`];
   await sidecar.call('settings.update', {
     patch: {
       pipeline: {
@@ -89,8 +126,8 @@ async function setup(validationExitCode: 0 | 1) {
           {
             kind: 'build',
             executable: 'node',
-            args: ['-e', `process.exit(${String(validationExitCode)})`],
-            timeoutMs: 5000,
+            args: options.validationArgs ?? defaultValidationArgs,
+            timeoutMs: options.validationTimeoutMs ?? 5000,
           },
         ],
       },
@@ -116,7 +153,7 @@ function observed(method: string): unknown[] {
 }
 
 describe('pipeline integration', () => {
-  it('TC-M6-001 completes a scripted pipeline and writes its allowed file', async () => {
+  it('TC-M6-001 and TC-M6-052 complete a scripted pipeline with attributed cost and writes', async () => {
     const { workspace, projectId } = await setup(0);
     const response = await sidecar?.call('pipeline.start', { projectId, prompt: 'Create a greeting file' });
     const runId = pipelineRunSchema.parse(response?.result).id;
@@ -161,5 +198,114 @@ describe('pipeline integration', () => {
       );
     expect(manifest.transaction.status).toBe('rolled_back');
     expect(observed('pipeline.failureReport')).toHaveLength(1);
+  }, 30_000);
+
+  it.each([
+    ['TC-M6-030', 'after_prepare'],
+    ['TC-M6-031', 'mid_commit'],
+  ] as const)(
+    '%s recovers journal state after killing the sidecar',
+    async (caseId, crashAt) => {
+      const { workspace, projectId } = await setup(0, {
+        crashAt,
+        ...(crashAt === 'mid_commit' ? { twoFiles: true } : {}),
+      });
+      const before = await projectHash(workspace);
+      await sidecar?.call('pipeline.start', { projectId, prompt: `Crash recovery ${caseId}` });
+      await waitFor(
+        () =>
+          existsSync(resolve(workspace, '.itstudio/tx')) &&
+          existsSync(
+            resolve(
+              workspace,
+              '.itstudio/tx',
+              readdirSync(resolve(workspace, '.itstudio/tx'))[0] ?? '',
+              'manifest.json',
+            ),
+          ),
+      );
+      await sidecar?.kill();
+      await sidecar?.restart({ ITSTUDIO_E2E_CRASH_AT: '' });
+      await waitFor(() => sidecar?.stdoutLines.some((line) => line.includes('"recoveredTransactions":1')) === true);
+      await waitFor(() => observed('pipeline.failureReport').length === 1);
+      expect(await projectHash(workspace)).toBe(before);
+      expect(await readFile(resolve(workspace, 'src/greeting.txt')).catch(() => '')).toBe('');
+      if (crashAt === 'mid_commit')
+        expect(await readFile(resolve(workspace, 'src/second.txt')).catch(() => '')).toBe('');
+    },
+    30_000,
+  );
+
+  it('TC-M6-023 rejects writes outside the TaskSpec allow list before disk changes', async () => {
+    const { workspace, projectId } = await setup(0, { coderPath: 'src/not-allowed.txt' });
+    const before = await projectHash(workspace);
+    const response = await sidecar?.call('pipeline.start', { projectId, prompt: 'Write outside allowed paths' });
+    const runId = pipelineRunSchema.parse(response?.result).id;
+    await waitFor(() => observed('pipeline.failureReport').length > 0);
+    expect(pipelineRunSchema.parse((await sidecar?.call('pipeline.get', { runId }))?.result).stage).toBe('failed');
+    expect(await projectHash(workspace)).toBe(before);
+  });
+
+  it('TC-M6-006 fails after the one permitted re-ask for invalid coder JSON', async () => {
+    const { workspace, projectId } = await setup(0, { invalidCoder: true });
+    const response = await sidecar?.call('pipeline.start', { projectId, prompt: 'Create a greeting file' });
+    const runId = pipelineRunSchema.parse(response?.result).id;
+    await waitFor(() => observed('pipeline.failureReport').length > 0);
+    const run = pipelineRunSchema.parse((await sidecar?.call('pipeline.get', { runId }))?.result);
+    expect(run.stage).toBe('failed');
+    expect(await readFile(resolve(workspace, 'src/greeting.txt')).catch(() => '')).toBe('');
+  }, 30_000);
+
+  it('TC-M6-041 strips provider secrets from validation child environments', async () => {
+    const { projectId } = await setup(0, {
+      parentSecret: 'integration-parent-secret',
+      validationArgs: ['-e', 'if (process.env.OPENAI_API_KEY) process.exit(9)'],
+    });
+    const response = await sidecar?.call('pipeline.start', { projectId, prompt: 'Check child environment' });
+    const runId = pipelineRunSchema.parse(response?.result).id;
+    await waitFor(() => observed('pipeline.event').some((event) => JSON.stringify(event).includes('completed')));
+    expect(pipelineRunSchema.parse((await sidecar?.call('pipeline.get', { runId }))?.result).stage).toBe('completed');
+  }, 30_000);
+
+  it('TC-M6-042 times out validation and rolls back the workspace write', async () => {
+    const { workspace, projectId } = await setup(0, {
+      validationArgs: ['-e', 'setInterval(() => undefined, 1000)'],
+      validationTimeoutMs: 30,
+    });
+    const before = await projectHash(workspace);
+    const response = await sidecar?.call('pipeline.start', { projectId, prompt: 'Timeout validation' });
+    const runId = pipelineRunSchema.parse(response?.result).id;
+    await waitFor(() => observed('pipeline.failureReport').length > 0);
+    expect(pipelineRunSchema.parse((await sidecar?.call('pipeline.get', { runId }))?.result).stage).toBe('rolled_back');
+    expect(await projectHash(workspace)).toBe(before);
+  }, 30_000);
+
+  it('TC-M6-012 cancels the running validation process and rolls back the workspace write', async () => {
+    const { workspace, projectId } = await setup(0, {
+      validationArgs: ['-e', 'setInterval(() => undefined, 1000)'],
+      validationTimeoutMs: 30_000,
+    });
+    const before = await projectHash(workspace);
+    const response = await sidecar?.call('pipeline.start', { projectId, prompt: 'Cancel validation' });
+    const runId = pipelineRunSchema.parse(response?.result).id;
+    await waitFor(() =>
+      observed('pipeline.event').some(
+        (event) => JSON.stringify(event).includes(runId) && JSON.stringify(event).includes('validating'),
+      ),
+    );
+    await sidecar?.call('pipeline.cancel', { runId });
+    await waitFor(() => observed('pipeline.failureReport').length > 0);
+    expect(pipelineRunSchema.parse((await sidecar?.call('pipeline.get', { runId }))?.result).stage).toBe('rolled_back');
+    expect(await projectHash(workspace)).toBe(before);
+  }, 30_000);
+
+  it('TC-M6-044 passes shell metacharacters as literal node arguments', async () => {
+    const { projectId } = await setup(0, {
+      validationArgs: ['-e', 'if (process.argv[1] !== "&&") process.exit(10)', '&&'],
+    });
+    const response = await sidecar?.call('pipeline.start', { projectId, prompt: 'Pass a literal argument' });
+    const runId = pipelineRunSchema.parse(response?.result).id;
+    await waitFor(() => observed('pipeline.event').some((event) => JSON.stringify(event).includes('completed')));
+    expect(pipelineRunSchema.parse((await sidecar?.call('pipeline.get', { runId }))?.result).stage).toBe('completed');
   }, 30_000);
 });
