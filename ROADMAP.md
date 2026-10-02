@@ -16,7 +16,7 @@
 | M3 Cost, pricing, FX, budget, P&L | In progress | 4 / 8 |
 | M4 UI shell, Settings, Chat, P&L | In progress | 3 / 8 |
 | M5 RAG | In progress | 4 / 8 |
-| M6 Agent pipeline & Worker | In progress | 4 / 8 |
+| M6 Agent pipeline & Worker | In progress | 5 / 8 |
 | M7 VS Code companion extension | In progress | 2 / 6 |
 | M8 Image generation *(deferred)* | Deferred | 0 / 6 |
 | M9 Packaging & release *(deferred)* | Deferred | 0 / 7 |
@@ -124,7 +124,7 @@
 - [x] **M6-03** (C) `CommandRunner` (`shell:false`, env scrub, timeout, tail) + parsers (tsc, eslint json, vitest json). Ref: ARCH §9.5.
 - [x] **M6-04** (C) Role prompts (ROLES §2.1–2.3 verbatim), JSON schema generation from zod, output validation + single re-ask.
 - [ ] **M6-05** (C) `PipelineOrchestrator`: stage machine, role ladders, verdict rule, ≤ 1 fix round, per-project queue, cancel semantics, `pipeline.*` RPC + events. Ref: ARCH §8.1.
-- [ ] **M6-06** (C) `FailureReportBuilder` + remediation table for every `ErrorCode`.
+- [x] **M6-06** (C) `FailureReportBuilder` + remediation table for every `ErrorCode`.
 - [ ] **M6-07** (C) Code tab: prompt box, stage timeline, spec/review viewers, Monaco diff viewer, live command output, failure report panel, run history.
 - [ ] **M6-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M6-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M6-report.md` sign-off. Scope: Pipeline: happy path to COMPLETED, review-reject → fix → approve, failing validation → byte-identical rollback, crash mid-commit recovery, path-traversal corpus, cancel at every stage; StrykerJS on worker/domain (score reported). **Carry-over:** case-insensitive `</context>` neutralisation (from M6-04 QA); chunker branch coverage ≥ 90 % (from M5-02 QA) belongs to M5-QA.
 
@@ -154,6 +154,7 @@ Spec: ARCH §14.1, `schemas.ts` §13.
 
 Spec: ARCH §14.2.
 
+- [ ] **SEC-01** (A+C) Dependency audit hardening before release: production audit (2026-10-02) = 3 high, all from @lancedb/lancedb → @huggingface/transformers → sharp (libvips CVE-2026-33327/33328/35590/35591). Options: npm `overrides` to a patched sharp, or exclude the optional transformers dependency; add `npm audit --omit=dev --audit-level=high` to the release checklist.
 - [ ] **M9-01** (C) esbuild sidecar bundle + Node SEA build script; native module loading from resources.
 - [ ] **M9-02** (C) Tauri `externalBin` + resources (vsix, seeds); production sidecar spawn path.
 - [ ] **M9-03** (C) NSIS + MSI bundles; WebView2 bootstrapper.
