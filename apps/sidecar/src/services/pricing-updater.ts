@@ -133,6 +133,7 @@ export class PricingUpdater {
           { provider, error: extracted.error.message },
           'Pricing extraction failed; models omitted',
         );
+        if (extracted.error.code === 'BUDGET_HARD_STOP') return extracted;
         continue;
       }
       const validated = validatePriceEntries(

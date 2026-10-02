@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { FxRate } from '@itstudio/schemas';
 import { isoDateTimeSchema } from '../validation/brand.js';
 import { formatUsd, formatVnd, parseUsdDecimal, toMoneyDisplay, usdStringToMicroUsd } from './money.js';
@@ -11,6 +11,23 @@ const fx: FxRate = {
 };
 
 describe('money display', () => {
+  it('covers zero-padded parser fallbacks and impossible missing regex capture guards', () => {
+    const padEnd = vi.spyOn(String.prototype, 'padEnd').mockReturnValue('');
+    try {
+      expect(parseUsdDecimal('0')).toBe(0);
+      expect(usdStringToMicroUsd('0')).toBeNull();
+    } finally {
+      padEnd.mockRestore();
+    }
+    const malformed = Object.assign(['0'], { index: 0, input: '0' }) as RegExpExecArray;
+    const exec = vi.spyOn(RegExp.prototype, 'exec').mockReturnValueOnce(malformed);
+    try {
+      expect(() => parseUsdDecimal('0')).toThrow(RangeError);
+    } finally {
+      exec.mockRestore();
+    }
+  });
+
   it.each([
     ['0', 0],
     ['1', 1_000_000],
@@ -53,6 +70,17 @@ describe('money display', () => {
       fxAsOf: fx.asOf,
     });
   });
+
+  it('TC-M3-006 formats zero, tiny, large, and negative USD with a signed rounded VND line', () => {
+    expect(toMoneyDisplay(microUsd(0), fx)).toMatchObject({ usdText: '$0.00', vndText: `0 \u20ab` });
+    expect(toMoneyDisplay(microUsd(1), fx)).toMatchObject({ usdText: '$0.0000', vndText: `0 \u20ab` });
+    expect(toMoneyDisplay(microUsd(999_999), fx).usdText).toBe('$1.0000');
+    expect(toMoneyDisplay(microUsd(-1_234_567), fx)).toMatchObject({ usdText: '-$1.23', vndText: `-30.864 \u20ab` });
+  });
+
+  it('TC-M3-007 formats maximum safe micro-USD without precision loss', () => {
+    expect(formatUsd(microUsd(Number.MAX_SAFE_INTEGER))).toBe('$9,007,199,254.74');
+  });
 });
 
 describe('usdStringToMicroUsd', () => {
@@ -64,5 +92,10 @@ describe('usdStringToMicroUsd', () => {
   });
   it.each(['1e3', '-1', '', '0', '1.0000001', '9000000000000'])('rejects %s', (value) => {
     expect(usdStringToMicroUsd(value)).toBeNull();
+  });
+
+  it('rejects zero and values beyond the safe integer boundary in nullable budget parsing', () => {
+    expect(usdStringToMicroUsd('0.000000')).toBeNull();
+    expect(usdStringToMicroUsd('9007199254.740992')).toBeNull();
   });
 });

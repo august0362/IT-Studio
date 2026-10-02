@@ -71,7 +71,33 @@ function harness() {
 }
 
 describe('LedgerService', () => {
-  it('exposes only insert and query persistence operations', () => {
+  it('validates page limits and malformed cursors for raw and display row queries', async () => {
+    const { service } = harness();
+    for (const limit of [0, 501, 1.5]) {
+      expect(await service.query({ projectId, limit })).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
+    }
+    for (const cursor of ['bad', Buffer.from('not-a-date|not-a-uuid').toString('base64url')]) {
+      expect(await service.query({ projectId, limit: 10, cursor })).toMatchObject({
+        ok: false,
+        error: { code: 'VALIDATION' },
+      });
+    }
+    await expect(service.queryRows({ projectId, limit: 0 })).resolves.toMatchObject({
+      ok: false,
+      error: { code: 'VALIDATION' },
+    });
+    await expect(service.query({ projectId, limit: 10 })).resolves.toMatchObject({ ok: true });
+  });
+
+  it('returns no recorded cost before completion and permits forgetting an untracked request', async () => {
+    const { service } = harness();
+    await expect(service.recordedCost('unknown-request')).resolves.toBeUndefined();
+    expect(() => {
+      service.forgetRequest('unknown-request');
+    }).not.toThrow();
+  });
+
+  it('TC-M3-050 exposes only append and query persistence operations', () => {
     expect(Object.getOwnPropertyNames(LedgerRepository.prototype).sort()).toEqual([
       'constructor',
       'insert',
@@ -145,7 +171,7 @@ describe('LedgerService', () => {
     });
   });
 
-  it('records billed failures and warns once when a model has no price', async () => {
+  it('TC-M3-005 records billed failures and warns once when a model has no price', async () => {
     const { completed, rows, warnings } = harness();
     for (const requestId of [
       llmRequestIdSchema.parse('cccccccc-cccc-4ccc-8ccc-cccccccccccc'),

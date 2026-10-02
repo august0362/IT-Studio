@@ -104,6 +104,45 @@ describe('normalizeRelative', () => {
 });
 
 describe('workspace path policy', () => {
+  it.each([
+    ['TC-M6-020', '../escape.txt'],
+    ['TC-M6-021', 'C:\\Windows\\System32\\drivers\\etc\\hosts'],
+    ['TC-M6-021', '/etc/passwd'],
+    ['TC-M6-022', 'src/../../escape.txt'],
+    ['TC-M6-022', 'src\\..\\..\\escape.txt'],
+    ['TC-M6-025', '.git/config'],
+    ['TC-M6-025', '.itstudio/tx/123/manifest.json'],
+    ['TC-M6-026', 'CON'],
+    ['TC-M6-026', 'NUL.txt'],
+    ['TC-M6-026', 'a.txt.'],
+    ['TC-M6-026', 'a.txt '],
+  ])('%s rejects protected path %s', async (_caseId, path) => {
+    const fs = new MemoryFileSystem();
+    const root = resolve('case-path-guard-root');
+    await fs.mkdir(root, true);
+    expect(await resolveSafe(root, path, ['.'], fs)).toMatchObject({
+      ok: false,
+      error: { code: 'PATH_OUTSIDE_WORKSPACE' },
+    });
+  });
+
+  it('TC-M6-022 preserves encoded traversal as a literal filename', () => {
+    expect(normalizeRelative('%2e%2e/escape.txt')).toEqual({ ok: true, value: '%2e%2e/escape.txt' });
+  });
+
+  it('TC-M6-024 rejects a workspace symlink that points outside', async () => {
+    const fs = new MemoryFileSystem();
+    const root = resolve('case-symlink-root');
+    const outside = resolve('case-symlink-outside');
+    await fs.mkdir(root, true);
+    await fs.mkdir(outside, true);
+    fs.addSymlink(resolve(root, 'src', 'external'), outside);
+    expect(await resolveSafe(root, 'src/external/secret.txt', ['src'], fs)).toMatchObject({
+      ok: false,
+      error: { code: 'PATH_OUTSIDE_WORKSPACE' },
+    });
+  });
+
   it('matches allowed paths on segment boundaries', () => {
     expect(isWithinAllowed('src/a', ['src/a'])).toBe(true);
     expect(isWithinAllowed('src/a/b.ts', ['src/a'])).toBe(true);

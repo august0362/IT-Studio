@@ -114,7 +114,7 @@ function harness(
 }
 
 describe('PricingUpdater', () => {
-  it('fails with VALIDATION before fetching when no active project exists', async () => {
+  it('TC-M3-022 fails with VALIDATION before fetching when no active project exists', async () => {
     let fetches = 0;
     const h = harness({
       active: false,
@@ -167,7 +167,7 @@ describe('PricingUpdater', () => {
     expect(h.pricing.current().version).toBe(version);
   });
 
-  it('returns fetch_failed with an AppError when every source fails', async () => {
+  it('TC-M3-023 returns fetch_failed with an AppError when every source fails', async () => {
     const h = harness({ page: () => Promise.resolve(new Response('failed', { status: 500 })) });
     const result = await h.updater.refresh();
     expect(result.ok && result.value.status).toBe('fetch_failed');
@@ -195,7 +195,7 @@ describe('PricingUpdater', () => {
     expect(h.requests).toHaveLength(1);
   });
 
-  it('rejects an over-limit change and leaves the table untouched', async () => {
+  it('TC-M3-024 rejects an over-limit change and leaves the table untouched', async () => {
     const base = harness();
     const model = base.loaded.value.models[0];
     const entry = base.loaded.value.pricing.entries.find((item) => item.modelKey === model?.key);
@@ -211,7 +211,7 @@ describe('PricingUpdater', () => {
     expect(h.pricing.current()).toEqual(before);
   });
 
-  it('keeps manual overrides and neutralizes case-insensitive context closing tags', async () => {
+  it('TC-M3-025 keeps manual overrides and neutralizes case-insensitive context closing tags', async () => {
     const base = harness();
     const model = base.loaded.value.models[0];
     const entry = base.loaded.value.pricing.entries.find((item) => item.modelKey === model?.key);

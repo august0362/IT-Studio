@@ -22,6 +22,7 @@
     "test:all": "npm run test && npm run test:integration && npm run test:e2e",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
+    "test:mutation": "stryker run",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck:tests": "tsc -p apps/sidecar/test/tsconfig.json --noEmit && tsc -p e2e/tsconfig.json --noEmit"

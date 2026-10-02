@@ -68,7 +68,7 @@ function openAiEntry(): PriceEntry {
 }
 
 describe('PricingService', () => {
-  it('reports price rows with formatted values and the exact 30-day stale boundary', () => {
+  it('TC-M3-012 reports price rows with formatted values and the exact 30-day stale boundary', () => {
     const testHarness = harness();
     testHarness.service.initialize();
     const fx = { usdToVnd: 25_000, asOf: isoDateTimeSchema.parse('2026-10-01T00:00:00.000Z'), source: 'auto' as const };
@@ -112,6 +112,23 @@ describe('PricingService', () => {
         cachedInputPerMTokUsd: '1',
       }).ok,
     ).toBe(false);
+  });
+
+  it('TC-M3-011 accepts a zero price and rejects malformed USD override decimals', () => {
+    const { service } = harness();
+    service.initialize();
+    const override = (value: string) =>
+      service.overrideUsd({
+        modelKey: 'openai/test-model',
+        inputPerMTokUsd: value,
+        outputPerMTokUsd: '1',
+        cachedInputPerMTokUsd: '1',
+      });
+    expect(override('0').ok).toBe(true);
+    expect(
+      service.current().entries.find((entry) => entry.modelKey === 'openai/test-model')?.inputPerMTokMicroUsd,
+    ).toBe(0);
+    for (const value of ['1000.000001', '1e3', '-1']) expect(override(value).ok).toBe(false);
   });
 
   it('imports the seed once and creates a version with just the selected model changed', () => {
