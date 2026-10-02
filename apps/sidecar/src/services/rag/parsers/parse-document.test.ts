@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { MemoryFileSystem } from '../../../infra/memory-file-system.js';
 import { detectFormat, parseDocument } from './parse-document.js';
 
@@ -70,7 +70,81 @@ describe('document parsers', () => {
     }
   });
 
-  it('allows exactly 20 MB and rejects one byte more', async () => {
+  it('TC-M5-030 parses Markdown, text, TypeScript, Python, PDF, DOCX, and HTML formats', async () => {
+    const documentXml =
+      '<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Word guide</w:t></w:r></w:p><w:p><w:r><w:t>Document content</w:t></w:r></w:p></w:body></w:document>';
+    const docx = makeZip([
+      [
+        '[Content_Types].xml',
+        '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
+      ],
+      [
+        '_rels/.rels',
+        '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
+      ],
+      ['word/document.xml', documentXml],
+    ]);
+    const cases: readonly [string, Uint8Array | string, string][] = [
+      ['guide.md', '# Markdown guide\n\nText', 'markdown'],
+      ['notes.txt', 'Plain text', 'text'],
+      ['source.ts', 'export const value = 1;', 'code'],
+      ['script.py', 'def main(): pass', 'code'],
+      ['manual.pdf', makePdf(['PDF content']), 'pdf'],
+      ['manual.docx', docx, 'docx'],
+      ['page.html', '<h1>HTML guide</h1><p>HTML content</p>', 'html'],
+    ];
+    for (const [name, content, format] of cases) {
+      const result = await parse(name, content);
+      expect(result, name).toMatchObject({ ok: true, value: { format } });
+    }
+  });
+
+  it('TC-M5-031 isolates zero-byte and binary data disguised as Markdown', async () => {
+    expect(await parse('empty.md', new Uint8Array())).toMatchObject({ ok: true, value: { text: '' } });
+    const binary = await parse('binary.md', new Uint8Array([65, 0, 66]));
+    expect(binary.ok).toBe(false);
+    if (!binary.ok) {
+      expect(binary.error.code).toBe('VALIDATION');
+      expect(binary.error.remediation?.length ?? 0).toBeGreaterThan(0);
+    }
+  });
+
+  it('TC-M5-WB-001 propagates stat and read failures and checks read byte size', async () => {
+    const fs = new MemoryFileSystem();
+    const path = pathFor('failure.md');
+    await fs.writeFile(path, '# Failure');
+    const failure = {
+      code: 'INTERNAL' as const,
+      message: 'filesystem failure',
+      retryable: false,
+      remediation: ['Retry.'],
+    };
+    vi.spyOn(fs, 'stat').mockResolvedValueOnce({ ok: false, error: failure });
+    await expect(parseDocument(path, fs)).resolves.toMatchObject({
+      ok: false,
+      error: { message: 'filesystem failure' },
+    });
+
+    vi.spyOn(fs, 'readFile').mockResolvedValueOnce({ ok: false, error: failure });
+    await expect(parseDocument(path, fs)).resolves.toMatchObject({
+      ok: false,
+      error: { message: 'filesystem failure' },
+    });
+
+    vi.spyOn(fs, 'stat').mockResolvedValueOnce({
+      ok: true,
+      value: { isFile: true, isDirectory: false, isSymbolicLink: false, size: 0 },
+    });
+    vi.spyOn(fs, 'readFile').mockResolvedValueOnce({
+      ok: true,
+      value: new Uint8Array(20 * 1024 * 1024 + 1),
+    });
+    const oversized = await parseDocument(path, fs);
+    expect(oversized).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
+    vi.restoreAllMocks();
+  });
+
+  it('TC-M5-032 allows exactly 20 MB and rejects one byte more', async () => {
     const accepted = await parse('large.txt', new Uint8Array(20 * 1024 * 1024).fill(32));
     const rejected = await parse('too-large.txt', new Uint8Array(20 * 1024 * 1024 + 1).fill(32));
     expect(accepted.ok).toBe(true);

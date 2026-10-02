@@ -33,7 +33,7 @@ export class SaveWatcher {
     const now = this.options.now();
     const key = this.key(safe.relativePath);
     const committedAt = this.ownWrites.get(key);
-    if (committedAt !== undefined && now - committedAt < OWN_WRITE_WINDOW_MS) return;
+    if (committedAt !== undefined && now - committedAt <= OWN_WRITE_WINDOW_MS) return;
     this.ownWrites.delete(key);
     this.options.send(safe.relativePath, this.options.hash(text));
   }

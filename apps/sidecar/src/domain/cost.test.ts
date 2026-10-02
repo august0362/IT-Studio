@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { FxRate, PriceEntry, PriceTable, TokenUsage } from '@itstudio/schemas';
 import { isoDateTimeSchema, priceTableVersionSchema } from '../validation/brand.js';
 import {
@@ -35,6 +35,43 @@ const fx: FxRate = {
 };
 
 describe('cost domain', () => {
+  // ARCH §6.1: cost = ceil(Σ tokens × price / 1e6) — conservative billing; any non-zero usage costs ≥ 1 µUSD.
+  it.each([
+    [0, 0],
+    [1, 1],
+    [999_999, 1],
+    [1_000_000, 1],
+    [1_000_001, 2],
+    [1_500_000, 2],
+  ])('TC-M3-002 rounds %i tokens at 1 micro-USD per million up (ceil) to %i', (tokens, expected) => {
+    const price = { ...sonnetPrice, inputPerMTokMicroUsd: microUsd(1) };
+    expect(computeTokenCost({ inputTokens: tokens, cachedInputTokens: 0, outputTokens: 0 }, price)).toBe(expected);
+  });
+
+  it('TC-M3-003 bills cached input at the cached rate without charging it twice', () => {
+    const price = {
+      ...sonnetPrice,
+      inputPerMTokMicroUsd: microUsd(1_000_000),
+      cachedInputPerMTokMicroUsd: microUsd(100_000),
+      outputPerMTokMicroUsd: microUsd(0),
+    };
+    expect(computeTokenCost({ inputTokens: 1_000_000, cachedInputTokens: 400_000, outputTokens: 0 }, price)).toBe(
+      640_000,
+    );
+  });
+
+  it('TC-M3-004 computes a free tier call as zero while retaining a price entry', () => {
+    const freePrice = {
+      ...sonnetPrice,
+      inputPerMTokMicroUsd: microUsd(0),
+      cachedInputPerMTokMicroUsd: microUsd(0),
+      outputPerMTokMicroUsd: microUsd(0),
+      freeTier: true,
+    };
+    expect(computeTokenCost({ inputTokens: 100, cachedInputTokens: 50, outputTokens: 20 }, freePrice)).toBe(0);
+    expect(findPrice({ ...table, entries: [freePrice] }, freePrice.modelKey)).toBe(freePrice);
+  });
+
   it('computes Sonnet cost from regular and cached tokens exactly', () => {
     const usage: TokenUsage = { inputTokens: 100_000, cachedInputTokens: 20_000, outputTokens: 10_000 };
     expect(computeTokenCost(usage, sonnetPrice)).toBe(264_000);
@@ -104,5 +141,23 @@ describe('cost domain', () => {
     expect(toVnd(microUsd(1), { ...fx, usdToVnd: 499_999 })).toBe(0);
     expect(toVnd(microUsd(1_000_000), { ...fx, usdToVnd: 2.5e-5 })).toBe(0);
     expect(() => toVnd(microUsd(1), { ...fx, usdToVnd: -1 })).toThrow(RangeError);
+    expect(toVnd(microUsd(1), { ...fx, usdToVnd: 1e-7 })).toBe(0);
+    expect(toVnd(microUsd(1), { ...fx, usdToVnd: 1e21 })).toBe(1_000_000_000_000_000);
+  });
+
+  it('TC-M3-007 retains maximum safe micro-USD and rejects an unsafe converted amount', () => {
+    const largest = microUsd(Number.MAX_SAFE_INTEGER);
+    expect(sumMicroUsd([largest])).toBe(Number.MAX_SAFE_INTEGER);
+    expect(() => toVnd(largest, { ...fx, usdToVnd: Number.MAX_SAFE_INTEGER })).toThrow(RangeError);
+  });
+
+  it('rejects a malformed decimal match without attempting to convert it', () => {
+    const malformed = Object.assign(['26'], { index: 0, input: '26' }) as RegExpExecArray;
+    const exec = vi.spyOn(RegExp.prototype, 'exec').mockReturnValueOnce(malformed);
+    try {
+      expect(() => toVnd(microUsd(1), fx)).toThrow(RangeError);
+    } finally {
+      exec.mockRestore();
+    }
   });
 });

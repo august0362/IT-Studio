@@ -32,7 +32,7 @@ async function setup(): Promise<{
 }
 
 describe('JournalRecoveryService', () => {
-  it('restores prepared and committed journals and returns the recovered count', async () => {
+  it('TC-M6-030 and TC-M6-031 restore prepared and committed journals and return the recovered count', async () => {
     const { fs, root, clock, writer } = await setup();
     const prepared = await writer.prepare(
       root,

@@ -112,7 +112,7 @@ function setup(
 }
 
 describe('VSCodeLauncher', () => {
-  it('uses the configured executable before PATH and default locations', async () => {
+  it('TC-M7-041 resolves a configured executable before PATH and default locations', async () => {
     const configured = join(process.cwd(), 'custom', 'code');
     const pathCandidate = join(process.cwd(), 'path', 'code');
     const { launcher, runner, fileSystem } = setup({
@@ -126,7 +126,7 @@ describe('VSCodeLauncher', () => {
     expect(runner.launches[0]?.cli.executable).toBe(configured);
   });
 
-  it('searches PATH then default directories and reports not found without throwing', async () => {
+  it('TC-M7-041 searches PATH then default locations and reports not found without throwing', async () => {
     const pathCandidate = join(process.cwd(), 'path', 'code');
     const pathSetup = setup({ files: [pathCandidate], env: { PATH: join(process.cwd(), 'path') } });
     await pathSetup.launcher.activate({ workspaceRoot: process.cwd(), settings });
@@ -146,7 +146,7 @@ describe('VSCodeLauncher', () => {
     expect(absent.statuses[0]).toMatchObject({ installed: false, extensionInstalled: false, connected: true });
   });
 
-  it('installs missing or outdated extensions and skips an exact version match', async () => {
+  it('TC-M7-042 installs missing or outdated extensions and skips an exact version match', async () => {
     const executable = join(process.cwd(), 'bin', 'code');
     const vsix = join(process.cwd(), 'apps', 'vscode-ext', 'dist', 'itstudio-vscode.vsix');
     const missing = setup({ files: [executable], env: { PATH: join(process.cwd(), 'bin'), ITSTUDIO_VSIX_PATH: vsix } });
@@ -156,6 +156,15 @@ describe('VSCodeLauncher', () => {
       ['--list-extensions', '--show-versions'],
       ['--install-extension', vsix, '--force'],
     ]);
+
+    const outdated = setup({
+      files: [executable],
+      env: { PATH: join(process.cwd(), 'bin'), ITSTUDIO_VSIX_PATH: vsix },
+      output: 'itstudio.itstudio-vscode@0.0.9',
+    });
+    outdated.fileSystem.files.set(vsix, Buffer.from('vsix'));
+    await outdated.launcher.activate({ workspaceRoot: process.cwd(), settings });
+    expect(outdated.runner.runs.at(-1)?.args).toEqual(['--install-extension', vsix, '--force']);
 
     const same = setup({
       files: [executable],
@@ -205,7 +214,7 @@ describe('VSCodeLauncher', () => {
     expect(instance.runner.launches[0]?.cli).toMatchObject({ executable, prefixArgs: [newestCli], windows: true });
   });
 
-  it('warns on missing VSIX, still launches, honors autoLaunch and avoids same-project relaunch', async () => {
+  it('TC-M7-044 honors autoLaunch off and does not install or launch VS Code', async () => {
     const executable = join(process.cwd(), 'bin', 'code');
     const instance = setup({ files: [executable], env: { PATH: join(process.cwd(), 'bin') } });
     await instance.launcher.activate({ workspaceRoot: process.cwd(), settings });
@@ -214,8 +223,11 @@ describe('VSCodeLauncher', () => {
     expect(instance.statuses[0]).toMatchObject({ installed: true, extensionInstalled: false });
 
     const off = setup({ files: [executable], env: { PATH: join(process.cwd(), 'bin') } });
+    const vsix = join(process.cwd(), 'apps', 'vscode-ext', 'dist', 'itstudio-vscode.vsix');
+    off.fileSystem.files.set(vsix, Buffer.from('vsix'));
     await off.launcher.activate({ workspaceRoot: process.cwd(), settings: { ...settings, autoLaunch: false } });
     expect(off.runner.launches).toHaveLength(0);
+    expect(off.runner.runs).toHaveLength(0);
   });
 
   it('does not touch the filesystem or launch a real process in E2E mode', async () => {

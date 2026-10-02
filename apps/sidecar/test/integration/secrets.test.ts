@@ -55,7 +55,7 @@ describe('secret store integration', () => {
       await sidecar.close();
       sidecar = undefined;
     }
-  }, 30_000);
+  }, 90_000); // 4 sequential cold sidecar starts (~4 s each in dev, PERF-01) flake at 30 s under parallel load.
 
   it('TC-M1-034 never writes API key material to protocol, logs, or database', async () => {
     sidecar = await startSidecar({ ITSTUDIO_E2E_VERIFIER_OUTCOME: 'auth' });

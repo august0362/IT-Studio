@@ -38,7 +38,7 @@ function ledger(
 }
 
 describe('P&L aggregation', () => {
-  it('computes model, purpose, and UTC-day totals including midnight boundaries and negative margin', () => {
+  it('TC-M3-041 computes range totals including UTC midnight and exclusive end boundaries', () => {
     const data = rows(projectA, 5, [
       ledger('2026-10-01T23:59:59.999Z', 'chat', 'model/a', 4),
       ledger('2026-10-02T00:00:00.000Z', 'embedding', 'model/b', 3),
@@ -71,7 +71,7 @@ describe('P&L aggregation', () => {
     });
   });
 
-  it('returns null percent for zero revenue and portfolio totals equal project totals', () => {
+  it('TC-M3-042 returns negative margin and null percent for zero revenue', () => {
     const zeroRevenue = rows(projectA, 0, [ledger('2026-10-01T00:00:00.000Z', 'chat', 'model/a', 8)]);
     const profitable = rows(projectB, 20, [ledger('2026-10-02T00:00:00.000Z', 'pipeline_coder', 'model/b', 5)]);
     const empty = rows(projectC, 0, []);

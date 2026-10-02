@@ -56,10 +56,14 @@ export class VSCodeLauncher {
       this.dependencies.events.publishStatus({ installed: false, extensionInstalled: false, ...baseStatus });
       return;
     }
+    if (!settings.autoLaunch) {
+      this.dependencies.events.publishStatus({ installed: true, extensionInstalled: false, ...baseStatus });
+      return;
+    }
     this.dependencies.events.publishStatus({ installed: true, extensionInstalled: false, ...baseStatus });
     const extensionInstalled = await this.ensureExtension(cli);
     this.dependencies.events.publishStatus({ installed: true, extensionInstalled, ...baseStatus });
-    if (!settings.autoLaunch || this.launchedProjects.has(root)) return;
+    if (this.launchedProjects.has(root)) return;
     const launched = this.dependencies.runner.launch(cli, [root]);
     if (!launched.ok) {
       this.warnOnce('Visual Studio Code could not be launched. Check the installation and try again.');

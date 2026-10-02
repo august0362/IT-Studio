@@ -17,10 +17,12 @@
     "pretest": "npm run lint:selftest",
     "test": "vitest run --project sidecar --project desktop --project vscode-ext",
     "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:vscode-e2e": "npm --cache .npm-cache run build -w itstudio-vscode && node apps/vscode-ext/test/e2e/run.mjs",
     "test:e2e": "node e2e/run-e2e.mjs",
     "test:all": "npm run test && npm run test:integration && npm run test:e2e",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
+    "test:mutation": "stryker run",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck:tests": "tsc -p apps/sidecar/test/tsconfig.json --noEmit && tsc -p e2e/tsconfig.json --noEmit"

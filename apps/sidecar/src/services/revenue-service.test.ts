@@ -53,12 +53,16 @@ describe('RevenueService', () => {
     expect(stored).toHaveLength(3);
   });
 
-  it('rejects non-positive or non-finite amounts and unknown projects', async () => {
+  it('TC-M3-044 rejects non-positive or non-finite amounts, long descriptions, and unknown projects', async () => {
     const { service } = harness();
     for (const amount of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
       const result = await service.add({ projectId, amount, currency: 'USD', description: '' });
       expect(result).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
     }
+    expect(await service.add({ projectId, amount: 1, currency: 'USD', description: 'x'.repeat(501) })).toMatchObject({
+      ok: false,
+      error: { code: 'VALIDATION' },
+    });
     const missing = await service.add({
       projectId: projectIdSchema.parse('cccccccc-cccc-4ccc-8ccc-cccccccccccc'),
       amount: 1,

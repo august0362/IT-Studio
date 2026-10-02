@@ -84,7 +84,20 @@ describe('FxService', () => {
     opened.client.close();
   });
 
-  it('uses manual then automatic then seed rates and validates override boundaries', async () => {
+  it('TC-M3-016 keeps the last automatic rate and timestamp after a fetch failure', async () => {
+    let response = Response.json({ rates: { VND: 26_300 } });
+    const { opened, service } = setup({ request: () => Promise.resolve(response) });
+    await service.initialize();
+    await service.update();
+    const lastKnown = service.latestAuto();
+    response = new Response(null, { status: 503 });
+    const failed = await service.update();
+    expect(failed).toMatchObject({ ok: false, error: { code: 'PROVIDER_SERVER' } });
+    expect(service.latestAuto()).toEqual(lastKnown);
+    opened.client.close();
+  });
+
+  it('TC-M3-017 uses manual then automatic then seed rates and validates override boundaries', async () => {
     const { opened, service, settings } = setup();
     expect(service.getEffective().usdToVnd).toBe(26_300);
     await service.initialize();
@@ -96,6 +109,9 @@ describe('FxService', () => {
     expect((await service.override(100_001)).ok).toBe(false);
     expect((await service.override(10_000)).ok).toBe(true);
     expect((await service.override(100_000)).ok).toBe(true);
+    expect((await service.override(Number.NaN)).ok).toBe(false);
+    expect((await service.override(Number.POSITIVE_INFINITY)).ok).toBe(false);
+    expect((await service.override(1_000_000_000)).ok).toBe(false);
     await service.override(25_000);
     await service.override(null);
     expect(service.getEffective().usdToVnd).toBe(26_300);
