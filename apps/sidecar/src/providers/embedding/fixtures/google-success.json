@@ -1,0 +1,4 @@
+{
+  "embeddings": [{ "values": [3, 4] }, { "values": [0, 2] }],
+  "metadata": { "billableCharacterCount": 28 }
+}
