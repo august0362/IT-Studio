@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add LlmRouter service: ordering, retry/backoff, fallback, circuit breaker, cancel, mid-stream reset ([M2-07](docs/tasks/M2-07.md))
+- Add sidecar lifecycle logging ([M1-FIX2](docs/tasks/M1-FIX2.md))
 - Add Google Gemini provider adapter ([M2-04](docs/tasks/M2-04.md))
 - Add L3 sidecar integration harness and M1 integration suite ([M1-QA](docs/tasks/M1-QA.md))
 
