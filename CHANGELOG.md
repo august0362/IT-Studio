@@ -13,6 +13,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 - Add L3 sidecar integration harness and M1 integration suite ([M1-QA](docs/tasks/M1-QA.md))
 
 ### Fixed
+- Accessible in-app ConfirmDialog replaces window.confirm (BUG-M1-005)
 - UI RpcClient now sends request params (BUG-M1-004, S1)
 - Deterministic RpcServer concurrency test (BUG-M1-001)
 - Add VS Code extension session discovery and WebSocket bridge with handshake and reconnect ([M7-01](docs/tasks/M7-01.md))
