@@ -61,6 +61,17 @@ import { readdirSync } from 'node:fs';
 import { ErrorCode, type AppError, type Result } from '@itstudio/schemas';
 import { z } from 'zod';
 import { VSCodeBridge } from './services/vscode-bridge.js';
+import { NodeFileSystem } from './infra/node-file-system.js';
+import { NodeProcessRunner } from './infra/node-process-runner.js';
+import { PipelineRepository } from './infra/sqlite/pipeline-repository.js';
+import { RoleCaller } from './services/role-caller.js';
+import { WriteTransactionService } from './services/write-transaction.js';
+import { CommandRunner } from './services/command-runner.js';
+import { FailureReportBuilder } from './services/failure-report-builder.js';
+import { JournalRecoveryService } from './services/journal-recovery.js';
+import { ProjectContextService } from './services/project-context.js';
+import { PipelineOrchestrator } from './services/pipeline-orchestrator.js';
+import { microUsd, toMoneyDisplay } from './domain/money.js';
 
 class MemorySecretStore implements ISecretStore {
   private readonly values = new Map<ProviderId, string>();
@@ -132,15 +143,18 @@ class ScriptedKeyVerifier implements IProviderKeyVerifier {
 }
 
 const scriptedLlmFixtureSchema = z.object({ models: z.record(z.string(), z.array(z.string())) });
+const scriptedLlmTextsSchema = z.record(z.string(), z.string());
 
 function scriptedLlmProvider(
   id: ProviderIdType,
-  text: string,
+  texts: string | Readonly<Record<string, string>>,
   scripts: Readonly<Record<string, readonly string[]>>,
   cursors: Map<string, number>,
 ): ILlmProvider {
+  const outputText = (request: ProviderRequest): string =>
+    typeof texts === 'string' ? texts : (texts[request.modelId] ?? '{}');
   const response = (request: ProviderRequest): ProviderResponse => ({
-    text,
+    text: outputText(request),
     toolCalls: [],
     usage: { inputTokens: 12, outputTokens: 8, cachedInputTokens: 0 },
     finishReason: 'stop',
@@ -216,6 +230,7 @@ function scriptedLlmProvider(
     if (signal.aborted)
       return { ok: false, error: { kind: FailureKind.TIMEOUT, billed: false, message: 'Scripted request cancelled.' } };
     const stream = /^stream:(\d+)$/u.exec(outcome);
+    const text = outputText(request);
     const chunks = text.match(/.{1,12}/gu) ?? [text];
     if (stream !== null) {
       const count = Number(stream[1]);
@@ -270,6 +285,15 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     e2e && env.ITSTUDIO_E2E_LLM_SCRIPT !== undefined
       ? scriptedLlmFixtureSchema.parse(JSON.parse(readFileSync(env.ITSTUDIO_E2E_LLM_SCRIPT, 'utf8'))).models
       : {};
+  const configuredLlmText = env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.';
+  let llmTexts: string | Readonly<Record<string, string>> = configuredLlmText;
+  try {
+    const parsedText: unknown = JSON.parse(configuredLlmText) as unknown;
+    const parsedTexts = scriptedLlmTextsSchema.safeParse(parsedText);
+    if (parsedTexts.success) llmTexts = parsedTexts.data;
+  } catch {
+    // Plain response text remains the default fixture format.
+  }
   const llmScriptCursors = new Map<string, number>();
   const loadedSeeds = loadSeeds(resolve(dirname(fileURLToPath(import.meta.url)), '../../..', 'config'));
   if (!loadedSeeds.ok) throw new Error(loadedSeeds.error.message);
@@ -320,61 +344,27 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const fxDailyJob = new FxDailyJob({ fx: fxService, settings: settingsService, clock, logger });
   const providers = new ProviderRegistry({
     [ProviderId.ANTHROPIC]: () =>
-      e2e
-        ? scriptedLlmProvider(
-            ProviderId.ANTHROPIC,
-            env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.',
-            llmScripts,
-            llmScriptCursors,
-          )
-        : new AnthropicProvider(),
+      e2e ? scriptedLlmProvider(ProviderId.ANTHROPIC, llmTexts, llmScripts, llmScriptCursors) : new AnthropicProvider(),
     [ProviderId.GOOGLE]: () =>
-      e2e
-        ? scriptedLlmProvider(
-            ProviderId.GOOGLE,
-            env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.',
-            llmScripts,
-            llmScriptCursors,
-          )
-        : new GoogleProvider(),
+      e2e ? scriptedLlmProvider(ProviderId.GOOGLE, llmTexts, llmScripts, llmScriptCursors) : new GoogleProvider(),
     [ProviderId.OPENAI]: () =>
       e2e
-        ? scriptedLlmProvider(
-            ProviderId.OPENAI,
-            env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.',
-            llmScripts,
-            llmScriptCursors,
-          )
+        ? scriptedLlmProvider(ProviderId.OPENAI, llmTexts, llmScripts, llmScriptCursors)
         : new OpenAiCompatibleProvider({
             id: ProviderId.OPENAI,
             baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.OPENAI],
           }),
     [ProviderId.XAI]: () =>
       e2e
-        ? scriptedLlmProvider(
-            ProviderId.XAI,
-            env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.',
-            llmScripts,
-            llmScriptCursors,
-          )
+        ? scriptedLlmProvider(ProviderId.XAI, llmTexts, llmScripts, llmScriptCursors)
         : new OpenAiCompatibleProvider({ id: ProviderId.XAI, baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.XAI] }),
     [ProviderId.GROQ]: () =>
       e2e
-        ? scriptedLlmProvider(
-            ProviderId.GROQ,
-            env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.',
-            llmScripts,
-            llmScriptCursors,
-          )
+        ? scriptedLlmProvider(ProviderId.GROQ, llmTexts, llmScripts, llmScriptCursors)
         : new OpenAiCompatibleProvider({ id: ProviderId.GROQ, baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.GROQ] }),
     [ProviderId.TOGETHER]: () =>
       e2e
-        ? scriptedLlmProvider(
-            ProviderId.TOGETHER,
-            env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.',
-            llmScripts,
-            llmScriptCursors,
-          )
+        ? scriptedLlmProvider(ProviderId.TOGETHER, llmTexts, llmScripts, llmScriptCursors)
         : new OpenAiCompatibleProvider({
             id: ProviderId.TOGETHER,
             baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.TOGETHER],
@@ -390,6 +380,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   });
   pricingService.initialize();
   const events = new EventBus<RpcNotificationMap>();
+  const fileSystem = new NodeFileSystem();
   const vscodeInternalEvents = new EventBus<{
     file_saved_by_user: { readonly projectId: ProjectId; readonly path: WorkspaceRelativePath; readonly hash: string };
   }>();
@@ -478,6 +469,35 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     clock,
     logger,
   });
+  const pipelineRepository = new PipelineRepository(database.db);
+  const roleCaller = new RoleCaller({ router: llmRouter, logger, ids, now: () => clock.now() });
+  const writeTransaction = new WriteTransactionService({ fileSystem, ids, clock });
+  const commandRunner = new CommandRunner({ processRunner: new NodeProcessRunner(), fileSystem, ids });
+  const journalRecovery = new JournalRecoveryService(fileSystem, clock);
+  const projectContext = new ProjectContextService(fileSystem);
+  const failureReportBuilder = new FailureReportBuilder();
+  const pipelineOrchestrator = new PipelineOrchestrator({
+    repository: pipelineRepository,
+    projects: projectRepository,
+    settings: async () => {
+      const result = await settingsService.get();
+      return result.ok ? { ok: true, value: result.value.pipeline } : result;
+    },
+    context: projectContext,
+    roles: roleCaller,
+    writer: writeTransaction,
+    commands: commandRunner,
+    reports: failureReportBuilder,
+    fileSystem,
+    events,
+    ids,
+    clock,
+    money: () => toMoneyDisplay(microUsd(0), fxService.getEffective()),
+    budgetHardStop: async (projectId) => {
+      const status = await budgetGuard.status(projectId);
+      return status.ok && status.value.some((item) => item.blocking);
+    },
+  });
   const serverRef: { current?: RpcServer } = {};
   const transport = new LineTransport({
     input: dependencies.input ?? stdin,
@@ -545,6 +565,36 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     chatService.send(conversationId, text, modelOverride),
   );
   server.register('chat.cancel', ({ requestId }) => chatService.cancel(requestId));
+  server.register('pipeline.start', async (input) => ({ ok: true, value: await pipelineOrchestrator.start(input) }));
+  server.register('pipeline.get', async ({ runId }) => {
+    const run = await pipelineOrchestrator.get(runId);
+    return run === null
+      ? {
+          ok: false,
+          error: {
+            code: ErrorCode.NOT_FOUND,
+            message: 'Pipeline run was not found.',
+            retryable: false,
+            remediation: ['Refresh the pipeline list and select an existing run.'],
+          },
+        }
+      : { ok: true, value: run };
+  });
+  server.register('pipeline.list', async (input) => ({ ok: true, value: await pipelineOrchestrator.list(input) }));
+  server.register('pipeline.cancel', async ({ runId }) => {
+    const run = await pipelineOrchestrator.cancel(runId);
+    return run === null
+      ? {
+          ok: false,
+          error: {
+            code: ErrorCode.NOT_FOUND,
+            message: 'Pipeline run was not found.',
+            retryable: false,
+            remediation: ['Refresh the pipeline list and select an existing run.'],
+          },
+        }
+      : { ok: true, value: run };
+  });
   server.register('ledger.query', (query) => ledgerService.query(query));
   server.register('budget.set', ({ projectId, period, limitMicroUsd, warnAt }) =>
     budgetGuard.set({ projectId, period, limitMicroUsd, warnAt }),
@@ -563,6 +613,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     modelRegistry,
     llmRouter,
     chatService,
+    pipelineOrchestrator,
     ledgerService,
     budgetGuard,
     pricingService,
@@ -614,8 +665,27 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
           'Could not restore active VS Code session',
         );
       });
-      events.publish('system.ready', { version: service.getVersion(), recoveredTransactions: 0 });
       logger.info({ svc: 'sidecar', startupMs: Math.max(0, clock.monotonicMs() - startupStartedAt) }, 'sidecar ready');
+      void (async () => {
+        let recoveredTransactions = 0;
+        const projects = await projectRepository.list();
+        for (const project of projects) {
+          const recovered = await journalRecovery.recover(project.workspaceRoot);
+          if (recovered.ok) recoveredTransactions += recovered.value;
+          else
+            logger.error(
+              { svc: 'journal-recovery', projectId: project.id, remediation: recovered.error.remediation },
+              'Journal recovery failed',
+            );
+        }
+        events.publish('system.ready', { version: service.getVersion(), recoveredTransactions });
+      })().catch((error: unknown) => {
+        logger.error(
+          { svc: 'journal-recovery', error: error instanceof Error ? error.message : 'unknown' },
+          'Startup recovery failed',
+        );
+        events.publish('system.ready', { version: service.getVersion(), recoveredTransactions: 0 });
+      });
     },
   };
 }
