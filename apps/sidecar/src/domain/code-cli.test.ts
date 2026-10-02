@@ -9,7 +9,7 @@ describe('VS Code CLI parsing', () => {
     });
   });
 
-  it('parses the real code.cmd line with CRLF endings and trailing %* arguments', () => {
+  it('TC-M7-040 parses the real VS Code 1.140 code.cmd line with CRLF and trailing %* arguments', () => {
     const contents = [
       '@echo off',
       'setlocal',
@@ -43,5 +43,11 @@ describe('VS Code CLI parsing', () => {
     });
     expect(makeResolvedCodeCli('code', [], false)).toBeNull();
     expect(makeResolvedCodeCli('/usr/bin/not-code', [], false)).toBeNull();
+  });
+
+  it('TC-M7-043 only creates CLI handles for the allow-listed VS Code executable names', () => {
+    expect(makeResolvedCodeCli('C:\\tools\\powershell.exe', [], true)).toBeNull();
+    expect(makeResolvedCodeCli('/usr/bin/node', [], false)).toBeNull();
+    expect(makeResolvedCodeCli('code', [], false)).toBeNull();
   });
 });

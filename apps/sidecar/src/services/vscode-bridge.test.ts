@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { createLogger } from '../infra/logger.js';
 import { createFakeIdGenerator } from '../infra/id.js';
-import { projectIdSchema } from '../validation/brand.js';
+import { projectIdSchema, workspaceRelativePathSchema } from '../validation/brand.js';
 import { VSCodeBridge, type VscodeBridgeTimers } from './vscode-bridge.js';
 
 const directories: string[] = [];
@@ -51,7 +51,7 @@ function manualTimers() {
   };
 }
 
-async function setup() {
+async function setup(options: { readonly useDefaultTimers?: boolean; readonly failRealpath?: boolean } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'itstudio-vscode-bridge-'));
   directories.push(root);
   const statuses: unknown[] = [];
@@ -61,14 +61,15 @@ async function setup() {
   const bridge = new VSCodeBridge({
     ids: createFakeIdGenerator(['a1111111-1111-4111-8111-111111111111']),
     logger: createLogger({ streams: [] }),
-    timers: timer.clock,
+    ...(options.useDefaultTimers ? {} : { timers: timer.clock }),
     randomToken: () => 'a'.repeat(64),
     events: {
       publishStatus: (value) => statuses.push(value),
       publishDiagnostics: (value) => diagnostics.push(value),
       publishInternal: (value) => savedFiles.push(value),
     },
-    realpath: (path) => Promise.resolve(path),
+    realpath: (path) =>
+      options.failRealpath ? Promise.reject(new Error('workspace unavailable')) : Promise.resolve(path),
   });
   bridges.push(bridge);
   await bridge.activate(projectIdSchema.parse('b1111111-1111-4111-8111-111111111111'), root);
@@ -88,8 +89,54 @@ function hello(socket: WebSocket, token: string, workspaceRoot: string, protocol
 }
 
 describe('VSCodeBridge', () => {
+  it('rejects a browser Origin header before opening a client session', async () => {
+    const state = await setup();
+    const browser = connect(state.session.port, { origin: 'https://example.test' });
+    await expect(
+      new Promise<void>((resolveOpen, reject) => {
+        browser.once('open', resolveOpen);
+        browser.once('unexpected-response', (_request, response) => {
+          response.resume();
+          reject(new Error(`HTTP ${String(response.statusCode)}`));
+        });
+        browser.once('error', reject);
+      }),
+    ).rejects.toThrow('HTTP 403');
+    expect(state.statuses).toEqual([]);
+  });
+
+  it('uses the default timers for handshake cleanup and authenticated heartbeat lifecycle', async () => {
+    const state = await setup({ useDefaultTimers: true });
+    const socket = connect(state.session.port);
+    await new Promise<void>((resolveWelcome, reject) => {
+      socket.once('open', () => {
+        hello(socket, state.session.token, state.root);
+      });
+      socket.once('message', () => {
+        resolveWelcome();
+      });
+      socket.once('error', reject);
+    });
+    const closed = new Promise<void>((resolveClose) => socket.once('close', resolveClose));
+    socket.close();
+    await closed;
+    await new Promise<void>((resolveDelay) => setTimeout(resolveDelay, 10));
+    expect(state.statuses.at(-1)).toMatchObject({ connected: false });
+  });
+
+  it('rejects a matching token when workspace realpath validation fails', async () => {
+    const state = await setup({ failRealpath: true });
+    const socket = connect(state.session.port);
+    const closed = new Promise<number>((resolveCode) => socket.once('close', resolveCode));
+    socket.once('open', () => {
+      hello(socket, state.session.token, state.root);
+    });
+    expect(await closed).toBe(4401);
+  });
+
   it('authenticates a hello, sends welcome, and publishes diagnostics and internal saves', async () => {
     const state = await setup();
+    state.bridge.send({ type: 'reveal', ref: 0, path: workspaceRelativePathSchema.parse('src/a.ts'), line: 1 });
     const socket = connect(state.session.port);
     try {
       const firstMessage = new Promise<string>((resolveMessage, reject) => {
@@ -105,6 +152,13 @@ describe('VSCodeBridge', () => {
       expect(z.object({ type: z.literal('welcome'), sessionId: z.string() }).parse(welcomeJson)).toMatchObject({
         type: 'welcome',
       });
+      const outbound = new Promise<string>((resolveMessage) => {
+        socket.once('message', (data) => {
+          resolveMessage(Buffer.isBuffer(data) ? data.toString('utf8') : '');
+        });
+      });
+      state.bridge.send({ type: 'reveal', ref: 0, path: workspaceRelativePathSchema.parse('src/a.ts'), line: 1 });
+      expect(JSON.parse(await outbound)).toMatchObject({ type: 'reveal', ref: 1, path: 'src/a.ts', line: 1 });
       expect(state.statuses).toHaveLength(1);
       socket.send(JSON.stringify({ type: 'diagnostics', diagnostics: [] }));
       socket.send(JSON.stringify({ type: 'file_saved_by_user', path: 'src/a.ts', hash: 'a'.repeat(64) }));
@@ -128,7 +182,7 @@ describe('VSCodeBridge', () => {
     }
   });
 
-  it('rejects bad tokens, protocol versions, roots, browser origins, and expired handshakes', async () => {
+  it('TC-M7-005 closes a client that sends no hello within the handshake timeout', async () => {
     const state = await setup();
     for (const attempt of [
       { token: 'b'.repeat(64), root: state.root, version: 1 },
@@ -146,18 +200,6 @@ describe('VSCodeBridge', () => {
       });
       expect([4400, 4401]).toContain(await code);
     }
-    const browser = connect(state.session.port, { origin: 'https://example.test' });
-    await expect(
-      new Promise<void>((resolveOpen, reject) => {
-        browser.once('open', resolveOpen);
-        browser.once('unexpected-response', (_request, response) => {
-          response.resume();
-          reject(new Error(`HTTP ${String(response.statusCode)}`));
-        });
-        browser.once('error', reject);
-      }),
-    ).rejects.toThrow('HTTP 403');
-
     const silent = connect(state.session.port);
     const timeoutCode = new Promise<number>((resolveCode) =>
       silent.once('close', (value) => {

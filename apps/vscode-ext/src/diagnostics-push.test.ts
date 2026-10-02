@@ -34,7 +34,7 @@ function diagnostic(severity: TestDiagnostic['severity'], index: number): TestDi
 }
 
 describe('DiagnosticsPush', () => {
-  it('debounces diagnostic changes for 500 ms and sends the latest workspace snapshot', () => {
+  it('TC-M7-020 debounces changes for 500 ms and sends the latest workspace snapshot', () => {
     const timer = new FakeTimer();
     let snapshot: readonly TestDiagnostic[] = [diagnostic('error', 1)];
     const sent: (readonly TestDiagnostic[])[] = [];
@@ -49,7 +49,7 @@ describe('DiagnosticsPush', () => {
     expect(sent).toEqual([[diagnostic('warning', 2)]]);
   });
 
-  it('does not schedule while disconnected and cancels a pending push on disconnect', () => {
+  it('TC-M7-021 sends nothing while disconnected and cancels pending pushes', () => {
     const timer = new FakeTimer();
     const sent: (readonly TestDiagnostic[])[] = [];
     const push = new DiagnosticsPush({ timer, snapshot: () => [], send: (value) => sent.push(value) });
