@@ -27,6 +27,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@stryker-mutator/core": "~10.0.0",
+    "@stryker-mutator/vitest-runner": "~10.0.0",
     "@vitest/coverage-v8": "^5.0.3",
     "@wdio/cli": "9.32.0",
     "@wdio/local-runner": "9.32.0",
