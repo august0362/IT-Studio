@@ -31,3 +31,13 @@ Repro: E2E `shell.spec.ts` (creates + activates a project) followed by `shutdown
 
 ## Hand-back
 Append `## Result` per AGENTS.md §3.
+
+## Result
+- Summary: Added once-only stdin EOF/close shutdown handling after pending RPC lines finish; made shutdown idempotent with isolated hook failures, a 3 s injectable deadline, reason logging, and exit logging; wired stdin EOF to shutdown and updated E2E sidecar PID selection to require a running desktop parent.
+- Files changed: `apps/sidecar/src/rpc/line-transport.ts`, `apps/sidecar/src/rpc/line-transport.test.ts`, `apps/sidecar/src/services/system-service.ts`, `apps/sidecar/src/services/system-service.test.ts`, `apps/sidecar/src/container.ts`, `apps/sidecar/test/integration/shutdown.test.ts`, `e2e/helpers/ui.ts`, `docs/tasks/M1-FIX4.md`.
+- Dependencies added (with reason): None.
+- Decisions taken within scope: EOF and close share a guarded finish path; shutdown hooks run independently so one failure cannot prevent other hooks; the integration case directly spawns the sidecar to exercise actual stdin closure and bridge teardown.
+- Open issues / follow-ups: `npm run typecheck`, `npm run lint`, and `npm test` pass (509 passed, 1 skipped). The new integration test and the broader integration suite cannot start sidecar child processes in this sandbox: Node `tsx` fails in `os.userInfo()` with `uv_os_get_passwd` / `ENOMEM`, a documented sandbox limit. QA should rerun integration and full E2E outside the sandbox.
+
+## QA (Claude)
+- Verdict: **PASS**. typecheck ✔, lint ✔, 509 unit ✔, integration 52/52 ×2 incl. new TC-M1-020 (stdin closed with an active bridge → exit 0 within 3 s). Container diff limited to the EOF wiring. Full E2E re-run in the M4-01 worktree after merge (TC-M1-006 after `shell.spec.ts`).

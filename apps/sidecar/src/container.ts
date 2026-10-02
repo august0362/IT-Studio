@@ -478,6 +478,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     clock,
     logger,
   });
+  const systemServiceRef: { current?: SystemService } = {};
   const serverRef: { current?: RpcServer } = {};
   const transport = new LineTransport({
     input: dependencies.input ?? stdin,
@@ -485,6 +486,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     onLine: async (line) => {
       await serverRef.current?.handleLine(line);
     },
+    onEnd: () => systemServiceRef.current?.shutdown('stdin_closed'),
   });
   const server = new RpcServer(transport, events, logger);
   serverRef.current = server;
@@ -505,6 +507,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     ],
     ...(dependencies.exit === undefined ? {} : { exit: dependencies.exit }),
   });
+  systemServiceRef.current = service;
   service.register(server);
   server.register('settings.get', () => settingsService.get());
   server.register('settings.update', ({ patch }) => settingsService.update(patch));
