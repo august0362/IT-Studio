@@ -27,7 +27,7 @@ export async function waitForReady() {
 
 export async function sidecarPid(): Promise<number> {
   const command =
-    "$p = Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'node.exe' -and $_.CommandLine -like '*apps\\sidecar\\src\\main.ts*' } | Select-Object -First 1 -ExpandProperty ProcessId; if ($p) { $p }";
+    "$desktops = Get-Process -Name 'itstudio-desktop' -ErrorAction SilentlyContinue | Sort-Object StartTime -Descending; $sidecar = $null; foreach ($desktop in $desktops) { $sidecar = Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'node.exe' -and $_.CommandLine -like '*apps\\sidecar\\src\\main.ts*' -and $_.ParentProcessId -eq $desktop.Id } | Sort-Object CreationDate -Descending | Select-Object -First 1; if ($sidecar) { break } }; if ($sidecar) { $sidecar.ProcessId } else { throw 'No supervised sidecar belongs to a running itstudio-desktop.exe process' }";
   const { execFileSync } = await import('node:child_process');
   const output = execFileSync('powershell.exe', ['-NoProfile', '-Command', command], {
     encoding: 'utf8',

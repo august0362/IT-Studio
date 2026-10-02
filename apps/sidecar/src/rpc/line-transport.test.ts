@@ -2,6 +2,14 @@ import { PassThrough } from 'node:stream';
 import { describe, expect, it } from 'vitest';
 import { LineTransport } from './line-transport.js';
 
+function setupWithEnd(onEnd: () => void | Promise<void>, onLine: (line: string) => void | Promise<void>) {
+  const input = new PassThrough();
+  const output = new PassThrough();
+  const transport = new LineTransport({ input, output, onLine, onEnd });
+  transport.start();
+  return { input, transport };
+}
+
 function setup(onLine?: (line: string) => void) {
   const input = new PassThrough();
   const output = new PassThrough();
@@ -43,5 +51,33 @@ describe('LineTransport', () => {
     const { transport, written } = setup();
     await Promise.all([transport.write({ value: 1 }), transport.write({ value: 2 })]);
     expect(written.join('')).toBe('{"value":1}\n{"value":2}\n');
+  });
+
+  it('calls onEnd once after the final partial line has finished processing', async () => {
+    const order: string[] = [];
+    let completeLine: (() => void) | undefined;
+    let endCount = 0;
+    const { input } = setupWithEnd(
+      () => {
+        endCount += 1;
+        order.push('end');
+      },
+      async (line) => {
+        order.push(line);
+        await new Promise<void>((resolve) => {
+          completeLine = resolve;
+        });
+        order.push('processed');
+      },
+    );
+    input.write('last partial line');
+    input.end();
+    input.emit('close');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(order).toEqual(['last partial line']);
+    completeLine?.();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(order).toEqual(['last partial line', 'processed', 'end']);
+    expect(endCount).toBe(1);
   });
 });
