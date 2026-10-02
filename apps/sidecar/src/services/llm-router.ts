@@ -40,8 +40,12 @@ export interface RouterCompleted {
 }
 
 export interface IFallbackDecider {
-  decide(request: FallbackDecisionRequest): Promise<FallbackDecision>;
+  decide(request: FallbackDecisionRequest, source: LlmRequest, timeoutMs: number): Promise<FallbackDeciderResult>;
+  resolve?(decision: FallbackDecision): { readonly accepted: boolean };
 }
+
+export type FallbackDeciderResult =
+  FallbackDecision | { readonly requestId: LlmRequest['id']; readonly action: 'user_timeout' };
 
 const rejectFallback: IFallbackDecider = {
   decide: ({ requestId }) => Promise.resolve({ requestId, action: 'abort' }),
@@ -74,17 +78,17 @@ function defaultSleep(ms: number): Promise<void> {
 }
 
 async function decideBeforeTimeout(
-  decision: Promise<FallbackDecision>,
+  decision: Promise<FallbackDeciderResult>,
   requestId: LlmRequest['id'],
   timeoutMs: number,
-): Promise<FallbackDecision> {
+): Promise<FallbackDeciderResult> {
   let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
       decision,
-      new Promise<FallbackDecision>((resolve) => {
+      new Promise<FallbackDeciderResult>((resolve) => {
         timeout = setTimeout(() => {
-          resolve({ requestId, action: 'abort' });
+          resolve({ requestId, action: 'user_timeout' });
         }, timeoutMs);
       }),
     ]);
@@ -264,15 +268,22 @@ export class LlmRouter {
             ),
           };
           const decision = await decideBeforeTimeout(
-            (this.deps.fallbackDecider ?? rejectFallback).decide(decisionRequest),
+            (this.deps.fallbackDecider ?? rejectFallback).decide(
+              decisionRequest,
+              request,
+              config.userDecisionTimeoutMs,
+            ),
             request.id,
             config.userDecisionTimeoutMs,
           );
-          await apply({
-            type: 'user_decision',
-            decision: decision.action === 'use_model' ? 'use_model' : decision.action,
-            ...(decision.action === 'use_model' ? { modelKey: decision.modelKey } : {}),
-          });
+          if (decision.action === 'user_timeout') await apply({ type: 'user_timeout' });
+          else {
+            await apply({
+              type: 'user_decision',
+              decision: decision.action === 'use_model' ? 'use_model' : decision.action,
+              ...(decision.action === 'use_model' ? { modelKey: decision.modelKey } : {}),
+            });
+          }
         } else {
           if (effect.outcome === 'cancelled' && terminalError === undefined)
             terminalError = appError(ErrorCode.CANCELLED, 'The request was cancelled.', [
