@@ -137,7 +137,6 @@ describe('branded validators', () => {
     ingestJobIdSchema,
     transactionIdSchema,
     commandRunIdSchema,
-    toolCallIdSchema,
     imageAssetIdSchema,
   ]) {
     it('accepts UUIDs and rejects malformed identifiers', () => {
@@ -245,5 +244,16 @@ describe('boundary schemas', () => {
       }).success,
     ).toBe(false);
     expect(toJsonSchema(taskSpecSchema)).toHaveProperty('type', 'object');
+  });
+});
+
+describe('toolCallIdSchema', () => {
+  it('accepts provider-issued opaque ids and rejects unsafe values', () => {
+    for (const ok of ['toolu_01ABC', 'call_0', 'call_abc-DEF.1:2', '123e4567-e89b-42d3-a456-426614174000']) {
+      expect(toolCallIdSchema.safeParse(ok).success).toBe(true);
+    }
+    for (const bad of ['', 'a b', 'x'.repeat(129), 'call\n1', '<script>']) {
+      expect(toolCallIdSchema.safeParse(bad).success).toBe(false);
+    }
   });
 });

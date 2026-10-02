@@ -14,7 +14,11 @@ export const chunkIdSchema = brandedUuid<'ChunkId'>();
 export const ingestJobIdSchema = brandedUuid<'IngestJobId'>();
 export const transactionIdSchema = brandedUuid<'TransactionId'>();
 export const commandRunIdSchema = brandedUuid<'CommandRunId'>();
-export const toolCallIdSchema = brandedUuid<'ToolCallId'>();
+/** Provider-issued opaque id (Anthropic toolu_…, OpenAI call_…, Gemini synthetic call_<n>) — not a UUID (CONVENTIONS §2.1). */
+export const toolCallIdSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9_.:-]{1,128}$/)
+  .transform((value) => value as Brand<string, 'ToolCallId'>);
 export const imageAssetIdSchema = brandedUuid<'ImageAssetId'>();
 export const priceTableVersionSchema = z
   .string()
