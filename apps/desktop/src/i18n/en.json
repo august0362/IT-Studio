@@ -61,6 +61,7 @@
   },
   "code": {
     "heading": "Build with agents",
+    "loading": "Loading code tools…",
     "prompt": "What should we build?",
     "counter": "{{count}} / 8000",
     "run": "Run pipeline",

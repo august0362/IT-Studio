@@ -1,6 +1,6 @@
 import type { AppError } from '@itstudio/schemas';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState, type JSX } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiKeysPage } from '../features/settings/api-keys/ApiKeysPage';
 import { ThemePage } from '../features/settings/theme/ThemePage';
@@ -13,7 +13,8 @@ import { MainNav, type ShellRoute } from './MainNav';
 import { NewProjectDialog } from './NewProjectDialog';
 import { ProjectTabs } from './ProjectTabs';
 import { ChatPage } from '../features/chat/ChatPage';
-import { CodePage } from '../features/code/CodePage';
+
+const CodePage = lazy(() => import('../features/code/CodePage').then(({ CodePage: page }) => ({ default: page })));
 
 function asAppError(cause: unknown): AppError {
   if (cause instanceof RpcCallError) return cause.appError;
@@ -121,7 +122,11 @@ export function AppShell(): JSX.Element {
   if (route === 'chat')
     content = <ChatPage projectId={projects.find((project) => project.id === activeId)?.id ?? null} />;
   else if (route === 'code')
-    content = <CodePage projectId={projects.find((project) => project.id === activeId)?.id ?? null} />;
+    content = (
+      <Suspense fallback={<p role="status">{t('code.loading')}</p>}>
+        <CodePage projectId={projects.find((project) => project.id === activeId)?.id ?? null} />
+      </Suspense>
+    );
   else if (route === 'settings-api-keys') content = <ApiKeysPage />;
   else if (route === 'settings-theme') content = <ThemePage />;
   else

@@ -61,6 +61,7 @@
   },
   "code": {
     "heading": "Xây dựng cùng tác nhân",
+    "loading": "Đang tải công cụ lập trình…",
     "prompt": "Bạn muốn xây dựng gì?",
     "counter": "{{count}} / 8000",
     "run": "Chạy quy trình",
