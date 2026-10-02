@@ -23,6 +23,7 @@ import {
   isoDateTimeSchema,
   llmRequestIdSchema,
   messageIdSchema,
+  pipelineRunIdSchema,
   projectIdSchema,
 } from '../validation/brand.js';
 import { modelKeySchema } from '../validation/common.js';
@@ -204,6 +205,27 @@ describe('LlmRouter', () => {
       value: { modelKey: modelA, costMicroUsd: 0, attempts: [{ outcome: 'success' }] },
     });
     expect(completions).toMatchObject([{ requestId: baseRequest.id, modelKey: modelA, billedFailure: false }]);
+  });
+
+  it('carries pipeline attribution on successful and billed failure completions', async () => {
+    const pipelineRunId = pipelineRunIdSchema.parse('00000000-0000-4000-8000-000000000008');
+    const success = setup();
+    const successes: RouterCompleted[] = [];
+    success.completed.subscribe('completed', (event) => successes.push(event));
+    await success.router.dispatch({ ...baseRequest, pipelineRunId });
+    expect(successes[0]?.pipelineRunId).toBe(pipelineRunId);
+
+    const failedProvider = new ScriptedProvider(ProviderId.OPENAI, [
+      {
+        ok: false,
+        error: { kind: FailureKind.BAD_REQUEST, billed: true, message: 'Billed test failure', httpStatus: 400 },
+      },
+    ]);
+    const failed = setup({ first: failedProvider, autoFallback: false });
+    const failures: RouterCompleted[] = [];
+    failed.completed.subscribe('completed', (event) => failures.push(event));
+    await failed.router.dispatch({ ...baseRequest, pipelineRunId });
+    expect(failures[0]).toMatchObject({ pipelineRunId, billedFailure: true });
   });
 
   it('reports missing conversation context as an internal error', async () => {

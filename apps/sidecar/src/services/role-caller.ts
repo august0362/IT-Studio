@@ -185,6 +185,7 @@ export class RoleCaller {
       const request: LlmRequest = {
         id: llmRequestIdSchema.parse(ids.uuid()),
         projectId: options.projectId,
+        pipelineRunId: options.pipelineRunId,
         purpose: `pipeline_${role}`,
         messages: [
           {

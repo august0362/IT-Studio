@@ -7,6 +7,7 @@ import {
   type PipelineEvent,
   type PipelineRun,
   type PipelineRunId,
+  type MicroUsd,
   type PipelineSettings,
   type Project,
   type ProjectId,
@@ -26,7 +27,7 @@ import type { WriteTransactionService, PreparedWriteTransaction } from './write-
 import type { CommandRunner } from './command-runner.js';
 import type { FailureReportBuilder } from './failure-report-builder.js';
 import type { IPipelineRepository } from '../infra/sqlite/pipeline-repository.js';
-import { isoDateTimeSchema, pipelineRunIdSchema, transactionIdSchema } from '../validation/brand.js';
+import { isoDateTimeSchema, microUsdSchema, pipelineRunIdSchema, transactionIdSchema } from '../validation/brand.js';
 import { normalizeRelative, isForbidden, isWithinAllowed } from '../domain/path-guard.js';
 import { renderPipelineDiffs } from '../domain/pipeline-diff.js';
 
@@ -46,7 +47,8 @@ export interface PipelineOrchestratorDependencies {
   >;
   readonly ids: IIdGenerator;
   readonly clock: IClock;
-  readonly money: () => PipelineRun['cost'];
+  readonly runCost: (runId: PipelineRunId) => Promise<MicroUsd>;
+  readonly moneyDisplay: (amount: MicroUsd) => PipelineRun['cost'];
   readonly budgetHardStop?: (projectId: ProjectId) => Promise<boolean>;
 }
 
@@ -94,7 +96,7 @@ export class PipelineOrchestrator {
       coderOutputs: [],
       verdicts: [],
       fixAttempts: 0,
-      cost: this.deps.money(),
+      cost: this.deps.moneyDisplay(microUsdSchema.parse(0)),
       startedAt: isoDateTimeSchema.parse(this.deps.clock.now().toISOString()),
     };
     this.runs.set(run.id, run);
@@ -141,6 +143,7 @@ export class PipelineOrchestrator {
         { prompt: run.prompt, ragHits: '', tree: context.tree, conventionsSummary: context.conventionsSummary },
         { projectId: run.projectId, pipelineRunId: run.id, ladder: run.roleAssignment.pm },
       );
+      run = await this.refreshCost(run);
       if (!specCall.ok) {
         await this.fail(run, specCall.error, false);
         return;
@@ -152,6 +155,7 @@ export class PipelineOrchestrator {
       if (await this.checkBoundary(run)) return;
 
       const coding = await this.coder(run, project, spec, false);
+      run = await this.refreshCost(run);
       if (!coding.ok) {
         await this.fail(run, coding.error, false);
         return;
@@ -170,6 +174,7 @@ export class PipelineOrchestrator {
       if (await this.checkBoundary(run)) return;
 
       let verdict = await this.review(run, project, spec, coding.value);
+      run = await this.refreshCost(run);
       if (!verdict.ok) {
         await this.fail(run, verdict.error, false);
         return;
@@ -180,6 +185,7 @@ export class PipelineOrchestrator {
         run = await this.move(run, 'rejected', { fixAttempts: 1 });
         if (await this.checkBoundary(run)) return;
         const fix = await this.coder(run, project, spec, true, verdict.value);
+        run = await this.refreshCost(run);
         if (!fix.ok) {
           await this.fail(run, fix.error, false);
           return;
@@ -197,6 +203,7 @@ export class PipelineOrchestrator {
         run = await this.move(run, 'fix_ready');
         if (await this.checkBoundary(run)) return;
         verdict = await this.review(run, project, spec, fix.value);
+        run = await this.refreshCost(run);
         if (!verdict.ok) {
           await this.fail(run, verdict.error, false);
           return;
@@ -388,6 +395,11 @@ export class PipelineOrchestrator {
     return next;
   }
 
+  private async refreshCost(run: PipelineRun): Promise<PipelineRun> {
+    const amount = await this.deps.runCost(run.id);
+    return this.update(run, { cost: this.deps.moneyDisplay(amount) });
+  }
+
   private async fail(
     run: PipelineRun,
     error: AppError,
@@ -395,6 +407,7 @@ export class PipelineOrchestrator {
     rolledBackStage = false,
     commandRuns: PipelineRun['validation'] = run.validation,
   ): Promise<void> {
+    run = await this.refreshCost(run);
     const transaction = this.transactions.get(run.id);
     let rolledBack = false;
     let finalError = error;
@@ -426,6 +439,7 @@ export class PipelineOrchestrator {
   }
 
   private async finish(run: PipelineRun, stage: PipelineRun['stage']): Promise<void> {
+    run = await this.refreshCost(run);
     const finished = await this.update(run, {
       stage,
       finishedAt: isoDateTimeSchema.parse(this.deps.clock.now().toISOString()),

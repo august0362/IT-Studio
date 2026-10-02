@@ -34,6 +34,7 @@ export interface RouterCompleted {
   readonly requestId: LlmRequest['id'];
   readonly projectId: LlmRequest['projectId'];
   readonly purpose: LlmRequest['purpose'];
+  readonly pipelineRunId?: LlmRequest['pipelineRunId'];
   readonly modelKey: ModelKey;
   readonly usage: LlmResponse['usage'];
   readonly billedFailure: boolean;
@@ -450,6 +451,7 @@ export class LlmRouter {
           requestId: request.id,
           projectId: request.projectId,
           purpose: request.purpose,
+          ...(request.pipelineRunId === undefined ? {} : { pipelineRunId: request.pipelineRunId }),
           modelKey,
           usage: result.value.usage,
           billedFailure: false,
@@ -475,6 +477,7 @@ export class LlmRouter {
             requestId: request.id,
             projectId: request.projectId,
             purpose: request.purpose,
+            ...(request.pipelineRunId === undefined ? {} : { pipelineRunId: request.pipelineRunId }),
             modelKey,
             usage: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
             billedFailure: true,

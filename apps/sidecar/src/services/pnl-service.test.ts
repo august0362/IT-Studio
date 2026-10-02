@@ -64,6 +64,7 @@ describe('PnLService', () => {
     };
     const ledger: ILedgerRepository = {
       insert: () => Promise.resolve(),
+      sumByPipelineRun: () => Promise.resolve(microUsdSchema.parse(0)),
       query: (query) =>
         Promise.resolve({
           items: ledgerRows.filter((row) => row.projectId === query.projectId && row.occurredAt >= from),

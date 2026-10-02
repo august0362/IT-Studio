@@ -80,6 +80,7 @@ function harness(
   };
   let reviewIndex = 0;
   let settingsCalls = 0;
+  let costReads = 0;
   const roles = {
     call: async (role: 'pm' | 'coder' | 'reviewer'): Promise<Result<TaskSpec | CoderOutput | ReviewVerdict>> => {
       await options.beforeRole?.(role);
@@ -194,10 +195,23 @@ function harness(
     events,
     ids,
     clock,
-    money: () => toMoneyDisplay(microUsd(0), fx),
+    runCost: () => {
+      costReads += 1;
+      return Promise.resolve(microUsd(costReads * 10));
+    },
+    moneyDisplay: (amount) => toMoneyDisplay(amount, fx),
     ...(options.hardStop === undefined ? {} : { budgetHardStop: options.hardStop }),
   });
-  return { fs, rootDirectory, orchestrator, rows, events };
+  return {
+    fs,
+    rootDirectory,
+    orchestrator,
+    rows,
+    events,
+    get costReads() {
+      return costReads;
+    },
+  };
 }
 
 function deferred(): { readonly promise: Promise<void>; readonly resolve: () => void } {
@@ -232,13 +246,15 @@ async function waitForTerminal(orchestrator: PipelineOrchestrator, id: PipelineR
 }
 
 describe('PipelineOrchestrator', () => {
-  it('returns SPECIFYING immediately and completes the approved write', async () => {
+  it('updates pipeline cost after each role call and at completion', async () => {
     const h = harness();
     await h.rootDirectory;
     const run = await h.orchestrator.start({ projectId, prompt: 'Create greeting' });
     expect(run.stage).toBe(PipelineStage.SPECIFYING);
     const completed = await waitForTerminal(h.orchestrator, run.id);
     expect(completed.stage, JSON.stringify(completed.failureReport)).toBe(PipelineStage.COMPLETED);
+    expect(completed.cost.microUsd).toBe(40);
+    expect(h.costReads).toBe(4);
     const file = await h.fs.readFile(`${root}/hello.txt`);
     expect(file.ok && new TextDecoder().decode(file.value)).toBe('hello');
   });
