@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add Money, SafeMarkdown (XSS-hardened) and ErrorPanel components ([M4-02](docs/tasks/M4-02.md))
+- Add runtime role prompts and RoleCaller with JSON validation ([M6-04](docs/tasks/M6-04.md))
 - Add versioned price tables with manual overrides ([M3-03](docs/tasks/M3-03.md))
 - Add journaled atomic WriteTransaction with rollback and crash recovery ([M6-02](docs/tasks/M6-02.md))
 - Add M2 integration suite; M2 QA gate signed off ([M2-QA](docs/tasks/M2-QA.md))
