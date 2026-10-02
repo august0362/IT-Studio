@@ -44,7 +44,12 @@ function startDriver(port: number, nativePort: number, crashOnStart = false): vo
 
 export const config: Options.Testrunner & { capabilities: Capabilities.RequestedStandaloneCapabilities[] } = {
   runner: 'local',
-  specs: ['./specs/**/*.spec.ts'],
+  specs: [
+    './specs/m1/api-keys.spec.ts',
+    './specs/m1/fatal.spec.ts',
+    './specs/m1/startup.spec.ts',
+    './specs/m1/shutdown.spec.ts',
+  ],
   maxInstances: 1,
   capabilities: tauriCapabilities,
   hostname: '127.0.0.1',

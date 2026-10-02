@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { waitForReady, statusBar, sidecarPid, killProcess, waitForShutdown } from '../../helpers/ui.js';
+import { waitForReady, statusBar, sidecarPid, killProcess } from '../../helpers/ui.js';
 
 describe('M1 startup and supervision', () => {
   it('TC-M1-001 app launch reaches Ready', async () => {
@@ -10,20 +10,30 @@ describe('M1 startup and supervision', () => {
   it('TC-M1-007 rejects a UI request interrupted by a sidecar crash', async () => {
     await waitForReady();
     await browser.$('nav[aria-label="Main navigation"] a[href="#settings"]').click();
+
+    const apiKeyForm = browser.$('form:has(#api-key-openai)');
     await browser.$('#api-key-openai').setValue('in-flight-test-key-1234');
-    const verifyButton = browser.$('form:has(#api-key-openai) button:nth-of-type(2)');
+    await apiKeyForm.$('button[type="submit"]').click();
+    await browser.waitUntil(
+      async () => (await browser.$('article:has(#api-key-openai) [role="status"]').getText()).includes('Set'),
+      {
+        timeout: 5_000,
+        timeoutMsg: 'The OpenAI test key was not saved',
+      },
+    );
+
+    const verifyButton = apiKeyForm.$('button[type="button"]');
     await verifyButton.click();
     await browser.waitUntil(async () => !(await verifyButton.isEnabled()), {
       timeout: 2_000,
       timeoutMsg: 'The verification request did not start',
     });
+
     await killProcess(await sidecarPid());
-    await browser.waitUntil(
-      async () => (await browser.$('[role="alert"]:not(footer)').getText()).includes('sidecar restarted'),
-      {
-        timeout: 5_000,
-      },
-    );
+    await browser.waitUntil(async () => (await browser.$('[role="alert"]').getText()).includes('sidecar restarted'), {
+      timeout: 5_000,
+      timeoutMsg: 'The interrupted request did not report that the sidecar restarted',
+    });
     await waitForReady();
   });
 
@@ -35,12 +45,5 @@ describe('M1 startup and supervision', () => {
     });
     await waitForReady();
     expect(await statusBar().getText()).to.include('Ready v0.1.0');
-  });
-
-  it('TC-M1-006 graceful window close shuts down the app', async () => {
-    await waitForReady();
-    const pid = await sidecarPid();
-    await browser.closeWindow();
-    await waitForShutdown(pid, 7_000);
   });
 });

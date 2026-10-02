@@ -24,15 +24,15 @@ describe('M1 API Keys UI', () => {
     await browser.waitUntil(async () =>
       (await browser.$('[aria-label="OpenAI key status"]').getText()).includes('Set'),
     );
-    await browser.execute(() => {
-      window.confirm = () => false;
-    });
+    // In-app ConfirmDialog (BUG-M1-005 / M1-FIX3) replaced window.confirm.
     await browser.$('form:has(#api-key-openai) button:nth-of-type(3)').click();
+    await browser.$('[role="alertdialog"]').waitForDisplayed();
+    await browser.$('[role="alertdialog"]').$('button=Cancel').click();
+    await browser.$('[role="alertdialog"]').waitForDisplayed({ reverse: true });
     expect(await browser.$('[aria-label="OpenAI key status"]').getText()).to.include('Set');
-    await browser.execute(() => {
-      window.confirm = () => true;
-    });
     await browser.$('form:has(#api-key-openai) button:nth-of-type(3)').click();
+    await browser.$('[role="alertdialog"]').waitForDisplayed();
+    await browser.$('[role="alertdialog"]').$('button=Delete').click();
     await browser.waitUntil(async () =>
       (await browser.$('[aria-label="OpenAI key status"]').getText()).includes('Not set'),
     );
@@ -50,11 +50,20 @@ describe('M1 API Keys UI', () => {
     );
     expect(await input.getValue()).to.equal('');
     await browser.$('form:has(#api-key-openai) button:nth-of-type(3)').click();
-    await browser.keys(['ESC']);
+    // Wait like a real user: dialog visible and focus moved to Cancel before pressing keys.
+    await browser.$('[role="alertdialog"]').waitForDisplayed();
+    await browser.waitUntil(
+      async () => (await browser.execute(() => document.activeElement?.textContent)) === 'Cancel',
+    );
+    await browser.keys(['Escape']);
+    await browser.$('[role="alertdialog"]').waitForDisplayed({ reverse: true });
     expect(await browser.$('[aria-label="OpenAI key status"]').getText()).to.include('Set');
-    expect(await browser.$('[role="alertdialog"]').isExisting()).to.equal(false);
     await browser.$('form:has(#api-key-openai) button:nth-of-type(3)').click();
-    await browser.keys(['TAB', 'ENTER']);
+    await browser.$('[role="alertdialog"]').waitForDisplayed();
+    await browser.waitUntil(
+      async () => (await browser.execute(() => document.activeElement?.textContent)) === 'Cancel',
+    );
+    await browser.keys(['Tab', 'Enter']);
     await browser.waitUntil(
       async () => (await browser.$('[aria-label="OpenAI key status"]').getText()).includes('Not set'),
       { timeout: 10_000 },
