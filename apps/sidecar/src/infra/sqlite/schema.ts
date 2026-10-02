@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { check, index, integer, primaryKey, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { check, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 export const projects = sqliteTable('projects', {
   id: text('id').primaryKey(),
@@ -121,6 +121,26 @@ export const fxRates = sqliteTable('fx_rates', {
   asOf: text('as_of').primaryKey(),
   usdToVnd: real('usd_to_vnd').notNull(),
 });
+
+export const documents = sqliteTable(
+  'documents',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    sourcePath: text('source_path').notNull(),
+    format: text('format').notNull(),
+    contentHash: text('content_hash').notNull(),
+    chunkCount: integer('chunk_count').notNull(),
+    embeddingModel: text('embedding_model').notNull(),
+    embeddingDimensions: integer('embedding_dimensions').notNull(),
+    ingestedAt: text('ingested_at').notNull(),
+    tagsJson: text('tags_json').notNull(),
+  },
+  (table) => [uniqueIndex('documents_project_source_unique').on(table.projectId, table.sourcePath)],
+);
 
 export const pipelineRuns = sqliteTable(
   'pipeline_runs',
