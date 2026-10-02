@@ -96,7 +96,9 @@ describe('RpcServer', () => {
     await first;
 
     events.publish('system.ready', { version: '1', recoveredTransactions: 0 });
-    await vi.waitFor(() => { expect(lines).toHaveLength(3); });
+    await vi.waitFor(() => {
+      expect(lines).toHaveLength(3);
+    });
 
     const responses = lines.slice(0, 2).map(parseLine);
     expect(responses.map((response) => response.id)).toEqual([2, 1]);
