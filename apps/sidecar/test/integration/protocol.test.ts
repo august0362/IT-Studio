@@ -11,16 +11,17 @@ afterEach(async () => {
 
 async function rawResponse(id: number | null): Promise<unknown> {
   if (sidecar === undefined) throw new Error('Sidecar has not started');
+  const harness = sidecar;
   const line = await new Promise<string>((resolve) => {
     const listener = (value: string): void => {
       const parsed: unknown = JSON.parse(value);
       const envelope = z.object({ id: z.number().nullable().optional() }).safeParse(parsed);
       if (envelope.success && envelope.data.id === id) {
-        sidecar?.notifications.off('line', listener);
+        harness.notifications.off('line', listener);
         resolve(value);
       }
     };
-    sidecar.notifications.on('line', listener);
+    harness.notifications.on('line', listener);
   });
   return JSON.parse(line) as unknown;
 }
