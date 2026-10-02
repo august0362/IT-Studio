@@ -1,4 +1,4 @@
-import type { RpcNotificationMap } from '@itstudio/schemas';
+import { ProviderId, type RpcNotificationMap } from '@itstudio/schemas';
 import { stdin, stdout } from 'node:process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,6 +23,13 @@ import { FetchHttpClient, ProviderKeyVerifier } from './infra/http/provider-key-
 import { SecretsService } from './services/secrets-service.js';
 import type { ISecretStore } from './ports/secret-store.js';
 import type { IProviderKeyVerifier } from './infra/http/provider-key-verifier.js';
+import { ProviderRegistry } from './providers/provider-registry.js';
+import { AnthropicProvider } from './providers/anthropic/anthropic-provider.js';
+import {
+  OPENAI_COMPATIBLE_BASE_URLS,
+  OpenAiCompatibleProvider,
+} from './providers/openai-compatible/openai-compatible-provider.js';
+import { ModelRegistry } from './services/model-registry.js';
 
 export interface ContainerDependencies {
   readonly input?: Readable;
@@ -66,6 +73,21 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     verifier: dependencies.keyVerifier ?? new ProviderKeyVerifier(new FetchHttpClient()),
     clock,
   });
+  const providers = new ProviderRegistry({
+    [ProviderId.ANTHROPIC]: () => new AnthropicProvider(),
+    [ProviderId.OPENAI]: () =>
+      new OpenAiCompatibleProvider({ id: ProviderId.OPENAI, baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.OPENAI] }),
+    [ProviderId.XAI]: () =>
+      new OpenAiCompatibleProvider({ id: ProviderId.XAI, baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.XAI] }),
+    [ProviderId.GROQ]: () =>
+      new OpenAiCompatibleProvider({ id: ProviderId.GROQ, baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.GROQ] }),
+    [ProviderId.TOGETHER]: () =>
+      new OpenAiCompatibleProvider({
+        id: ProviderId.TOGETHER,
+        baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.TOGETHER],
+      }),
+  });
+  const modelRegistry = new ModelRegistry(loadedSeeds.value.models, providers);
   const events = new EventBus<RpcNotificationMap>();
   const serverRef: { current?: RpcServer } = {};
   const transport = new LineTransport({
@@ -92,6 +114,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   server.register('secrets.delete', ({ provider }) => secretsService.delete(provider));
   server.register('secrets.status', () => secretsService.status());
   server.register('secrets.verify', ({ provider }) => secretsService.verify(provider));
+  server.register('models.list', () => Promise.resolve({ ok: true, value: modelRegistry.list() }));
 
   return {
     clock,
@@ -99,6 +122,8 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     database,
     settingsService,
     secretsService,
+    providers,
+    modelRegistry,
     projectService,
     events,
     logger,

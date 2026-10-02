@@ -105,6 +105,9 @@ describe('sidecar container', () => {
       return response.result;
     };
     await request(1, 'settings.get', {});
+    const models = await request(0, 'models.list', {});
+    expect(Array.isArray(models)).toBe(true);
+    expect(models).toHaveLength(container.modelRegistry.list().length);
     const updated = await request(2, 'settings.update', { patch: { ui: { locale: 'vi' } } });
     expect(updated).toMatchObject({ ui: { locale: 'vi' } });
     const created = await request(3, 'project.create', { name: 'RPC', workspaceRoot: workspace });
