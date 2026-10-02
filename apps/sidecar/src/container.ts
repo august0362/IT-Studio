@@ -60,6 +60,7 @@ import { FxService } from './services/fx-service.js';
 import { FxDailyJob } from './scheduler/daily-job.js';
 import type { IHttpClient } from './ports/http-client.js';
 import { PricingService } from './services/pricing-service.js';
+import { PricingUpdater } from './services/pricing-updater.js';
 import { readFileSync } from 'node:fs';
 import { readdirSync } from 'node:fs';
 import { ErrorCode, type AppError, type Result } from '@itstudio/schemas';
@@ -278,6 +279,7 @@ export interface ContainerDependencies {
   readonly secretStore?: ISecretStore;
   readonly keyVerifier?: IProviderKeyVerifier;
   readonly fxHttpClient?: IHttpClient;
+  readonly pricingHttpClient?: IHttpClient;
 }
 
 export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerDependencies = {}) {
@@ -393,6 +395,22 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     clock,
   });
   pricingService.initialize();
+  const pricingHttpClient: IHttpClient =
+    dependencies.pricingHttpClient ??
+    (e2e
+      ? {
+          request: () =>
+            Promise.resolve(
+              new Response(
+                readFileSync(
+                  resolve(dirname(fileURLToPath(import.meta.url)), '../test/fixtures/pricing/pricing.html'),
+                  'utf8',
+                ),
+                { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } },
+              ),
+            ),
+        }
+      : new FetchHttpClient());
   const events = new EventBus<RpcNotificationMap>();
   const fileSystem = new NodeFileSystem();
   const vscodeInternalEvents = new EventBus<{
@@ -562,6 +580,19 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     clock,
     logger,
   });
+  const pricingUpdater = new PricingUpdater({
+    settings: settingsService,
+    projects: projectRepository,
+    pricing: pricingService,
+    router: llmRouter,
+    http: pricingHttpClient,
+    sources: loadedSeeds.value.pricingSources,
+    models: modelRegistry.list(),
+    events,
+    ids,
+    clock,
+    logger,
+  });
   const pipelineRepository = new PipelineRepository(database.db);
   const roleCaller = new RoleCaller({ router: llmRouter, logger, ids, now: () => clock.now() });
   const writeTransaction = new WriteTransactionService({ fileSystem, ids, clock });
@@ -703,6 +734,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   server.register('budget.status', ({ projectId }) => budgetGuard.status(projectId));
   server.register('pricing.get', () => Promise.resolve({ ok: true, value: pricingService.current() }));
   server.register('pricing.override', ({ entry }) => Promise.resolve(pricingService.override(entry)));
+  server.register('pricing.refresh', () => pricingUpdater.refresh());
   server.register('rag.ingest', (input) => ragService.ingest(input));
   server.register('rag.listDocuments', (input) => ragService.listDocuments(input));
   server.register('rag.deleteDocument', (input) => ragService.deleteDocument(input));
@@ -724,6 +756,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     revenueService,
     budgetGuard,
     pricingService,
+    pricingUpdater,
     fxService,
     routerCompleted,
     projectService,
