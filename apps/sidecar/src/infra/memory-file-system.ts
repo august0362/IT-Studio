@@ -24,6 +24,60 @@ function isInside(root: string, path: string): boolean {
 
 export class MemoryFileSystem implements IFileSystem {
   private readonly entries = new Map<string, Entry>();
+  private failingAfter: number | undefined;
+  private failingInvocation: number | undefined;
+  private failingInvocations: Set<number> | undefined;
+  private invocationCount = 0;
+
+  /** Fail one mutating filesystem operation after the requested number of successful mutations. */
+  injectFailureAfter(successfulMutations: number): void {
+    this.failingAfter = Math.max(0, successfulMutations);
+  }
+
+  /** Fail the Nth IFileSystem call, including reads and metadata operations. */
+  injectFailureAtInvocation(invocation: number): void {
+    this.invocationCount = 0;
+    this.failingInvocations = undefined;
+    this.failingInvocation = Math.max(1, invocation);
+  }
+
+  /** Fail each selected IFileSystem call, allowing commit and rollback failures in one scenario. */
+  injectFailuresAtInvocations(...invocations: readonly number[]): void {
+    this.invocationCount = 0;
+    this.failingInvocation = undefined;
+    this.failingInvocations = new Set(invocations.map((invocation) => Math.max(1, invocation)));
+  }
+
+  get callCount(): number {
+    return this.invocationCount;
+  }
+
+  clearFailureInjection(): void {
+    this.failingAfter = undefined;
+    this.failingInvocation = undefined;
+    this.failingInvocations = undefined;
+    this.invocationCount = 0;
+  }
+
+  private shouldFailCall(): boolean {
+    this.invocationCount += 1;
+    if (this.failingInvocations?.delete(this.invocationCount)) return true;
+    if (this.failingInvocation === this.invocationCount) {
+      this.failingInvocation = undefined;
+      return true;
+    }
+    return false;
+  }
+
+  private shouldFail(): boolean {
+    if (this.failingAfter === undefined) return false;
+    if (this.failingAfter > 0) {
+      this.failingAfter -= 1;
+      return false;
+    }
+    this.failingAfter = undefined;
+    return true;
+  }
 
   constructor() {
     this.entries.set(resolve(parse(process.cwd()).root), { kind: 'directory' });
@@ -67,12 +121,15 @@ export class MemoryFileSystem implements IFileSystem {
   }
 
   readFile(path: string): Promise<Result<Uint8Array>> {
+    if (this.shouldFailCall()) return Promise.resolve(failed('injected read'));
     const resolved = this.resolvePath(path);
     const entry = resolved ? this.entries.get(resolved) : undefined;
     return Promise.resolve(entry?.kind === 'file' ? { ok: true, value: entry.data.slice() } : failed('read'));
   }
 
   writeFile(path: string, data: string | Uint8Array): Promise<Result<void>> {
+    if (this.shouldFailCall()) return Promise.resolve(failed('injected write'));
+    if (this.shouldFail()) return Promise.resolve(failed('injected write'));
     const absolute = resolve(path);
     if (!this.ensureParent(dirname(absolute))) return Promise.resolve(failed('write'));
     const resolved = this.resolvePath(absolute, 0, false) ?? absolute;
@@ -84,6 +141,8 @@ export class MemoryFileSystem implements IFileSystem {
   }
 
   rename(from: string, to: string): Promise<Result<void>> {
+    if (this.shouldFailCall()) return Promise.resolve(failed('injected rename'));
+    if (this.shouldFail()) return Promise.resolve(failed('injected rename'));
     const source = this.resolvePath(from);
     const entry = source ? this.entries.get(source) : undefined;
     const destination = resolve(to);
@@ -94,6 +153,8 @@ export class MemoryFileSystem implements IFileSystem {
   }
 
   unlink(path: string): Promise<Result<void>> {
+    if (this.shouldFailCall()) return Promise.resolve(failed('injected unlink'));
+    if (this.shouldFail()) return Promise.resolve(failed('injected unlink'));
     const resolved = this.resolvePath(path);
     if (!resolved || this.entries.get(resolved)?.kind === 'directory') return Promise.resolve(failed('remove'));
     this.entries.delete(resolved);
@@ -101,6 +162,8 @@ export class MemoryFileSystem implements IFileSystem {
   }
 
   mkdir(path: string, recursive: boolean): Promise<Result<void>> {
+    if (this.shouldFailCall()) return Promise.resolve(failed('injected mkdir'));
+    if (this.shouldFail()) return Promise.resolve(failed('injected mkdir'));
     const absolute = resolve(path);
     if (
       recursive
@@ -114,6 +177,7 @@ export class MemoryFileSystem implements IFileSystem {
   }
 
   stat(path: string): Promise<Result<FileStat>> {
+    if (this.shouldFailCall()) return Promise.resolve(failed('injected stat'));
     const resolved = this.resolvePath(path);
     const entry = resolved ? this.entries.get(resolved) : undefined;
     if (!entry) return Promise.resolve(failed('stat'));
@@ -129,15 +193,18 @@ export class MemoryFileSystem implements IFileSystem {
   }
 
   realpath(path: string): Promise<Result<string>> {
+    if (this.shouldFailCall()) return Promise.resolve(failed('injected realpath'));
     const resolved = this.resolvePath(path);
     return Promise.resolve(resolved ? { ok: true, value: resolved } : failed('resolve path'));
   }
 
   exists(path: string): Promise<Result<boolean>> {
+    if (this.shouldFailCall()) return Promise.resolve(failed('injected exists'));
     return Promise.resolve({ ok: true, value: this.resolvePath(path) !== undefined });
   }
 
   readdir(path: string): Promise<Result<readonly string[]>> {
+    if (this.shouldFailCall()) return Promise.resolve(failed('injected readdir'));
     const directory = this.resolvePath(path);
     if (!directory || this.entries.get(directory)?.kind !== 'directory')
       return Promise.resolve(failed('list directory'));
@@ -151,11 +218,15 @@ export class MemoryFileSystem implements IFileSystem {
   }
 
   async copyFile(from: string, to: string): Promise<Result<void>> {
+    if (this.shouldFailCall()) return failed('injected copy');
+    if (this.shouldFail()) return failed('injected copy');
     const source = await this.readFile(from);
     return source.ok ? this.writeFile(to, source.value) : failed('copy');
   }
 
   fsync(path: string): Promise<Result<void>> {
+    if (this.shouldFailCall()) return Promise.resolve(failed('injected fsync'));
+    if (this.shouldFail()) return Promise.resolve(failed('injected fsync'));
     return Promise.resolve(this.resolvePath(path) ? { ok: true, value: undefined } : failed('sync'));
   }
 }
