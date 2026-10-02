@@ -45,3 +45,25 @@ export const messages = sqliteTable(
   },
   (table) => [index('messages_conversation_created_idx').on(table.conversationId, table.createdAt)],
 );
+
+export const ledgerEntries = sqliteTable(
+  'ledger_entries',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    occurredAt: text('occurred_at').notNull(),
+    purpose: text('purpose').notNull(),
+    modelKey: text('model_key').notNull(),
+    llmRequestId: text('llm_request_id'),
+    pipelineRunId: text('pipeline_run_id'),
+    conversationId: text('conversation_id'),
+    usageJson: text('usage_json').notNull(),
+    imageCount: integer('image_count'),
+    costMicroUsd: integer('cost_micro_usd').notNull(),
+    priceTableVersion: text('price_table_version').notNull(),
+    billedFailure: integer('billed_failure').notNull(),
+  },
+  (table) => [index('ledger_entries_project_occurred_idx').on(table.projectId, table.occurredAt)],
+);
