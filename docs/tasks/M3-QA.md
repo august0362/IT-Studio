@@ -73,3 +73,6 @@ Verification:
 | TC-M3-045 | `apps/sidecar/test/integration/pipeline.test.ts` | Implemented; integration execution blocked |
 | TC-M3-050 | `apps/sidecar/src/services/ledger-service.test.ts` | Implemented append-only API assertion; passed |
 | TC-M3-051 | `apps/sidecar/src/infra/sqlite/ledger-repository.test.ts`, `apps/sidecar/test/integration/ledger.test.ts` | Implemented 250-row pagination; unit passed; L3 execution blocked |
+
+## QA (Claude)
+- Verdict: **PASS**. Real defect fixed: `pricing.refresh` swallowed `BUDGET_HARD_STOP` (1-line fix). QA reverted Codex's change from ceil to half-up token rounding — ARCH §6.1 specifies ceil; the error was in QA's own TC-M3-002 draft (corrected). QA test-design fix: TC-M3-015 sent `NaN` over JSON-RPC (serialises to `null` = clear override); NaN stays covered by the unit test. Gates: `cost.ts`, `money.ts`, `budget-guard.ts` 100 % branches; typecheck ✔, lint ✔, 693 unit ✔, integration 66/66 ×2.

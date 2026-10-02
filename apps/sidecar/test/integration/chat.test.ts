@@ -67,7 +67,8 @@ describe('chat integration', () => {
     if (firstCost === undefined) throw new Error('First completed cost notification was missing');
     const overridden = await h.sidecar.call('fx.override', { usdToVnd: 25_000 });
     expect(overridden.result).toMatchObject({ usdToVnd: 25_000, source: 'manual_override' });
-    for (const usdToVnd of [0, -1, Number.NaN, 1_000_000_000]) {
+    // NaN cannot cross JSON-RPC (JSON.stringify(NaN) === "null" = clear override); it is covered by the fx-service unit test.
+    for (const usdToVnd of [0, -1, 1_000_000_000]) {
       expect((await h.sidecar.call('fx.override', { usdToVnd })).error).toBeDefined();
     }
     await h.sidecar.call('chat.send', { conversationId: h.conversationId, text: 'check the converted cost' });
