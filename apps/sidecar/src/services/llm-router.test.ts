@@ -28,7 +28,7 @@ import {
 import { modelKeySchema } from '../validation/common.js';
 import { AlwaysOkBudgetGuard, type IBudgetGuard } from '../ports/budget-guard.js';
 import { ModelRegistry } from './model-registry.js';
-import { LlmRouter, type RouterCompleted } from './llm-router.js';
+import { LlmRouter, type IFallbackDecider, type RouterCompleted } from './llm-router.js';
 
 const modelA = modelKeySchema.parse('openai/model-a');
 const modelB = modelKeySchema.parse('anthropic/model-b');
@@ -119,6 +119,7 @@ function setup(
     readonly autoFallback?: boolean;
     readonly budget?: IBudgetGuard;
     readonly estimate?: number;
+    readonly fallbackDecider?: IFallbackDecider;
   } = {},
 ) {
   const first = options.first ?? new FakeLlmProvider();
@@ -154,6 +155,7 @@ function setup(
     logger: pino({ enabled: false }),
     events,
     completed,
+    ...(options.fallbackDecider === undefined ? {} : { fallbackDecider: options.fallbackDecider }),
     sleep: options.sleep ?? (() => Promise.resolve()),
     random: () => 0.5,
   });
@@ -280,6 +282,32 @@ describe('LlmRouter', () => {
     const h = setup({ first, autoFallback: false });
     const result = await h.router.dispatch(baseRequest);
     expect(result).toMatchObject({ ok: false, error: { code: ErrorCode.FALLBACK_DECLINED } });
+  });
+
+  it('waits for router.resolveFallback and resumes on the selected model when auto fallback is off', async () => {
+    const first = new FakeLlmProvider({ complete: providerFailure(FailureKind.RATE_LIMITED, { httpStatus: 429 }) });
+    const second = new ScriptedProvider(ProviderId.ANTHROPIC, []);
+    const emitFallback: { current?: (request: Parameters<IFallbackDecider['decide']>[0]) => void } = {};
+    const h = setup({
+      first,
+      second,
+      autoFallback: false,
+      fallbackDecider: {
+        decide: (request) => {
+          emitFallback.current?.(request);
+          return Promise.resolve({ requestId: request.requestId, action: 'use_model', modelKey: modelB });
+        },
+      },
+    });
+    emitFallback.current = (request) => {
+      h.events.publish('router.fallbackRequired', request);
+    };
+    const required: RpcNotificationMap['router.fallbackRequired'][] = [];
+    h.events.subscribe('router.fallbackRequired', (request) => required.push(request));
+    const result = await h.router.dispatch(baseRequest);
+    expect(required).toHaveLength(1);
+    expect(result.ok && result.value.modelKey).toBe(modelB);
+    expect(second.calls).toEqual(['model-b']);
   });
 
   it('prioritizes a locked model ahead of the remaining ladder', async () => {

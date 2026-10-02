@@ -18,6 +18,8 @@ import { ProjectRepository } from './infra/sqlite/project-repository.js';
 import { SettingsRepository } from './infra/sqlite/settings-repository.js';
 import { ProjectService } from './services/project-service.js';
 import { SettingsService } from './services/settings-service.js';
+import { RouterConfigService } from './services/router-config-service.js';
+import { UserFallbackDecider } from './services/fallback-decider.js';
 import { KeychainSecretStore } from './infra/keychain-secret-store.js';
 import { FetchHttpClient, ProviderKeyVerifier } from './infra/http/provider-key-verifier.js';
 import { SecretsService } from './services/secrets-service.js';
@@ -178,6 +180,13 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const modelRegistry = new ModelRegistry(loadedSeeds.value.models, providers);
   const events = new EventBus<RpcNotificationMap>();
   const routerCompleted = new EventBus<{ completed: RouterCompleted }>();
+  const routerConfigService = new RouterConfigService({ settings: settingsService, models: modelRegistry });
+  const fallbackDecider = new UserFallbackDecider({
+    events,
+    clock,
+    models: modelRegistry,
+    priceTable: () => loadedSeeds.value.pricing,
+  });
   const llmRouter = new LlmRouter({
     models: modelRegistry,
     providers,
@@ -211,6 +220,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     logger,
     events,
     completed: routerCompleted,
+    fallbackDecider,
   });
   const serverRef: { current?: RpcServer } = {};
   const transport = new LineTransport({
@@ -231,6 +241,11 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   service.register(server);
   server.register('settings.get', () => settingsService.get());
   server.register('settings.update', ({ patch }) => settingsService.update(patch));
+  server.register('router.getConfig', () => routerConfigService.getConfig());
+  server.register('router.updateConfig', ({ config }) => routerConfigService.updateConfig(config));
+  server.register('router.resolveFallback', (decision) =>
+    Promise.resolve({ ok: true, value: fallbackDecider.resolve(decision) }),
+  );
   server.register('project.list', () => projectService.list());
   server.register('project.create', ({ name, workspaceRoot }) => projectService.create(name, workspaceRoot));
   server.register('project.setActive', ({ projectId }) => projectService.setActive(projectId));
