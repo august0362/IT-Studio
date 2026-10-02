@@ -27,7 +27,7 @@ import { projectSchema } from '../../validation/projects.js';
 const PROJECT_ID = projectIdSchema.parse('11111111-1111-4111-8111-111111111111');
 
 describe('RagService', () => {
-  it('indexes a supported file, skips its unchanged content, and rejects unsafe paths', async () => {
+  it('TC-M5-008 re-embeds after dimension changes and TC-M5-006 stops after a budget hard stop', async () => {
     const fs = new MemoryFileSystem();
     const root = resolve(process.cwd(), 'rag-service-workspace');
     await fs.mkdir(root, true);
@@ -167,6 +167,8 @@ describe('RagService', () => {
 
     const budgetFile = resolve(root, 'budget.md');
     await fs.writeFile(budgetFile, '# Budget');
+    const remainingBudgetFile = resolve(root, 'budget-second.md');
+    await fs.writeFile(remainingBudgetFile, '# Should remain untouched');
     embeddingFailure = {
       code: ErrorCode.BUDGET_HARD_STOP,
       message: 'Budget hard stop.',
@@ -174,12 +176,14 @@ describe('RagService', () => {
       remediation: ['Increase the project budget.'],
     };
     const budgetDone = nextStatus(events, 'failed');
-    const budgetJob = await rag.ingest({ projectId: PROJECT_ID, paths: ['budget.md'] });
+    const budgetJob = await rag.ingest({ projectId: PROJECT_ID, paths: ['budget.md', 'budget-second.md'] });
     expect(budgetJob.ok).toBe(true);
     const failedBudget = await budgetDone;
     expect(failedBudget.processedFiles).toBe(1);
+    expect(failedBudget.totalFiles).toBe(2);
     expect(failedBudget.cost).toBe(45);
     expect((await documents.list(PROJECT_ID)).some((row) => row.sourcePath === budgetFile)).toBe(false);
+    expect((await documents.list(PROJECT_ID)).some((row) => row.sourcePath === remainingBudgetFile)).toBe(false);
     embeddingFailure = undefined;
 
     await fs.mkdir(resolve(root, 'mixed'), true);
@@ -271,6 +275,10 @@ describe('RagService', () => {
     expect(
       await rag.deleteDocument({ documentId: documentIdSchema.parse('33333333-3333-4333-8333-333333333333') }),
     ).toEqual({ ok: true, value: { deleted: false } });
+    expect(await rag.query({ projectId: PROJECT_ID, query: 'missing retriever', topK: 1, minScore: 0 })).toMatchObject({
+      ok: false,
+      error: { code: ErrorCode.INTERNAL },
+    });
 
     const unsafe = await rag.ingest({ projectId: PROJECT_ID, paths: ['../outside.md'] });
     expect(unsafe).toMatchObject({ ok: false, error: { code: ErrorCode.VALIDATION } });

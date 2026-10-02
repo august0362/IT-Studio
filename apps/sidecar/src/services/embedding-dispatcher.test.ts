@@ -127,7 +127,7 @@ describe('EmbeddingDispatcher', () => {
     });
   });
 
-  it('retries transient failures then falls back and records the successful model', async () => {
+  it('TC-M5-009 retries a transient embedding failure and meters the fallback model', async () => {
     const openai = vi.fn<IEmbeddingProvider['embed']>(() =>
       Promise.resolve({
         ok: false,

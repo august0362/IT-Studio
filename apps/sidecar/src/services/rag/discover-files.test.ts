@@ -4,14 +4,16 @@ import { MemoryFileSystem } from '../../infra/memory-file-system.js';
 import { discoverFiles } from './discover-files.js';
 
 describe('discoverFiles', () => {
-  it('keeps supported files in deterministic order, skips ignored folders, and deduplicates', async () => {
+  it('TC-M5-033 skips ignored folders and deduplicates selected paths', async () => {
     const fs = new MemoryFileSystem();
     const root = resolve(process.cwd(), 'rag-discovery');
     await fs.mkdir(resolve(root, 'src'), true);
-    await fs.mkdir(resolve(root, 'node_modules'), true);
+    for (const directory of ['.git', 'node_modules', '.itstudio', 'dist', 'build', 'target'])
+      await fs.mkdir(resolve(root, directory), true);
     await fs.writeFile(resolve(root, 'b.md'), '# B');
     await fs.writeFile(resolve(root, 'src', 'a.ts'), 'export const a = 1;');
-    await fs.writeFile(resolve(root, 'node_modules', 'ignored.js'), 'ignored');
+    for (const directory of ['.git', 'node_modules', '.itstudio', 'dist', 'build', 'target'])
+      await fs.writeFile(resolve(root, directory, 'ignored.js'), 'ignored');
     const result = await discoverFiles(root, [root, resolve(root, 'b.md')], fs);
     expect(result).toEqual({ ok: true, value: [resolve(root, 'b.md'), resolve(root, 'src', 'a.ts')] });
   });
@@ -46,12 +48,13 @@ describe('discoverFiles', () => {
     expect(result).toEqual({ ok: true, value: [resolve(nested, 'valid.md')] });
   });
 
-  it('does not follow symlink entries and returns filesystem traversal failures', async () => {
+  it('TC-M5-033 does not follow symlinks and terminates on a symlink loop', async () => {
     const fs = new MemoryFileSystem();
     const root = resolve(process.cwd(), 'rag-links');
     await fs.mkdir(root, true);
     const link = resolve(root, 'linked.md');
     fs.addSymlink(link, resolve(root, 'missing.md'));
+    fs.addSymlink(resolve(root, 'loop'), root);
     vi.spyOn(fs, 'stat').mockResolvedValueOnce({
       ok: true,
       value: { isFile: false, isDirectory: false, isSymbolicLink: true, size: 0 },
