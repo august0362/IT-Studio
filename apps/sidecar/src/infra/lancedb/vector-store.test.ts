@@ -28,6 +28,32 @@ vectorStoreContract('LanceDB', {
 });
 
 describe('LanceDB vector store error paths', () => {
+  it('creates a table for an empty section path and accepts mixed rows afterwards', async () => {
+    const projectId = '00000000-0000-4000-8000-000000000091';
+    const firstRow: VectorChunkRow = {
+      chunkId: '00000000-0000-4000-8000-000000000090',
+      documentId: '00000000-0000-4000-8000-000000000089',
+      projectId,
+      ordinal: 0,
+      text: 'code file without a section',
+      sectionPath: [],
+      vector: [1, 0],
+    };
+    const secondRow: VectorChunkRow = {
+      ...firstRow,
+      chunkId: '00000000-0000-4000-8000-000000000088',
+      documentId: '00000000-0000-4000-8000-000000000087',
+      ordinal: 1,
+      text: 'document with a section',
+      sectionPath: ['Guide'],
+      tags: ['docs'],
+    };
+
+    expect(await store.upsertChunks(projectId, [firstRow])).toEqual({ ok: true, value: undefined });
+    expect(await store.upsertChunks(projectId, [secondRow])).toEqual({ ok: true, value: undefined });
+    expect(await store.count(projectId)).toEqual({ ok: true, value: 2 });
+  });
+
   it('TC-M5-VS-001 returns an empty result when the table does not exist', async () => {
     const result = await store.search('00000000-0000-4000-8000-000000000099', [1, 0], { topK: 3, minScore: 0 });
     expect(result).toEqual({ ok: true, value: [] });

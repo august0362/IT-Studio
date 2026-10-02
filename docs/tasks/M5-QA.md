@@ -80,3 +80,12 @@ Append `## Result` per AGENTS.md §3 including a table: case ID → test file �
   2. Unit/contract test in `vector-store.test.ts`: first upsert into a new table with `sectionPath: []` succeeds; mixed rows afterwards succeed.
   3. TC-M5-001 must pass as written (md + ts + corrupt pdf → 2 documents). Add `TC-M5-036` (L3): ingest a folder containing only one `.ts` file into a fresh project → 1 document.
   4. Do not run E2E.
+
+## Result (fix round 1)
+
+- Summary: Fixed BUG-M5-001 by creating LanceDB tables with an explicit Apache Arrow schema, including fixed-size float32 vectors and list<utf8> section paths. Added a first-upsert regression test with an empty section path followed by a mixed row, and added TC-M5-036 for a TypeScript-only fresh-project ingest.
+- Files changed: `apps/sidecar/src/infra/lancedb/vector-store.ts`, `apps/sidecar/src/infra/lancedb/vector-store.test.ts`, `apps/sidecar/test/integration/rag-ingest.test.ts`, `docs/tasks/M5-QA.md`.
+- Dependencies added (with reason): None; imported the existing `apache-arrow` dependency.
+- Decisions taken within scope: Normalized table creation through `createEmptyTable(schema)` followed by `add(records)` so Arrow types do not depend on initial row values.
+- Open issues / follow-ups: `npm.cmd --cache .npm-cache run test:integration -- apps/sidecar/test/integration/rag-ingest.test.ts` was blocked for all 9 tests because sidecar startup hit the known sandbox failure `uv_os_get_passwd returned ENOMEM` in `tsx`/`os.userInfo()`. Rerun L3 outside the sandbox. E2E was not run as requested.
+- Verification: `npm.cmd --cache .npm-cache run typecheck` passed; `npm.cmd --cache .npm-cache run lint` passed; `npm.cmd --cache .npm-cache test` passed (678 passed, 1 skipped). The vector-store unit regression passed as part of the full suite.

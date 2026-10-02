@@ -1,4 +1,5 @@
 import { connect, type Connection } from '@lancedb/lancedb';
+import { Field, FixedSizeList, Float32, Int32, List, Schema, Utf8 } from 'apache-arrow';
 import { z } from 'zod';
 import { ErrorCode, type AppError, type Result } from '@itstudio/schemas';
 import type { IVectorStore, VectorChunkRow, VectorSearchHit, VectorSearchOptions } from '../../ports/vector-store.js';
@@ -28,8 +29,23 @@ export class LanceDbVectorStore implements IVectorStore {
       const records = rows.map(toLanceRow);
       const db = await this.db();
       const existing = await this.tableExists(db, tableName(table));
-      if (!existing) await db.createTable(tableName(table), records);
-      else
+      if (!existing) {
+        const schema = new Schema([
+          new Field('chunkId', new Utf8(), false),
+          new Field('documentId', new Utf8(), false),
+          new Field('projectId', new Utf8(), false),
+          new Field('ordinal', new Int32(), false),
+          new Field('text', new Utf8(), false),
+          new Field('sectionPath', new List(new Field('item', new Utf8(), true)), false),
+          new Field(
+            'vector',
+            new FixedSizeList(rows[0]?.vector.length ?? 0, new Field('item', new Float32(), true)),
+            false,
+          ),
+          new Field('tags', new List(new Field('item', new Utf8(), true)), false),
+        ]);
+        await (await db.createEmptyTable(tableName(table), schema)).add(records);
+      } else
         await (
           await db.openTable(tableName(table))
         )

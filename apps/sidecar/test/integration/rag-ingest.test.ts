@@ -35,6 +35,17 @@ describe('RAG ingest integration', () => {
     expect(z.object({ items: z.array(z.unknown()).min(1) }).safeParse(ledger?.result).success).toBe(true);
   }, 60_000);
 
+  it('TC-M5-036 ingests a TypeScript-only folder into a fresh project', async () => {
+    const { projectId, workspace } = await createProject();
+    await writeFile(resolve(workspace, 'first.ts'), 'export const first = true;', 'utf8');
+
+    await ingestAndWait(projectId, 'first.ts');
+
+    const documents = await listDocuments(projectId);
+    expect(documents).toHaveLength(1);
+    expect(documents[0]?.sourcePath).toBe(resolve(workspace, 'first.ts'));
+  }, 60_000);
+
   it('TC-M5-002 deletes document metadata and its vectors', async () => {
     const { projectId, workspace } = await createProject();
     await writeFile(resolve(workspace, 'guide.md'), '# Guide\n\nDelete this document.', 'utf8');
