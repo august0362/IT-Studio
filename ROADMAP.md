@@ -155,7 +155,7 @@ Spec: ARCH §14.1, `schemas.ts` §13.
 
 Spec: ARCH §14.2.
 
-- [ ] **SEC-01** (A+C) Dependency audit hardening before release: production audit (2026-10-02) = 3 high, all from @lancedb/lancedb → @huggingface/transformers → sharp (libvips CVE-2026-33327/33328/35590/35591). Options: npm `overrides` to a patched sharp, or exclude the optional transformers dependency; add `npm audit --omit=dev --audit-level=high` to the release checklist.
+- [ ] **SEC-01** (A+C) Dependency audit hardening before release: production audit (2026-10-02) = 3 high, all from @lancedb/lancedb → @huggingface/transformers → sharp (libvips CVE-2026-33327/33328/35590/35591). Options: npm `overrides` to a patched sharp, or exclude the optional transformers dependency; add `npm audit --omit=dev --audit-level=high` to the release checklist. Also (2026-10-02): low — dompurify (IN_PLACE hook XSS) via monaco-editor 0.57; upgrade when monaco ships a patched dompurify.
 - [ ] **PERF-01** (C) Sidecar cold start: dev start ≈ 4 s before `main` runs (html-to-text ≈ 1.7 s, LanceDB, parsers). Lazy-load heavy modules on first use; run the E2E crash hook before importing the container; target < 1.5 s in dev, measure the M9 bundle.
 - [ ] **M9-01** (C) esbuild sidecar bundle + Node SEA build script; native module loading from resources.
 - [ ] **M9-02** (C) Tauri `externalBin` + resources (vsix, seeds); production sidecar spawn path.
