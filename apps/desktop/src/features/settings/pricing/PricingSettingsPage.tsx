@@ -2,6 +2,7 @@ import type { AppError, ModelKey, PriceUpdateRun } from '@itstudio/schemas';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState, type SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { formatNumber } from '../../../i18n/format';
 import { ErrorPanel } from '../../../components/ErrorPanel';
 import { Money } from '../../../components/Money';
 import { useNotification } from '../../../hooks/use-notification';
@@ -19,7 +20,7 @@ interface OverrideDraft {
 const USD_DECIMAL = /^\d+(\.\d{1,6})?$/;
 
 export function PricingSettingsPage({ projectActive }: { readonly projectActive: boolean }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const rpc = useRpcClient();
   const cache = useQueryClient();
   const prices = useRpcQuery('pricing.getRows', {});
@@ -128,10 +129,7 @@ export function PricingSettingsPage({ projectActive }: { readonly projectActive:
                       {name(delta.modelKey)} · {delta.field}
                     </td>
                     <td>
-                      {new Intl.NumberFormat(undefined, { signDisplay: 'always', maximumFractionDigits: 2 }).format(
-                        delta.percent,
-                      )}
-                      %
+                      {formatNumber(delta.percent, i18n.language, { signDisplay: 'always', maximumFractionDigits: 2 })}%
                     </td>
                   </tr>
                 ))}

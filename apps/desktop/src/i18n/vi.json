@@ -349,7 +349,6 @@
     "budgetLimitUsd": "Hạn mức (USD)",
     "saveBudget": "Lưu ngân sách",
     "invalidBudget": "Nhập hạn mức USD hợp lệ lớn hơn 0.",
-    "budgetContractUnavailable": "Không thể cập nhật ngân sách vì hợp đồng chưa có hàm tạo micro-USD an toàn.",
     "level": {
       "ok": "Ổn",
       "warning": "Cảnh báo",

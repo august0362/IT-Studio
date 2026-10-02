@@ -349,7 +349,6 @@
     "budgetLimitUsd": "Limit (USD)",
     "saveBudget": "Save budget",
     "invalidBudget": "Enter a valid positive USD limit.",
-    "budgetContractUnavailable": "Budget update is unavailable because the budget contract does not provide a safe micro-USD constructor.",
     "level": {
       "ok": "OK",
       "warning": "Warning",

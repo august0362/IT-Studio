@@ -1,6 +1,7 @@
 import type { AppError } from '@itstudio/schemas';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { formatDateTime, formatNumber } from '../../../i18n/format';
 import { ErrorPanel } from '../../../components/ErrorPanel';
 import { useRpcQuery } from '../../../hooks/use-rpc-query';
 import { RpcCallError } from '../../../rpc/rpc-client';
@@ -8,7 +9,7 @@ import { useRpcClient } from '../../../rpc/rpc-context';
 import { SettingsHeading } from '../settings-form';
 
 export function FxSettingsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const rpc = useRpcClient();
   const query = useRpcQuery('fx.get', {});
   const [value, setValue] = useState('');
@@ -41,11 +42,11 @@ export function FxSettingsPage() {
         <div className="rounded border border-border bg-surface p-4">
           <p>
             {t('settings.fx.current', {
-              rate: new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 }).format(query.data.usdToVnd),
+              rate: formatNumber(query.data.usdToVnd, i18n.language, { maximumFractionDigits: 4 }),
             })}
           </p>
           <p className="text-sm text-text-muted">
-            {t(`settings.fx.source.${query.data.source}`)} · {new Date(query.data.asOf).toLocaleString()}
+            {t(`settings.fx.source.${query.data.source}`)} · {formatDateTime(query.data.asOf, i18n.language)}
           </p>
         </div>
       ) : (

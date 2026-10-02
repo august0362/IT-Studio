@@ -1,6 +1,30 @@
 import { expect } from 'chai';
 import { apiKeyInput, createTemporaryProjectFolder, navigateToSettings, waitForReady } from '../../helpers/ui.js';
 
+async function createChatProject(name: string): Promise<void> {
+  const folder = createTemporaryProjectFolder();
+  await browser.$('button[aria-label="Add project"]').click();
+  await browser.$('aria/Project name').setValue(name);
+  await browser.$('aria/Folder path').setValue(folder);
+  await browser.$('button=Create project').click();
+  await browser.waitUntil(async () => (await browser.$('[role="tab"][aria-selected="true"]').getText()) === name);
+  await browser.$('nav[aria-label="Main navigation"] a[href="#chat"]').click();
+}
+
+async function ensureKey(provider: string): Promise<void> {
+  await navigateToSettings();
+  const input = apiKeyInput(provider);
+  if (await input.isExisting()) {
+    await input.setValue(`sk-TEST-m4-${provider}`);
+    await browser.$(`form:has(#api-key-${provider}) button[type="submit"]`).click();
+    await browser.waitUntil(async () =>
+      (await browser.$(`[aria-label="${provider === 'openai' ? 'OpenAI' : 'Groq'} key status"]`).getText()).includes(
+        'Set',
+      ),
+    );
+  }
+}
+
 describe('M4 chat', () => {
   it('TC-M4-020 creates a conversation and receives the scripted reply with cost', async () => {
     await waitForReady();
@@ -27,5 +51,20 @@ describe('M4 chat', () => {
     await browser.waitUntil(async () => (await browser.$('body').getText()).includes('Scripted assistant reply.'));
     const money = browser.$('[aria-label^="USD "]');
     expect(await money.getText()).to.include('$');
+  });
+
+  it('TC-M4-025 supports keyboard chat navigation, Enter send and Shift+Enter newline', async () => {
+    await waitForReady();
+    await ensureKey('openai');
+    await createChatProject('Keyboard Chat Project');
+    await browser.$('button=New chat').click();
+    const composer = browser.$('aria/Message');
+    await composer.setValue('first line');
+    await browser.keys(['SHIFT', 'ENTER']);
+    await composer.addValue('second line');
+    await browser.keys('ENTER');
+    await browser.waitUntil(async () => (await browser.$('body').getText()).includes('Scripted assistant reply.'));
+    expect(await browser.$('body').getText()).to.include('first line');
+    expect(await browser.$('body').getText()).to.include('second line');
   });
 });

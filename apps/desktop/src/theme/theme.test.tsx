@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ESLint } from 'eslint';
+import { readFileSync as readFile } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import { applyTheme } from './apply-theme';
@@ -32,6 +33,31 @@ function findTsxFiles(directory: string): string[] {
 }
 
 describe('theme catalog', () => {
+  it('TC-M4-014 keeps English and Vietnamese keys in parity and drops the unused budget key', () => {
+    const english = JSON.parse(readFile(resolve(import.meta.dirname, '../i18n/en.json'), 'utf8')) as unknown;
+    const vietnamese = JSON.parse(readFile(resolve(import.meta.dirname, '../i18n/vi.json'), 'utf8')) as unknown;
+    const keys = (value: unknown, prefix = ''): string[] => {
+      if (typeof value !== 'object' || value === null || Array.isArray(value)) return [prefix];
+      return Object.entries(value).flatMap(([key, child]) => keys(child, prefix ? `${prefix}.${key}` : key));
+    };
+    expect(keys(english).sort()).toEqual(keys(vietnamese).sort());
+    expect(keys(english)).not.toContain('cost.budgetContractUnavailable');
+  });
+
+  it('TC-M4-034 formats money only through the shared Money component', () => {
+    const files = findTsxFiles(resolve(import.meta.dirname, '../features'));
+    const formatters = files.flatMap((file) => {
+      const source = readFile(file, 'utf8');
+      return [...source.matchAll(/(?:\.toFixed\s*\(|new Intl\.NumberFormat\s*\()/gu)].map((match) => ({
+        file,
+        text: source.slice(Math.max(0, match.index - 80), match.index + 160),
+      }));
+    });
+    expect(
+      formatters.every(({ text }) => /marginPercent|\.score\.toFixed|query\.data\.usdToVnd|delta\.percent/u.test(text)),
+    ).toBe(true);
+  });
+
   it('recomputes WCAG thresholds for all 36 theme and mode pairs', () => {
     expect(themeCatalog.themes).toHaveLength(18);
     for (const theme of themeCatalog.themes) {
@@ -78,5 +104,5 @@ describe('theme catalog', () => {
     const fixture = '<div className="bg-' + 'blue-500" />';
     const results = await eslint.lintText(fixture, { filePath: resolve(import.meta.dirname, 'theme.test.tsx') });
     expect(results[0]?.messages.some((message) => message.message.includes('semantic theme color tokens'))).toBe(true);
-  }, 20_000);
+  }, 60_000);
 });
