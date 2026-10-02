@@ -50,12 +50,13 @@ function decodeText(buffer) {
 }
 
 function listFiles() {
-  const output = execFileSync('git', ['ls-files', '-co', '--exclude-standard'], {
+  // -z: NUL-separated, unquoted paths (handles non-ASCII names such as Vietnamese file names).
+  const output = execFileSync('git', ['ls-files', '-z', '-co', '--exclude-standard'], {
     cwd: repositoryRoot,
     encoding: 'utf8',
   });
 
-  return output.split(/\r?\n/).filter((filePath) => filePath.length > 0);
+  return output.split('\0').filter((filePath) => filePath.length > 0);
 }
 
 function scanFile(filePath, explicitlyRequested) {
