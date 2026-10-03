@@ -33,3 +33,4 @@ Thumbs.db
 
 # tauri generated
 apps/desktop/src-tauri/gen/
+.vscode-test/

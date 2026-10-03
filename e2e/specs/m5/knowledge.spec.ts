@@ -1,9 +1,15 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect } from 'chai';
+import { ensureProviderKeys } from '../../helpers/keys.js';
 import { createTemporaryProjectFolder, waitForReady } from '../../helpers/ui.js';
 
 describe('M5 knowledge', () => {
+  before(async () => {
+    await waitForReady();
+    await ensureProviderKeys();
+  });
+
   it('TC-M5-020 adds a markdown source and retrieves a matching chunk', async () => {
     await waitForReady();
     const folder = createTemporaryProjectFolder();
@@ -17,6 +23,7 @@ describe('M5 knowledge', () => {
     await browser.$('button=Add sources').click();
     await browser.waitUntil(async () => (await browser.$('body').getText()).includes('guide.md'));
     await browser.$('aria/Query').setValue('Where is the blue lantern stored?');
+    await browser.$('aria/Minimum score').setValue('0');
     await browser.$('button=Search knowledge').click();
     await browser.waitUntil(async () => (await browser.$('body').getText()).includes('north archive room'));
     expect(await browser.$('body').getText()).to.include('Lantern guide');

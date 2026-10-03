@@ -1,19 +1,81 @@
 import { expect } from 'chai';
+import { Key } from 'webdriverio';
+import { ensureProviderKeys } from '../../helpers/keys.js';
 import { createTemporaryProjectFolder, waitForReady } from '../../helpers/ui.js';
 
 describe('M4 Settings', () => {
+  let originalLadder: string[] = [];
+
+  before(async () => {
+    await waitForReady();
+    await ensureProviderKeys();
+    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
+    originalLadder = await browser.$$('ol li span').map((entry) => entry.getText());
+  });
+
+  afterEach(async () => {
+    await waitForReady();
+    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
+    const autoFallback = browser.$('aria/Auto Fallback');
+    if (!(await autoFallback.isSelected())) await autoFallback.click();
+    await browser.waitUntil(async () => autoFallback.isSelected());
+
+    for (let targetIndex = 0; targetIndex < originalLadder.length; targetIndex += 1) {
+      const current = await browser.$$('ol li span').map((entry) => entry.getText());
+      const targetName = originalLadder[targetIndex];
+      if (targetName === undefined) continue;
+      const currentIndex = current.indexOf(targetName);
+      if (currentIndex < 0) throw new Error(`Router model ${targetName} is missing during cleanup`);
+      if (currentIndex === targetIndex) continue;
+      const row = browser.$$('ol li')[currentIndex];
+      const dragButton = row?.$('button[aria-label^="Reorder"]');
+      if (dragButton === undefined) throw new Error(`Router model ${targetName} cannot be reordered`);
+      await dragButton.click();
+      await browser.keys(Key.Space);
+      await browser.pause(300);
+      for (let step = currentIndex; step > targetIndex; step -= 1) {
+        await browser.keys(Key.ArrowUp);
+        await browser.pause(300);
+      }
+      await browser.keys(Key.Space);
+      await browser.pause(300);
+    }
+
+    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-budget"]').click();
+    const hardStop = browser.$('aria/Hard Stop');
+    if (await hardStop.isSelected()) await hardStop.click();
+    await browser.waitUntil(async () => !(await hardStop.isSelected()));
+
+    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-fx"]').click();
+    const clearFxOverride = browser.$('button=Clear override');
+    if (await clearFxOverride.isEnabled()) await clearFxOverride.click();
+    await browser.waitUntil(async () => !(await clearFxOverride.isEnabled()));
+
+    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-pricing"]').click();
+    const gpt55Row = browser.$('tr*=GPT-5.5');
+    if ((await gpt55Row.isExisting()) && (await gpt55Row.getText()).includes('Overridden')) {
+      await gpt55Row.$('button=Override').click();
+      const inputs = browser.$$('form[aria-labelledby="override-heading"] input');
+      await inputs[0]?.setValue('5');
+      await inputs[1]?.setValue('30');
+      await inputs[2]?.setValue('0.5');
+      await browser.$('form[aria-labelledby="override-heading"] button=Save').click();
+      await browser.waitUntil(async () => (await gpt55Row.getText()).includes('Overridden'));
+    }
+  });
+
   it('TC-M4-040 persists Auto Fallback after reload', async () => {
     await waitForReady();
     await browser.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
-    const toggle = browser.$('label*=Auto Fallback input');
+    const toggle = browser.$('aria/Auto Fallback');
     await browser.waitUntil(async () => toggle.isExisting());
     if (await toggle.isSelected()) await toggle.click();
     await browser.waitUntil(async () => !(await toggle.isSelected()));
     await browser.refresh();
     await waitForReady();
     await browser.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
-    await browser.waitUntil(async () => !(await browser.$('label*=Auto Fallback input').isSelected()));
-    expect(await browser.$('label*=Auto Fallback input').isSelected()).to.equal(false);
+    await browser.waitUntil(async () => !(await browser.$('aria/Auto Fallback').isSelected()));
+    expect(await browser.$('aria/Auto Fallback').isSelected()).to.equal(false);
   });
 
   it('TC-M4-041 reorders the ladder with the keyboard and announces the move', async () => {
@@ -28,13 +90,24 @@ describe('M4 Settings', () => {
     const firstName = await first.getText();
     const secondName = await second.getText();
     await buttons[0].click();
-    await browser.keys(['SPACE', 'ARROWDOWN', 'SPACE']);
-    await browser.waitUntil(async () =>
-      (await browser.$('body').getText()).includes(`Moved ${firstName} before ${secondName}`),
-    );
+    await browser.keys(Key.Space);
+    await browser.pause(300);
+    await browser.keys(Key.ArrowDown);
+    await browser.pause(300);
+    await browser.keys(Key.Space);
+    await browser.waitUntil(async () => {
+      const statuses = await browser.$$('[role="status"]').map((status) => status.getText());
+      return statuses.some((text) => text.includes(`Moved ${firstName} before ${secondName}.`));
+    });
     const after = browser.$$('ol li span');
     expect(await after[0]?.getText()).to.equal(secondName);
     expect(await after[1]?.getText()).to.equal(firstName);
+    await browser.refresh();
+    await waitForReady();
+    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
+    const persisted = browser.$$('ol li span');
+    expect(await persisted[0]?.getText()).to.equal(secondName);
+    expect(await persisted[1]?.getText()).to.equal(firstName);
   });
 
   it('TC-M4-042 blocks chat with a BUDGET_HARD_STOP error and remediation', async () => {
@@ -50,7 +123,7 @@ describe('M4 Settings', () => {
     await browser.$('aria/Limit (USD)').setValue('0.000001');
     await browser.$('button=Save budget').click();
     await browser.$('nav[aria-label="Main navigation"] a[href="#settings-budget"]').click();
-    const hardStop = browser.$('label*=Hard Stop input');
+    const hardStop = browser.$('aria/Hard Stop');
     if (!(await hardStop.isSelected())) await hardStop.click();
     await browser.$('nav[aria-label="Main navigation"] a[href="#chat"]').click();
     await browser.$('button=New chat').click();
