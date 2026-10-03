@@ -578,4 +578,116 @@ describe('WriteTransactionService', () => {
     expect(result).toMatchObject({ ok: false, error: { code: ErrorCode.ROLLBACK_FAILED } });
     expect(result.ok || result.error.remediation?.some((path) => path.includes('orig'))).toBe(true);
   });
+  describe('TC-M6-035 parent directory creation races', () => {
+    const create = [operation({ kind: 'create', path: 'src/new/deep.txt', content: 'deep' })];
+
+    it('continues when another process created the directory between check and mkdir', async () => {
+      const { fs, root, service } = await fixture();
+      const prepared = await service.prepare(root, projectId, create, ['src']);
+      expect(prepared.ok).toBe(true);
+      if (!prepared.ok) return;
+      const original = fs.mkdir.bind(fs);
+      const mkdir = vi.spyOn(fs, 'mkdir').mockImplementation(async (path, recursive) => {
+        if (!recursive) {
+          await original(path, true);
+          return { ok: false, error: { code: ErrorCode.INTERNAL, message: 'EEXIST', retryable: false } };
+        }
+        return original(path, recursive);
+      });
+      const result = await prepared.value.commit();
+      mkdir.mockRestore();
+      expect(result.ok).toBe(true);
+      expect(await read(fs, root, 'src/new/deep.txt')).toBe('deep');
+    });
+
+    it('rolls back when mkdir fails and the directory still does not exist', async () => {
+      const { fs, root, service } = await fixture();
+      const prepared = await service.prepare(root, projectId, create, ['src']);
+      expect(prepared.ok).toBe(true);
+      if (!prepared.ok) return;
+      const original = fs.mkdir.bind(fs);
+      const mkdir = vi
+        .spyOn(fs, 'mkdir')
+        .mockImplementation(async (path, recursive) =>
+          recursive
+            ? original(path, recursive)
+            : { ok: false, error: { code: ErrorCode.INTERNAL, message: 'EACCES', retryable: false } },
+        );
+      const result = await prepared.value.commit();
+      mkdir.mockRestore();
+      expect(result.ok).toBe(false);
+      expect(await read(fs, root, 'src/new/deep.txt')).toBeUndefined();
+    });
+
+    it('rolls back when the journal cannot be updated after a concurrent mkdir', async () => {
+      const { fs, root, service } = await fixture();
+      const prepared = await service.prepare(root, projectId, create, ['src']);
+      expect(prepared.ok).toBe(true);
+      if (!prepared.ok) return;
+      const original = fs.mkdir.bind(fs);
+      const originalWrite = fs.writeFile.bind(fs);
+      let raced = false;
+      const mkdir = vi.spyOn(fs, 'mkdir').mockImplementation(async (path, recursive) => {
+        if (!recursive && !raced) {
+          raced = true;
+          await original(path, true);
+          return { ok: false, error: { code: ErrorCode.INTERNAL, message: 'EEXIST', retryable: false } };
+        }
+        return original(path, recursive);
+      });
+      const write = vi
+        .spyOn(fs, 'writeFile')
+        .mockImplementation(async (path, data) =>
+          raced && path.endsWith('manifest.json') && mkdir.mock.calls.length > 0 && !path.includes('orig')
+            ? { ok: false, error: { code: ErrorCode.INTERNAL, message: 'disk full', retryable: false } }
+            : originalWrite(path, data),
+        );
+      const result = await prepared.value.commit();
+      mkdir.mockRestore();
+      write.mockRestore();
+      expect(result.ok).toBe(false);
+      expect(await read(fs, root, 'src/new/deep.txt')).toBeUndefined();
+    });
+    it('rolls back when the journal cannot record a directory before creating it', async () => {
+      const { fs, root, service } = await fixture();
+      const prepared = await service.prepare(root, projectId, create, ['src']);
+      expect(prepared.ok).toBe(true);
+      if (!prepared.ok) return;
+      const originalWrite = fs.writeFile.bind(fs);
+      const write = vi
+        .spyOn(fs, 'writeFile')
+        .mockImplementation(async (path, data) =>
+          path.endsWith('manifest.json')
+            ? { ok: false, error: { code: ErrorCode.INTERNAL, message: 'disk full', retryable: false } }
+            : originalWrite(path, data),
+        );
+      const result = await prepared.value.commit();
+      write.mockRestore();
+      expect(result.ok).toBe(false);
+      expect(await fs.exists(join(root, 'src', 'new'))).toEqual({ ok: true, value: false });
+    });
+
+    it('lists a created directory for manual recovery when rollback cannot remove it', async () => {
+      const { fs, root, service } = await fixture();
+      const prepared = await service.prepare(root, projectId, create, ['src']);
+      expect(prepared.ok).toBe(true);
+      if (!prepared.ok) return;
+      const originalWrite = fs.writeFile.bind(fs);
+      const write = vi
+        .spyOn(fs, 'writeFile')
+        .mockImplementation(async (path, data) =>
+          path.endsWith('.itstudio-tmp')
+            ? { ok: false, error: { code: ErrorCode.INTERNAL, message: 'EACCES', retryable: false } }
+            : originalWrite(path, data),
+        );
+      const rmdir = vi
+        .spyOn(fs, 'rmdirIfEmpty')
+        .mockResolvedValue({ ok: false, error: { code: ErrorCode.INTERNAL, message: 'EBUSY', retryable: false } });
+      const result = await prepared.value.commit();
+      write.mockRestore();
+      rmdir.mockRestore();
+      expect(result).toMatchObject({ ok: false, error: { code: ErrorCode.ROLLBACK_FAILED } });
+      expect(result.ok || result.error.remediation?.some((path) => path.includes('new'))).toBe(true);
+    });
+  });
 });
