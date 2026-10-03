@@ -112,6 +112,29 @@ describe('router integration', () => {
     );
   });
 
+  it('TC-M4-026 falls back from a chat model override after three server errors', async () => {
+    const h = await setup({
+      [hModel('google/gemini-3.8-flash')]: ['http:503:0', 'http:503:0', 'http:503:0'],
+    });
+    await h.sidecar.call('router.updateConfig', {
+      config: {
+        ...h.config,
+        ladder: h.config.ladder.map((entry, index) => ({ ...entry, maxRetries: index === 0 ? 2 : 0 })),
+      },
+    });
+    const response = await h.sidecar.call('chat.send', {
+      conversationId: h.conversationId,
+      text: 'use my selected model first, then fall back',
+      modelOverride: h.modelA,
+    });
+    expect(response.error).toBeUndefined();
+    await waitFor(() => params(h, 'chat.completed').length === 1);
+    expect(params<{ message: { modelKey: string } }>(h, 'chat.completed')[0]?.message.modelKey).toBe(h.modelB);
+    expect(params(h, 'router.event')).toContainEqual(
+      expect.objectContaining({ type: 'fallback', from: h.modelA, to: h.modelB }),
+    );
+  });
+
   it('TC-M2-004 opens the quota circuit and skips the first model on the next request', async () => {
     const h = await setup({ [hModel('google/gemini-3.8-flash')]: ['quota'] });
     await h.sidecar.call('router.updateConfig', {

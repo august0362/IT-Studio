@@ -21,6 +21,7 @@ import { buildDefaultSettings } from '../domain/default-settings.js';
 import { loadSeeds } from '../config/load-seeds.js';
 import { resolve } from 'node:path';
 import { chunkIdSchema, documentIdSchema } from '../validation/brand.js';
+import { modelKeySchema } from '../validation/common.js';
 
 const projectId = projectIdSchema.parse('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
 const conversationId = conversationIdSchema.parse('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
@@ -155,6 +156,14 @@ afterEach(() => {
 });
 
 describe('ChatService', () => {
+  it('maps the chat model override to a preferred model while preserving the router ladder', async () => {
+    const { service } = makeService();
+    await service.send(conversationId, 'First message', modelKeySchema.parse('openai/test-model'));
+    await new Promise((resolveDone) => setTimeout(resolveDone, 0));
+    expect(capturedRequest?.preferredModelKey).toBe('openai/test-model');
+    expect(capturedRequest?.ladderOverride).toBeUndefined();
+  });
+
   it('persists the user turn before returning, streams deltas, builds chat context, and auto-titles on completion', async () => {
     const { service, events } = makeService();
     const deltas: string[] = [];

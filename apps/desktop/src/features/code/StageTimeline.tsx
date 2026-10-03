@@ -1,6 +1,7 @@
 import { PipelineStage, type PipelineRun } from '@itstudio/schemas';
 import { useEffect, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { PipelineRunWithHistory } from './pipeline-store';
 
 const stages = [
   PipelineStage.SPECIFYING,
@@ -17,7 +18,7 @@ const terminalStages = [
   PipelineStage.FAILED,
   PipelineStage.CANCELLED,
 ] as const;
-export function StageTimeline({ run }: { readonly run: PipelineRun }): JSX.Element {
+export function StageTimeline({ run }: { readonly run: PipelineRun | PipelineRunWithHistory }): JSX.Element {
   const { t } = useTranslation();
   const [now, setNow] = useState(0);
   useEffect(() => {
@@ -35,18 +36,21 @@ export function StageTimeline({ run }: { readonly run: PipelineRun }): JSX.Eleme
   const visibleStages = stages.filter(
     (stage) => isFixLoop || (stage !== PipelineStage.FIXING && stage !== PipelineStage.RE_REVIEWING),
   );
-  const current = visibleStages.indexOf(run.stage as (typeof visibleStages)[number]);
   const finalStage = terminalStages.includes(run.stage as (typeof terminalStages)[number]) ? run.stage : null;
+  const enteredStages = 'enteredStages' in run ? run.enteredStages : [];
+  const entered = new Set(enteredStages);
+  if (run.failureReport !== undefined) entered.add(run.failureReport.stage);
+  if (finalStage === null) entered.add(run.stage);
+  const failedStage =
+    finalStage === PipelineStage.COMPLETED ? null : (run.failureReport?.stage ?? [...enteredStages].at(-1) ?? null);
   return (
     <ol aria-label={t('code.timeline')} className="space-y-2">
-      {visibleStages.map((stage, index) => {
-        const done = current >= 0 ? index < current : run.finishedAt !== undefined;
+      {visibleStages.map((stage) => {
         const active = stage === run.stage;
-        const failed =
-          active &&
-          [PipelineStage.FAILED, PipelineStage.ROLLED_BACK, PipelineStage.CANCELLED].includes(run.stage as never);
+        const failed = finalStage !== null && stage === failedStage;
+        const done = finalStage === PipelineStage.COMPLETED || (entered.has(stage) && !active && !failed);
         const state = failed ? 'failed' : active ? 'current' : done ? 'done' : 'skipped';
-        const icon = failed ? '✕' : done ? '✓' : active ? '●' : '○';
+        const icon = failed ? '✕' : done ? '✓' : active ? '●' : '—';
         return (
           <li aria-current={active ? 'step' : undefined} className="flex gap-2" key={stage}>
             <span aria-hidden="true">{icon}</span>

@@ -1,4 +1,22 @@
-import type { FailureReport, PipelineEvent, PipelineRun, PipelineRunId } from '@itstudio/schemas';
+import {
+  PipelineStage,
+  type FailureReport,
+  type PipelineEvent,
+  type PipelineRun,
+  type PipelineRunId,
+} from '@itstudio/schemas';
+
+const displayStages = [
+  PipelineStage.SPECIFYING,
+  PipelineStage.CODING,
+  PipelineStage.REVIEWING,
+  PipelineStage.FIXING,
+  PipelineStage.RE_REVIEWING,
+  PipelineStage.WRITING,
+  PipelineStage.VALIDATING,
+] as const;
+
+export type PipelineRunWithHistory = PipelineRun & { readonly enteredStages: readonly PipelineStage[] };
 
 export interface CommandOutputState {
   readonly stdout: string;
@@ -7,7 +25,7 @@ export interface CommandOutputState {
 }
 
 export interface PipelineEntry {
-  readonly run: PipelineRun;
+  readonly run: PipelineRunWithHistory;
   readonly finished: boolean;
   readonly queued: boolean;
   readonly outputs: Readonly<Record<string, CommandOutputState>>;
@@ -28,12 +46,23 @@ export const initialPipelineState: PipelineState = { entries: {}, selectedRunId:
 const terminal = new Set(['completed', 'rolled_back', 'failed', 'cancelled']);
 const MAX_LINES = 2000;
 
+function initialHistory(run: PipelineRun): readonly PipelineStage[] {
+  if (run.stage === PipelineStage.COMPLETED) return displayStages;
+  if (run.failureReport !== undefined) return [run.failureReport.stage];
+  return displayStages.includes(run.stage as (typeof displayStages)[number]) ? [run.stage] : [];
+}
+
 export function pipelineReducer(state: PipelineState, action: PipelineAction): PipelineState {
   if (action.type === 'started') {
     const queued = Object.values(state.entries).some(
       (existing) => existing.run.projectId === action.run.projectId && !existing.finished,
     );
-    const entry: PipelineEntry = { run: action.run, finished: terminal.has(action.run.stage), queued, outputs: {} };
+    const entry: PipelineEntry = {
+      run: { ...action.run, enteredStages: initialHistory(action.run) },
+      finished: terminal.has(action.run.stage),
+      queued,
+      outputs: {},
+    };
     return { entries: { ...state.entries, [action.run.id]: entry }, selectedRunId: action.run.id };
   }
   if (action.type === 'loaded') {
@@ -43,7 +72,10 @@ export function pipelineReducer(state: PipelineState, action: PipelineAction): P
         ...state.entries,
         [action.run.id]: {
           ...previous,
-          run: action.run,
+          run: {
+            ...action.run,
+            enteredStages: previous?.run.enteredStages ?? initialHistory(action.run),
+          },
           finished: terminal.has(action.run.stage),
           queued: previous?.queued ?? false,
           outputs: previous?.outputs ?? {},
@@ -63,7 +95,14 @@ export function pipelineReducer(state: PipelineState, action: PipelineAction): P
         ...state.entries,
         [runId]: {
           ...entry,
-          run: { ...entry.run, failureReport: action.report },
+          run: {
+            ...entry.run,
+            stage: action.report.rolledBack ? PipelineStage.ROLLED_BACK : PipelineStage.FAILED,
+            failureReport: action.report,
+            enteredStages: entry.run.enteredStages.includes(action.report.stage)
+              ? entry.run.enteredStages
+              : [...entry.run.enteredStages, action.report.stage],
+          },
           finished: true,
           queued: false,
         },
@@ -76,7 +115,17 @@ export function pipelineReducer(state: PipelineState, action: PipelineAction): P
       ...state,
       entries: {
         ...state.entries,
-        [runId]: { ...entry, run: { ...entry.run, stage: event.stage }, queued: false },
+        [runId]: {
+          ...entry,
+          run: {
+            ...entry.run,
+            stage: event.stage,
+            enteredStages: entry.run.enteredStages.includes(event.stage)
+              ? entry.run.enteredStages
+              : [...entry.run.enteredStages, event.stage],
+          },
+          queued: false,
+        },
       },
     };
   }
@@ -84,7 +133,10 @@ export function pipelineReducer(state: PipelineState, action: PipelineAction): P
   if (event.type === 'finished') {
     return {
       ...state,
-      entries: { ...state.entries, [runId]: { ...entry, run: { ...entry.run, stage: event.stage }, finished: true } },
+      entries: {
+        ...state.entries,
+        [runId]: { ...entry, run: { ...entry.run, stage: event.stage }, finished: true },
+      },
     };
   }
   const prior = entry.outputs[event.commandRunId] ?? { stdout: '', stderr: '', truncated: false };

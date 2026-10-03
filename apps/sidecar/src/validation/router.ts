@@ -133,6 +133,7 @@ export const llmRequestSchema = z
     maxOutputTokens: z.number().exactOptional(),
     temperature: z.number().exactOptional(),
     responseFormat: z.enum(['text', 'json']).exactOptional(),
+    preferredModelKey: modelKeySchema.exactOptional(),
     ladderOverride: z.array(modelKeySchema).readonly().exactOptional(),
     stream: z.boolean(),
   })

@@ -280,6 +280,8 @@ export interface LlmRequest {
   readonly maxOutputTokens?: number;
   readonly temperature?: number;
   readonly responseFormat?: 'text' | 'json';
+  /** Chat model choice: tried first, then the rest of the ladder (fallback per autoFallback). */
+  readonly preferredModelKey?: ModelKey;
   /** Overrides the ladder for this request only (e.g. pipeline role assignment). */
   readonly ladderOverride?: readonly ModelKey[];
   readonly stream: boolean;
