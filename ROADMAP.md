@@ -157,8 +157,8 @@ Spec: ARCH §14.1, `schemas.ts` §13.
 - [x] **M8-01** (C) `IImageProvider` port + DALL·E 3 adapter.
 - [x] **M8-02** (C) FLUX adapters (Together sync, Replicate polling); Midjourney adapter compiled but disabled.
 - [x] **M8-03** (C) `generate_image` tool dispatch: validation, BudgetGuard, provider fallback, download-and-store, ledger (`purpose=image`).
-- [ ] **M8-04** (C) Chat inline image rendering via asset protocol.
-- [ ] **M8-05** (C) Gallery tab.
+- [x] **M8-04** (C) Chat inline image rendering via asset protocol.
+- [x] **M8-05** (C) Gallery tab.
 - [ ] **M8-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M8-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M8-report.md` sign-off. Scope: Image generation: tool call → image stored locally, provider fallback, cost per image, gallery.
 
 ## M9 — Packaging & release *(deferred)*

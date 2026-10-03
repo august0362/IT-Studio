@@ -38,6 +38,11 @@ export function ChatPage({ projectId }: { readonly projectId: ProjectId | null }
     enabled: projectId !== null,
   });
   const modelsQuery = useRpcQuery('models.list', {});
+  const imagesQuery = useQuery({
+    queryKey: ['images.list', { projectId }],
+    queryFn: () => (projectId === null ? Promise.resolve([]) : rpc.call('images.list', { projectId })),
+    enabled: projectId !== null,
+  });
   const [routerConfig, setRouterConfig] = useState<RouterConfig | null>(null);
   const selectedModel = modelSelection === null ? (routerConfig?.lockedModelKey ?? undefined) : modelSelection.value;
   const conversations = useMemo(
@@ -214,6 +219,7 @@ export function ChatPage({ projectId }: { readonly projectId: ProjectId | null }
             bubbles={state.bubbles}
             costs={state.costs}
             fallbacks={state.fallbacks}
+            images={imagesQuery.data ?? []}
             models={modelsQuery.data ?? []}
           />
         )}

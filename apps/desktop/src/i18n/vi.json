@@ -62,7 +62,8 @@
       "circuit_open": "mạch ngắt kết nối đang mở"
     },
     "useKnowledge": "Sử dụng kiến thức",
-    "citation": "Trích dẫn {{number}}"
+    "citation": "Trích dẫn {{number}}",
+    "openImage": "Mở hình ảnh: {{alt}}"
   },
   "code": {
     "heading": "Xây dựng cùng tác nhân",
@@ -134,7 +135,8 @@
       "pricing": "Giá",
       "fx": "Tỷ giá",
       "vscode": "VS Code",
-      "pipeline": "Vai trò quy trình"
+      "pipeline": "Vai trò quy trình",
+      "images": "Hình ảnh"
     },
     "saved": "Đã lưu cài đặt.",
     "save": "Lưu",
@@ -219,6 +221,23 @@
       "validationCommands": "Lệnh kiểm tra",
       "editLater": "Các lệnh này chỉ đọc. Có thể chỉnh sửa trong tác vụ sau.",
       "maxFix": "Số lần sửa tối đa: {{count}} (D5)"
+    },
+    "images": {
+      "enabled": "Bật tính năng tạo hình ảnh",
+      "costNote": "Tạo hình ảnh gọi nhà cung cấp có tính phí. Chi phí được ghi nhận theo từng dự án.",
+      "providerOrder": "Thứ tự nhà cung cấp",
+      "reorder": "Sắp xếp lại {{provider}}",
+      "keyboardHelp": "Nhấn Space để chọn nhà cung cấp, dùng phím mũi tên để di chuyển rồi nhấn Space để đặt.",
+      "keySet": "Đã lưu khóa API",
+      "keyMissing": "Chưa lưu khóa API",
+      "apiKeyHint": "Quản lý khóa nhà cung cấp tại",
+      "apiKeys": "Khóa API",
+      "providers": {
+        "openai_dalle3": "OpenAI DALL·E 3",
+        "flux_together": "FLUX (Together)",
+        "flux_replicate": "FLUX (Replicate)",
+        "midjourney_proxy": "Midjourney (đã tắt)"
+      }
     }
   },
   "api": {
@@ -322,6 +341,29 @@
     "search": "Tìm trong kiến thức",
     "reindexRequired": "Cần lập chỉ mục lại: mô hình embedding đã thay đổi.",
     "reindexAll": "Lập chỉ mục lại tất cả tài liệu"
+  },
+  "gallery": {
+    "heading": "Thư viện hình ảnh",
+    "loading": "Đang tải hình ảnh…",
+    "loadError": "Không thể tải hình ảnh.",
+    "empty": "Chưa có hình ảnh nào được tạo.",
+    "openFolder": "Mở thư mục hình ảnh",
+    "openImage": "Xem trước {{prompt}}",
+    "preview": "Xem trước hình ảnh",
+    "closePreview": "Đóng xem trước hình ảnh",
+    "close": "Đóng",
+    "delete": "Xóa",
+    "deleteTitle": "Xóa hình ảnh?",
+    "deletePrompt": "Xóa hình ảnh này? {{prompt}}",
+    "cancel": "Hủy",
+    "deleteError": "Không thể xóa hình ảnh.",
+    "retry": "Tải lại thư viện rồi thử lại.",
+    "providers": {
+      "openai_dalle3": "OpenAI DALL·E 3",
+      "flux_together": "FLUX (Together)",
+      "flux_replicate": "FLUX (Replicate)",
+      "midjourney_proxy": "Midjourney (đã tắt)"
+    }
   },
   "cost": {
     "heading": "Chi phí & Lãi lỗ",

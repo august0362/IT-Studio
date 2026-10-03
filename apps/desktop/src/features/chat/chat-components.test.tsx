@@ -6,6 +6,7 @@ import type {
   ConversationId,
   FallbackDecisionRequest,
   IsoDateTime,
+  ImageAsset,
   LlmRequestId,
   MessageId,
   MicroUsd,
@@ -17,6 +18,8 @@ import { Composer } from './Composer';
 import { FallbackModal } from './FallbackModal';
 import { MessageList } from './MessageList';
 import type { ChatBubble, FallbackInfo } from './chat-store';
+
+vi.mock('@tauri-apps/api/core', () => ({ convertFileSrc: (path: string) => `asset://${path}` }));
 
 function asRequestId(value: string): LlmRequestId {
   return value as LlmRequestId;
@@ -108,6 +111,7 @@ describe('chat components', () => {
         bubbles={bubbles}
         costs={{}}
         fallbacks={fallbacks}
+        images={[]}
         models={[
           {
             key: candidate,
@@ -145,10 +149,41 @@ describe('chat components', () => {
       parts: [{ type: 'citation', hit }],
       createdAt: asDate('2026-10-02T00:00:00.000Z'),
     };
-    render(<MessageList bubbles={[{ kind: 'message', message }]} costs={{}} fallbacks={{}} models={[]} />);
+    render(<MessageList bubbles={[{ kind: 'message', message }]} costs={{}} fallbacks={{}} images={[]} models={[]} />);
     fireEvent.click(screen.getByRole('button', { name: 'Citation 1' }));
     expect(screen.getByRole('dialog')).toHaveTextContent('Guide › Setup');
     expect(screen.getByText('<script>plain text</script>')).toBeVisible();
     expect(document.querySelector('script')).toBeNull();
+  });
+
+  it('renders image content from the local asset and opens its lightbox', () => {
+    const asset: ImageAsset = {
+      id: '00000000-0000-4000-8000-000000000007' as ImageAsset['id'],
+      projectId: '00000000-0000-4000-8000-000000000008' as ImageAsset['projectId'],
+      provider: 'openai_dalle3',
+      prompt: 'A garden',
+      revisedPrompt: 'A garden at sunrise',
+      size: '1024x1024',
+      mimeType: 'image/png',
+      localPath: 'C:/app/images/project/image.png',
+      cost: asMicroUsd(10),
+      createdAt: asDate('2026-10-02T00:00:00.000Z'),
+    };
+    const message: ChatMessage = {
+      id: asMessageId('00000000-0000-4000-8000-000000000003'),
+      conversationId: asConversationId('00000000-0000-4000-8000-000000000002'),
+      role: 'assistant',
+      parts: [{ type: 'image', assetId: asset.id, mimeType: asset.mimeType }],
+      createdAt: asDate('2026-10-02T00:00:00.000Z'),
+    };
+    render(
+      <MessageList bubbles={[{ kind: 'message', message }]} costs={{}} fallbacks={{}} images={[asset]} models={[]} />,
+    );
+    expect(screen.getByAltText('A garden at sunrise')).toHaveAttribute(
+      'src',
+      'asset://C:/app/images/project/image.png',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Open image: A garden at sunrise' }));
+    expect(screen.getByRole('dialog', { name: 'Image preview' })).toBeVisible();
   });
 });

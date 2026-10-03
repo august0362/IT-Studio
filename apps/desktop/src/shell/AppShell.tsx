@@ -20,11 +20,15 @@ import { FxSettingsPage } from '../features/settings/fx/FxSettingsPage';
 import { VSCodeSettingsPage } from '../features/settings/vscode/VSCodeSettingsPage';
 import { PipelineSettingsPage } from '../features/settings/pipeline/PipelineSettingsPage';
 import { KnowledgePage } from '../features/knowledge/KnowledgePage';
+import { ImagesSettingsPage } from '../features/settings/images/ImagesSettingsPage';
 
 const CodePage = lazy(() => import('../features/code/CodePage').then(({ CodePage: page }) => ({ default: page })));
 const CostPage = lazy(() => import('../features/cost/CostPage').then(({ CostPage: page }) => ({ default: page })));
 const WorkflowPage = lazy(() =>
   import('../features/workflow/WorkflowPage').then(({ WorkflowPage: page }) => ({ default: page })),
+);
+const GalleryPage = lazy(() =>
+  import('../features/gallery/GalleryPage').then(({ GalleryPage: page }) => ({ default: page })),
 );
 
 function asAppError(cause: unknown): AppError {
@@ -40,6 +44,7 @@ function initialRoute(): ShellRoute {
       'code',
       'knowledge',
       'workflow',
+      'gallery',
       'cost',
       'settings-api-keys',
       'settings-theme',
@@ -49,6 +54,7 @@ function initialRoute(): ShellRoute {
       'settings-fx',
       'settings-vscode',
       'settings-pipeline',
+      'settings-images',
     ].includes(hash)
   )
     return hash as ShellRoute;
@@ -181,6 +187,15 @@ export function AppShell(): JSX.Element {
         <CodePage projectId={projects.find((project) => project.id === activeId)?.id ?? null} />
       </Suspense>
     );
+  else if (route === 'gallery')
+    content = (
+      <Suspense fallback={<p role="status">{t('gallery.loading')}</p>}>
+        <GalleryPage
+          projectId={activeId === null ? null : (projects.find((project) => project.id === activeId)?.id ?? null)}
+          projects={projects}
+        />
+      </Suspense>
+    );
   else if (route === 'settings-api-keys') content = <ApiKeysPage />;
   else if (route === 'settings-theme') content = <ThemePage />;
   else if (route === 'settings-router') content = <RouterSettingsPage />;
@@ -188,6 +203,7 @@ export function AppShell(): JSX.Element {
   else if (route === 'settings-pricing') content = <PricingSettingsPage projectActive={activeId !== null} />;
   else if (route === 'settings-fx') content = <FxSettingsPage />;
   else if (route === 'settings-vscode') content = <VSCodeSettingsPage />;
+  else if (route === 'settings-images') content = <ImagesSettingsPage />;
   else content = <PipelineSettingsPage />;
 
   return (
