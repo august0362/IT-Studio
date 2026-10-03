@@ -20,9 +20,9 @@ import { FxSettingsPage } from '../features/settings/fx/FxSettingsPage';
 import { VSCodeSettingsPage } from '../features/settings/vscode/VSCodeSettingsPage';
 import { PipelineSettingsPage } from '../features/settings/pipeline/PipelineSettingsPage';
 import { KnowledgePage } from '../features/knowledge/KnowledgePage';
-import { CostPage } from '../features/cost/CostPage';
 
 const CodePage = lazy(() => import('../features/code/CodePage').then(({ CodePage: page }) => ({ default: page })));
+const CostPage = lazy(() => import('../features/cost/CostPage').then(({ CostPage: page }) => ({ default: page })));
 
 function asAppError(cause: unknown): AppError {
   if (cause instanceof RpcCallError) return cause.appError;
@@ -154,7 +154,11 @@ export function AppShell(): JSX.Element {
   else if (route === 'cost') {
     const selectedProjectId: ProjectId | null =
       activeId === null ? null : (projects.find((project) => project.id === activeId)?.id ?? null);
-    content = <CostPage projectId={selectedProjectId} />;
+    content = (
+      <Suspense fallback={<p role="status">{t('cost.loading')}</p>}>
+        <CostPage projectId={selectedProjectId} />
+      </Suspense>
+    );
   } else if (route === 'code')
     content = (
       <Suspense fallback={<p role="status">{t('code.loading')}</p>}>

@@ -1,4 +1,3 @@
-import { ApiError, GoogleGenAI } from '@google/genai';
 import { FailureKind, ProviderId } from '@itstudio/schemas';
 import type { ProviderFailure } from '../../ports/llm-provider.js';
 import type { IEmbeddingProvider } from '../../ports/embedding-provider.js';
@@ -21,7 +20,10 @@ export class GoogleEmbeddingProvider implements IEmbeddingProvider {
     apiKey: string,
     signal: AbortSignal,
   ) {
+    let getApiStatus: ((error: unknown) => number | undefined) | undefined;
     try {
+      const { ApiError, GoogleGenAI } = await import('@google/genai');
+      getApiStatus = (error) => (error instanceof ApiError ? error.status : undefined);
       const response = await new GoogleGenAI({
         apiKey,
         httpOptions: {
@@ -50,13 +52,13 @@ export class GoogleEmbeddingProvider implements IEmbeddingProvider {
       return { ok: true, value: { vectors, inputTokens } } as const;
     } catch (error) {
       if (signal.aborted) throw error;
-      return { ok: false, error: classifyFailure(error, apiKey) } as const;
+      return { ok: false, error: classifyFailure(error, apiKey, getApiStatus?.(error)) } as const;
     }
   }
 }
 
-function classifyFailure(error: unknown, apiKey: string): ProviderFailure {
-  const details = getErrorDetails(error);
+function classifyFailure(error: unknown, apiKey: string, apiStatus: number | undefined): ProviderFailure {
+  const details = getErrorDetails(error, apiStatus);
   const message = details.message.slice(0, 240).replaceAll(apiKey, '[redacted]');
   const dailyQuota = /per day|daily|billing|quota exceeded for quota metric.*per day/i.test(details.message);
   if ((details.status === 429 || details.code === 'RESOURCE_EXHAUSTED') && dailyQuota)
@@ -108,7 +110,10 @@ function classifyFailure(error: unknown, apiKey: string): ProviderFailure {
   };
 }
 
-function getErrorDetails(error: unknown): {
+function getErrorDetails(
+  error: unknown,
+  apiStatus: number | undefined,
+): {
   readonly status?: number;
   readonly code: string;
   readonly message: string;
@@ -133,8 +138,7 @@ function getErrorDetails(error: unknown): {
   );
   const retryAfterMs =
     isRecord(retryInfo) && typeof retryInfo.retryDelay === 'string' ? parseDuration(retryInfo.retryDelay) : undefined;
-  const status =
-    error instanceof ApiError ? error.status : typeof provider.code === 'number' ? provider.code : undefined;
+  const status = apiStatus ?? (typeof provider.code === 'number' ? provider.code : undefined);
   const headers = isRecord(error) ? error.headers : undefined;
   const retryHeader = headers instanceof Headers ? parseRetryAfter(headers.get('retry-after'), Date.now()) : undefined;
   const retryDelay = retryAfterMs ?? retryHeader;

@@ -1,4 +1,3 @@
-import OpenAI, { APIConnectionTimeoutError, APIError } from 'openai';
 import { FailureKind, ProviderId } from '@itstudio/schemas';
 import type { ProviderFailure } from '../../ports/llm-provider.js';
 import type { IEmbeddingProvider } from '../../ports/embedding-provider.js';
@@ -21,7 +20,12 @@ export class OpenAiEmbeddingProvider implements IEmbeddingProvider {
     apiKey: string,
     signal: AbortSignal,
   ) {
+    let isTimeoutError: ((error: unknown) => boolean) | undefined;
+    let isApiError: ((error: unknown) => boolean) | undefined;
     try {
+      const { default: OpenAI, APIConnectionTimeoutError, APIError } = await import('openai');
+      isTimeoutError = (error) => error instanceof APIConnectionTimeoutError;
+      isApiError = (error) => error instanceof APIError;
       const response = await new OpenAI({
         apiKey,
         baseURL: BASE_URL,
@@ -42,21 +46,28 @@ export class OpenAiEmbeddingProvider implements IEmbeddingProvider {
       return { ok: true, value: { vectors, inputTokens: response.usage.prompt_tokens } } as const;
     } catch (error) {
       if (signal.aborted) throw error;
-      return { ok: false, error: classifyFailure(error, apiKey) } as const;
+      return {
+        ok: false,
+        error: classifyFailure(error, apiKey, isTimeoutError?.(error) ?? false, isApiError?.(error) ?? false),
+      } as const;
     }
   }
 }
 
-function classifyFailure(error: unknown, apiKey: string): ProviderFailure {
-  if (error instanceof APIConnectionTimeoutError)
-    return { kind: FailureKind.TIMEOUT, billed: false, message: 'The provider request timed out.' };
-  if (error instanceof APIError) {
+function classifyFailure(
+  error: unknown,
+  apiKey: string,
+  isTimeoutError: boolean,
+  isApiError: boolean,
+): ProviderFailure {
+  if (isTimeoutError) return { kind: FailureKind.TIMEOUT, billed: false, message: 'The provider request timed out.' };
+  if (isApiError && error instanceof Error) {
     const serialized: unknown = JSON.parse(JSON.stringify(error)) as unknown;
     const record = isRecord(serialized) ? serialized : {};
     const status = typeof record.status === 'number' ? record.status : undefined;
     const code = typeof record.code === 'string' ? record.code : '';
     const type = typeof record.type === 'string' ? record.type : '';
-    const headers = Object.getOwnPropertyDescriptor(error, 'headers')?.value as unknown;
+    const headers: unknown = Object.getOwnPropertyDescriptor(error, 'headers')?.value;
     const retryAfterMs = headers instanceof Headers ? retryAfter(headers) : undefined;
     const message = error.message.slice(0, 200).replaceAll(apiKey, '[redacted]');
     if (
