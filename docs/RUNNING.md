@@ -72,7 +72,7 @@ Before shipping a release, run `npm run audit:prod` to check production dependen
 1. `npm run release:bump -- <major|minor|patch|x.y.z>` updates the app and extension versions and moves the current `Unreleased` changelog entries into the release section. Review the printed changes first with `--dry-run`.
 2. `npm run audit:prod` checks production dependencies.
 3. `npm run build:app` builds the desktop installer.
-4. Run `npm run smoke:install` to verify the installed app starts without system Node.js or repository dependencies. It opens the app window and is QA-only; do not run during E2E tests.
+4. Run `npm run smoke:install` to verify the installed app starts without system Node.js or repository dependencies. It opens the app window, uses the real `%APPDATA%\\com.itstudio.app` data directory, and is QA-only; do not run during E2E tests.
 5. After the release is approved, create the matching tag with `git tag v<version>`.
 
 ```bash

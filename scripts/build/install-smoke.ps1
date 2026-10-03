@@ -2,7 +2,6 @@ $ErrorActionPreference = 'Stop'
 
 $results = [System.Collections.Generic.List[object]]::new()
 $installDir = Join-Path ([System.IO.Path]::GetTempPath()) ("itstudio-install-smoke-{0}" -f [guid]::NewGuid().ToString('N'))
-$dataDir = Join-Path ([System.IO.Path]::GetTempPath()) ("itstudio-install-smoke-data-{0}" -f [guid]::NewGuid().ToString('N'))
 $installer = $null
 $appProcess = $null
 $sidecarProcess = $null
@@ -10,9 +9,6 @@ $originalEnvironment = @{
     Path = $env:Path
     NodePath = $env:NODE_PATH
     NodeOptions = $env:NODE_OPTIONS
-    AppData = $env:APPDATA
-    LocalAppData = $env:LOCALAPPDATA
-    ItStudioDataDir = $env:ITSTUDIO_DATA_DIR
 }
 
 function Add-Result {
@@ -40,21 +36,14 @@ try {
 
     $exe = Join-Path $installDir 'itstudio-desktop.exe'
     if (-not (Test-Path -LiteralPath $exe)) { throw "Installed app not found: $exe" }
-    New-Item -ItemType Directory -Path $dataDir | Out-Null
+    $appStartedAt = Get-Date
     $env:Path = "$env:SystemRoot\System32;$env:SystemRoot"
     Remove-Item Env:NODE_PATH -ErrorAction SilentlyContinue
     Remove-Item Env:NODE_OPTIONS -ErrorAction SilentlyContinue
-    $env:APPDATA = $dataDir
-    $env:LOCALAPPDATA = $dataDir
-    $env:ITSTUDIO_DATA_DIR = $dataDir
     $appProcess = Start-Process -FilePath $exe -WorkingDirectory $installDir -PassThru
     $env:Path = $originalEnvironment.Path
     if ($null -ne $originalEnvironment.NodePath) { $env:NODE_PATH = $originalEnvironment.NodePath }
     if ($null -ne $originalEnvironment.NodeOptions) { $env:NODE_OPTIONS = $originalEnvironment.NodeOptions }
-    if ($null -ne $originalEnvironment.AppData) { $env:APPDATA = $originalEnvironment.AppData }
-    if ($null -ne $originalEnvironment.LocalAppData) { $env:LOCALAPPDATA = $originalEnvironment.LocalAppData }
-    if ($null -ne $originalEnvironment.ItStudioDataDir) { $env:ITSTUDIO_DATA_DIR = $originalEnvironment.ItStudioDataDir }
-    else { Remove-Item Env:ITSTUDIO_DATA_DIR -ErrorAction SilentlyContinue }
 
     $deadline = (Get-Date).AddSeconds(30)
     $readyLog = $null
@@ -63,8 +52,11 @@ try {
         $sidecarInfo = $processes | Where-Object { $_.Name -like 'itstudio-sidecar*.exe' -and $_.ExecutablePath -and (Test-WithinDirectory $_.ExecutablePath $installDir) } | Select-Object -First 1
         if ($null -ne $sidecarInfo) {
             $sidecarProcess = Get-Process -Id $sidecarInfo.ProcessId -ErrorAction SilentlyContinue
-            $dataLogs = Join-Path $dataDir 'logs'
-            $readyLog = Get-ChildItem -LiteralPath $dataLogs -Filter 'sidecar-*.log' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+            $dataLogs = Join-Path $env:APPDATA 'com.itstudio.app\logs'
+            $readyLog = Get-ChildItem -LiteralPath $dataLogs -Filter 'sidecar-*.log' -File -ErrorAction SilentlyContinue |
+                Where-Object LastWriteTime -GT $appStartedAt |
+                Sort-Object LastWriteTime -Descending |
+                Select-Object -First 1
             if ($null -ne $readyLog -and (Get-Content -LiteralPath $readyLog.FullName -Raw).Contains('sidecar ready')) { break }
         }
         Start-Sleep -Milliseconds 500
@@ -109,7 +101,7 @@ try {
     Add-Result 'Smoke execution' $false $_.Exception.Message
 } finally {
     $env:Path = $originalEnvironment.Path
-    foreach ($key in @(@{ Name = 'NODE_PATH'; Value = $originalEnvironment.NodePath }, @{ Name = 'NODE_OPTIONS'; Value = $originalEnvironment.NodeOptions }, @{ Name = 'APPDATA'; Value = $originalEnvironment.AppData }, @{ Name = 'LOCALAPPDATA'; Value = $originalEnvironment.LocalAppData }, @{ Name = 'ITSTUDIO_DATA_DIR'; Value = $originalEnvironment.ItStudioDataDir })) {
+    foreach ($key in @(@{ Name = 'NODE_PATH'; Value = $originalEnvironment.NodePath }, @{ Name = 'NODE_OPTIONS'; Value = $originalEnvironment.NodeOptions })) {
         if ($null -eq $key.Value) { Remove-Item "Env:$($key.Name)" -ErrorAction SilentlyContinue } else { Set-Item "Env:$($key.Name)" $key.Value }
     }
 }
