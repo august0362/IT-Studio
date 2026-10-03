@@ -24,6 +24,12 @@ function parseLine(line: string): Record<string, unknown> {
 }
 
 const tempDirectories: string[] = [];
+function makeDataDir(): string {
+  const dataDir = mkdtempSync(join(tmpdir(), 'itstudio-container-'));
+  tempDirectories.push(dataDir);
+  return dataDir;
+}
+
 const testFxHttpClient: IHttpClient = {
   request: () => Promise.resolve(Response.json({ rates: { VND: 26_300 } })),
 };
@@ -215,7 +221,7 @@ describe('sidecar container', () => {
         input,
         output,
         fxHttpClient: testFxHttpClient,
-        dataDir: ':memory:',
+        dataDir: makeDataDir(),
         exit: (code) => exitCodes.push(code),
         logger: createLogger({
           streams: [
@@ -231,8 +237,13 @@ describe('sidecar container', () => {
     container.start();
     const request = async (id: number, method: string, params: Record<string, unknown>) => {
       input.write(`${JSON.stringify({ jsonrpc: '2.0', id, method, params })}\n`);
-      await new Promise((resolve) => setTimeout(resolve, 20));
-      const response = parseLine(lines.find((line) => parseLine(line).id === id) ?? '{}');
+      let responseLine = lines.find((line) => parseLine(line).id === id);
+      for (let attempt = 0; responseLine === undefined && attempt < 100; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        responseLine = lines.find((line) => parseLine(line).id === id);
+      }
+      if (responseLine === undefined) throw new Error(`No RPC response received for request ${String(id)}`);
+      const response = parseLine(responseLine);
       expect(response.error).toBeUndefined();
       return response.result;
     };
@@ -275,7 +286,7 @@ describe('sidecar container', () => {
         input,
         output,
         fxHttpClient: testFxHttpClient,
-        dataDir: ':memory:',
+        dataDir: makeDataDir(),
         secretStore: new MemorySecretStore(),
         keyVerifier: verifier,
         logger: createLogger({

@@ -24,3 +24,10 @@ The test files above, `vitest.config.ts` / project configs (test timeouts, `hook
 
 ## Hand-back
 Append `## Result` per AGENTS.md §3.
+
+## Result
+- Summary: Warmed Mammoth, LanceDB, and Google GenAI in suite setup; isolated container databases in fresh temporary directories and waited for matching RPC responses; added the release/build Node test suites to `npm test`.
+- Files changed: `apps/sidecar/src/services/rag/parsers/parse-document.test.ts`, `apps/sidecar/src/infra/lancedb/vector-store.test.ts`, `apps/sidecar/src/providers/embedding/google.test.ts`, `apps/sidecar/src/container.test.ts`, `package.json`, `docs/tasks/QA-FLAKE-01.md`.
+- Dependencies added (with reason): None.
+- Decisions taken within scope: Used `beforeAll` import warming for lazy dependencies; generated and cleaned temporary container data directories for cases that previously used `:memory:`.
+- Open issues / follow-ups: `npm run typecheck` and `npm run lint` passed. `npm test` passed three consecutive runs (846 passed, 1 skipped per Vitest run; all 6 script tests passed). An earlier full run under load failed in unrelated command-runner, OpenAI embedding, and RAG tests; three subsequent consecutive runs passed. No E2E suite was run.
