@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { ErrorCode, type AppError, type Result } from '@itstudio/schemas';
 import type { IVectorStore, VectorChunkRow, VectorSearchHit, VectorSearchOptions } from '../../ports/vector-store.js';
 import { validId } from '../memory-vector-store.js';
+import { loadLanceDb } from '../native-modules.js';
 
 interface LanceRow extends VectorChunkRow, Record<string, unknown> {
   readonly vector: number[];
@@ -123,7 +124,7 @@ export class LanceDbVectorStore implements IVectorStore {
   }
 
   private async db(): Promise<Connection> {
-    this.connection ??= import('@lancedb/lancedb').then(({ connect }) =>
+    this.connection ??= Promise.resolve(loadLanceDb()).then(({ connect }) =>
       connect(`${this.dataDir.replace(/[\\/]$/, '')}/vectors`),
     );
     return this.connection;

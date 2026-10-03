@@ -6,7 +6,10 @@ docs/tasks/*.last.txt
 
 # build outputs
 dist/
+dist-sidecar/
 build/
+!scripts/build/
+!scripts/build/**
 out/
 target/
 *.vsix
