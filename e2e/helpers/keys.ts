@@ -1,6 +1,6 @@
 type Provider = 'openai' | 'anthropic' | 'google' | 'groq';
 
-const DEFAULT_PROVIDERS: readonly Provider[] = ['openai', 'anthropic', 'google'];
+const DEFAULT_PROVIDERS: readonly Provider[] = ['openai', 'anthropic', 'google', 'groq'];
 
 export async function ensureProviderKeys(
   providers: readonly Provider[] = DEFAULT_PROVIDERS,

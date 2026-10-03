@@ -91,3 +91,19 @@ Do only these test fixes (e2e/** only), type-check and lint `e2e`. Do not run E2
 | TC-M4-043/044/045, TC-M5-022/023 | no `Error in` line — failed in hooks / after a failure in the same spec | re-check once the leaks above are fixed; if still failing, fix from component code | |
 
 e2e/** only; type-check and lint; do not run E2E.
+
+## Result (round 3)
+
+| Case / area | Change made |
+|---|---|
+| TC-M4-031/033 and router fallback across specs | `ensureProviderKeys` now saves keys for all four supported providers by default; cost-spec teardown restores Auto Fallback ON. |
+| TC-M4-040/041/042/043/045 | Settings teardown restores Auto Fallback ON, the original ladder order, Hard Stop OFF, and clears any FX override. |
+| TC-M4-043 | Settings teardown restores GPT-5.5 prices to the checked-in seed values (5 / 30 / 0.5 USD per MTok) after the override assertion. |
+| TC-M4-021 | The slow scripted chat selects `openai/gpt-5.4-mini` explicitly before sending. |
+| TC-M4-023 | Keeps Auto Fallback OFF for the scripted fallback modal case; scripted-session teardown restores it ON before deleting the session. |
+
+- Summary: Addressed the round 3 scripted model selection, all-provider test keys, and settings state leakage.
+- Files changed: `e2e/helpers/keys.ts`, `e2e/specs/m4/cost.spec.ts`, `e2e/specs/m4/scripted-llm.spec.ts`, `e2e/specs/m4/settings.spec.ts`, `docs/tasks/QA-E2E-FIX1.md`.
+- Dependencies added: None.
+- Verification: E2E TypeScript check and ESLint passed. E2E was not run as requested.
+- Open issues / follow-ups: The pricing settings UI has no clear-override action, so cleanup restores GPT-5.5's seeded values; the row remains marked overridden. No out-of-scope product change was made.

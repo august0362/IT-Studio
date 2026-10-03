@@ -8,6 +8,14 @@ describe('M4 cost and P&L', () => {
     await ensureProviderKeys();
   });
 
+  afterEach(async () => {
+    await waitForReady();
+    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
+    const autoFallback = browser.$('aria/Auto Fallback');
+    if (!(await autoFallback.isSelected())) await autoFallback.click();
+    await browser.waitUntil(async () => autoFallback.isSelected());
+  });
+
   it('TC-M4-030 adds revenue and shows project revenue and margin', async () => {
     await waitForReady();
     const folder = createTemporaryProjectFolder();

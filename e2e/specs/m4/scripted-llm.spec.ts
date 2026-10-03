@@ -45,11 +45,24 @@ async function selectOpenAiModel(session: Session): Promise<void> {
   await session.$('#chat-model').selectByAttribute('value', 'openai/gpt-5.4-mini');
 }
 
+async function enableAutoFallback(session: Session): Promise<void> {
+  await session.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
+  const autoFallback = session.$('aria/Auto Fallback');
+  if (!(await autoFallback.isSelected())) await autoFallback.click();
+  await session.waitUntil(async () => autoFallback.isSelected());
+}
+
 describe('M4 scripted LLM cases', () => {
   afterEach(async () => {
     const session = activeSession;
     activeSession = undefined;
-    if (session !== undefined) await session.deleteSession();
+    if (session !== undefined) {
+      try {
+        await enableAutoFallback(session);
+      } finally {
+        await session.deleteSession();
+      }
+    }
   });
 
   it('TC-M4-021 cancels a slow scripted response without an assistant message', async () => {
@@ -57,6 +70,7 @@ describe('M4 scripted LLM cases', () => {
     await ensureProviderKeys(undefined, session);
     await createProject(session, 'Slow Script Project');
     await session.$('button=New chat').click();
+    await selectOpenAiModel(session);
     await session.$('aria/Message').setValue('cancel this response');
     await session.$('button=Send').click();
     await session.waitUntil(async () => session.$('button=Stop').isDisplayed(), { timeout: 10_000 });
@@ -84,6 +98,7 @@ describe('M4 scripted LLM cases', () => {
     const autoFallback = session.$('aria/Auto Fallback');
     if (await autoFallback.isSelected()) await autoFallback.click();
     await session.waitUntil(async () => !(await autoFallback.isSelected()));
+    await ensureProviderKeys(undefined, session);
     await session.$('nav[aria-label="Main navigation"] a[href="#chat"]').click();
     await createProject(session, 'Fallback Modal Project');
     await session.$('button=New chat').click();
