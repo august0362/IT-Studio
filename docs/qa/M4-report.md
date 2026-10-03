@@ -23,3 +23,6 @@
 - [x] no open S1/S2 · [x] coverage targets · [x] traceability · [x] report committed
 
 **Sign-off:** M4 — Desktop UI is **accepted for the v1 hand-over** with the E2E follow-up QA-E2E-FIX2 open. — QA (Claude), 2026-10-03
+
+## Update 2026-10-03 (6th E2E fix attempt)
+- Passing in the last session: TC-M4-021, 030, 040 (plus the earlier passes listed above). Several cases in the scripted / cost / settings specs did not run to a result because earlier steps in the same spec session failed. After 6 fix attempts the remaining M4 E2E cases are **skipped and reported** (user rule); all of them pass at L2 / L3.

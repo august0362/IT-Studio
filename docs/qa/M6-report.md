@@ -23,3 +23,7 @@
 - [x] no open S1/S2 · [~] coverage (write-transaction 98.95 %, documented) · [x] traceability · [x] report committed
 
 **Sign-off:** M6 — Agent pipeline is **accepted for the v1 hand-over** with QA-E2E-FIX2 open. — QA (Claude), 2026-10-03
+
+## Update 2026-10-03 (after M6-FIX2, PERF-01, QA-E2E-FIX3)
+- **TC-M6-070 passes in the real app**: a scripted pipeline runs PM → Coder → Reviewer → Worker → Validate → **Completed** (confirms BUG-M6-002 fix end to end).
+- TC-M6-071 / 072 still fail (validation-shim setup) after the 6th fix attempt → per the user's 6-attempt rule they are **skipped and reported**; behaviour covered at L3 (TC-M6-002, TC-M6-012).
