@@ -61,3 +61,20 @@ Remaining failures — page text captured from the WDIO log right before each fa
 | TC-M4-043/044/045, TC-M4-051 | cascade / same spec session | re-check after the fixes above; fix selectors from component code if still failing | |
 
 Do only these test fixes (e2e/** only), type-check and lint `e2e`. Do not run E2E. Also make `test:vscode-e2e` unset `ELECTRON_RUN_AS_NODE` for the VS Code child (in `apps/vscode-ext/test/e2e/run.mjs`, pass an env without it via `extensionTestsEnv`/launch env) and add `.vscode-test/` to `.gitignore`.
+
+## Result (round 2)
+
+| Case | Change made |
+|---|---|
+| TC-M4-025 | Sent Shift+Enter using WebdriverIO `Key` constants and released Shift. |
+| TC-M4-031 | Asserted the rendered `budget used: 0%` label alongside the exact `0% budget used` accessible label and spent money. |
+| TC-M4-041 | Sent keyboard sensor keys separately with 300 ms pauses. |
+| TC-M5-020 | Set the knowledge panel's Minimum score to 0 before searching. |
+| TC-M6-070/071/072 | Ran the Code specs through a scripted driver with model-id keyed PM/Coder/Reviewer JSON; TC-M6-071 uses a project-local compiler shim that fails validation. Saved provider keys and delete each scripted session after its case. |
+| VS Code E2E | Removed `ELECTRON_RUN_AS_NODE` from the extension test child environment and ignored `.vscode-test/`. |
+
+- Summary: Fixed the round 2 E2E regressions and VS Code test child environment.
+- Files changed: `.gitignore`, `apps/vscode-ext/test/e2e/run.mjs`, `e2e/specs/m4/chat.spec.ts`, `e2e/specs/m4/cost.spec.ts`, `e2e/specs/m4/settings.spec.ts`, `e2e/specs/m5/knowledge.spec.ts`, `e2e/specs/m6/code.spec.ts`, `e2e/wdio.conf.ts`, `docs/tasks/QA-E2E-FIX1.md`.
+- Dependencies added (with reason): None.
+- Decisions taken within scope: M6 cases use a separate scripted driver so their structured role replies do not alter chat fixture behavior; the validation failure is deterministic and project-local.
+- Open issues / follow-ups: E2E was not run as requested. E2E TypeScript check and lint passed.

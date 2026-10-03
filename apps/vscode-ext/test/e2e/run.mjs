@@ -63,6 +63,9 @@ try {
   await runTests({
     extensionDevelopmentPath: extensionPath,
     extensionTestsPath,
+    extensionTestsEnv: Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => key !== 'ELECTRON_RUN_AS_NODE'),
+    ),
     launchArgs: [workspace, '--disable-workspace-trust'],
   });
   for (const [ref, caseId] of [

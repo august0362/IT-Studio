@@ -43,6 +43,7 @@ describe('M4 cost and P&L', () => {
     await browser.waitUntil(async () => (await browser.$('body').getText()).includes('0% budget used'));
     const budgetUsage = browser.$('[aria-label="0% budget used"]');
     expect(await budgetUsage.isDisplayed()).to.equal(true);
+    expect(await browser.$('body').getText()).to.include('budget used: 0%');
     expect(await browser.$('body').getText()).to.include('$0.00 · 0 ₫');
     await limit.setValue('1e3');
     await browser.$('button=Save budget').click();

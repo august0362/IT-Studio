@@ -23,6 +23,7 @@ describe('M5 knowledge', () => {
     await browser.$('button=Add sources').click();
     await browser.waitUntil(async () => (await browser.$('body').getText()).includes('guide.md'));
     await browser.$('aria/Query').setValue('Where is the blue lantern stored?');
+    await browser.$('aria/Minimum score').setValue('0');
     await browser.$('button=Search knowledge').click();
     await browser.waitUntil(async () => (await browser.$('body').getText()).includes('north archive room'));
     expect(await browser.$('body').getText()).to.include('Lantern guide');

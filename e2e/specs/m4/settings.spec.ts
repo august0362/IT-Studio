@@ -1,4 +1,5 @@
 import { expect } from 'chai';
+import { Key } from 'webdriverio';
 import { ensureProviderKeys } from '../../helpers/keys.js';
 import { createTemporaryProjectFolder, waitForReady } from '../../helpers/ui.js';
 
@@ -34,7 +35,11 @@ describe('M4 Settings', () => {
     const firstName = await first.getText();
     const secondName = await second.getText();
     await buttons[0].click();
-    await browser.keys(['SPACE', 'ARROWDOWN', 'SPACE']);
+    await browser.keys(Key.Space);
+    await browser.pause(300);
+    await browser.keys(Key.ArrowDown);
+    await browser.pause(300);
+    await browser.keys(Key.Space);
     await browser.waitUntil(async () => {
       const statuses = await browser.$$('[role="status"]').map((status) => status.getText());
       return statuses.some((text) => text.includes(`Moved ${firstName} before ${secondName}.`));

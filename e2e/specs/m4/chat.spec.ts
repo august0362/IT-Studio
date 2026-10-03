@@ -1,4 +1,5 @@
 import { expect } from 'chai';
+import { Key } from 'webdriverio';
 import { ensureProviderKeys } from '../../helpers/keys.js';
 import { createTemporaryProjectFolder, waitForReady } from '../../helpers/ui.js';
 
@@ -42,9 +43,9 @@ describe('M4 chat', () => {
     await browser.$('button=New chat').click();
     const composer = browser.$('aria/Message');
     await composer.setValue('first line');
-    await browser.keys(['SHIFT', 'ENTER']);
+    await browser.keys([Key.Shift, Key.Enter, Key.Shift]);
     await composer.addValue('second line');
-    await browser.keys('ENTER');
+    await browser.keys(Key.Enter);
     await browser.waitUntil(async () => (await browser.$('body').getText()).includes('Scripted assistant reply.'));
     expect(await browser.$('body').getText()).to.include('first line');
     expect(await browser.$('body').getText()).to.include('second line');
