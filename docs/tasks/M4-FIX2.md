@@ -36,3 +36,6 @@ Append `## Result` per AGENTS.md §3.
 - Dependencies added (with reason): None. Installed existing workspace dependencies because `node_modules` was absent.
 - Decisions taken within scope: Preferred disabled ladder entries remain eligible for their explicit request. Reused localized `code.states.skipped` labels with an em dash icon to identify stages that did not run.
 - Open issues / follow-ups: `npm test` passed (766 passed, 1 skipped), `npm run typecheck` passed, and `npm run lint` passed. The targeted integration test could not start the sidecar in this sandbox because `tsx` failed at `os.userInfo()` with `uv_os_get_passwd returned ENOMEM`; rerun integration QA outside the sandbox. E2E was not run.
+
+## QA (Claude)
+- Verdict: **PASS**. Router ordering: preferred → locked (if different) → remaining enabled ladder by priority; `ladderOverride` unchanged for pipeline roles. After merging main: typecheck ✔, lint ✔, 766 unit ✔, integration 99/99 ×2 incl. new TC-M4-026 (override A 503 → answer from B with fallback event). E2E TC-M4-022/023 re-run in the final session.
