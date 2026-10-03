@@ -1,4 +1,4 @@
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { MemoryFileSystem } from '../../../infra/memory-file-system.js';
 import { detectFormat, parseDocument } from './parse-document.js';
@@ -8,6 +8,8 @@ const pathFor = (name: string): string => join(process.cwd(), 'parser-tests', na
 async function parse(name: string, bytes: Uint8Array | string) {
   const fs = new MemoryFileSystem();
   const path = pathFor(name);
+  // MemoryFileSystem is strict like Node since M6-FIX2: the parent directory must exist.
+  expect((await fs.mkdir(dirname(path), true)).ok).toBe(true);
   const written = await fs.writeFile(path, bytes);
   expect(written.ok).toBe(true);
   return parseDocument(path, fs);
@@ -112,6 +114,7 @@ describe('document parsers', () => {
   it('TC-M5-WB-001 propagates stat and read failures and checks read byte size', async () => {
     const fs = new MemoryFileSystem();
     const path = pathFor('failure.md');
+    await fs.mkdir(dirname(path), true);
     await fs.writeFile(path, '# Failure');
     const failure = {
       code: 'INTERNAL' as const,

@@ -9,6 +9,7 @@ import {
   readdir,
   realpath,
   rename,
+  rmdir,
   stat,
   unlink,
   writeFile,
@@ -81,6 +82,17 @@ export class NodeFileSystem implements IFileSystem {
       return { ok: true, value: undefined };
     } catch {
       return failure('create directory');
+    }
+  }
+
+  async rmdirIfEmpty(path: string): Promise<Result<boolean>> {
+    try {
+      await rmdir(path);
+      return { ok: true, value: true };
+    } catch (error: unknown) {
+      if (error instanceof Error && 'code' in error && (error.code === 'ENOENT' || error.code === 'ENOTEMPTY'))
+        return { ok: true, value: false };
+      return failure('remove empty directory');
     }
   }
 

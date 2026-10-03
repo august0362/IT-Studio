@@ -29,6 +29,9 @@ class FakeFileSystem implements IFileSystem {
   mkdir() {
     return Promise.resolve({ ok: true as const, value: undefined });
   }
+  rmdirIfEmpty() {
+    return Promise.resolve({ ok: true as const, value: false });
+  }
   stat(path: string) {
     const value: FileStat = { isFile: this.files.has(path), isDirectory: false, isSymbolicLink: false, size: 1 };
     return Promise.resolve({ ok: true as const, value });
