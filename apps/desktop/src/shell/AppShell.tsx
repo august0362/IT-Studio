@@ -24,6 +24,9 @@ import { ImagesSettingsPage } from '../features/settings/images/ImagesSettingsPa
 
 const CodePage = lazy(() => import('../features/code/CodePage').then(({ CodePage: page }) => ({ default: page })));
 const CostPage = lazy(() => import('../features/cost/CostPage').then(({ CostPage: page }) => ({ default: page })));
+const WorkflowPage = lazy(() =>
+  import('../features/workflow/WorkflowPage').then(({ WorkflowPage: page }) => ({ default: page })),
+);
 const GalleryPage = lazy(() =>
   import('../features/gallery/GalleryPage').then(({ GalleryPage: page }) => ({ default: page })),
 );
@@ -40,6 +43,7 @@ function initialRoute(): ShellRoute {
       'chat',
       'code',
       'knowledge',
+      'workflow',
       'gallery',
       'cost',
       'settings-api-keys',
@@ -156,6 +160,18 @@ export function AppShell(): JSX.Element {
         project={projects.find((project) => project.id === activeId)}
         projectId={projects.find((project) => project.id === activeId)?.id ?? null}
       />
+    );
+  else if (route === 'workflow')
+    content = (
+      <Suspense fallback={<p role="status">{t('workflow.loading')}</p>}>
+        <WorkflowPage
+          onNavigate={(target) => {
+            navigate(target);
+          }}
+          projectId={activeId === null ? null : (projects.find((project) => project.id === activeId)?.id ?? null)}
+          projects={projects.map(({ id, name }) => ({ id, name }))}
+        />
+      </Suspense>
     );
   else if (route === 'cost') {
     const selectedProjectId: ProjectId | null =

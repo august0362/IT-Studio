@@ -8,7 +8,7 @@ import { appSettingsSchema } from '../../src/validation/settings.js';
 import { conversationSchema } from '../../src/validation/chat.js';
 import { pipelineRunSchema } from '../../src/validation/pipeline.js';
 import { providerIdSchema } from '../../src/validation/common.js';
-import { activityEventSchema } from '../../src/validation/workflow.js';
+import { activityEventSchema, workflowGraphSchema } from '../../src/validation/workflow.js';
 import { startSidecar, waitFor, type SidecarHarness } from './harness.js';
 
 let sidecar: SidecarHarness | undefined;
@@ -66,6 +66,33 @@ describe('workflow RPC integration', () => {
     const graph = await sidecar.call('workflow.graph', { projectId });
     expect(graph.error).toBeUndefined();
     expect(graph.result).toMatchObject({ projectId });
+  });
+
+  it('TC-MW-003 counts a scripted chat in the project graph and all-project aggregate', async () => {
+    sidecar = await startSidecar(
+      { ITSTUDIO_E2E_LLM_TEXT: 'Scripted assistant reply.' },
+      { 'google/gemini-3.8-flash': ['ok'] },
+    );
+    const workspace = resolve(sidecar.dataDir, 'workflow-aggregate-chat');
+    await mkdir(workspace);
+    const projectId = projectSchema.parse(
+      (await sidecar.call('project.create', { name: 'Workflow aggregate chat', workspaceRoot: workspace })).result,
+    ).id;
+    const settings = appSettingsSchema.parse((await sidecar.call('settings.get')).result);
+    const provider = providerIdSchema.parse(settings.router.ladder[0]?.modelKey.split('/')[0]);
+    await sidecar.call('secrets.set', { provider, apiKey: `integration-only-${provider}-key` });
+    const conversationId = conversationSchema.parse(
+      (await sidecar.call('chat.createConversation', { projectId })).result,
+    ).id;
+    await sidecar.call('chat.send', { conversationId, text: 'aggregate counter integration prompt' });
+    await waitFor(() => notifications('chat.completed').length === 1);
+
+    const projectGraph = workflowGraphSchema.parse((await sidecar.call('workflow.graph', { projectId })).result);
+    const aggregateGraph = workflowGraphSchema.parse(
+      (await sidecar.call('workflow.graph', { projectId: null })).result,
+    );
+    expect(projectGraph.nodes.find((node) => node.id === 'router')?.calls24h).toBeGreaterThanOrEqual(1);
+    expect(aggregateGraph.nodes.find((node) => node.id === 'router')?.calls24h).toBeGreaterThanOrEqual(1);
   });
 
   it('TC-MW-002 reports the pipeline role modules and returns them to idle', async () => {
