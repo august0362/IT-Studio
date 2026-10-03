@@ -140,6 +140,16 @@
 - [x] **M7-05** (C) Diagnostics streaming (debounced) + `file_saved_by_user` → stale-run conflict marking.
 - [x] **M7-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M7-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M7-report.md` sign-off. Scope: VS Code (`@vscode/test-electron`): auto-launch, handshake, reveal/diff on commit, diagnostics forwarded, VS Code closed mid-run does not fail the pipeline, bad token rejected.
 
+## MW — Workflow map *(v1 addendum, D32 — start after the v1 hand-over, on the user's go-ahead)*
+Ref: ARCHITECTURE §13.1, schemas §12b. Per-project graph of modules, links and data contracts; click a module → realtime in-flight work + history + metrics + deep links.
+
+- [ ] **MW-00** (A) Pre-install `@xyflow/react`; task specs MW-01…MW-04; test-case spec `docs/qa/MW-test-cases.md`.
+- [ ] **MW-01** (C) Sidecar: `domain/workflow-topology.ts` (static catalogue of nodes / lanes / typed edges), `services/activity-recorder.ts` (maps existing events → `ActivityEvent`, redaction, in-flight sets, batching ≤ 4/s), `activity_events` table + retention (7 d / 20 000 per project), RPC `workflow.graph`, `workflow.activity`, notification `workflow.activity` + validators.
+- [ ] **MW-02** (C) Workflow tab: React Flow graph by lanes, theme tokens, node status / counters, edge animation on live events, zoom / pan / fit, keyboard navigation, "All projects" aggregate with project filter chips.
+- [ ] **MW-03** (C) Module side panel: Now (in-flight with progress), Recent (filters, load-more from history), Metrics 24 h (calls, errors, p50 / p95, cost via `<Money>`), Links in / out with contract + last payload summary, deep links to Chat / Code / Knowledge / Cost.
+- [ ] **MW-04** (C) Missing events: add only the events the recorder cannot derive today (e.g. retriever query / hits count, command start / end, VS Code action acks) as in-process events — no polling.
+- [ ] **MW-QA** (A+C) QA gate (TESTING.md §7): topology completeness vs ARCH §13.1, event → module mapping table, redaction corpus (no prompt text / keys in any summary), retention boundaries, UI live update under load (100 events/s burst), E2E: run a chat + an ingest + a pipeline and see the right nodes / edges light up and the panel history match.
+
 ## M8 — Image generation *(deferred — do not start without user go-ahead)*
 
 Spec: ARCH §14.1, `schemas.ts` §13.

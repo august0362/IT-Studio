@@ -68,6 +68,7 @@ Changing any row requires an ADR in `docs/decisions/` and user approval.
 | D29 | **Target OS:** Linux, macOS and Windows Server — per-OS command/collector strategies; commands only from a fixed catalog. | User decision |
 | D30 | **AI agents operating servers: deferred** (documented in ARCH §23; requires a new ADR before implementation). | User decision |
 | D31 | **App-overhead LLM costs** (pricing extraction) are attributed to the **active project**; `pricing.refresh` without an active project fails `VALIDATION` ("Open or create a project first"). No separate system project. | Architect decision (M3-04) |
+| D32 | **Workflow map (v1 addendum, milestone MW):** a per-project Workflow tab shows modules, links and the data contract on each link; clicking a module shows **realtime** in-flight work and **history** (7 days / 20 000 events), metrics and deep links. Passive observer — no LLM tokens, no polling; summaries never contain prompt/document text or keys. Scheduled **after** the v1 hand-over. | User decision 2026-10-03 |
 
 ## 4. Open questions (ask the user before the milestone that needs them)
 
