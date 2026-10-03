@@ -13,7 +13,19 @@ const npmCli = process.env.npm_execpath ?? join(dirname(process.execPath), 'node
 
 await runNpm(['run', 'build:sidecar']);
 await stageSidecar();
-await runNpm(['run', 'tauri', '--workspace', '@itstudio/desktop', '--', 'build', '--bundles', 'nsis,msi']);
+runIconGenerator();
+await runNpm([
+  'run',
+  'tauri',
+  '--workspace',
+  '@itstudio/desktop',
+  '--',
+  'build',
+  '--bundles',
+  'nsis,msi',
+  '--config',
+  'tauri.conf.release.json',
+]);
 await printInstallers();
 
 async function stageSidecar() {
@@ -64,6 +76,16 @@ function runNpm(args) {
   });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`npm ${args.join(' ')} exited with status ${String(result.status)}`);
+}
+
+function runIconGenerator() {
+  const result = spawnSync(process.execPath, [join(root, 'scripts/build/make-icon.mjs')], {
+    cwd: root,
+    stdio: 'inherit',
+    shell: false,
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error(`Icon generation exited with status ${String(result.status)}`);
 }
 
 async function exists(path) {
