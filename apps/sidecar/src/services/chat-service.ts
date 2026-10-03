@@ -8,8 +8,11 @@ import {
   type LlmRequest,
   type LlmRequestId,
   type ModelKey,
+  type MoneyDisplay,
   type ProjectId,
   type Result,
+  type ToolDeclaration,
+  type ToolResult,
 } from '@itstudio/schemas';
 import type { IClock } from '../infra/clock.js';
 import type { IIdGenerator } from '../infra/id.js';
@@ -24,8 +27,9 @@ import type { LedgerService } from './ledger-service.js';
 import type { Logger } from 'pino';
 import { estimateTokens } from '../domain/token-estimate.js';
 import { chatMessageSchema, conversationSchema } from '../validation/chat.js';
-import { isoDateTimeSchema, llmRequestIdSchema } from '../validation/brand.js';
+import { imageAssetIdSchema, isoDateTimeSchema, llmRequestIdSchema } from '../validation/brand.js';
 import { renderTemplate } from '../domain/template.js';
+import type { ImageService } from './image-service.js';
 
 const CHAT_TEMPLATE = `You are IT Studio's assistant. Be concise and accurate.
 {{#rag}}Use the numbered knowledge blocks when relevant and cite them as [n]. If they do not contain the answer, say so before answering from general knowledge.
@@ -34,6 +38,22 @@ const CHAT_TEMPLATE = `You are IT Studio's assistant. Be concise and accurate.
 
 const HISTORY_TOKEN_LIMIT = 12_000;
 const HISTORY_MESSAGE_LIMIT = 20;
+
+const generateImageTool: ToolDeclaration = {
+  name: 'generate_image',
+  description: 'Generate one or more images from a prompt when the user asks for an image.',
+  enabled: true,
+  parameters: {
+    type: 'object',
+    properties: {
+      prompt: { type: 'string', description: 'Description of the image to create.', maxLength: 4000 },
+      size: { type: 'string', enum: ['1024x1024', '1792x1024', '1024x1792'] },
+      style: { type: 'string', maxLength: 100 },
+      count: { type: 'integer', minimum: 1, maximum: 4 },
+    },
+    required: ['prompt'],
+  },
+};
 
 export interface ChatServiceDependencies {
   readonly repository: IChatRepository & {
@@ -47,6 +67,7 @@ export interface ChatServiceDependencies {
   readonly logger: Logger;
   readonly retriever?: Pick<Retriever, 'query'>;
   readonly settings?: Pick<SettingsService, 'get'>;
+  readonly images?: Pick<ImageService, 'generate' | 'list'>;
 }
 
 export class ChatService {
@@ -172,11 +193,14 @@ export class ChatService {
           );
         }
       }
+      const settings = this.deps.settings === undefined ? undefined : await this.deps.settings.get();
+      const imageEnabled = settings?.ok === true && settings.value.image.enabled && this.deps.images !== undefined;
+      const tools = imageEnabled ? [generateImageTool] : undefined;
       const systemPrompt = renderTemplate(CHAT_TEMPLATE, {
         rag: hits.length > 0,
         numberedHits: formatHits(hits),
-        tools: false,
-        toolNames: '',
+        tools: imageEnabled,
+        toolNames: imageEnabled ? generateImageTool.name : '',
       });
       const request: LlmRequest = {
         id: requestId,
@@ -186,6 +210,7 @@ export class ChatService {
         systemPrompt,
         requiredCapabilities: [ModelCapability.CHAT],
         stream: true,
+        ...(tools === undefined ? {} : { tools }),
         ...(modelOverride === undefined ? {} : { preferredModelKey: modelOverride }),
       };
       this.deps.ledger.trackRequest(request);
@@ -199,7 +224,100 @@ export class ChatService {
         this.deps.events.publish('chat.failed', { requestId, error: result.error });
         return;
       }
-      const message = addCitations(result.value.message, hits);
+      let message = result.value.message;
+      let completionCost: MoneyDisplay | undefined;
+      let generatedImageParts: ChatMessage['parts'] = [];
+      const calls = message.parts.filter((part) => part.type === 'tool_call').map((part) => part.call);
+      const imageCalls = calls.filter((call) => call.name === 'generate_image');
+      if (imageCalls.length > 0) {
+        completionCost = await this.deps.ledger.recordedCost(requestId);
+        const call = imageCalls[0];
+        if (call === undefined) throw new Error('Image tool call was missing.');
+        const generated =
+          imageCalls.length > 1
+            ? {
+                ok: false as const,
+                error: {
+                  code: ErrorCode.VALIDATION,
+                  message: 'Only one image generation call is allowed per turn.',
+                  retryable: false,
+                  remediation: ['Ask for one image generation at a time.'],
+                },
+              }
+            : await this.deps.images?.generate(conversation.projectId, call.arguments, call.id, controller.signal);
+        const toolResult: ToolResult = generated?.ok
+          ? { callId: call.id, isError: false, content: { assetIds: [...generated.value.assetIds] } }
+          : {
+              callId: call.id,
+              isError: true,
+              content:
+                generated === undefined
+                  ? { message: 'Image generation is unavailable.' }
+                  : {
+                      code: generated.error.code,
+                      message: generated.error.message,
+                      ...(generated.error.details === undefined ? {} : { details: generated.error.details }),
+                    },
+            };
+        const returnedAssetIds = generated?.ok
+          ? generated.value.assetIds
+          : (imageAssetIdSchema.array().safeParse(generated?.error.details?.assetIds).data ?? []);
+        const imageAssetsResult =
+          returnedAssetIds.length > 0 ? await this.deps.images?.list(conversation.projectId) : undefined;
+        generatedImageParts = returnedAssetIds.flatMap((assetId) => {
+          const asset = imageAssetsResult?.ok
+            ? imageAssetsResult.value.find((candidate) => candidate.id === assetId)
+            : undefined;
+          return asset === undefined ? [] : [{ type: 'image' as const, assetId, mimeType: asset.mimeType }];
+        });
+        message = chatMessageSchema.parse({ ...message, parts: [...message.parts, ...generatedImageParts] });
+        await this.deps.repository.createMessage(message);
+        const toolMessage = chatMessageSchema.parse({
+          id: this.deps.ids.uuid(),
+          conversationId: conversation.id,
+          role: 'tool',
+          parts: [
+            { type: 'tool_result', result: toolResult },
+            ...imageCalls.slice(1).map((extraCall) => ({
+              type: 'tool_result' as const,
+              result: {
+                callId: extraCall.id,
+                isError: true,
+                content: { message: 'Only one image generation call is allowed per turn.' },
+              },
+            })),
+          ],
+          createdAt: isoDateTimeSchema.parse(this.deps.clock.now().toISOString()),
+        });
+        await this.deps.repository.createMessage(toolMessage);
+        if (!controller.signal.aborted) {
+          const followUpId = llmRequestIdSchema.parse(this.deps.ids.uuid());
+          const followUp: LlmRequest = {
+            ...request,
+            id: followUpId,
+            messages: [...selectHistory(history), message, toolMessage],
+            tools: [],
+          };
+          this.deps.ledger.trackRequest(followUp);
+          const followUpResult = await this.deps.router.dispatch(followUp, {
+            signal: controller.signal,
+            onDelta: (textDelta) => {
+              this.deps.events.publish('chat.delta', { requestId, textDelta });
+            },
+          });
+          if (!followUpResult.ok) {
+            this.deps.ledger.forgetRequest(followUpId);
+            this.deps.events.publish('chat.failed', { requestId, error: followUpResult.error });
+            return;
+          }
+          completionCost = (await this.deps.ledger.recordedCost(followUpId)) ?? completionCost;
+          message = chatMessageSchema.parse({
+            ...followUpResult.value.message,
+            parts: [...followUpResult.value.message.parts, ...generatedImageParts],
+          });
+        }
+      }
+      message = addCitations(message, hits);
       await this.deps.repository.createMessage(message);
       const firstUser = history.find((message) => message.role === 'user');
       if (conversation.title === 'New chat' && firstUser !== undefined) {
@@ -213,7 +331,7 @@ export class ChatService {
           isoDateTimeSchema.parse(this.deps.clock.now().toISOString()),
         );
       }
-      const cost = await this.deps.ledger.recordedCost(requestId);
+      const cost = completionCost ?? (await this.deps.ledger.recordedCost(requestId));
       if (cost === undefined) throw new Error('Completed request has no ledger cost');
       this.deps.events.publish('chat.completed', {
         requestId,
