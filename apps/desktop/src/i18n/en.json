@@ -61,7 +61,8 @@
       "circuit_open": "circuit open"
     },
     "useKnowledge": "Use knowledge",
-    "citation": "Citation {{number}}"
+    "citation": "Citation {{number}}",
+    "openImage": "Open image: {{alt}}"
   },
   "code": {
     "heading": "Build with agents",
@@ -133,7 +134,8 @@
       "pricing": "Pricing",
       "fx": "FX rate",
       "vscode": "VS Code",
-      "pipeline": "Pipeline roles"
+      "pipeline": "Pipeline roles",
+      "images": "Images"
     },
     "saved": "Settings saved.",
     "save": "Save",
@@ -218,6 +220,23 @@
       "validationCommands": "Validation commands",
       "editLater": "These commands are read-only. Editing will be available later.",
       "maxFix": "Maximum fix attempts: {{count}} (D5)"
+    },
+    "images": {
+      "enabled": "Enable image generation",
+      "costNote": "Image generation makes paid provider calls. Costs are recorded per project.",
+      "providerOrder": "Provider order",
+      "reorder": "Reorder {{provider}}",
+      "keyboardHelp": "Press Space to pick up a provider, use arrow keys to move it, and Space to drop it.",
+      "keySet": "API key set",
+      "keyMissing": "API key not set",
+      "apiKeyHint": "Provider keys are managed in",
+      "apiKeys": "API Keys",
+      "providers": {
+        "openai_dalle3": "OpenAI DALL·E 3",
+        "flux_together": "FLUX (Together)",
+        "flux_replicate": "FLUX (Replicate)",
+        "midjourney_proxy": "Midjourney (disabled)"
+      }
     }
   },
   "api": {
@@ -321,6 +340,29 @@
     "search": "Search knowledge",
     "reindexRequired": "Re-index required: the embedding model has changed.",
     "reindexAll": "Re-index all documents"
+  },
+  "gallery": {
+    "heading": "Image gallery",
+    "loading": "Loading images…",
+    "loadError": "Images could not be loaded.",
+    "empty": "No generated images yet.",
+    "openFolder": "Open images folder",
+    "openImage": "Preview {{prompt}}",
+    "preview": "Image preview",
+    "closePreview": "Close image preview",
+    "close": "Close",
+    "delete": "Delete",
+    "deleteTitle": "Delete image?",
+    "deletePrompt": "Delete this image? {{prompt}}",
+    "cancel": "Cancel",
+    "deleteError": "The image could not be deleted.",
+    "retry": "Refresh the gallery and try again.",
+    "providers": {
+      "openai_dalle3": "OpenAI DALL·E 3",
+      "flux_together": "FLUX (Together)",
+      "flux_replicate": "FLUX (Replicate)",
+      "midjourney_proxy": "Midjourney (disabled)"
+    }
   },
   "cost": {
     "heading": "Cost & P&L",

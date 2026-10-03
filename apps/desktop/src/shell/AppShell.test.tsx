@@ -55,18 +55,19 @@ function setup() {
 }
 
 describe('AppShell', () => {
-  it('keeps the main navigation in keyboard order and marks Gallery unavailable', () => {
+  it('keeps the main navigation in keyboard order and enables Gallery', () => {
     setup();
     const links = screen.getAllByRole('link');
-    expect(links.slice(0, 6).map((link) => link.getAttribute('href'))).toEqual([
+    expect(links.slice(0, 7).map((link) => link.getAttribute('href'))).toEqual([
       '#chat',
       '#code',
       '#knowledge',
+      '#gallery',
       '#cost',
       '#settings-api-keys',
       '#settings-theme',
     ]);
-    expect(screen.getByText(/Gallery/)).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('link', { name: 'Gallery' })).toHaveAttribute('href', '#gallery');
     expect(document.querySelector('footer[role="status"]')).toBeVisible();
   });
 
