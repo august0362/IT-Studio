@@ -186,7 +186,7 @@ export class ChatService {
         systemPrompt,
         requiredCapabilities: [ModelCapability.CHAT],
         stream: true,
-        ...(modelOverride === undefined ? {} : { ladderOverride: [modelOverride] }),
+        ...(modelOverride === undefined ? {} : { preferredModelKey: modelOverride }),
       };
       this.deps.ledger.trackRequest(request);
       const result = await this.deps.router.dispatch(request, {

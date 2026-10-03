@@ -120,6 +120,7 @@ function setup(
     readonly second?: ILlmProvider;
     readonly maxRetries?: number;
     readonly lockedModelKey?: ModelKey | null;
+    readonly disabledModelKey?: ModelKey;
     readonly ladderOverride?: readonly ModelKey[];
     readonly sleep?: (ms: number) => Promise<void>;
     readonly failureThreshold?: number;
@@ -141,8 +142,14 @@ function setup(
   const completed = new EventBus<{ completed: RouterCompleted }>();
   const config = {
     ladder: [
-      { modelKey: modelA, priority: 1, enabled: true, maxRetries: options.maxRetries ?? 0, timeoutMs: 50 },
-      { modelKey: modelB, priority: 2, enabled: true, maxRetries: 0, timeoutMs: 50 },
+      {
+        modelKey: modelA,
+        priority: 1,
+        enabled: options.disabledModelKey !== modelA,
+        maxRetries: options.maxRetries ?? 0,
+        timeoutMs: 50,
+      },
+      { modelKey: modelB, priority: 2, enabled: options.disabledModelKey !== modelB, maxRetries: 0, timeoutMs: 50 },
     ],
     autoFallback: options.autoFallback ?? true,
     lockedModelKey: options.lockedModelKey ?? null,
@@ -478,6 +485,65 @@ describe('LlmRouter', () => {
     const result = await h.router.dispatch(baseRequest);
     expect(result.ok && result.value.modelKey).toBe(modelB);
     expect(first.calls).toHaveLength(0);
+  });
+
+  it.each([
+    {
+      name: 'preferred only',
+      preferred: modelB,
+      locked: null,
+      disabled: undefined,
+      firstFails: true,
+      expected: [modelB, modelA],
+    },
+    {
+      name: 'preferred then lock',
+      preferred: modelA,
+      locked: modelB,
+      disabled: undefined,
+      firstFails: true,
+      expected: [modelA, modelB],
+    },
+    {
+      name: 'disabled preferred',
+      preferred: modelB,
+      locked: null,
+      disabled: modelB,
+      firstFails: false,
+      expected: [modelB],
+    },
+    {
+      name: 'preferred equals lock',
+      preferred: modelB,
+      locked: modelB,
+      disabled: undefined,
+      firstFails: true,
+      expected: [modelB, modelA],
+    },
+    {
+      name: 'no preference',
+      preferred: undefined,
+      locked: null,
+      disabled: undefined,
+      firstFails: false,
+      expected: [modelA],
+    },
+  ])('orders router candidates for $name', async ({ preferred, locked, disabled, firstFails, expected }) => {
+    const failure = providerFailure(FailureKind.SERVER_ERROR);
+    const first = new ScriptedProvider(ProviderId.OPENAI, firstFails && preferred === modelA ? [failure] : []);
+    const second = new ScriptedProvider(ProviderId.ANTHROPIC, firstFails && preferred === modelB ? [failure] : []);
+    const h = setup({
+      first,
+      second,
+      lockedModelKey: locked,
+      ...(disabled === undefined ? {} : { disabledModelKey: disabled }),
+    });
+    const result = await h.router.dispatch({
+      ...baseRequest,
+      ...(preferred === undefined ? {} : { preferredModelKey: preferred }),
+    });
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.value.attempts.map((attempt) => attempt.modelKey)).toEqual(expected);
   });
 
   it('uses ladderOverride order', async () => {

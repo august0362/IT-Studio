@@ -29,3 +29,13 @@ Role: Implementer (ROLES §1.3) · **Deps pre-installed** · Found in the QA bat
 
 ## Hand-back
 Append `## Result` per AGENTS.md §3.
+
+## Result
+- Summary: Chat model overrides now set a preferred first model while preserving fallback; the Code timeline tracks entered stages and marks later stages skipped after early terminal failures.
+- Files changed: `src/types/schemas.ts`; sidecar router validation/services and unit/integration tests; desktop pipeline store/timeline and tests.
+- Dependencies added (with reason): None. Installed existing workspace dependencies because `node_modules` was absent.
+- Decisions taken within scope: Preferred disabled ladder entries remain eligible for their explicit request. Reused localized `code.states.skipped` labels with an em dash icon to identify stages that did not run.
+- Open issues / follow-ups: `npm test` passed (766 passed, 1 skipped), `npm run typecheck` passed, and `npm run lint` passed. The targeted integration test could not start the sidecar in this sandbox because `tsx` failed at `os.userInfo()` with `uv_os_get_passwd returned ENOMEM`; rerun integration QA outside the sandbox. E2E was not run.
+
+## QA (Claude)
+- Verdict: **PASS**. Router ordering: preferred → locked (if different) → remaining enabled ladder by priority; `ladderOverride` unchanged for pipeline roles. After merging main: typecheck ✔, lint ✔, 766 unit ✔, integration 99/99 ×2 incl. new TC-M4-026 (override A 503 → answer from B with fallback event). E2E TC-M4-022/023 re-run in the final session.
