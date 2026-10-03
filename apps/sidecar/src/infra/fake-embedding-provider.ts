@@ -7,9 +7,17 @@ import type { ProviderFailure } from '../ports/llm-provider.js';
 /** Deterministic, network-free embeddings for E2E and service tests. */
 export class FakeEmbeddingProvider implements IEmbeddingProvider {
   readonly id: ProviderId;
+  private readonly cursors: Map<string, number>;
+  private readonly scripts: Readonly<Record<string, readonly string[]>>;
 
-  constructor(id: ProviderId = ProviderId.OPENAI) {
+  constructor(
+    id: ProviderId = ProviderId.OPENAI,
+    scripts: Readonly<Record<string, readonly string[]>> = {},
+    cursors: Map<string, number> = new Map<string, number>(),
+  ) {
     this.id = id;
+    this.scripts = scripts;
+    this.cursors = cursors;
   }
 
   embed(
@@ -18,6 +26,11 @@ export class FakeEmbeddingProvider implements IEmbeddingProvider {
     apiKey: string,
     signal: AbortSignal,
   ): Promise<Result<EmbeddingResponse, ProviderFailure>> {
+    const scriptKey = `${this.id}/${request.modelId}`;
+    const cursor = this.cursors.get(scriptKey) ?? 0;
+    this.cursors.set(scriptKey, cursor + 1);
+    const outcome = this.scripts[scriptKey]?.[cursor] ?? this.scripts[request.modelId]?.[cursor] ?? 'ok';
+    if (outcome !== 'ok') return Promise.resolve(scriptedFailure(outcome));
     if (signal.aborted)
       return Promise.resolve({
         ok: false,
@@ -36,6 +49,41 @@ export class FakeEmbeddingProvider implements IEmbeddingProvider {
       },
     });
   }
+}
+
+function scriptedFailure(outcome: string): Result<never, ProviderFailure> {
+  if (outcome === 'quota')
+    return {
+      ok: false,
+      error: { kind: FailureKind.QUOTA_EXHAUSTED, billed: false, message: 'Scripted embedding quota failure.' },
+    };
+  if (outcome === 'auth')
+    return {
+      ok: false,
+      error: {
+        kind: FailureKind.AUTH,
+        billed: false,
+        httpStatus: 401,
+        message: 'Scripted embedding authentication failure.',
+      },
+    };
+  const http = /^http:(\d{3})$/u.exec(outcome);
+  if (http !== null) {
+    const status = Number(http[1]);
+    return {
+      ok: false,
+      error: {
+        kind: status === 429 ? FailureKind.RATE_LIMITED : FailureKind.SERVER_ERROR,
+        billed: false,
+        httpStatus: status,
+        message: `Scripted embedding HTTP ${String(status)} failure.`,
+      },
+    };
+  }
+  return {
+    ok: false,
+    error: { kind: FailureKind.SERVER_ERROR, billed: false, message: 'Unknown scripted embedding outcome.' },
+  };
 }
 
 function unitVector(text: string, dimensions: number): number[] {
