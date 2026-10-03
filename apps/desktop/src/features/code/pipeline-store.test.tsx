@@ -51,6 +51,7 @@ describe('pipelineReducer', () => {
       event: { type: 'stage', runId: run().id, stage: PipelineStage.CODING },
     });
     expect(stage.entries['run-1']?.run.stage).toBe(PipelineStage.CODING);
+    expect(stage.entries['run-1']?.run.enteredStages).toEqual([PipelineStage.SPECIFYING, PipelineStage.CODING]);
     const artifact = pipelineReducer(stage, {
       type: 'event',
       event: { type: 'artifact', runId: run().id, kind: 'spec', index: 0 },
@@ -129,6 +130,8 @@ describe('pipelineReducer', () => {
     } as const;
     const failed = pipelineReducer(started, { type: 'failure', report });
     expect(failed.entries['run-1']?.run.failureReport).toBe(report);
+    expect(failed.entries['run-1']?.run.stage).toBe(PipelineStage.ROLLED_BACK);
+    expect(failed.entries['run-1']?.run.enteredStages).toContain(PipelineStage.WRITING);
     const withoutRunId = {
       stage: report.stage,
       error: report.error,

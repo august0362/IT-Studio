@@ -120,17 +120,37 @@ function makeCandidates(config: RouterConfig, request: LlmRequest): Candidate[] 
               enabled: true,
             },
         )
-      : config.lockedModelKey !== null
+      : request.preferredModelKey !== undefined
         ? [
-            config.ladder.find((entry) => entry.modelKey === config.lockedModelKey),
+            config.ladder.find((entry) => entry.modelKey === request.preferredModelKey) ?? {
+              modelKey: request.preferredModelKey,
+              maxRetries: 0,
+              timeoutMs: 30_000,
+              priority: 0,
+              enabled: true,
+            },
+            ...(config.lockedModelKey !== null && config.lockedModelKey !== request.preferredModelKey
+              ? [config.ladder.find((entry) => entry.modelKey === config.lockedModelKey)]
+              : []),
             ...config.ladder
-              .filter((entry) => entry.modelKey !== config.lockedModelKey)
+              .filter(
+                (entry) => entry.modelKey !== request.preferredModelKey && entry.modelKey !== config.lockedModelKey,
+              )
               .sort((a, b) => a.priority - b.priority),
           ]
-        : [...config.ladder].sort((a, b) => a.priority - b.priority);
+        : config.lockedModelKey !== null
+          ? [
+              config.ladder.find((entry) => entry.modelKey === config.lockedModelKey),
+              ...config.ladder
+                .filter((entry) => entry.modelKey !== config.lockedModelKey)
+                .sort((a, b) => a.priority - b.priority),
+            ]
+          : [...config.ladder].sort((a, b) => a.priority - b.priority);
   const seen = new Set<ModelKey>();
   return ordered.flatMap((entry) => {
-    if (entry === undefined || seen.has(entry.modelKey) || (!request.ladderOverride && !entry.enabled)) return [];
+    const isPreferred = request.preferredModelKey === entry?.modelKey;
+    if (entry === undefined || seen.has(entry.modelKey) || (!request.ladderOverride && !entry.enabled && !isPreferred))
+      return [];
     seen.add(entry.modelKey);
     return [{ modelKey: entry.modelKey, maxRetries: entry.maxRetries, timeoutMs: entry.timeoutMs }];
   });
