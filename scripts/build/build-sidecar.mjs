@@ -13,17 +13,14 @@ const nodeModules = join(root, 'node_modules');
 // esbuild validates plugin filters with Go's regexp engine, which rejects JS flags.
 const CONTAINER_FILTER_SOURCE = 'container\\.ts$';
 const SYSTEM_SERVICE_FILTER_SOURCE = 'system-service\\.ts$';
-const native = [
-  ['better-sqlite3', 'better-sqlite3'],
-  ['@lancedb/lancedb', '@lancedb/lancedb'],
-  ['@lancedb/lancedb-win32-x64-msvc', '@lancedb/lancedb-win32-x64-msvc'],
-  ['@napi-rs/keyring', '@napi-rs/keyring'],
-  ['@napi-rs/keyring-win32-x64-msvc', '@napi-rs/keyring-win32-x64-msvc'],
-  ['@opentelemetry/api', '@opentelemetry/api'],
-  ['reflect-metadata', 'reflect-metadata'],
-  ['apache-arrow', 'apache-arrow'],
+const nativePackages = [
+  'better-sqlite3',
+  '@lancedb/lancedb',
+  '@lancedb/lancedb-win32-x64-msvc',
+  '@napi-rs/keyring',
+  '@napi-rs/keyring-win32-x64-msvc',
 ];
-const externals = native.map(([name]) => name);
+const externals = nativePackages;
 
 if (process.platform !== 'win32' || process.arch !== 'x64')
   throw new Error('The M9-01 SEA bundle must be built with Node.js on Windows x64.');
@@ -73,11 +70,28 @@ await runStep('esbuild sidecar bundle', async () => {
 });
 
 await runStep('stage runtime resources', async () => {
-  for (const [sourceName, targetName] of native) {
-    const source = join(nodeModules, sourceName);
-    const target = join(resources, 'node_modules', targetName);
-    await cp(source, target, { recursive: true });
+  const stagedPackages = new Set();
+  await stageRuntimePackage('better-sqlite3', stagedPackages);
+  await stageRuntimePackage('@lancedb/lancedb', stagedPackages, true);
+  await stageRuntimePackage('@lancedb/lancedb-win32-x64-msvc', stagedPackages);
+  await stageRuntimePackage('@napi-rs/keyring', stagedPackages);
+  await stageRuntimePackage('@napi-rs/keyring-win32-x64-msvc', stagedPackages);
+
+  const betterSqliteRoot = join(nodeModules, 'better-sqlite3');
+  const betterSqliteBinaryCandidates = [
+    join(betterSqliteRoot, 'build/Release/better_sqlite3.node'),
+    join(betterSqliteRoot, 'prebuilds/win32-x64.node'),
+  ];
+  const betterSqliteBinary = await firstExisting(betterSqliteBinaryCandidates);
+  if (!betterSqliteBinary) {
+    throw new Error(`Missing better-sqlite3 Windows x64 binary (checked ${betterSqliteBinaryCandidates.join(', ')})`);
   }
+  const betterSqliteTarget = join(resources, 'node_modules/better-sqlite3/prebuilds/win32-x64.node');
+  await mkdir(dirname(betterSqliteTarget), { recursive: true });
+  await cp(betterSqliteBinary, betterSqliteTarget);
+
+  await stageNativeBinary('@lancedb/lancedb-win32-x64-msvc', 'lancedb.win32-x64-msvc.node');
+  await stageNativeBinary('@napi-rs/keyring-win32-x64-msvc', 'keyring.win32-x64-msvc.node');
   await cp(join(root, 'apps/sidecar/src/infra/sqlite/migrations'), join(resources, 'migrations'), {
     recursive: true,
   });
@@ -91,7 +105,7 @@ await runStep('stage runtime resources', async () => {
   await cp(join(root, 'apps/sidecar/package.json'), join(resources, 'apps/sidecar/package.json'));
   await cp(join(root, 'config'), join(resources, 'config'), {
     recursive: true,
-    filter: (path, entry) => entry.isDirectory() || path.endsWith('.json'),
+    filter: async (path) => (await stat(path)).isDirectory() || path.endsWith('.json'),
   });
   const vsix = join(root, 'apps/vscode-ext/dist/itstudio-vscode.vsix');
   if (await exists(vsix)) await cp(vsix, join(resources, 'itstudio-vscode.vsix'));
@@ -102,6 +116,10 @@ await runStep('write resource SHA-256 manifest', async () => {
   await collectFiles(resources, resources, manifest);
   manifest.sort((a, b) => a.path.localeCompare(b.path));
   await writeFile(join(resources, 'manifest.json'), `${JSON.stringify({ files: manifest }, null, 2)}\n`);
+  const resourceBytes = (
+    await Promise.all(manifest.map(async (file) => (await stat(join(resources, file.path))).size))
+  ).reduce((total, size) => total + size, 0);
+  console.log(`Staged resources: ${(resourceBytes / (1024 * 1024)).toFixed(2)} MB (${resourceBytes} bytes)`);
 });
 
 await runStep('generate Node SEA blob', async () => {
@@ -142,6 +160,59 @@ async function exists(path) {
   } catch {
     return false;
   }
+}
+
+async function firstExisting(paths) {
+  for (const path of paths) if (await exists(path)) return path;
+  return undefined;
+}
+
+async function stageNativeBinary(packageName, binaryName) {
+  const source = join(nodeModules, packageName, binaryName);
+  if (!(await exists(source))) throw new Error(`Missing native binary: ${source}`);
+  const target = join(resources, 'node_modules', packageName, binaryName);
+  await mkdir(dirname(target), { recursive: true });
+  await cp(source, target);
+}
+
+async function stageRuntimePackage(packageName, stagedPackages, includeDependencies = false) {
+  if (stagedPackages.has(packageName)) return;
+  stagedPackages.add(packageName);
+  const sourceRoot = join(nodeModules, packageName);
+  const packageJsonPath = join(sourceRoot, 'package.json');
+  if (!(await exists(packageJsonPath))) throw new Error(`Missing runtime package: ${packageJsonPath}`);
+  const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf8'));
+  const targetRoot = join(resources, 'node_modules', packageName);
+  await mkdir(targetRoot, { recursive: true });
+  await cp(packageJsonPath, join(targetRoot, 'package.json'));
+  await copyRuntimeJavaScript(sourceRoot, targetRoot);
+
+  if (!includeDependencies) return;
+  for (const dependencyName of Object.keys(packageJson.dependencies ?? {})) {
+    await stageRuntimePackage(dependencyName, stagedPackages, true);
+  }
+}
+
+async function copyRuntimeJavaScript(sourceRoot, targetRoot, current = sourceRoot) {
+  for (const entry of await readdir(current, { withFileTypes: true })) {
+    const source = join(current, entry.name);
+    const target = join(targetRoot, relative(sourceRoot, source));
+    if (entry.isDirectory()) {
+      if (isExcludedRuntimeDirectory(entry.name)) continue;
+      await copyRuntimeJavaScript(sourceRoot, targetRoot, source);
+    } else if (entry.name.endsWith('.js') && !isExcludedRuntimeFile(entry.name)) {
+      await mkdir(dirname(target), { recursive: true });
+      await cp(source, target);
+    }
+  }
+}
+
+function isExcludedRuntimeDirectory(name) {
+  return name === 'test' || name === 'tests' || name === '__tests__' || name === 'docs' || name === 'examples';
+}
+
+function isExcludedRuntimeFile(name) {
+  return name.endsWith('.test.js') || name.endsWith('.spec.js') || name.endsWith('.d.ts') || name.endsWith('.map');
 }
 
 async function collectFiles(base, current, result) {
