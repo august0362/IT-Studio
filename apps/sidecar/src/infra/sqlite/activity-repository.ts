@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, inArray, isNull, lt } from 'drizzle-orm';
+import { and, desc, eq, gt, isNull, lt, or } from 'drizzle-orm';
 import type { ActivityEvent, ProjectId, WorkflowModuleId } from '@itstudio/schemas';
 import type { AppDatabase } from './database.js';
 import { activityEvents } from './schema.js';
@@ -31,25 +31,7 @@ export class ActivityRepository {
         ),
       )
       .run();
-    const excess = this.db
-      .select({ id: activityEvents.id })
-      .from(activityEvents)
-      .where(
-        event.projectId === null ? isNull(activityEvents.projectId) : eq(activityEvents.projectId, event.projectId),
-      )
-      .orderBy(desc(activityEvents.occurredAt), desc(activityEvents.id))
-      .offset(20_000)
-      .all();
-    if (excess.length > 0)
-      this.db
-        .delete(activityEvents)
-        .where(
-          inArray(
-            activityEvents.id,
-            excess.map((row) => row.id),
-          ),
-        )
-        .run();
+    this.pruneExcess(event.projectId);
     return Promise.resolve();
   }
 
@@ -90,25 +72,32 @@ export class ActivityRepository {
     this.db.delete(activityEvents).where(lt(activityEvents.occurredAt, cutoff)).run();
     const projects = this.db.selectDistinct({ projectId: activityEvents.projectId }).from(activityEvents).all();
     for (const project of projects) {
-      const condition =
-        project.projectId === null ? isNull(activityEvents.projectId) : eq(activityEvents.projectId, project.projectId);
-      const excess = this.db
-        .select({ id: activityEvents.id })
-        .from(activityEvents)
-        .where(condition)
-        .orderBy(desc(activityEvents.occurredAt), desc(activityEvents.id))
-        .offset(20_000)
-        .all();
-      if (excess.length > 0)
-        this.db
-          .delete(activityEvents)
-          .where(
-            inArray(
-              activityEvents.id,
-              excess.map((row) => row.id),
-            ),
-          )
-          .run();
+      this.pruneExcess(project.projectId);
     }
+  }
+
+  private pruneExcess(projectId: string | null): void {
+    const condition = projectId === null ? isNull(activityEvents.projectId) : eq(activityEvents.projectId, projectId);
+    const cutoff = this.db
+      .select({ id: activityEvents.id, occurredAt: activityEvents.occurredAt })
+      .from(activityEvents)
+      .where(condition)
+      .orderBy(desc(activityEvents.occurredAt), desc(activityEvents.id))
+      .limit(1)
+      .offset(19_999)
+      .get();
+    if (cutoff === undefined) return;
+    this.db
+      .delete(activityEvents)
+      .where(
+        and(
+          condition,
+          or(
+            lt(activityEvents.occurredAt, cutoff.occurredAt),
+            and(eq(activityEvents.occurredAt, cutoff.occurredAt), lt(activityEvents.id, cutoff.id)),
+          ),
+        ),
+      )
+      .run();
   }
 }
