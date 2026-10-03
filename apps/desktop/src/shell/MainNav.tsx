@@ -5,6 +5,7 @@ export type ShellRoute =
   | 'chat'
   | 'code'
   | 'knowledge'
+  | 'workflow'
   | 'cost'
   | 'settings-api-keys'
   | 'settings-theme'
@@ -28,6 +29,7 @@ export function MainNav({
     { route: 'code', label: t('nav.code') },
     { route: 'knowledge', label: t('nav.knowledge') },
     { route: 'cost', label: t('nav.cost') },
+    { route: 'workflow', label: t('nav.workflow') },
   ];
   return (
     <nav aria-label="Main navigation" className="w-56 shrink-0 border-r border-border bg-surface p-4">
@@ -109,6 +111,17 @@ export function MainNav({
             {t(`settings.nav.${target.replace('settings-', '')}`)}
           </a>
         ))}
+        <a
+          aria-current={route === 'workflow' ? 'page' : undefined}
+          className="block rounded px-3 py-2 hover:bg-surface-alt focus-visible:outline-2 focus-visible:outline-focus-ring"
+          href="#workflow"
+          onClick={(event) => {
+            event.preventDefault();
+            navigate('workflow');
+          }}
+        >
+          {links[4]?.label}
+        </a>
       </div>
     </nav>
   );

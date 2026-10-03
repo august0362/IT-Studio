@@ -23,6 +23,9 @@ import { KnowledgePage } from '../features/knowledge/KnowledgePage';
 
 const CodePage = lazy(() => import('../features/code/CodePage').then(({ CodePage: page }) => ({ default: page })));
 const CostPage = lazy(() => import('../features/cost/CostPage').then(({ CostPage: page }) => ({ default: page })));
+const WorkflowPage = lazy(() =>
+  import('../features/workflow/WorkflowPage').then(({ WorkflowPage: page }) => ({ default: page })),
+);
 
 function asAppError(cause: unknown): AppError {
   if (cause instanceof RpcCallError) return cause.appError;
@@ -36,6 +39,7 @@ function initialRoute(): ShellRoute {
       'chat',
       'code',
       'knowledge',
+      'workflow',
       'cost',
       'settings-api-keys',
       'settings-theme',
@@ -150,6 +154,18 @@ export function AppShell(): JSX.Element {
         project={projects.find((project) => project.id === activeId)}
         projectId={projects.find((project) => project.id === activeId)?.id ?? null}
       />
+    );
+  else if (route === 'workflow')
+    content = (
+      <Suspense fallback={<p role="status">{t('workflow.loading')}</p>}>
+        <WorkflowPage
+          onNavigate={(target) => {
+            navigate(target);
+          }}
+          projectId={activeId === null ? null : (projects.find((project) => project.id === activeId)?.id ?? null)}
+          projects={projects.map(({ id, name }) => ({ id, name }))}
+        />
+      </Suspense>
     );
   else if (route === 'cost') {
     const selectedProjectId: ProjectId | null =
