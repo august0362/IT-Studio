@@ -48,14 +48,16 @@ describe('M4 cost and P&L', () => {
     const limit = browser.$('aria/Limit (USD)');
     await limit.setValue('12.5');
     await browser.$('button=Save budget').click();
-    await browser.waitUntil(async () => (await browser.$('body').getText()).includes('0% budget used'));
     const budgetUsage = browser.$('[aria-label="0% budget used"]');
+    await browser.waitUntil(async () => budgetUsage.isDisplayed());
     expect(await budgetUsage.isDisplayed()).to.equal(true);
-    expect(await browser.$('body').getText()).to.include('budget used: 0%');
+    expect(await browser.$('body').getText()).to.include('budget used: 0% · $0.00');
     expect(await browser.$('body').getText()).to.include('$0.00 · 0 ₫');
     await limit.setValue('1e3');
     await browser.$('button=Save budget').click();
-    await browser.waitUntil(async () => await browser.$('[role="alert"]').isDisplayed());
+    const alert = browser.$('[role="alert"]');
+    await browser.waitUntil(async () => alert.isDisplayed());
+    expect(await alert.getText()).to.include('valid positive USD limit');
   });
 
   it('TC-M4-032 shows all project margins worst first and totals portfolio KPIs', async () => {

@@ -46,6 +46,12 @@ async function createProject(session: Session, name: string, folder: string): Pr
   await session.$('nav[aria-label="Main navigation"] a[href="#code"]').click();
 }
 
+function configureValidation(folder: string, shouldPass: boolean): void {
+  const compilerShim = join(folder, 'node_modules', 'typescript', 'bin');
+  mkdirSync(compilerShim, { recursive: true });
+  writeFileSync(join(compilerShim, 'tsc'), `process.exit(${shouldPass ? '0' : '1'});\n`, 'utf8');
+}
+
 describe('M6 Code pipeline', () => {
   afterEach(async () => {
     const session = activeSession;
@@ -55,7 +61,9 @@ describe('M6 Code pipeline', () => {
 
   it('TC-M6-070 creates a project and observes the scripted pipeline complete', async () => {
     const session = await openScriptedSession();
-    await createProject(session, 'Code E2E Project', createTemporaryProjectFolder());
+    const folder = createTemporaryProjectFolder();
+    configureValidation(folder, true);
+    await createProject(session, 'Code E2E Project', folder);
     await session.$('#pipeline-prompt').setValue('Create a sample file');
     await session.$('button=Run pipeline').click();
     await session.waitUntil(async () => (await session.$('body').getText()).includes('Completed'), { timeout: 70_000 });
@@ -65,9 +73,7 @@ describe('M6 Code pipeline', () => {
   it('TC-M6-071 shows the failure report after validation fails', async () => {
     const session = await openScriptedSession();
     const folder = createTemporaryProjectFolder();
-    const compilerShim = join(folder, 'node_modules', 'typescript', 'bin');
-    mkdirSync(compilerShim, { recursive: true });
-    writeFileSync(join(compilerShim, 'tsc'), 'process.exit(1);\n', 'utf8');
+    configureValidation(folder, false);
     await createProject(session, 'Code Failure E2E Project', folder);
     await session.$('#pipeline-prompt').setValue('Create a sample file that fails validation');
     await session.$('button=Run pipeline').click();
@@ -79,7 +85,9 @@ describe('M6 Code pipeline', () => {
 
   it('TC-M6-072 asks for confirmation when cancelling validation', async () => {
     const session = await openScriptedSession();
-    await createProject(session, 'Code Cancel E2E Project', createTemporaryProjectFolder());
+    const folder = createTemporaryProjectFolder();
+    configureValidation(folder, true);
+    await createProject(session, 'Code Cancel E2E Project', folder);
     await session.$('#pipeline-prompt').setValue('Create a slow validation sample');
     await session.$('button=Run pipeline').click();
     await session.waitUntil(async () =>
