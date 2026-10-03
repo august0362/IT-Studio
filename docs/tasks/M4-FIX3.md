@@ -24,3 +24,6 @@ Append `## Result` per AGENTS.md §3.
 - Dependencies added (with reason): None. Ran `npm --cache .npm-cache install` because `node_modules` was absent; no dependency manifests changed.
 - Decisions taken within scope: Clearing an override creates a new manual price-table version and restores the tracked automatic price, falling back to the seed price. The current price repository interface exposes only the latest table, so after a restart with a manual override it cannot recover a prior automatic price; the seed is used for that model.
 - Open issues / follow-ups: Persist or query the latest automatic baseline for overridden models if clearing after restart must restore a more recent automatic price than the seed. `typecheck`, `lint`, and `test` pass; E2E was not run as instructed.
+
+## QA (Claude)
+- Verdict: **PASS**. typecheck ✔, lint ✔, 783 unit ✔, integration 101/101. Follow-up (S4): clearing an override after an app restart falls back to the seed price instead of the latest auto-extracted price (repository keeps only the latest table).
