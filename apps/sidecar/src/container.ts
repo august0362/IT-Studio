@@ -181,7 +181,7 @@ const scriptedToolCallSchema = z.object({
   arguments: jsonObjectSchema,
 });
 
-function scriptedLlmProvider(
+export function scriptedLlmProvider(
   id: ProviderIdType,
   texts: string | Readonly<Record<string, string>>,
   scripts: Readonly<Record<string, readonly string[]>>,
@@ -274,6 +274,7 @@ function scriptedLlmProvider(
       return { ok: false, error: { kind: FailureKind.TIMEOUT, billed: false, message: 'Scripted request cancelled.' } };
     if (signal.aborted)
       return { ok: false, error: { kind: FailureKind.TIMEOUT, billed: false, message: 'Scripted request cancelled.' } };
+    if (outcome.startsWith('tool:')) return { ok: true, value: response(request, outcome) };
     const stream = /^stream:(\d+)$/u.exec(outcome);
     const text = outputText(request);
     const chunks = text.match(/.{1,12}/gu) ?? [text];

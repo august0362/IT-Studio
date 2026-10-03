@@ -51,7 +51,9 @@ function observed<T>(h: Awaited<ReturnType<typeof setup>>, method: string): T[] 
 describe('image generation integration', () => {
   it('TC-M8-001 stores the scripted image, lists its asset, records image cost, and attaches it to chat', async () => {
     const key = 'google/gemini-3.8-flash';
-    const h = await setup({ [key]: ['tool:{"name":"generate_image","arguments":{"prompt":"a blue bird"}}'] });
+    const h = await setup({
+      [key]: ['tool:{"name":"generate_image","arguments":{"prompt":"a blue bird"}}', 'ok'],
+    });
     await h.sidecar.call('chat.send', { conversationId: h.conversationId, text: 'Generate a blue bird image' });
     await waitFor(() => observed(h, 'chat.completed').length === 1);
     const assets = z
@@ -68,7 +70,7 @@ describe('image generation integration', () => {
     const messages = chatMessageSchema
       .array()
       .parse((await h.sidecar.call('chat.getMessages', { conversationId: h.conversationId })).result);
-    expect(messages.flatMap((message) => message.parts)).toContainEqual({
+    expect(messages.find((message) => message.role === 'assistant')?.parts).toContainEqual({
       type: 'image',
       assetId: asset.id,
       mimeType: asset.mimeType,
