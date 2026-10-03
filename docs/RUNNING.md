@@ -61,9 +61,19 @@ ITSTUDIO_DATA_DIR="$TEMP/itstudio-try" npm run dev
 
 Before shipping a release, run `npm run audit:prod` to check production dependencies for high or critical vulnerabilities.
 
+### Release checklist
+
+1. `npm run release:bump -- <major|minor|patch|x.y.z>` updates the app and extension versions and moves the current `Unreleased` changelog entries into the release section. Review the printed changes first with `--dry-run`.
+2. `npm run audit:prod` checks production dependencies.
+3. `npm run build:app` builds the desktop installer.
+4. Install the generated installer on a clean Windows user account and smoke test startup, project creation, Chat, Knowledge, Code and Settings.
+5. After the release is approved, create the matching tag with `git tag v<version>`.
+
 ```bash
 npm run typecheck && npm run lint && npm test     # unit (fast)
 npm run test:integration                          # real sidecar, scripted providers (~3 min)
 npm run test:e2e                                  # opens app windows (~10 min) — don't use mouse/keyboard meanwhile
 npm run test:vscode-e2e                           # downloads an isolated VS Code build and opens one window
 ```
+
+Release script unit tests: `node --test scripts/release/bump-version.test.mjs`.
