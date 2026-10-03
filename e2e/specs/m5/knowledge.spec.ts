@@ -10,6 +10,15 @@ describe('M5 knowledge', () => {
     await ensureProviderKeys();
   });
 
+  afterEach(async () => {
+    await browser.keys('ESC');
+    await browser.waitUntil(async () => {
+      const dialogs = browser.$$('[role="dialog"], [role="alertdialog"]');
+      for (const dialog of dialogs) if (await dialog.isDisplayed()) return false;
+      return true;
+    });
+  });
+
   it('TC-M5-020 adds a markdown source and retrieves a matching chunk', async () => {
     await waitForReady();
     const folder = createTemporaryProjectFolder();
@@ -78,6 +87,9 @@ describe('M5 knowledge', () => {
     const body = await browser.$('body').getText();
     expect(body).to.include('north archive room');
     expect(body).not.to.include('<context>');
+    await browser.$('aria/Citation 1').click();
+    await browser.keys('ESC');
+    await browser.waitUntil(async () => !(await browser.$('[role="dialog"]').isDisplayed()));
   });
 });
 

@@ -3,6 +3,14 @@ import { Key } from 'webdriverio';
 import { ensureProviderKeys } from '../../helpers/keys.js';
 import { createTemporaryProjectFolder, waitForReady } from '../../helpers/ui.js';
 
+async function findPricingRow(name: string): Promise<WebdriverIO.Element> {
+  const rows = browser.$$('tr');
+  for (const row of rows) {
+    if ((await row.getText()).includes(name)) return row;
+  }
+  throw new Error(`Pricing row ${name} was not found`);
+}
+
 describe('M4 Settings', () => {
   let originalLadder: string[] = [];
 
@@ -15,6 +23,12 @@ describe('M4 Settings', () => {
 
   afterEach(async () => {
     await waitForReady();
+    await browser.keys('ESC');
+    await browser.waitUntil(async () => {
+      const dialogs = browser.$$('[role="dialog"], [role="alertdialog"]');
+      for (const dialog of dialogs) if (await dialog.isDisplayed()) return false;
+      return true;
+    });
     await browser.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
     const autoFallback = browser.$('aria/Auto Fallback');
     if (!(await autoFallback.isSelected())) await autoFallback.click();
@@ -52,7 +66,7 @@ describe('M4 Settings', () => {
     await browser.waitUntil(async () => !(await clearFxOverride.isEnabled()));
 
     await browser.$('nav[aria-label="Main navigation"] a[href="#settings-pricing"]').click();
-    const gpt55Row = browser.$('tr*=GPT-5.5');
+    const gpt55Row = await findPricingRow('GPT-5.5');
     if ((await gpt55Row.isExisting()) && (await gpt55Row.getText()).includes('Overridden')) {
       await gpt55Row.$('button=Clear override').click();
       await browser.$('[role="alertdialog"] button=Clear override').click();
@@ -141,7 +155,7 @@ describe('M4 Settings', () => {
       async () => (await browser.$('[role="tab"][aria-selected="true"]').getText()) === 'Pricing Project',
     );
     await browser.$('nav[aria-label="Main navigation"] a[href="#settings-pricing"]').click();
-    const row = browser.$('tr*=GPT-5.5');
+    const row = await findPricingRow('GPT-5.5');
     await row.$('button=Override').click();
     const inputs = browser.$$('form[aria-labelledby="override-heading"] input');
     await inputs[0]?.setValue('0.15');
@@ -218,7 +232,7 @@ describe('M4 Settings', () => {
         (await browser.$('[role="tab"][aria-selected="true"]').getText()) === 'Clear Pricing Override Project',
     );
     await browser.$('nav[aria-label="Main navigation"] a[href="#settings-pricing"]').click();
-    const row = browser.$('tr*=GPT-5.5');
+    const row = await findPricingRow('GPT-5.5');
     await row.$('button=Override').click();
     const inputs = browser.$$('form[aria-labelledby="override-heading"] input');
     await inputs[0]?.setValue('0.15');

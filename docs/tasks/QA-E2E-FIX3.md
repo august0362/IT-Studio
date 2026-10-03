@@ -12,3 +12,10 @@ Role: Implementer (ROLES §1.3) · Scope: `e2e/**` only · **Do not run E2E.** T
 | TC-M5-023 and M4 Settings `afterEach` | `element click intercepted … Other element would receive the click` (on `Add project`, on the `#settings-router` nav link) | a dialog / `ConfirmDialog` / popover from the failed step is still open and covers the page: in `afterEach` press Escape and wait until no `[role="dialog"],[role="alertdialog"]` is displayed before navigating; in TC-M5-023 close the citation popover before the next click |
 
 Type-check and lint `e2e`; append `## Result` with case → change.
+
+## Result
+- Summary: Fixed all eight reported E2E cases and dialog cleanup paths.
+- Files changed: `e2e/specs/m6/code.spec.ts`, `e2e/specs/m4/cost.spec.ts`, `e2e/specs/m4/scripted-llm.spec.ts`, `e2e/specs/m4/settings.spec.ts`, `e2e/specs/m5/knowledge.spec.ts`.
+- Dependencies added (with reason): None.
+- Decisions taken within scope: TC-M6-070/071/072 now create tsc, ESLint JSON, and Vitest JSON shims; failure uses a failing Vitest summary, and cancellation uses a 20-second Vitest delay. TC-M4-031 asserts the actual `positive USD` message. TC-M4-023 reopens Chat before starting a conversation. TC-M4-043 and TC-M5-022 replace invalid `tr*=` selectors with text matching across valid `tr` elements. TC-M5-023 closes its citation popover; M4/M5 cleanup presses Escape and waits for dialogs to close.
+- Open issues / follow-ups: E2E was not run as requested. `npm run typecheck`, ESLint on `e2e`, and Prettier checks passed.

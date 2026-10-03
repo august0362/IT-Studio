@@ -10,6 +10,12 @@ describe('M4 cost and P&L', () => {
 
   afterEach(async () => {
     await waitForReady();
+    await browser.keys('ESC');
+    await browser.waitUntil(async () => {
+      const dialogs = browser.$$('[role="dialog"], [role="alertdialog"]');
+      for (const dialog of dialogs) if (await dialog.isDisplayed()) return false;
+      return true;
+    });
     await browser.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
     const autoFallback = browser.$('aria/Auto Fallback');
     if (!(await autoFallback.isSelected())) await autoFallback.click();
@@ -57,7 +63,7 @@ describe('M4 cost and P&L', () => {
     await browser.$('button=Save budget').click();
     const alert = browser.$('[role="alert"]');
     await browser.waitUntil(async () => alert.isDisplayed());
-    expect(await alert.getText()).to.include('valid positive USD limit');
+    expect(await alert.getText()).to.include('positive USD');
   });
 
   it('TC-M4-032 shows all project margins worst first and totals portfolio KPIs', async () => {

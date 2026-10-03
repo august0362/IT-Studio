@@ -58,6 +58,12 @@ describe('M4 scripted LLM cases', () => {
     activeSession = undefined;
     if (session !== undefined) {
       try {
+        await session.keys('ESC');
+        await session.waitUntil(async () => {
+          const dialogs = session.$$('[role="dialog"], [role="alertdialog"]');
+          for (const dialog of dialogs) if (await dialog.isDisplayed()) return false;
+          return true;
+        });
         await enableAutoFallback(session);
       } finally {
         await session.deleteSession();
@@ -101,6 +107,7 @@ describe('M4 scripted LLM cases', () => {
     await ensureProviderKeys(undefined, session);
     await session.$('nav[aria-label="Main navigation"] a[href="#chat"]').click();
     await createProject(session, 'Fallback Modal Project');
+    await session.$('nav[aria-label="Main navigation"] a[href="#chat"]').click();
     await session.$('button=New chat').click();
     await selectOpenAiModel(session);
     await session.$('aria/Message').setValue('use fallback');
