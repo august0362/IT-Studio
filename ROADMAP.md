@@ -143,8 +143,8 @@
 ## MW — Workflow map *(v1 addendum, D32 — start after the v1 hand-over, on the user's go-ahead)*
 Ref: ARCHITECTURE §13.1, schemas §12b. Per-project graph of modules, links and data contracts; click a module → realtime in-flight work + history + metrics + deep links.
 
-- [ ] **MW-00** (A) Pre-install `@xyflow/react`; task specs MW-01…MW-04; test-case spec `docs/qa/MW-test-cases.md`.
-- [ ] **MW-01** (C) Sidecar: `domain/workflow-topology.ts` (static catalogue of nodes / lanes / typed edges), `services/activity-recorder.ts` (maps existing events → `ActivityEvent`, redaction, in-flight sets, batching ≤ 4/s), `activity_events` table + retention (7 d / 20 000 per project), RPC `workflow.graph`, `workflow.activity`, notification `workflow.activity` + validators.
+- [x] **MW-00** (A) Pre-install `@xyflow/react`; task specs MW-01…MW-04; test-case spec `docs/qa/MW-test-cases.md`.
+- [x] **MW-01** (C) Sidecar: `domain/workflow-topology.ts` (static catalogue of nodes / lanes / typed edges), `services/activity-recorder.ts` (maps existing events → `ActivityEvent`, redaction, in-flight sets, batching ≤ 4/s), `activity_events` table + retention (7 d / 20 000 per project), RPC `workflow.graph`, `workflow.activity`, notification `workflow.activity` + validators.
 - [ ] **MW-02** (C) Workflow tab: React Flow graph by lanes, theme tokens, node status / counters, edge animation on live events, zoom / pan / fit, keyboard navigation, "All projects" aggregate with project filter chips.
 - [ ] **MW-03** (C) Module side panel: Now (in-flight with progress), Recent (filters, load-more from history), Metrics 24 h (calls, errors, p50 / p95, cost via `<Money>`), Links in / out with contract + last payload summary, deep links to Chat / Code / Knowledge / Cost.
 - [ ] **MW-04** (C) Missing events: add only the events the recorder cannot derive today (e.g. retriever query / hits count, command start / end, VS Code action acks) as in-process events — no polling.
@@ -174,7 +174,7 @@ Spec: ARCH §14.2.
 - [x] **M9-02** (C) Tauri `externalBin` + resources (vsix, seeds); production sidecar spawn path.
 - [x] **M9-03** (C) NSIS + MSI bundles; WebView2 bootstrapper.
 - [ ] **M9-04** (A) Code-signing setup (user supplies certificate) + updater key pair (private key outside repo).
-- [ ] **M9-05** (C) Version bump script (4 manifests) + release CHANGELOG automation.
+- [x] **M9-05** (C) Version bump script (4 manifests) + release CHANGELOG automation.
 - [ ] **M9-06** (A) Clean-VM smoke test checklist and execution.
 - [ ] **M9-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M9-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M9-report.md` sign-off. Scope: Packaging: install on clean VM, first run, sidecar SEA starts, native modules load, update flow.
 
