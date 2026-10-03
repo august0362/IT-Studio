@@ -78,3 +78,16 @@ Do only these test fixes (e2e/** only), type-check and lint `e2e`. Do not run E2
 - Dependencies added (with reason): None.
 - Decisions taken within scope: M6 cases use a separate scripted driver so their structured role replies do not alter chat fixture behavior; the validation failure is deterministic and project-local.
 - Open issues / follow-ups: E2E was not run as requested. E2E TypeScript check and lint passed.
+
+## QA (Claude) — round 3 (final session 2026-10-03, 1 run)
+23 pass incl. TC-M4-022/025/032/040/041/042/051, TC-M5-020; VS Code E2E pass. Remaining:
+
+| Case | What the app showed | Cause | Fix |
+|---|---|---|---|
+| TC-M6-070/071/072 | "Failed during Write changes … INTERNAL … rolled back" | **product BUG-M6-002** (worker cannot create files in new dirs) — fixed in M6-FIX2 | none in the spec; re-run after M6-FIX2 |
+| TC-M4-031, TC-M4-033 (cost spec) | a fallback decision modal ("Use / Retry same / Cancel") | **state leak:** settings spec (TC-M4-040) leaves Auto Fallback OFF in the shared per-run data dir; later specs see the modal when the first ladder model has no key | every spec that changes settings restores them in `after`/`afterEach` (Auto Fallback ON, ladder order, Hard Stop OFF, FX override cleared, price override cleared); additionally make `ensureProviderKeys` set keys for **all** providers so ladder order never hits a key-less model |
+| TC-M4-023 | `use fallback` answered normally by Gemini | scripted session has its own data dir → Auto Fallback is ON there | turn Auto Fallback OFF inside the scripted session before sending (and restore) |
+| TC-M4-021 | `Stop` never visible | the slow-stream script is keyed to a model the router does not use first | select the scripted slow model explicitly in the model picker (preferred model is tried first since M4-FIX2) |
+| TC-M4-043/044/045, TC-M5-022/023 | no `Error in` line — failed in hooks / after a failure in the same spec | re-check once the leaks above are fixed; if still failing, fix from component code | |
+
+e2e/** only; type-check and lint; do not run E2E.
