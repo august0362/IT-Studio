@@ -170,7 +170,7 @@ Spec: ARCH §14.2.
 - [x] **QA-E2E-FIX2** (C) Finish the remaining E2E cases (TC-M4-023/031/043-046, TC-M5-022/023, TC-M6-070-072): give the Code E2E project a passing validation command, isolate each spec session (fresh data dir per spec or full settings reset), fix the fallback-modal and budget assertions. Product behaviour for all of them passes at L2/L3.
 - [ ] **QA-E2E-FIX4** (C) *(backlog — skipped after 6 attempts, 2026-10-03)* Remaining E2E: TC-M4-022/023/031/033/041-046, TC-M5-020/022/023, TC-M6-071/072. Needs a different approach: run each spec in a fresh app + data dir (per-spec tauri-driver restart) and capture a DOM snapshot + screenshot on failure so fixes are not blind. Also fix `scripts/dev/measure-startup.mjs` (no stdin pipe → sidecar exits before ready).
 - [ ] **QA-TOOL-01** (C) Make StrykerJS mutation testing work with the Vitest 5 workspace (currently reports 0 % kills; manual mutation proves the tests are effective).
-- [ ] **M9-01** (C) esbuild sidecar bundle + Node SEA build script; native module loading from resources.
+- [x] **M9-01** (C) esbuild sidecar bundle + Node SEA build script; native module loading from resources.
 - [ ] **M9-02** (C) Tauri `externalBin` + resources (vsix, seeds); production sidecar spawn path.
 - [ ] **M9-03** (C) NSIS + MSI bundles; WebView2 bootstrapper.
 - [ ] **M9-04** (A) Code-signing setup (user supplies certificate) + updater key pair (private key outside repo).
