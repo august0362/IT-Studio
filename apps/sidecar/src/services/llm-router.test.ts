@@ -25,6 +25,7 @@ import {
   messageIdSchema,
   pipelineRunIdSchema,
   projectIdSchema,
+  toolCallIdSchema,
 } from '../validation/brand.js';
 import { modelKeySchema } from '../validation/common.js';
 import { AlwaysOkBudgetGuard, type IBudgetGuard } from '../ports/budget-guard.js';
@@ -626,6 +627,45 @@ describe('LlmRouter', () => {
     const h = setup({ first });
     const result = await h.router.dispatch(baseRequest);
     expect(result.ok && result.value.message.parts).toEqual([]);
+  });
+
+  it.each([false, true])('preserves provider tool calls in streamed=%s assistant messages', async (stream) => {
+    const provider = new ScriptedProvider(ProviderId.OPENAI, [
+      {
+        ok: true,
+        value: {
+          ...responseFor(fakeProviderRequest('model-a'), ''),
+          toolCalls: [{ id: toolCallIdSchema.parse('call_1'), name: 'generate_image', arguments: { prompt: 'a cat' } }],
+          finishReason: 'tool_calls',
+        },
+      },
+    ]);
+    const h = setup({ first: provider });
+    const result = await h.router.dispatch({ ...baseRequest, stream });
+    expect(result.ok && result.value.message.parts).toEqual([
+      { type: 'tool_call', call: { id: 'call_1', name: 'generate_image', arguments: { prompt: 'a cat' } } },
+    ]);
+  });
+
+  it('preserves tool calls returned by a provider after fallback', async () => {
+    const toolCall = {
+      id: toolCallIdSchema.parse('call_2'),
+      name: 'generate_image' as const,
+      arguments: { prompt: 'a boat' },
+    };
+    const first = new ScriptedProvider(ProviderId.OPENAI, [providerFailure(FailureKind.RATE_LIMITED)]);
+    const second = new ScriptedProvider(ProviderId.ANTHROPIC, [
+      {
+        ok: true,
+        value: {
+          ...responseFor(fakeProviderRequest('model-b'), ''),
+          toolCalls: [toolCall],
+          finishReason: 'tool_calls',
+        },
+      },
+    ]);
+    const result = await setup({ first, second }).router.dispatch(baseRequest);
+    expect(result.ok && result.value.message.parts).toContainEqual({ type: 'tool_call', call: toolCall });
   });
 
   it('cancels after a signal is raised during the initial budget check', async () => {
