@@ -284,7 +284,7 @@ describe('pipeline integration', () => {
       if (crashAt === 'mid_commit')
         expect(await readFile(resolve(workspace, 'src/second.txt')).catch(() => '')).toBe('');
     },
-    30_000,
+    60_000 /* two cold sidecar starts (PERF-01) */,
   );
 
   it('TC-M6-023 rejects writes outside the TaskSpec allow list before disk changes', async () => {
