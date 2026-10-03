@@ -89,7 +89,15 @@ import { LanceDbVectorStore } from './infra/lancedb/vector-store.js';
 import { DocumentRepository } from './infra/sqlite/document-repository.js';
 import { RagService } from './services/rag/rag-service.js';
 import { Retriever } from './services/rag/retriever.js';
+import { ImageRepository } from './infra/sqlite/image-repository.js';
+import { ImageService } from './services/image-service.js';
+import { OpenAiDalle3Provider } from './providers/image/openai-dalle3.js';
+import { FluxTogetherProvider } from './providers/image/flux-together.js';
+import { FluxReplicateProvider } from './providers/image/flux-replicate.js';
+import { FakeImageProvider } from './infra/fake-image-provider.js';
 import { isoDateTimeSchema } from './validation/brand.js';
+import { toolCallSchema } from './validation/chat.js';
+import { jsonObjectSchema } from './validation/common.js';
 
 class MemorySecretStore implements ISecretStore {
   private readonly values = new Map<ProviderId, string>();
@@ -164,6 +172,10 @@ const scriptedLlmFixtureSchema = z.object({ models: z.record(z.string(), z.array
 const embeddingOutcomeSchema = z.enum(['ok', 'http:503', 'quota', 'auth']);
 const embeddingScriptSchema = z.record(z.string(), z.array(embeddingOutcomeSchema));
 const scriptedLlmTextsSchema = z.record(z.string(), z.string());
+const scriptedToolCallSchema = z.object({
+  name: z.enum(['generate_image', 'search_knowledge']),
+  arguments: jsonObjectSchema,
+});
 
 function scriptedLlmProvider(
   id: ProviderIdType,
@@ -173,13 +185,22 @@ function scriptedLlmProvider(
 ): ILlmProvider {
   const outputText = (request: ProviderRequest): string =>
     typeof texts === 'string' ? texts : (texts[request.modelId] ?? '{}');
-  const response = (request: ProviderRequest): ProviderResponse => ({
-    text: outputText(request),
-    toolCalls: [],
-    usage: { inputTokens: 12, outputTokens: 8, cachedInputTokens: 0 },
-    finishReason: 'stop',
-    providerModelId: request.modelId,
-  });
+  const response = (request: ProviderRequest, outcome: string): ProviderResponse => {
+    const toolPrefix = 'tool:';
+    let toolCalls: ProviderResponse['toolCalls'] = [];
+    if (outcome.startsWith(toolPrefix)) {
+      const raw: unknown = JSON.parse(outcome.slice(toolPrefix.length));
+      const fixture = scriptedToolCallSchema.parse(raw);
+      toolCalls = [toolCallSchema.parse({ id: 'call_scripted', ...fixture })];
+    }
+    return {
+      text: toolCalls.length > 0 ? '' : outputText(request),
+      toolCalls,
+      usage: { inputTokens: 12, outputTokens: 8, cachedInputTokens: 0 },
+      finishReason: toolCalls.length > 0 ? 'tool_calls' : 'stop',
+      providerModelId: request.modelId,
+    };
+  };
   const next = (request: ProviderRequest): string => {
     const key = `${id}/${request.modelId}`;
     const cursor = cursors.get(key) ?? 0;
@@ -265,7 +286,7 @@ function scriptedLlmProvider(
       }
       return failed(outcome);
     }
-    return { ok: true, value: response(request) };
+    return { ok: true, value: response(request, outcome) };
   };
   return {
     id,
@@ -330,6 +351,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const migrationsApplied = readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).length;
   const projectRepository = new ProjectRepository(database.db);
   const chatRepository = new ChatRepository(database.db);
+  const imageRepository = new ImageRepository(database.db);
   const ledgerRepository = new LedgerRepository(database.db);
   const revenueRepository = new RevenueRepository(database.db);
   const budgetRepository = new BudgetRepository(database.db);
@@ -506,6 +528,26 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     events,
     clock,
   });
+  const imageProviders = e2e
+    ? [new FakeImageProvider()]
+    : [
+        new OpenAiDalle3Provider(secretStore),
+        new FluxTogetherProvider(secretStore, new FetchHttpClient()),
+        new FluxReplicateProvider(secretStore, new FetchHttpClient()),
+      ];
+  const imageService = new ImageService({
+    repository: imageRepository,
+    ledger: ledgerRepository,
+    budget: budgetGuard,
+    settings: settingsService,
+    providers: imageProviders,
+    prices: priceSource,
+    fileSystem,
+    dataDir: dataDir === ':memory:' ? resolve('.') : dataDir,
+    ids,
+    clock,
+    logger,
+  });
   const embeddingProviders = {
     [ProviderId.OPENAI]: e2e
       ? new FakeEmbeddingProvider(ProviderId.OPENAI, embeddingScripts, embeddingScriptCursors)
@@ -637,6 +679,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     logger,
     retriever,
     settings: settingsService,
+    images: imageService,
   });
   const pricingUpdater = new PricingUpdater({
     settings: settingsService,
@@ -757,6 +800,8 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     chatService.send(conversationId, text, modelOverride),
   );
   server.register('chat.cancel', ({ requestId }) => chatService.cancel(requestId));
+  server.register('images.list', ({ projectId }) => imageService.list(projectId));
+  server.register('images.delete', ({ assetId }) => imageService.delete(assetId));
   server.register('pipeline.start', async (input) => ({ ok: true, value: await pipelineOrchestrator.start(input) }));
   server.register('pipeline.get', async ({ runId }) => {
     const run = await pipelineOrchestrator.get(runId);

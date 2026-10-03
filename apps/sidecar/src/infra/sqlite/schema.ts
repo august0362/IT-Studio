@@ -142,6 +142,25 @@ export const documents = sqliteTable(
   (table) => [uniqueIndex('documents_project_source_unique').on(table.projectId, table.sourcePath)],
 );
 
+export const imageAssets = sqliteTable(
+  'image_assets',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    provider: text('provider').notNull(),
+    prompt: text('prompt').notNull(),
+    revisedPrompt: text('revised_prompt'),
+    size: text('size').notNull(),
+    mimeType: text('mime_type').notNull(),
+    localPath: text('local_path').notNull(),
+    cost: integer('cost').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [index('image_assets_project_created_idx').on(table.projectId, table.createdAt)],
+);
+
 export const pipelineRuns = sqliteTable(
   'pipeline_runs',
   {

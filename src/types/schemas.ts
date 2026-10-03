@@ -956,6 +956,9 @@ export interface RpcMethodMap {
   };
   'chat.cancel': { params: { readonly requestId: LlmRequestId }; result: { readonly cancelled: boolean } };
 
+  'images.list': { params: { readonly projectId: ProjectId }; result: readonly ImageAsset[] };
+  'images.delete': { params: { readonly assetId: ImageAssetId }; result: { readonly deleted: boolean } };
+
   'router.getConfig': { params: Empty; result: RouterConfig };
   'router.updateConfig': { params: { readonly config: RouterConfig }; result: RouterConfig };
   'router.resolveFallback': { params: FallbackDecision; result: { readonly accepted: boolean } };

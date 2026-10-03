@@ -452,7 +452,10 @@ export class LlmRouter {
           id: messageIdSchema.parse(this.deps.ids.uuid()),
           conversationId,
           role: 'assistant' as const,
-          parts: result.value.text.length === 0 ? [] : [{ type: 'text' as const, text: result.value.text }],
+          parts: [
+            ...(result.value.text.length === 0 ? [] : [{ type: 'text' as const, text: result.value.text }]),
+            ...result.value.toolCalls.map((call) => ({ type: 'tool_call' as const, call })),
+          ],
           modelKey,
           usage: result.value.usage,
           createdAt: isoDateTimeSchema.parse(this.deps.clock.now().toISOString()),
