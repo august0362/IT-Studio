@@ -46,10 +46,39 @@ async function createProject(session: Session, name: string, folder: string): Pr
   await session.$('nav[aria-label="Main navigation"] a[href="#code"]').click();
 }
 
-function configureValidation(folder: string, shouldPass: boolean): void {
+function configureValidation(folder: string, shouldPass: boolean, slow = false): void {
   const compilerShim = join(folder, 'node_modules', 'typescript', 'bin');
   mkdirSync(compilerShim, { recursive: true });
   writeFileSync(join(compilerShim, 'tsc'), `process.exit(${shouldPass ? '0' : '1'});\n`, 'utf8');
+
+  const eslintShim = join(folder, 'node_modules', 'eslint', 'bin');
+  mkdirSync(eslintShim, { recursive: true });
+  writeFileSync(join(eslintShim, 'eslint.js'), `process.stdout.write('[]');\nprocess.exit(0);\n`, 'utf8');
+
+  const vitestShim = join(folder, 'node_modules', 'vitest');
+  mkdirSync(vitestShim, { recursive: true });
+  const failedSummary = JSON.stringify({
+    numPassedTests: 0,
+    numFailedTests: 1,
+    numPendingTests: 0,
+    testResults: [
+      {
+        name: 'validation.test.ts',
+        assertionResults: [{ title: 'validation', status: 'failed', failureMessages: ['expected failure'] }],
+      },
+    ],
+  });
+  const passedSummary = JSON.stringify({
+    numPassedTests: 1,
+    numFailedTests: 0,
+    numPendingTests: 0,
+    testResults: [{ name: 'validation.test.ts', assertionResults: [{ title: 'validation', status: 'passed' }] }],
+  });
+  writeFileSync(
+    join(vitestShim, 'vitest.mjs'),
+    `${slow ? 'await new Promise((resolve) => setTimeout(resolve, 20_000));\n' : ''}process.stdout.write(${JSON.stringify(shouldPass ? passedSummary : failedSummary)});\nprocess.exit(${shouldPass ? '0' : '1'});\n`,
+    'utf8',
+  );
 }
 
 describe('M6 Code pipeline', () => {
@@ -86,7 +115,7 @@ describe('M6 Code pipeline', () => {
   it('TC-M6-072 asks for confirmation when cancelling validation', async () => {
     const session = await openScriptedSession();
     const folder = createTemporaryProjectFolder();
-    configureValidation(folder, true);
+    configureValidation(folder, true, true);
     await createProject(session, 'Code Cancel E2E Project', folder);
     await session.$('#pipeline-prompt').setValue('Create a slow validation sample');
     await session.$('button=Run pipeline').click();
