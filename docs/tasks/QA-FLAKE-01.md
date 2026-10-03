@@ -31,3 +31,6 @@ Append `## Result` per AGENTS.md §3.
 - Dependencies added (with reason): None.
 - Decisions taken within scope: Used `beforeAll` import warming for lazy dependencies; generated and cleaned temporary container data directories for cases that previously used `:memory:`.
 - Open issues / follow-ups: `npm run typecheck` and `npm run lint` passed. `npm test` passed three consecutive runs (846 passed, 1 skipped per Vitest run; all 6 script tests passed). An earlier full run under load failed in unrelated command-runner, OpenAI embedding, and RAG tests; three subsequent consecutive runs passed. No E2E suite was run.
+
+## QA (Claude)
+- Verdict: **PASS**. Outside the sandbox after merging main: typecheck ✔, lint ✔, `npm test` **3 consecutive runs green** (846 vitest + 6 node script tests each). `container.test.ts` no longer writes to `./data`.
