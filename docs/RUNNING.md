@@ -54,7 +54,7 @@ ITSTUDIO_DATA_DIR="$TEMP/itstudio-try" npm run dev
 - Image generation / Gallery is disabled (**M8**).
 - Price updates are manual (**Settings → Pricing → Update prices**, needs an active project — its cost is booked to that project, D31).
 - Pipeline validation commands are shown but not yet editable per project.
-- Sidecar cold start in dev is ~4 s (**PERF-01**).
+- Sidecar cold start in dev is ~2.8 s (`tsx` transpiles at runtime; the M9 bundle will be faster).
 - Workflow map (module graph with live activity) is specified (D32, milestone **MW**) and comes after this hand-over.
 
 ## 6. Running the tests
