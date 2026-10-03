@@ -27,3 +27,6 @@ Append `## Result` per AGENTS.md §3 (before/after audit output).
 - Dependencies added (with reason): None. Overrides pin `sharp@0.35.5` and `dompurify@3.4.16`.
 - Decisions taken within scope: Used the patched `sharp` override, keeping LanceDB's optional Transformers dependency and using API embeddings as specified by D4. Overrode Monaco's DOMPurify to its patched release.
 - Open issues / follow-ups: `npm run typecheck`, `npm run lint`, `npm test` (783 passed, 1 skipped), desktop Vite build, and `npm run audit:prod` passed. The full integration suite could not run successfully in this sandbox: sidecar child processes failed with `uv_os_get_passwd` / `ENOMEM` (the documented Windows `tsx` sandbox limitation). Unit LanceDB ingest/retrieval coverage passed as part of `npm test`; QA should rerun integration outside the sandbox. E2E was not run.
+
+## QA (Claude)
+- Verdict: **PASS**. Outside the sandbox: `npm run audit:prod` → 0 vulnerabilities (was 3 high + 2 low); typecheck ✔, lint ✔, 783 unit ✔, integration (LanceDB ingest/retrieval incl.) pass.
