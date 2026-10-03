@@ -978,6 +978,7 @@ export interface RpcMethodMap {
   'pricing.getRows': { params: Empty; result: { readonly table: PriceTable; readonly rows: readonly PriceRow[]; readonly stale: boolean } };
   'pricing.refresh': { params: Empty; result: PriceUpdateRun };
   'pricing.override': { params: { readonly entry: PriceEntry }; result: PriceTable };
+  'pricing.clearOverride': { params: { readonly modelKey: ModelKey }; result: PriceTable };
   'pricing.overrideUsd': {
     params: { readonly modelKey: ModelKey; readonly inputPerMTokUsd: string; readonly outputPerMTokUsd: string; readonly cachedInputPerMTokUsd: string };
     result: PriceTable;

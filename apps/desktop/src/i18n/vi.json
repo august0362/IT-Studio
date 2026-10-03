@@ -177,6 +177,10 @@
       "origin": "Nguồn",
       "override": "Ghi đè",
       "overridden": "Đã ghi đè",
+      "clearOverride": "Xóa ghi đè",
+      "clearOverrideTitle": "Xóa giá ghi đè thủ công?",
+      "clearOverrideMessage": "Khôi phục giá tự động hoặc giá ban đầu cho {{model}}?",
+      "clearError": "Không thể xóa giá ghi đè.",
       "status": {
         "applied": "Đã cập nhật giá",
         "no_change": "Giá không đổi",

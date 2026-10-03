@@ -177,6 +177,10 @@
       "origin": "Origin",
       "override": "Override",
       "overridden": "Overridden",
+      "clearOverride": "Clear override",
+      "clearOverrideTitle": "Clear manual price override?",
+      "clearOverrideMessage": "Restore the automatic or seed price for {{model}}?",
+      "clearError": "The price override could not be cleared.",
       "status": {
         "applied": "Prices updated",
         "no_change": "No price changes",

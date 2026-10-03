@@ -32,6 +32,7 @@ export class PricingService {
   private readonly knownModels: ReadonlySet<ModelKey>;
   private readonly ids: IIdGenerator;
   private readonly clock: IClock;
+  private latestAutomaticEntries: readonly PriceEntry[];
 
   constructor(dependencies: PricingServiceDependencies) {
     this.repository = dependencies.repository;
@@ -39,10 +40,20 @@ export class PricingService {
     this.knownModels = dependencies.knownModels;
     this.ids = dependencies.ids;
     this.clock = dependencies.clock;
+    this.latestAutomaticEntries = dependencies.seed.entries;
   }
 
   initialize(): void {
-    if (this.repository.current() !== null) return;
+    const existing = this.repository.current();
+    if (existing !== null) {
+      const automatic = new Map(this.seed.entries.map((entry) => [entry.modelKey, entry]));
+      const manualOverrides = new Set(existing.manualOverrides);
+      for (const entry of existing.entries) {
+        if (!manualOverrides.has(entry.modelKey)) automatic.set(entry.modelKey, entry);
+      }
+      this.latestAutomaticEntries = [...automatic.values()];
+      return;
+    }
     this.repository.insert({ ...this.seed, manualOverrides: [] });
   }
 
@@ -116,21 +127,25 @@ export class PricingService {
     if (!parsedKey.success || !this.knownModels.has(parsedKey.data))
       return validationError('Cannot clear an override for an unknown model.');
     const current = this.requireCurrent();
+    if (!current.manualOverrides.includes(parsedKey.data))
+      return validationError('This model does not have a manual price override to clear.');
+    const automaticEntry = this.latestAutomaticEntries.find((entry) => entry.modelKey === parsedKey.data);
+    if (automaticEntry === undefined) return validationError('No automatic or seed price is available for this model.');
+    const entries = current.entries.map((entry) => (entry.modelKey === parsedKey.data ? automaticEntry : entry));
     const manualOverrides = current.manualOverrides.filter((key) => key !== parsedKey.data);
-    if (manualOverrides.length === current.manualOverrides.length) return { ok: true, value: this.current() };
-    return { ok: true, value: this.insertVersion(current, current.entries, manualOverrides) };
+    return { ok: true, value: this.insertVersion(current, entries, manualOverrides) };
   }
 
   applyExtracted(entries: readonly PriceEntry[]): PriceTable {
     const current = this.requireCurrent();
-    const incoming = new Map(entries.map((entry) => [entry.modelKey, entry]));
-    const merged = current.entries.map((entry) => {
-      if (current.manualOverrides.includes(entry.modelKey)) return entry;
-      const replacement = incoming.get(entry.modelKey);
-      if (replacement !== undefined) incoming.delete(entry.modelKey);
-      return replacement ?? entry;
-    });
-    merged.push(...incoming.values());
+    const automatic = new Map(this.latestAutomaticEntries.map((entry) => [entry.modelKey, entry]));
+    for (const entry of entries) automatic.set(entry.modelKey, entry);
+    this.latestAutomaticEntries = [...automatic.values()];
+    const overrides = new Set(current.manualOverrides);
+    const currentEntries = new Map(current.entries.map((entry) => [entry.modelKey, entry]));
+    const merged = [...automatic.values()].map((entry) =>
+      overrides.has(entry.modelKey) ? (currentEntries.get(entry.modelKey) ?? entry) : entry,
+    );
     return this.insertAutoVersion(current, merged);
   }
 

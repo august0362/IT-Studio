@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { formatNumber } from '../../../i18n/format';
 import { ErrorPanel } from '../../../components/ErrorPanel';
 import { Money } from '../../../components/Money';
+import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { useNotification } from '../../../hooks/use-notification';
 import { useRpcQuery } from '../../../hooks/use-rpc-query';
 import { RpcCallError } from '../../../rpc/rpc-client';
@@ -31,6 +32,10 @@ export function PricingSettingsPage({ projectActive }: { readonly projectActive:
   const [draft, setDraft] = useState<OverrideDraft | null>(null);
   const [overrideError, setOverrideError] = useState<AppError | null>(null);
   const [saved, setSaved] = useState(false);
+  const [clearTarget, setClearTarget] = useState<{ readonly modelKey: ModelKey; readonly modelName: string } | null>(
+    null,
+  );
+  const [clearError, setClearError] = useState<AppError | null>(null);
   useNotification('pricing.updated', () => {
     void cache.invalidateQueries({ queryKey: ['pricing.getRows', {}] });
   });
@@ -90,6 +95,29 @@ export function PricingSettingsPage({ projectActive }: { readonly projectActive:
         error instanceof RpcCallError
           ? error.appError
           : { code: 'INTERNAL', message: t('settings.saveError'), retryable: true, remediation: [t('settings.retry')] },
+      );
+    } finally {
+      setRunning(false);
+    }
+  }
+  async function clearOverride(): Promise<void> {
+    if (clearTarget === null) return;
+    setRunning(true);
+    setClearError(null);
+    try {
+      await rpc.call('pricing.clearOverride', { modelKey: clearTarget.modelKey });
+      setClearTarget(null);
+      await cache.invalidateQueries({ queryKey: ['pricing.getRows', {}] });
+    } catch (error: unknown) {
+      setClearError(
+        error instanceof RpcCallError
+          ? error.appError
+          : {
+              code: 'INTERNAL',
+              message: t('settings.pricing.clearError'),
+              retryable: true,
+              remediation: [t('settings.retry')],
+            },
       );
     } finally {
       setRunning(false);
@@ -185,16 +213,31 @@ export function PricingSettingsPage({ projectActive }: { readonly projectActive:
                   </a>
                 </td>
                 <td className="p-2">
-                  <button
-                    className="rounded border border-border px-2 py-1"
-                    onClick={() => {
-                      setDraft({ modelKey: row.entry.modelKey, input: '', output: '', cached: '' });
-                      setOverrideError(null);
-                    }}
-                    type="button"
-                  >
-                    {t('settings.pricing.override')}
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      className="rounded border border-border px-2 py-1"
+                      onClick={() => {
+                        setDraft({ modelKey: row.entry.modelKey, input: '', output: '', cached: '' });
+                        setOverrideError(null);
+                      }}
+                      type="button"
+                    >
+                      {t('settings.pricing.override')}
+                    </button>
+                    {row.overridden ? (
+                      <button
+                        className="rounded border border-border px-2 py-1"
+                        disabled={running}
+                        onClick={() => {
+                          setClearError(null);
+                          setClearTarget({ modelKey: row.entry.modelKey, modelName: name(row.entry.modelKey) });
+                        }}
+                        type="button"
+                      >
+                        {t('settings.pricing.clearOverride')}
+                      </button>
+                    ) : null}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -202,6 +245,21 @@ export function PricingSettingsPage({ projectActive }: { readonly projectActive:
         </table>
       </div>
       {saved ? <p role="status">{t('settings.saved')}</p> : null}
+      {clearError ? <ErrorPanel error={clearError} /> : null}
+      <ConfirmDialog
+        cancelLabel={t('settings.cancel')}
+        confirmLabel={t('settings.pricing.clearOverride')}
+        message={
+          clearTarget === null ? '' : t('settings.pricing.clearOverrideMessage', { model: clearTarget.modelName })
+        }
+        onCancel={() => {
+          setClearTarget(null);
+        }}
+        onConfirm={() => void clearOverride()}
+        open={clearTarget !== null}
+        title={t('settings.pricing.clearOverrideTitle')}
+        tone="danger"
+      />
       {draft ? (
         <div className="fixed inset-0 z-20 grid place-items-center bg-black/50 p-4">
           <form

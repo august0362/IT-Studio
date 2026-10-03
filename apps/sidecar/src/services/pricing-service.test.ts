@@ -172,10 +172,40 @@ describe('PricingService', () => {
     service.initialize();
     const result = service.override({ ...openAiEntry(), inputPerMTokMicroUsd: microUsdSchema.parse(999) });
     expect(result.ok).toBe(true);
+    const automaticEntry = { ...openAiEntry(), inputPerMTokMicroUsd: microUsdSchema.parse(500) };
+    service.applyExtracted([automaticEntry]);
     const cleared = service.clearOverride('openai/test-model');
     expect(cleared.ok).toBe(true);
     expect(testHarness.current?.manualOverrides).toEqual([]);
-    expect(testHarness.current?.entries[0]?.inputPerMTokMicroUsd).toBe(999);
+    expect(testHarness.current?.entries[0]?.inputPerMTokMicroUsd).toBe(500);
+    expect(cleared.ok && cleared.value.version).not.toBe(initial.version);
+  });
+
+  it('rejects clearing unknown models and models without an active override', () => {
+    const { service } = harness();
+    service.initialize();
+    const unknown = service.clearOverride('openai/unknown');
+    expect(unknown.ok).toBe(false);
+    if (!unknown.ok) {
+      expect(unknown.error.code).toBe('VALIDATION');
+      expect(unknown.error.remediation?.length ?? 0).toBeGreaterThan(0);
+    }
+    const missing = service.clearOverride('openai/test-model');
+    expect(missing.ok).toBe(false);
+    if (!missing.ok) {
+      expect(missing.error.code).toBe('VALIDATION');
+      expect(missing.error.remediation?.length ?? 0).toBeGreaterThan(0);
+    }
+  });
+
+  it('clears an override back to its seed price when no automatic update exists', () => {
+    const { service } = harness();
+    service.initialize();
+    service.override({ ...openAiEntry(), inputPerMTokMicroUsd: microUsdSchema.parse(999) });
+    const cleared = service.clearOverride('openai/test-model');
+    expect(cleared.ok && cleared.value.entries.find((entry) => entry.modelKey === 'openai/test-model')).toMatchObject({
+      inputPerMTokMicroUsd: 100,
+    });
   });
 
   it.each([
