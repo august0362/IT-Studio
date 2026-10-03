@@ -1,6 +1,12 @@
-# Running IT Studio (v1, developer mode)
+# Running IT Studio
 
-> v1 has no installer yet (that is M9). You run it from this repository.
+## Install IT Studio
+
+Download and run the latest IT Studio NSIS installer (`IT Studio_<version>_x64-setup.exe`). Windows SmartScreen may show a warning because the installer is unsigned (D33). Select **More info** â†’ **Run anyway** to continue.
+
+IT Studio stores its database, vectors and logs in `%APPDATA%\com.itstudio.app`. API keys are stored in Windows Credential Manager. To uninstall, open **Settings â†’ Apps â†’ Installed apps**, select **IT Studio**, then choose **Uninstall**. Uninstalling does not remove your app data; delete `%APPDATA%\com.itstudio.app` separately if you want to remove it.
+
+## Run from the repository (developer mode)
 
 ## 1. Prerequisites (already present on this machine)
 
@@ -50,7 +56,7 @@ ITSTUDIO_DATA_DIR="$TEMP/itstudio-try" npm run dev
 
 ## 5. Known limitations in v1
 
-- Developer mode only; installer, code signing and auto-update come with **M9**.
+- The installer is unsigned (D33); SmartScreen requires **More info â†’ Run anyway**.
 - Image generation / Gallery is disabled (**M8**).
 - Price updates are manual (**Settings → Pricing → Update prices**, needs an active project — its cost is booked to that project, D31).
 - Pipeline validation commands are shown but not yet editable per project.
@@ -66,7 +72,7 @@ Before shipping a release, run `npm run audit:prod` to check production dependen
 1. `npm run release:bump -- <major|minor|patch|x.y.z>` updates the app and extension versions and moves the current `Unreleased` changelog entries into the release section. Review the printed changes first with `--dry-run`.
 2. `npm run audit:prod` checks production dependencies.
 3. `npm run build:app` builds the desktop installer.
-4. Install the generated installer on a clean Windows user account and smoke test startup, project creation, Chat, Knowledge, Code and Settings.
+4. Run `npm run smoke:install` to verify the installed app starts without system Node.js or repository dependencies. It opens the app window, uses the real `%APPDATA%\\com.itstudio.app` data directory, and is QA-only; do not run during E2E tests.
 5. After the release is approved, create the matching tag with `git tag v<version>`.
 
 ```bash

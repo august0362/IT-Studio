@@ -1,6 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "bundle": {
-    "externalBin": ["binaries/itstudio-sidecar"]
+    "externalBin": ["binaries/itstudio-sidecar"],
+    "resources": {
+      "bundle-resources/resources": "resources"
+    }
   }
 }
