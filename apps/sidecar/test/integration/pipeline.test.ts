@@ -69,6 +69,8 @@ async function setup(
   options: {
     readonly crashAt?: 'after_prepare' | 'mid_commit';
     readonly twoFiles?: boolean;
+    readonly nestedFile?: boolean;
+    readonly emptyWorkspace?: boolean;
     readonly coderPath?: string;
     readonly invalidCoder?: boolean;
     readonly validationArgs?: readonly string[];
@@ -77,11 +79,12 @@ async function setup(
   } = {},
 ) {
   const scriptedTexts = { ...responseTexts };
-  if (options.twoFiles || options.coderPath !== undefined || options.invalidCoder) {
+  if (options.twoFiles || options.coderPath !== undefined || options.invalidCoder || options.nestedFile) {
     const multiFileCoder = {
       ...coderOutput,
-      operations:
-        options.coderPath === undefined
+      operations: options.nestedFile
+        ? [{ kind: 'create', path: 'src/feature/new.txt', content: 'nested feature' }]
+        : options.coderPath === undefined
           ? [...coderOutput.operations, { kind: 'create', path: 'src/second.txt', content: 'second file' }]
           : [{ kind: 'create', path: options.coderPath, content: 'outside TaskSpec' }],
     };
@@ -92,6 +95,11 @@ async function setup(
     scriptedTexts['claude-opus-5-5'] = JSON.stringify({
       ...taskSpec,
       allowedPaths: [...taskSpec.allowedPaths, 'src/second.txt'],
+    });
+  if (options.nestedFile)
+    scriptedTexts['claude-opus-5-5'] = JSON.stringify({
+      ...taskSpec,
+      allowedPaths: ['src/feature/new.txt'],
     });
   sidecar = await startSidecar(
     {
@@ -104,7 +112,7 @@ async function setup(
   const fixture = resolve(dirname(fileURLToPath(import.meta.url)), '../fixtures/sample-project');
   const workspace = resolve(sidecar.dataDir, 'sample-project');
   await cp(fixture, workspace, { recursive: true });
-  await mkdir(resolve(workspace, 'src'));
+  if (!options.emptyWorkspace) await mkdir(resolve(workspace, 'src'));
   const projectResponse = await sidecar.call('project.create', { name: 'Pipeline fixture', workspaceRoot: workspace });
   const projectId = projectSchema.parse(projectResponse.result).id;
   const settings = appSettingsSchema.parse((await sidecar.call('settings.get')).result);
@@ -154,6 +162,31 @@ function observed(method: string): unknown[] {
 }
 
 describe('pipeline integration', () => {
+  it.each([0, 1] as const)(
+    'TC-M6-034 creates nested directories in an empty workspace and cleans them on validation failure (%s)',
+    async (validationExitCode) => {
+      const { workspace, projectId } = await setup(validationExitCode, { nestedFile: true, emptyWorkspace: true });
+      const before = await projectHash(workspace);
+      const response = await sidecar?.call('pipeline.start', { projectId, prompt: 'Create a nested feature file' });
+      const runId = pipelineRunSchema.parse(response?.result).id;
+      await waitFor(() =>
+        observed(validationExitCode === 0 ? 'pipeline.event' : 'pipeline.failureReport').some((event) =>
+          JSON.stringify(event).includes(validationExitCode === 0 ? 'completed' : runId),
+        ),
+      );
+      const run = pipelineRunSchema.parse((await sidecar?.call('pipeline.get', { runId }))?.result);
+      if (validationExitCode === 0) {
+        expect(run.stage).toBe('completed');
+        expect(await readFile(resolve(workspace, 'src/feature/new.txt'), 'utf8')).toBe('nested feature');
+      } else {
+        expect(run.stage).toBe('rolled_back');
+        expect(await projectHash(workspace)).toBe(before);
+        expect(existsSync(resolve(workspace, 'src'))).toBe(false);
+      }
+    },
+    30_000,
+  );
+
   it('TC-M6-001 TC-M6-052 TC-M3-045 complete a scripted pipeline with attributed cost, writes and P&L', async () => {
     const { workspace, projectId } = await setup(0);
     const response = await sidecar?.call('pipeline.start', { projectId, prompt: 'Create a greeting file' });

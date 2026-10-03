@@ -83,6 +83,55 @@ describe('WriteTransactionService', () => {
     ).toEqual({ ok: true, value: false });
   });
 
+  it('creates missing nested parents for create and rename destinations', async () => {
+    const { fs, root, service } = await fixture({ 'src/move.txt': 'move' });
+    const prepared = await service.prepare(
+      root,
+      projectId,
+      [
+        operation({ kind: 'create', path: 'new/deep/created.txt', content: 'created' }),
+        operation({ kind: 'rename', from: 'src/move.txt', to: 'renamed/deep/moved.txt', baseHash: digest('move') }),
+      ],
+      ['new', 'renamed', 'src'],
+    );
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) return;
+    expect((await prepared.value.commit()).ok).toBe(true);
+    expect(await read(fs, root, 'new/deep/created.txt')).toBe('created');
+    expect(await read(fs, root, 'renamed/deep/moved.txt')).toBe('move');
+    expect((await prepared.value.rollback()).ok).toBe(true);
+    expect(await fs.exists(join(root, 'new'))).toEqual({ ok: true, value: false });
+    expect(await fs.exists(join(root, 'renamed'))).toEqual({ ok: true, value: false });
+    expect(await read(fs, root, 'src/move.txt')).toBe('move');
+  });
+
+  it('removes directories created before a partial commit failure', async () => {
+    let rolledBack = false;
+    for (let successfulMutations = 6; successfulMutations < 12; successfulMutations += 1) {
+      const { fs, root, service } = await fixture();
+      const prepared = await service.prepare(
+        root,
+        projectId,
+        [
+          operation({ kind: 'create', path: 'src/feature/one.txt', content: 'one' }),
+          operation({ kind: 'create', path: 'src/feature/two.txt', content: 'two' }),
+        ],
+        ['src'],
+      );
+      expect(prepared.ok).toBe(true);
+      if (!prepared.ok) return;
+      fs.injectFailureAfter(successfulMutations);
+      const result = await prepared.value.commit();
+      fs.clearFailureInjection();
+      if (result.ok) continue;
+      expect(result.error.code).toBe(ErrorCode.INTERNAL);
+      expect(await fs.exists(join(root, 'src'))).toEqual({ ok: true, value: false });
+      rolledBack = true;
+      break;
+    }
+    expect(rolledBack).toBe(true);
+  });
+
   it('TC-M6-032 rejects stale base hashes, wrong patch context, and create-over-existing without writes', async () => {
     const { root, service } = await fixture({ 'src/a.txt': 'actual' });
     const stale = await service.prepare(
@@ -420,6 +469,7 @@ describe('WriteTransactionService', () => {
     );
     expect(create.ok).toBe(true);
     if (!create.ok) return;
+    await createFixture.fs.mkdir(join(createFixture.root, 'src'), true);
     await createFixture.fs.writeFile(join(createFixture.root, 'src', 'new.txt'), 'raced');
     expect(await create.value.commit()).toMatchObject({ ok: false, error: { code: ErrorCode.CONFLICT } });
 

@@ -61,6 +61,24 @@ describe('JournalRecoveryService', () => {
     expect(restored.ok && new TextDecoder().decode(restored.value)).toBe('original');
   });
 
+  it('removes transaction-created directories during crash recovery', async () => {
+    const { fs, root, clock, writer } = await setup();
+    const prepared = await writer.prepare(
+      root,
+      projectId,
+      [operation({ kind: 'create', path: 'src/recovery/new.txt', content: 'new' })],
+      ['src'],
+    );
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) return;
+    expect((await prepared.value.commit()).ok).toBe(true);
+    expect(await fs.exists(join(root, 'src', 'recovery'))).toEqual({ ok: true, value: true });
+    expect(await new JournalRecoveryService(fs, clock).recover(root)).toEqual({ ok: true, value: 1 });
+    expect(await fs.exists(join(root, 'src', 'recovery'))).toEqual({ ok: true, value: false });
+    const original = await fs.readFile(join(root, 'src', 'a.txt'));
+    expect(original.ok && new TextDecoder().decode(original.value)).toBe('original');
+  });
+
   it('leaves recent validated journals and purges their manifests after seven days', async () => {
     const { fs, root, clock, writer } = await setup();
     const prepared = await writer.prepare(

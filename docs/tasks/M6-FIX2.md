@@ -29,3 +29,10 @@ Append `## Result` per AGENTS.md §3.
 
 ## Architect decision (resolves Blocked)
 Scope extended to `apps/sidecar/src/ports/file-system.ts` and `apps/sidecar/src/infra/node-file-system.ts` (+ their tests and the contract test). Add `rmdirIfEmpty(path: string): Promise<Result<boolean>>` to `IFileSystem` — removes the directory only when it is empty (`true` = removed, `false` = not empty or absent; never recursive, never follows symlinks). Implement it in `NodeFileSystem` (Node `rmdir`, map `ENOTEMPTY`/`ENOENT` to `false`) and `MemoryFileSystem`; update any other `IFileSystem` fakes in tests minimally.
+
+## Result
+- Summary: Added strict parent-directory behavior to `MemoryFileSystem`, an empty-directory removal operation to both file-system implementations, and journaled creation/rollback/recovery of workspace parent directories. Added transaction, recovery, shared contract, and `TC-M6-034` integration coverage.
+- Files changed: `apps/sidecar/src/ports/file-system.ts`, `apps/sidecar/src/infra/{memory-file-system.ts,memory-file-system.test.ts,node-file-system.ts,node-file-system.test.ts,__contract__/file-system-contract.ts}`, `apps/sidecar/src/services/{write-transaction.ts,write-transaction.test.ts,journal-recovery.ts,journal-recovery.test.ts,vscode-launcher.test.ts}`, `apps/sidecar/test/integration/pipeline.test.ts`.
+- Dependencies added (with reason): None.
+- Decisions taken within scope: Added optional-default `createdDirectories` to the journal manifest for compatibility with existing journals; record directories parent-first and remove them in reverse order.
+- Open issues / follow-ups: `npm run typecheck` and `npm run lint` pass. Focused transaction, recovery, and filesystem tests pass (40 tests). `npm test` has 13 failures in out-of-scope `apps/sidecar/src/services/rag/parsers/parse-document.test.ts`: its fixtures write into absent parent directories, and the strict filesystem contract now rejects those writes. I did not edit that file because it is outside this task's Scope. The integration test was added but not run; E2E was not run.

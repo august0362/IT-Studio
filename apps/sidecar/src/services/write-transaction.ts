@@ -25,7 +25,11 @@ const originalSchema = z.object({
     .regex(/^[a-f0-9]{64}$/)
     .optional(),
 });
-const manifestSchema = z.object({ transaction: writeTransactionSchema, originals: z.array(originalSchema) });
+const manifestSchema = z.object({
+  transaction: writeTransactionSchema,
+  originals: z.array(originalSchema),
+  createdDirectories: z.array(z.string()).default([]),
+});
 export type TransactionManifest = z.infer<typeof manifestSchema>;
 
 function hash(data: Uint8Array): string {
@@ -188,12 +192,16 @@ export class WriteTransactionService {
       createdAt: this.clock.now().toISOString() as WriteTransactionContract['createdAt'],
     };
     const manifestPath = join(journalDir, 'manifest.json');
-    const manifestWritten = await this.writeManifest(manifestPath, { transaction, originals: entries });
+    const manifestWritten = await this.writeManifest(manifestPath, {
+      transaction,
+      originals: entries,
+      createdDirectories: [],
+    });
     if (!manifestWritten.ok) return manifestWritten;
     crashAt('after_prepare');
     return {
       ok: true,
-      value: new PreparedWriteTransaction(this.fs, root, journalDir, manifestPath, transaction, entries, prepared),
+      value: new PreparedWriteTransaction(this.fs, root, journalDir, manifestPath, transaction, entries, [], prepared),
     };
   }
 
@@ -213,6 +221,7 @@ export class PreparedWriteTransaction {
   private readonly manifestPath: string;
   private readonly transaction: WriteTransactionContract;
   private readonly originals: TransactionManifest['originals'];
+  private readonly createdDirectories: string[];
   private readonly prepared: readonly PreparedOperation[];
   private status: WriteTransactionContract['status'] = 'prepared';
 
@@ -223,6 +232,7 @@ export class PreparedWriteTransaction {
     manifestPath: string,
     transaction: WriteTransactionContract,
     originals: TransactionManifest['originals'],
+    createdDirectories: readonly string[],
     prepared: readonly PreparedOperation[],
   ) {
     this.fs = fs;
@@ -232,6 +242,7 @@ export class PreparedWriteTransaction {
     this.transaction = transaction;
     this.transactionId = transaction.id;
     this.originals = originals;
+    this.createdDirectories = [...createdDirectories];
     this.prepared = prepared;
   }
 
@@ -264,6 +275,39 @@ export class PreparedWriteTransaction {
       }
     }
     let committedOperations = 0;
+    const parentDirectories = new Set<string>();
+    for (const item of this.prepared) {
+      const destination = item.operation.kind === 'rename' ? item.destination : item.source;
+      if (!destination) continue;
+      let parent = dirname(destination);
+      while (parent !== this.root) {
+        parentDirectories.add(parent);
+        const next = dirname(parent);
+        if (next === parent) break;
+        parent = next;
+      }
+    }
+    const orderedParents = [...parentDirectories].sort((left, right) => {
+      const depthDifference = left.split(/[\\/]/).length - right.split(/[\\/]/).length;
+      return depthDifference === 0 ? left.localeCompare(right) : depthDifference;
+    });
+    for (const directory of orderedParents) {
+      const exists = await this.fs.exists(directory);
+      if (!exists.ok) return this.failAndRollback();
+      if (exists.value) continue;
+      const relativeDirectory = directory.slice(this.root.length + 1).replaceAll('\\', '/');
+      this.createdDirectories.push(relativeDirectory);
+      const journaled = await this.saveStatus('prepared');
+      if (!journaled.ok) return this.failAndRollback();
+      const made = await this.fs.mkdir(directory, false);
+      if (!made.ok) {
+        const nowExists = await this.fs.exists(directory);
+        if (!nowExists.ok || !nowExists.value) return this.failAndRollback();
+        this.createdDirectories.pop();
+        const updated = await this.saveStatus('prepared');
+        if (!updated.ok) return this.failAndRollback();
+      }
+    }
     for (const item of [...ordinary, ...final]) {
       const op = item.operation;
       if (op.kind === 'delete') {
@@ -333,6 +377,11 @@ export class PreparedWriteTransaction {
         if (!verify.ok || hash(verify.value) !== original.hash) remediation.push(target);
       }
     }
+    for (const directory of [...this.createdDirectories].reverse()) {
+      const path = join(this.root, ...directory.split('/'));
+      const removed = await this.fs.rmdirIfEmpty(path);
+      if (!removed.ok) remediation.push(path);
+    }
     if (remediation.length > 0) {
       this.status = 'rollback_failed';
       await this.saveStatus('rollback_failed');
@@ -360,7 +409,10 @@ export class PreparedWriteTransaction {
 
   private async saveStatus(status: WriteTransactionContract['status']): Promise<Result<void>> {
     const manifest = { transaction: { ...this.transaction, status }, originals: this.originals };
-    const written = await this.fs.writeFile(this.manifestPath, JSON.stringify(manifest));
+    const written = await this.fs.writeFile(
+      this.manifestPath,
+      JSON.stringify({ ...manifest, createdDirectories: this.createdDirectories }),
+    );
     if (!written.ok) return failure(ErrorCode.INTERNAL, `Could not write transaction manifest ${this.manifestPath}.`);
     const synced = await this.fs.fsync(this.manifestPath);
     return synced.ok
