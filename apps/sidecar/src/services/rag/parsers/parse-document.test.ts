@@ -1,5 +1,5 @@
 import { dirname, join } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { MemoryFileSystem } from '../../../infra/memory-file-system.js';
 import { detectFormat, parseDocument } from './parse-document.js';
 
@@ -16,6 +16,10 @@ async function parse(name: string, bytes: Uint8Array | string) {
 }
 
 describe('document parsers', () => {
+  beforeAll(async () => {
+    await import('mammoth');
+  });
+
   it('detects the supported extensions case-insensitively', () => {
     expect(detectFormat('readme.MD')).toMatchObject({ ok: true, value: 'markdown' });
     expect(detectFormat('app.tsx')).toMatchObject({ ok: true, value: 'code' });
