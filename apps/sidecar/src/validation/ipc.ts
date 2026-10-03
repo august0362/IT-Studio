@@ -102,6 +102,7 @@ export const rpcParamsSchemas = {
   'pricing.getRows': empty,
   'pricing.refresh': empty,
   'pricing.override': z.object({ entry: priceEntrySchema }).readonly(),
+  'pricing.clearOverride': z.object({ modelKey: modelKeySchema }).readonly(),
   'pricing.overrideUsd': z
     .object({
       modelKey: modelKeySchema,
@@ -206,6 +207,7 @@ export const rpcResultSchemas = {
     .readonly(),
   'pricing.refresh': priceUpdateRunSchema,
   'pricing.override': priceTableSchema,
+  'pricing.clearOverride': priceTableSchema,
   'pricing.overrideUsd': priceTableSchema,
   'fx.get': fxRateSchema,
   'fx.override': fxRateSchema,

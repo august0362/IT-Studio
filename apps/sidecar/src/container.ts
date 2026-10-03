@@ -805,6 +805,20 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   );
   server.register('pricing.override', ({ entry }) => Promise.resolve(pricingService.override(entry)));
   server.register('pricing.overrideUsd', (input) => Promise.resolve(pricingService.overrideUsd(input)));
+  server.register('pricing.clearOverride', ({ modelKey }) => {
+    const result = pricingService.clearOverride(modelKey);
+    if (result.ok) {
+      const now = isoDateTimeSchema.parse(clock.now().toISOString());
+      events.publish('pricing.updated', {
+        startedAt: now,
+        finishedAt: now,
+        status: 'applied',
+        deltas: [],
+        newVersion: result.value.version,
+      });
+    }
+    return Promise.resolve(result);
+  });
   server.register('pricing.refresh', () => pricingUpdater.refresh());
   server.register('rag.ingest', (input) => ragService.ingest(input));
   server.register('rag.query', (input) => ragService.query(input));

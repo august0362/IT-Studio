@@ -54,13 +54,9 @@ describe('M4 Settings', () => {
     await browser.$('nav[aria-label="Main navigation"] a[href="#settings-pricing"]').click();
     const gpt55Row = browser.$('tr*=GPT-5.5');
     if ((await gpt55Row.isExisting()) && (await gpt55Row.getText()).includes('Overridden')) {
-      await gpt55Row.$('button=Override').click();
-      const inputs = browser.$$('form[aria-labelledby="override-heading"] input');
-      await inputs[0]?.setValue('5');
-      await inputs[1]?.setValue('30');
-      await inputs[2]?.setValue('0.5');
-      await browser.$('form[aria-labelledby="override-heading"] button=Save').click();
-      await browser.waitUntil(async () => (await gpt55Row.getText()).includes('Overridden'));
+      await gpt55Row.$('button=Clear override').click();
+      await browser.$('[role="alertdialog"] button=Clear override').click();
+      await browser.waitUntil(async () => !(await gpt55Row.getText()).includes('Overridden'));
     }
   });
 
@@ -202,5 +198,33 @@ describe('M4 Settings', () => {
     await browser.$('nav[aria-label="Main navigation"] a[href="#settings-fx"]').click();
     await browser.$('button=Clear override').click();
     await browser.waitUntil(async () => !(await browser.$('body').getText()).includes('Manual override'));
+  });
+
+  it('TC-M4-046 clears a manual price override and removes its badge', async () => {
+    await waitForReady();
+    await browser.$('button[aria-label="Add project"]').click();
+    await browser.$('aria/Project name').setValue('Clear Pricing Override Project');
+    await browser.$('aria/Folder path').setValue(createTemporaryProjectFolder());
+    await browser.$('button=Create project').click();
+    await browser.waitUntil(
+      async () =>
+        (await browser.$('[role="tab"][aria-selected="true"]').getText()) === 'Clear Pricing Override Project',
+    );
+    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-pricing"]').click();
+    const row = browser.$('tr*=GPT-5.5');
+    await row.$('button=Override').click();
+    const inputs = browser.$$('form[aria-labelledby="override-heading"] input');
+    await inputs[0]?.setValue('0.15');
+    await inputs[1]?.setValue('0.30');
+    await inputs[2]?.setValue('0.05');
+    await browser.$('form[aria-labelledby="override-heading"] button=Save').click();
+    await browser.waitUntil(async () => (await row.getText()).includes('Overridden'));
+
+    await row.$('button=Clear override').click();
+    const dialog = browser.$('[role="alertdialog"]');
+    await browser.waitUntil(async () => dialog.isDisplayed());
+    await dialog.$('button=Clear override').click();
+    await browser.waitUntil(async () => !(await row.getText()).includes('Overridden'));
+    expect(await row.getText()).not.to.include('Overridden');
   });
 });

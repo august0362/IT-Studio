@@ -196,6 +196,7 @@ describe('boundary schemas', () => {
       ['project.create', { name: 'Demo', workspaceRoot: 'C:/demo' }, {}],
       ['project.setActive', { projectId: 'aa74f72d-b5b5-4e15-90ad-499dd51679a2' }, { projectId: 'bad' }],
       ['secrets.delete', { provider: 'openai' }, { provider: 'fake' }],
+      ['pricing.clearOverride', { modelKey: 'openai/gpt-5.5' }, { modelKey: 'invalid key' }],
       ['chat.createConversation', { projectId: 'aa74f72d-b5b5-4e15-90ad-499dd51679a2' }, { projectId: 'bad' }],
       [
         'chat.send',
