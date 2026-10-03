@@ -10,7 +10,12 @@ const executable = join(root, 'dist-sidecar/itstudio-sidecar-x86_64-pc-windows-m
 const dataDir = await mkdtemp(join(tmpdir(), 'itstudio-sidecar-smoke-'));
 const child = spawn(executable, [], {
   cwd: root,
-  env: { ...process.env, ITSTUDIO_DATA_DIR: dataDir },
+  env: {
+    ...process.env,
+    ITSTUDIO_DATA_DIR: dataDir,
+    ITSTUDIO_E2E: '1',
+    ITSTUDIO_E2E_VERIFIER_FIXTURE: join(root, 'apps/sidecar/test/integration/fixtures/verifier.json'),
+  },
   stdio: ['pipe', 'pipe', 'pipe'],
 });
 const lines = createInterface({ input: child.stdout });
@@ -59,7 +64,7 @@ try {
 } finally {
   child.stdin.end();
   if (child.exitCode === null) child.kill();
-  await rm(dataDir, { recursive: true, force: true });
+  await rm(dataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 }
 
 function request(method) {

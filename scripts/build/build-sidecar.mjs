@@ -89,6 +89,7 @@ await runStep('stage runtime resources', async () => {
   const stagedPackages = new Set();
   await stageRuntimePackage('better-sqlite3', stagedPackages);
   await stageRuntimePackage('@lancedb/lancedb', stagedPackages, true);
+  await stageRuntimePackage('apache-arrow', stagedPackages, true);
   await stageRuntimePackage('@lancedb/lancedb-win32-x64-msvc', stagedPackages);
   await stageRuntimePackage('@napi-rs/keyring', stagedPackages);
   await stageRuntimePackage('@napi-rs/keyring-win32-x64-msvc', stagedPackages);

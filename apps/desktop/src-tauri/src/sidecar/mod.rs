@@ -99,7 +99,7 @@ async fn supervise(
     let mut restart_times = Vec::new();
 
     loop {
-        let child_result = spawn::command(&data_dir)
+        let child_result = spawn::command(&app, &data_dir)
             .map_err(|error| error.to_string())
             .map(|mut command| {
                 command
