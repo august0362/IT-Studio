@@ -76,7 +76,18 @@ export class JournalRecoveryService {
       if (transaction.status !== 'prepared' && transaction.status !== 'committed') continue;
       const operationPaths = transaction.operations.flatMap(pathsFor);
       const known = new Set(operationPaths);
-      if (originals.some((original) => !known.has(original.path)) || originals.length !== known.size) {
+      const possibleDirectories = new Set<string>();
+      for (const path of operationPaths) {
+        const segments = path.split('/');
+        for (let index = 1; index < segments.length; index += 1)
+          possibleDirectories.add(segments.slice(0, index).join('/'));
+      }
+      if (
+        originals.some((original) => !known.has(original.path)) ||
+        originals.length !== known.size ||
+        parsed.value.createdDirectories.some((directory) => !possibleDirectories.has(directory)) ||
+        new Set(parsed.value.createdDirectories).size !== parsed.value.createdDirectories.length
+      ) {
         failures.push(manifestPath);
         continue;
       }
@@ -96,6 +107,7 @@ export class JournalRecoveryService {
         manifestPath,
         transaction,
         originals,
+        parsed.value.createdDirectories,
         [],
       );
       const result = await handle.rollback();

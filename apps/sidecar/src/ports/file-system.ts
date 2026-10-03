@@ -13,6 +13,7 @@ export interface IFileSystem {
   rename(from: string, to: string): Promise<Result<void>>;
   unlink(path: string): Promise<Result<void>>;
   mkdir(path: string, recursive: boolean): Promise<Result<void>>;
+  rmdirIfEmpty(path: string): Promise<Result<boolean>>;
   stat(path: string): Promise<Result<FileStat>>;
   realpath(path: string): Promise<Result<string>>;
   exists(path: string): Promise<Result<boolean>>;

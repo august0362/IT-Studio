@@ -2,7 +2,13 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { fileSystemContract } from './__contract__/file-system-contract.js';
 import { NodeFileSystem } from './node-file-system.js';
+
+fileSystemContract('NodeFileSystem', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'itstudio-fs-contract-'));
+  return { fs: new NodeFileSystem(), root, cleanup: async () => rm(root, { recursive: true, force: true }) };
+});
 
 describe('NodeFileSystem', () => {
   let directory: string | undefined;

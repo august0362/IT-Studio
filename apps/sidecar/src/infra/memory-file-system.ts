@@ -116,8 +116,9 @@ export class MemoryFileSystem implements IFileSystem {
     return true;
   }
 
-  private ensureParent(path: string): boolean {
-    return this.resolvePath(path) !== undefined || this.ensureDirectory(path);
+  private parentExists(path: string): boolean {
+    const parent = this.resolvePath(dirname(path));
+    return parent !== undefined && this.entries.get(parent)?.kind === 'directory';
   }
 
   readFile(path: string): Promise<Result<Uint8Array>> {
@@ -131,7 +132,7 @@ export class MemoryFileSystem implements IFileSystem {
     if (this.shouldFailCall()) return Promise.resolve(failed('injected write'));
     if (this.shouldFail()) return Promise.resolve(failed('injected write'));
     const absolute = resolve(path);
-    if (!this.ensureParent(dirname(absolute))) return Promise.resolve(failed('write'));
+    if (!this.parentExists(absolute)) return Promise.resolve(failed('write'));
     const resolved = this.resolvePath(absolute, 0, false) ?? absolute;
     this.entries.set(resolved, {
       kind: 'file',
@@ -146,7 +147,7 @@ export class MemoryFileSystem implements IFileSystem {
     const source = this.resolvePath(from);
     const entry = source ? this.entries.get(source) : undefined;
     const destination = resolve(to);
-    if (!source || !entry || !this.ensureParent(dirname(destination))) return Promise.resolve(failed('rename'));
+    if (!source || !entry || !this.parentExists(destination)) return Promise.resolve(failed('rename'));
     this.entries.delete(source);
     this.entries.set(destination, entry);
     return Promise.resolve({ ok: true, value: undefined });
@@ -174,6 +175,20 @@ export class MemoryFileSystem implements IFileSystem {
       return Promise.resolve({ ok: true, value: undefined });
     }
     return Promise.resolve(failed('create directory'));
+  }
+
+  rmdirIfEmpty(path: string): Promise<Result<boolean>> {
+    if (this.shouldFailCall()) return Promise.resolve(failed('injected remove empty directory'));
+    if (this.shouldFail()) return Promise.resolve(failed('injected remove empty directory'));
+    const resolved = resolve(path);
+    const entry = this.entries.get(resolved);
+    if (entry?.kind !== 'directory') return Promise.resolve({ ok: true, value: false });
+    const hasChildren = [...this.entries.keys()].some(
+      (candidate) => candidate !== resolved && dirname(candidate) === resolved,
+    );
+    if (hasChildren) return Promise.resolve({ ok: true, value: false });
+    this.entries.delete(resolved);
+    return Promise.resolve({ ok: true, value: true });
   }
 
   stat(path: string): Promise<Result<FileStat>> {
