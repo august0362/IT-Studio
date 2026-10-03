@@ -69,6 +69,7 @@ Changing any row requires an ADR in `docs/decisions/` and user approval.
 | D30 | **AI agents operating servers: deferred** (documented in ARCH §23; requires a new ADR before implementation). | User decision |
 | D31 | **App-overhead LLM costs** (pricing extraction) are attributed to the **active project**; `pricing.refresh` without an active project fails `VALIDATION` ("Open or create a project first"). No separate system project. | Architect decision (M3-04) |
 | D32 | **Workflow map (v1 addendum, milestone MW):** a per-project Workflow tab shows modules, links and the data contract on each link; clicking a module shows **realtime** in-flight work and **history** (7 days / 20 000 events), metrics and deep links. Passive observer — no LLM tokens, no polling; summaries never contain prompt/document text or keys. Scheduled **after** the v1 hand-over. | User decision 2026-10-03 |
+| D33 | **Single-user distribution (2026-10-04):** only the owner installs IT Studio. No Authenticode code-signing for now (SmartScreen "Run anyway" accepted); no clean-VM test — replaced by an install smoke on this machine that proves the packaged app does not depend on the system Node / repo `node_modules`. Revisit before any wider distribution. | User decision |
 
 ## 4. Open questions (ask the user before the milestone that needs them)
 
