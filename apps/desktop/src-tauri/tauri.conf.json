@@ -7,7 +7,7 @@
     "devUrl": "http://localhost:1420",
     "frontendDist": "../dist",
     "beforeDevCommand": "npm run vite:dev",
-    "beforeBuildCommand": "npm run vite:build"
+    "beforeBuildCommand": "npm --cache .npm-cache run vite:build"
   },
   "app": {
     "windows": [
@@ -22,6 +22,19 @@
     }
   },
   "bundle": {
-    "active": false
+    "active": true,
+    "targets": ["nsis", "msi"],
+    "externalBin": ["binaries/itstudio-sidecar"],
+    "resources": {
+      "bundle-resources/resources": "resources"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      },
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      }
+    }
   }
 }
