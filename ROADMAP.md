@@ -87,7 +87,7 @@
 - [x] **M3-05** (C) `FxService`: daily fetch from `open.er-api.com` (no LLM), manual override, `fx.get`, `fx.override`; MoneyDisplay uses latest rate.
 - [x] **M3-06** (C) `BudgetGuard` + budgets repo: estimate, levels, once-per-threshold alerts, Hard Stop rejection, `budget.set/status`. Ref: ARCH §6.4.
 - [x] **M3-07** (C) Revenue entries (`revenue.add`, VND→µUSD at entry), `PnLService`, `pnl.get` breakdowns, **`pnl.getAll` aggregate across projects** (add RPC method + validator, D13).
-- [ ] **M3-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M3-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M3-report.md` sign-off. Scope: Ledger/P&L: cost frozen per price version, budget BVA (thresholds) × Hard Stop decision table, manual price update with validation reject, FX override, revenue in VND, per-project and aggregate P&L numbers vs hand-computed oracle.
+- [x] **M3-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M3-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M3-report.md` sign-off. Scope: Ledger/P&L: cost frozen per price version, budget BVA (thresholds) × Hard Stop decision table, manual price update with validation reject, FX override, revenue in VND, per-project and aggregate P&L numbers vs hand-computed oracle.
 
 ## M4 — UI shell, Settings, Chat, P&L
 
@@ -138,7 +138,7 @@
 - [x] **M7-03** (C) Launcher (`code` resolve, `shell:false`) + installer (`--list-extensions`, `--install-extension` bundled vsix) + vsix build script; `.itstudio/` gitignore guard.
 - [x] **M7-04** (C) `reveal`, `show_diff`, `transaction` decorations, `notify`.
 - [x] **M7-05** (C) Diagnostics streaming (debounced) + `file_saved_by_user` → stale-run conflict marking.
-- [ ] **M7-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M7-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M7-report.md` sign-off. Scope: VS Code (`@vscode/test-electron`): auto-launch, handshake, reveal/diff on commit, diagnostics forwarded, VS Code closed mid-run does not fail the pipeline, bad token rejected.
+- [x] **M7-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M7-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M7-report.md` sign-off. Scope: VS Code (`@vscode/test-electron`): auto-launch, handshake, reveal/diff on commit, diagnostics forwarded, VS Code closed mid-run does not fail the pipeline, bad token rejected.
 
 ## M8 — Image generation *(deferred — do not start without user go-ahead)*
 
