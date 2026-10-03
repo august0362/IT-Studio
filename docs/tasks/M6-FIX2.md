@@ -26,3 +26,6 @@ Role: Implementer (ROLES §1.3) · **Deps pre-installed** · Found in the QA E2E
 
 ## Hand-back
 Append `## Result` per AGENTS.md §3.
+
+## Architect decision (resolves Blocked)
+Scope extended to `apps/sidecar/src/ports/file-system.ts` and `apps/sidecar/src/infra/node-file-system.ts` (+ their tests and the contract test). Add `rmdirIfEmpty(path: string): Promise<Result<boolean>>` to `IFileSystem` — removes the directory only when it is empty (`true` = removed, `false` = not empty or absent; never recursive, never follows symlinks). Implement it in `NodeFileSystem` (Node `rmdir`, map `ENOTEMPTY`/`ENOENT` to `false`) and `MemoryFileSystem`; update any other `IFileSystem` fakes in tests minimally.
