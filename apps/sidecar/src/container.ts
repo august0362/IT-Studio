@@ -768,11 +768,22 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   server.register('chat.setRagEnabled', ({ conversationId, enabled }) =>
     chatService.setRagEnabled(conversationId, enabled),
   );
-  server.register('chat.send', ({ conversationId, text, modelOverride }) =>
-    chatService.send(conversationId, text, modelOverride),
-  );
+  server.register('chat.send', async ({ conversationId, text, modelOverride }) => {
+    const conversation = await chatRepository.getConversation(conversationId);
+    const result = await chatService.send(conversationId, text, modelOverride);
+    if (result.ok && conversation !== null)
+      activityRecorder.correlateRequest(result.value.requestId, {
+        projectId: conversation.projectId,
+        conversationId,
+      });
+    return result;
+  });
   server.register('chat.cancel', ({ requestId }) => chatService.cancel(requestId));
-  server.register('pipeline.start', async (input) => ({ ok: true, value: await pipelineOrchestrator.start(input) }));
+  server.register('pipeline.start', async (input) => {
+    const run = await pipelineOrchestrator.start(input);
+    activityRecorder.correlatePipelineRun(run.id, run.projectId);
+    return { ok: true, value: run };
+  });
   server.register('pipeline.get', async ({ runId }) => {
     const run = await pipelineOrchestrator.get(runId);
     return run === null

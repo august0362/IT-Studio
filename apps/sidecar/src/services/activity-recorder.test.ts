@@ -45,6 +45,62 @@ const settingsFailure: Result<AppSettings> = {
 
 afterEach(() => vi.useRealTimers());
 
+describe('ActivityRecorder correlations', () => {
+  it.each(['before', 'after'] as const)(
+    'assigns request and pipeline activity when mappings are known %s events',
+    async (order) => {
+      const events = new EventBus<RpcNotificationMap>();
+      const stored: ActivityEvent[] = [];
+      let generated = 0;
+      const recorder = new ActivityRecorder({
+        events,
+        repository: {
+          insert: (event) => {
+            stored.push(event);
+            return Promise.resolve();
+          },
+          query: () => stored,
+          since: () => stored,
+          prune: () => undefined,
+        },
+        ids: { uuid: () => `00000000-0000-4000-8000-${String(++generated).padStart(12, '0')}` },
+        clock: createFakeClock(new Date(fxAsOf)),
+        settings: { get: (): Promise<Result<AppSettings>> => Promise.resolve(settingsFailure) } satisfies Pick<
+          SettingsService,
+          'get'
+        >,
+        aggregateCost: (amount): MoneyDisplay =>
+          moneyDisplaySchema.parse({ microUsd: amount, vnd: amount, usdText: '$0', vndText: '0 â‚«', fxAsOf }),
+        vscodeBridgeAvailable: false,
+      });
+      const publish = (): void => {
+        events.publish('chat.delta', { requestId, textDelta: 'private response' });
+        events.publish('router.event', { type: 'state', requestId, state: 'dispatching' });
+        events.publish('pipeline.event', { type: 'stage', runId, stage: 'specifying' });
+      };
+      const correlate = (): void => {
+        recorder.correlateRequest(requestId, { projectId, conversationId });
+        recorder.correlatePipelineRun(runId, projectId);
+      };
+      if (order === 'before') publish();
+      correlate();
+      if (order === 'after') publish();
+      await vi.waitFor(() => {
+        expect(stored).toHaveLength(3);
+      });
+      expect(stored.map((event) => event.projectId)).toEqual([projectId, projectId, projectId]);
+      expect(stored.find((event) => event.moduleId === WorkflowModuleId.CHAT)?.refs.conversationId).toBe(
+        conversationId,
+      );
+      expect(stored.find((event) => event.moduleId === WorkflowModuleId.ROUTER)?.refs.conversationId).toBe(
+        conversationId,
+      );
+      expect(stored.find((event) => event.refs.pipelineRunId === runId)?.moduleId).toBe(WorkflowModuleId.PIPELINE_PM);
+      recorder.stop();
+    },
+  );
+});
+
 describe('mapWorkflowEvent', () => {
   it.each([
     [
@@ -425,6 +481,7 @@ describe('mapWorkflowEvent', () => {
     });
     const received: ActivityEvent[][] = [];
     events.subscribe('workflow.activity', (batch) => received.push([...batch]));
+    recorder.correlateRequest(requestId, { projectId, conversationId });
     events.publish('chat.delta', { requestId, textDelta: 'first private chunk' });
     events.publish('chat.delta', { requestId, textDelta: 'second private chunk' });
     await vi.advanceTimersByTimeAsync(0);

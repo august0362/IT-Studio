@@ -2,6 +2,7 @@ import {
   WorkflowModuleId,
   type ActivityEvent,
   type ActivityKind,
+  type ConversationId,
   type MoneyDisplay,
   type ProjectId,
   type RpcNotificationMap,
@@ -32,6 +33,12 @@ type SourceName =
   | 'vscode.diagnostics';
 type SourceEvent = { [N in SourceName]: { readonly name: N; readonly payload: RpcNotificationMap[N] } }[SourceName];
 type ActivityMapping = Omit<ActivityEvent, 'id' | 'ts'>;
+interface RequestCorrelation {
+  readonly projectId: ProjectId;
+  readonly conversationId: ConversationId;
+}
+const MAX_CORRELATIONS = 5000;
+const MAX_UNCORRELATED_EVENTS = 1000;
 const PIPELINE_MODULES: ReadonlySet<ModuleId> = new Set([
   WorkflowModuleId.PIPELINE_PM,
   WorkflowModuleId.PIPELINE_CODER,
@@ -249,6 +256,9 @@ export class ActivityRecorder {
   private readonly pending = new Map<string, ActivityEvent[]>();
   private readonly rings = new Map<string, ActivityEvent[]>();
   private readonly inFlight = new Map<string, Map<ModuleId, Set<string>>>();
+  private readonly requestCorrelations = new Map<string, RequestCorrelation>();
+  private readonly runCorrelations = new Map<string, ProjectId>();
+  private readonly uncorrelatedEvents = new Map<string, SourceEvent[]>();
   private readonly unsubscribers: (() => void)[] = [];
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
   private pruneTimer: ReturnType<typeof setInterval> | undefined;
@@ -306,7 +316,20 @@ export class ActivityRecorder {
     for (const unsubscribe of this.unsubscribers) unsubscribe();
     for (const timer of this.timers.values()) clearTimeout(timer);
     this.timers.clear();
+    this.requestCorrelations.clear();
+    this.runCorrelations.clear();
+    this.uncorrelatedEvents.clear();
     if (this.pruneTimer !== undefined) clearInterval(this.pruneTimer);
+  }
+
+  correlateRequest(requestId: string, correlation: RequestCorrelation): void {
+    this.remember(this.requestCorrelations, requestId, correlation);
+    this.replayUncorrelated(requestId);
+  }
+
+  correlatePipelineRun(runId: string, projectId: ProjectId): void {
+    this.remember(this.runCorrelations, runId, projectId);
+    this.replayUncorrelated(runId);
   }
 
   async graph(projectId: ProjectId | null): Promise<WorkflowGraph> {
@@ -368,6 +391,20 @@ export class ActivityRecorder {
   }
 
   private async record(source: SourceEvent): Promise<void> {
+    const correlationId = sourceCorrelationId(source);
+    const requestCorrelation = correlationId === undefined ? undefined : this.requestCorrelations.get(correlationId);
+    const runProjectId = correlationId === undefined ? undefined : this.runCorrelations.get(correlationId);
+    if (correlationId !== undefined && requestCorrelation === undefined && runProjectId === undefined) {
+      const waiting = this.uncorrelatedEvents.get(correlationId) ?? [];
+      waiting.push(source);
+      this.uncorrelatedEvents.set(correlationId, waiting.slice(-MAX_UNCORRELATED_EVENTS));
+      while (this.uncorrelatedEvents.size > MAX_UNCORRELATED_EVENTS) {
+        const oldest = this.uncorrelatedEvents.keys().next().value;
+        if (oldest === undefined) break;
+        this.uncorrelatedEvents.delete(oldest);
+      }
+      return;
+    }
     const id = activityEventIdSchema.parse(this.ids.uuid());
     const now = isoDateTimeSchema.parse(this.clock.now().toISOString());
     const scope =
@@ -381,8 +418,13 @@ export class ActivityRecorder {
               ? source.payload.projectId
               : null;
     const configured = await this.settings.get();
-    const selectedProject = scope ?? (configured.ok ? configured.value.activeProjectId : null);
-    const mapped = mapWorkflowEvent(source, selectedProject);
+    const selectedProject =
+      scope ??
+      requestCorrelation?.projectId ??
+      runProjectId ??
+      (configured.ok ? configured.value.activeProjectId : null);
+    const refs = requestCorrelation === undefined ? {} : { conversationId: requestCorrelation.conversationId };
+    const mapped = mapWorkflowEvent(source, selectedProject, refs);
     const event: ActivityEvent = { id, ts: now, ...mapped, summary: redactLogLine(mapped.summary).slice(0, 500) };
     await this.repository.insert(event);
     const projectKey = selectedProject ?? '*';
@@ -401,6 +443,32 @@ export class ActivityRecorder {
           this.flush(key);
         }, 250),
       );
+    if (
+      correlationId !== undefined &&
+      (source.name === 'chat.completed' ||
+        source.name === 'chat.failed' ||
+        (source.name === 'pipeline.event' && source.payload.type === 'finished'))
+    ) {
+      this.requestCorrelations.delete(correlationId);
+      this.runCorrelations.delete(correlationId);
+    }
+  }
+
+  private replayUncorrelated(id: string): void {
+    const queued = this.uncorrelatedEvents.get(id);
+    if (queued === undefined) return;
+    this.uncorrelatedEvents.delete(id);
+    for (const source of queued) void this.record(source);
+  }
+
+  private remember<T>(map: Map<string, T>, id: string, value: T): void {
+    map.delete(id);
+    map.set(id, value);
+    while (map.size > MAX_CORRELATIONS) {
+      const oldest = map.keys().next().value;
+      if (oldest === undefined) break;
+      map.delete(oldest);
+    }
   }
 
   private updateFlight(projectId: ProjectId | null, event: ActivityEvent): void {
@@ -452,5 +520,27 @@ export class ActivityRecorder {
           this.flush(key);
         }, 250),
       );
+  }
+}
+
+function sourceCorrelationId(source: SourceEvent): string | undefined {
+  switch (source.name) {
+    case 'chat.delta':
+    case 'chat.completed':
+    case 'chat.failed':
+      return source.payload.requestId;
+    case 'router.event':
+      return source.payload.type === 'circuit' ? undefined : source.payload.requestId;
+    case 'pipeline.event':
+      return source.payload.runId;
+    case 'pipeline.failureReport':
+      return source.payload.runId;
+    case 'budget.alert':
+    case 'ledger.entry':
+    case 'pricing.updated':
+    case 'rag.progress':
+    case 'vscode.diagnostics':
+    case 'vscode.status':
+      return undefined;
   }
 }
