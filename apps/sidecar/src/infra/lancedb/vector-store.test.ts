@@ -5,11 +5,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { LanceDbVectorStore } from './vector-store.js';
 import type { VectorChunkRow, VectorSearchOptions } from '../../ports/vector-store.js';
 import { vectorStoreContract } from '../__contract__/vector-store-contract.js';
+import { loadLanceDb } from '../native-modules.js';
 
 let directory = '';
 let store: LanceDbVectorStore;
 
 beforeAll(async () => {
+  loadLanceDb();
   directory = await mkdtemp(join(tmpdir(), 'itstudio-vectors-'));
   store = new LanceDbVectorStore(directory);
 });

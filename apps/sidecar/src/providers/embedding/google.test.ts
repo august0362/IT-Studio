@@ -18,6 +18,7 @@ const fixture = (name: string): Record<string, unknown> =>
 describe('GoogleEmbeddingProvider', () => {
   beforeAll(() => {
     mswServer.listen({ onUnhandledRequest: 'error' });
+    return import('@google/genai').then(() => undefined);
   });
   afterEach(() => {
     mswServer.resetHandlers();
