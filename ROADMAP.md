@@ -156,7 +156,7 @@ Spec: ARCH §14.1, `schemas.ts` §13.
 
 - [x] **M8-01** (C) `IImageProvider` port + DALL·E 3 adapter.
 - [x] **M8-02** (C) FLUX adapters (Together sync, Replicate polling); Midjourney adapter compiled but disabled.
-- [ ] **M8-03** (C) `generate_image` tool dispatch: validation, BudgetGuard, provider fallback, download-and-store, ledger (`purpose=image`).
+- [x] **M8-03** (C) `generate_image` tool dispatch: validation, BudgetGuard, provider fallback, download-and-store, ledger (`purpose=image`).
 - [ ] **M8-04** (C) Chat inline image rendering via asset protocol.
 - [ ] **M8-05** (C) Gallery tab.
 - [ ] **M8-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M8-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M8-report.md` sign-off. Scope: Image generation: tool call → image stored locally, provider fallback, cost per image, gallery.
@@ -173,9 +173,9 @@ Spec: ARCH §14.2.
 - [x] **M9-01** (C) esbuild sidecar bundle + Node SEA build script; native module loading from resources.
 - [x] **M9-02** (C) Tauri `externalBin` + resources (vsix, seeds); production sidecar spawn path.
 - [x] **M9-03** (C) NSIS + MSI bundles; WebView2 bootstrapper.
-- [ ] **M9-04** (A) Code-signing setup (user supplies certificate) + updater key pair (private key outside repo).
+- [x] **M9-04** (A) *(not needed — D33 single user; updater key pair deferred until auto-update is wanted)* Code-signing setup (user supplies certificate) + updater key pair (private key outside repo).
 - [x] **M9-05** (C) Version bump script (4 manifests) + release CHANGELOG automation.
-- [ ] **M9-06** (A) Clean-VM smoke test checklist and execution.
+- [ ] **M9-06** (C) *(D33: replaced by an isolated install smoke — no system Node on PATH, no repo node_modules reachable)* Clean-VM smoke test checklist and execution.
 - [ ] **M9-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M9-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M9-report.md` sign-off. Scope: Packaging: install on clean VM, first run, sidecar SEA starts, native modules load, update flow.
 
 ---

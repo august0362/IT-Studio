@@ -32,6 +32,7 @@ import { retrievalQuerySchema, ingestJobSchema, sourceDocumentSchema, retrievalH
 import { pipelineRunSchema, pipelineEventSchema, failureReportSchema } from './pipeline.js';
 import { commandKindSchema, diagnosticSchema, commandRunSchema } from './worker.js';
 import { vscodeStatusSchema } from './vscode.js';
+import { imageAssetSchema } from './image.js';
 import { appErrorSchema } from './errors.js';
 import { activityEventSchema, workflowGraphSchema, workflowModuleIdSchema } from './workflow.js';
 import {
@@ -45,6 +46,7 @@ import {
   isoDateTimeSchema,
   providerIdSchema,
   messageIdSchema,
+  imageAssetIdSchema,
   sha256Schema,
 } from './common.js';
 
@@ -70,6 +72,8 @@ export const rpcParamsSchemas = {
     .object({ conversationId: conversationIdSchema, text: z.string(), modelOverride: modelKeySchema.exactOptional() })
     .readonly(),
   'chat.cancel': z.object({ requestId: llmRequestIdSchema }).readonly(),
+  'images.list': z.object({ projectId: projectIdSchema }).readonly(),
+  'images.delete': z.object({ assetId: imageAssetIdSchema }).readonly(),
   'router.getConfig': empty,
   'router.updateConfig': z.object({ config: routerConfigSchema }).readonly(),
   'router.resolveFallback': fallbackDecisionSchema,
@@ -199,6 +203,8 @@ export const rpcResultSchemas = {
   'chat.setRagEnabled': conversationSchema,
   'chat.send': z.object({ requestId: llmRequestIdSchema, userMessageId: messageIdSchema }).readonly(),
   'chat.cancel': z.object({ cancelled: z.boolean() }).readonly(),
+  'images.list': z.array(imageAssetSchema).readonly(),
+  'images.delete': z.object({ deleted: z.boolean() }).readonly(),
   'router.getConfig': routerConfigSchema,
   'router.updateConfig': routerConfigSchema,
   'router.resolveFallback': z.object({ accepted: z.boolean() }).readonly(),

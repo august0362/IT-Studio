@@ -71,6 +71,13 @@
       "when": 1791043270370,
       "tag": "0009_overconfident_black_widow",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1791051734445,
+      "tag": "0010_sparkling_bedlam",
+      "breakpoints": true
     }
   ]
 }

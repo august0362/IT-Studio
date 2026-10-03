@@ -6,11 +6,12 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createLogger } from './infra/logger.js';
 import { createFakeClock } from './infra/clock.js';
-import { createContainer } from './container.js';
+import { createContainer, scriptedLlmProvider } from './container.js';
 import { MemorySecretStore } from './infra/memory-secret-store.js';
 import type { IProviderKeyVerifier } from './infra/http/provider-key-verifier.js';
 import { ProviderId } from '@itstudio/schemas';
 import type { IHttpClient } from './ports/http-client.js';
+import type { ProviderRequest } from './ports/llm-provider.js';
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -28,6 +29,42 @@ const testFxHttpClient: IHttpClient = {
 };
 
 describe('sidecar container', () => {
+  it('scripts a tool call and then returns the follow-up assistant text', async () => {
+    const modelId = 'scripted-model';
+    const provider = scriptedLlmProvider(
+      ProviderId.ANTHROPIC,
+      'Image created.',
+      { [`anthropic/${modelId}`]: ['tool:{"name":"generate_image","arguments":{"prompt":"a blue bird"}}', 'ok'] },
+      new Map(),
+    );
+    const request: ProviderRequest = {
+      modelId,
+      messages: [{ role: 'user', parts: [{ type: 'text', text: 'Generate a blue bird image' }] }],
+      maxOutputTokens: 128,
+      responseFormat: 'text',
+      timeoutMs: 1_000,
+    };
+
+    const streamedText: string[] = [];
+    const toolResponse = await provider.stream(request, 'test-key', new AbortController().signal, (text) => {
+      streamedText.push(text);
+    });
+    expect(streamedText).toEqual([]);
+    expect(toolResponse).toMatchObject({
+      ok: true,
+      value: {
+        text: '',
+        finishReason: 'tool_calls',
+        toolCalls: [{ id: 'call_scripted', name: 'generate_image', arguments: { prompt: 'a blue bird' } }],
+      },
+    });
+    const followUp = await provider.complete(request, 'test-key', new AbortController().signal);
+    expect(followUp).toMatchObject({
+      ok: true,
+      value: { text: 'Image created.', finishReason: 'stop', toolCalls: [] },
+    });
+  });
+
   it('logs lifecycle events in order and creates the daily log file', async () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'itstudio-lifecycle-'));
     tempDirectories.push(dataDir);
