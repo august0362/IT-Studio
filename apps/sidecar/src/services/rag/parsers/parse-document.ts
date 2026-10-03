@@ -1,8 +1,5 @@
 import { basename, extname } from 'node:path';
-import { convert as htmlToText } from 'html-to-text';
 import type { FormatCallback } from 'html-to-text';
-import mammoth from 'mammoth';
-import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { z } from 'zod';
 import {
   DocumentFormat,
@@ -93,7 +90,7 @@ export async function parseDocument(path: string, fileSystem: IFileSystem): Prom
         : format.value === DocumentFormat.DOCX
           ? await parseDocx(bytes)
           : format.value === DocumentFormat.HTML
-            ? parseHtml(decoded.text)
+            ? await parseHtml(decoded.text)
             : decoded.text;
     const normalized = normalizeNewlines(text);
     const title = extractTitle(normalized) ?? basename(path, extname(path));
@@ -128,6 +125,7 @@ function decodeText(bytes: Uint8Array, format: DocumentFormatType): { text: stri
 }
 
 async function parsePdf(bytes: Uint8Array): Promise<string> {
+  const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const task = getDocument({ data: bytes.slice(), useWorkerFetch: false });
   try {
     const document = await task.promise;
@@ -146,12 +144,14 @@ async function parsePdf(bytes: Uint8Array): Promise<string> {
 }
 
 async function parseDocx(bytes: Uint8Array): Promise<string> {
+  const mammoth = (await import('mammoth')).default;
   const api = mammothMarkdownApiSchema.parse(mammoth);
   const result = await api.convertToMarkdown({ buffer: Buffer.from(bytes) });
   return result.value;
 }
 
-function parseHtml(html: string): string {
+async function parseHtml(html: string): Promise<string> {
+  const { convert: htmlToText } = await import('html-to-text');
   const headings: Record<string, FormatCallback> = Object.fromEntries(
     Array.from({ length: 6 }, (_, index) => [
       `markdownH${String(index + 1)}`,

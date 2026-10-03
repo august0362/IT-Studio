@@ -1,5 +1,4 @@
-import { connect, type Connection } from '@lancedb/lancedb';
-import { Field, FixedSizeList, Float32, Int32, List, Schema, Utf8 } from 'apache-arrow';
+import type { Connection } from '@lancedb/lancedb';
 import { z } from 'zod';
 import { ErrorCode, type AppError, type Result } from '@itstudio/schemas';
 import type { IVectorStore, VectorChunkRow, VectorSearchHit, VectorSearchOptions } from '../../ports/vector-store.js';
@@ -30,6 +29,7 @@ export class LanceDbVectorStore implements IVectorStore {
       const db = await this.db();
       const existing = await this.tableExists(db, tableName(table));
       if (!existing) {
+        const { Field, FixedSizeList, Float32, Int32, List, Schema, Utf8 } = await import('apache-arrow');
         const schema = new Schema([
           new Field('chunkId', new Utf8(), false),
           new Field('documentId', new Utf8(), false),
@@ -123,7 +123,9 @@ export class LanceDbVectorStore implements IVectorStore {
   }
 
   private async db(): Promise<Connection> {
-    this.connection ??= connect(`${this.dataDir.replace(/[\\/]$/, '')}/vectors`);
+    this.connection ??= import('@lancedb/lancedb').then(({ connect }) =>
+      connect(`${this.dataDir.replace(/[\\/]$/, '')}/vectors`),
+    );
     return this.connection;
   }
 

@@ -1,4 +1,3 @@
-import { convert as htmlToText } from 'html-to-text';
 import type {
   AppError,
   LlmRequest,
@@ -198,13 +197,16 @@ export class PricingUpdater {
     const contentType = response.headers.get('content-type') ?? '';
     const text =
       /html/iu.test(contentType) || /^\s*</u.test(html)
-        ? htmlToText(html, {
-            wordwrap: false,
-            selectors: [
-              { selector: 'script', format: 'skip' },
-              { selector: 'style', format: 'skip' },
-            ],
-          })
+        ? await (async () => {
+            const { convert: htmlToText } = await import('html-to-text');
+            return htmlToText(html, {
+              wordwrap: false,
+              selectors: [
+                { selector: 'script', format: 'skip' },
+                { selector: 'style', format: 'skip' },
+              ],
+            });
+          })()
         : html;
     return Buffer.from(text, 'utf8').subarray(0, MAX_TEXT_BYTES).toString('utf8');
   }
