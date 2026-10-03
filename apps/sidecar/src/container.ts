@@ -161,6 +161,8 @@ class ScriptedKeyVerifier implements IProviderKeyVerifier {
 }
 
 const scriptedLlmFixtureSchema = z.object({ models: z.record(z.string(), z.array(z.string())) });
+const embeddingOutcomeSchema = z.enum(['ok', 'http:503', 'quota', 'auth']);
+const embeddingScriptSchema = z.record(z.string(), z.array(embeddingOutcomeSchema));
 const scriptedLlmTextsSchema = z.record(z.string(), z.string());
 
 function scriptedLlmProvider(
@@ -304,6 +306,11 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     e2e && env.ITSTUDIO_E2E_LLM_SCRIPT !== undefined
       ? scriptedLlmFixtureSchema.parse(JSON.parse(readFileSync(env.ITSTUDIO_E2E_LLM_SCRIPT, 'utf8'))).models
       : {};
+  const embeddingScripts =
+    e2e && env.ITSTUDIO_E2E_EMBEDDING_SCRIPT !== undefined
+      ? embeddingScriptSchema.parse(JSON.parse(readFileSync(env.ITSTUDIO_E2E_EMBEDDING_SCRIPT, 'utf8')))
+      : {};
+  const embeddingScriptCursors = new Map<string, number>();
   const configuredLlmText = env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.';
   let llmTexts: string | Readonly<Record<string, string>> = configuredLlmText;
   try {
@@ -404,8 +411,10 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     dependencies.pricingHttpClient ??
     (e2e
       ? {
-          request: () =>
-            Promise.resolve(
+          request: () => {
+            if (env.ITSTUDIO_E2E_PRICING_HTTP === 'fail')
+              return Promise.reject(new Error('Scripted pricing network failure.'));
+            return Promise.resolve(
               new Response(
                 readFileSync(
                   resolve(dirname(fileURLToPath(import.meta.url)), '../test/fixtures/pricing/pricing.html'),
@@ -413,7 +422,8 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
                 ),
                 { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } },
               ),
-            ),
+            );
+          },
         }
       : new FetchHttpClient());
   const events = new EventBus<RpcNotificationMap>();
@@ -497,8 +507,12 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     clock,
   });
   const embeddingProviders = {
-    [ProviderId.OPENAI]: e2e ? new FakeEmbeddingProvider(ProviderId.OPENAI) : new OpenAiEmbeddingProvider(),
-    [ProviderId.GOOGLE]: e2e ? new FakeEmbeddingProvider(ProviderId.GOOGLE) : new GoogleEmbeddingProvider(),
+    [ProviderId.OPENAI]: e2e
+      ? new FakeEmbeddingProvider(ProviderId.OPENAI, embeddingScripts, embeddingScriptCursors)
+      : new OpenAiEmbeddingProvider(),
+    [ProviderId.GOOGLE]: e2e
+      ? new FakeEmbeddingProvider(ProviderId.GOOGLE, embeddingScripts, embeddingScriptCursors)
+      : new GoogleEmbeddingProvider(),
   };
   const embeddingDispatcher = {
     embed: async (

@@ -85,6 +85,27 @@ describe('pricing updater integration', () => {
     expect(response.error?.message).toContain('active project');
   });
 
+  it('TC-M3-023 reports fetch_failed and preserves prices when all pricing pages fail', async () => {
+    sidecar = await startSidecar({ ITSTUDIO_E2E_PRICING_HTTP: 'fail' });
+    const workspace = resolve(sidecar.dataDir, 'pricing-fetch-failure-workspace');
+    await mkdir(workspace);
+    const projectId = projectSchema.parse(
+      (await sidecar.call('project.create', { name: 'Pricing fetch failure', workspaceRoot: workspace })).result,
+    ).id;
+    await sidecar.call('project.setActive', { projectId });
+    const before = priceTableSchema.parse((await sidecar.call('pricing.get')).result);
+    const notifications: string[] = [];
+    sidecar.notifications.on('notification', (value: unknown) => {
+      if (typeof value === 'object' && value !== null && 'method' in value && typeof value.method === 'string')
+        notifications.push(value.method);
+    });
+    const response = await sidecar.call('pricing.refresh');
+    expect(response.error).toBeUndefined();
+    expect(priceUpdateRunSchema.parse(response.result).status).toBe('fetch_failed');
+    expect(priceTableSchema.parse((await sidecar.call('pricing.get')).result)).toEqual(before);
+    await waitFor(() => notifications.includes('pricing.updated'));
+  }, 30_000);
+
   it('TC-M3-011 accepts decimal USD overrides and rejects unsupported decimal forms', async () => {
     const seeds = loadSeeds('config');
     if (!seeds.ok) throw new Error(seeds.error.message);

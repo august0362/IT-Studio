@@ -8,6 +8,7 @@ import { projectSchema } from '../../src/validation/projects.js';
 import { sourceDocumentSchema } from '../../src/validation/rag.js';
 import { providerIdSchema } from '../../src/validation/common.js';
 import { LanceDbVectorStore } from '../../src/infra/lancedb/vector-store.js';
+import { loadSeeds } from '../../src/config/load-seeds.js';
 import { startSidecar, waitFor, type SidecarHarness } from './harness.js';
 
 let sidecar: SidecarHarness | undefined;
@@ -33,6 +34,25 @@ describe('RAG ingest integration', () => {
     expect(progress.some((event) => event.id === jobId && event.status === 'failed')).toBe(false);
     const ledger = await sidecar?.call('ledger.query', { projectId, purposes: [CostPurpose.EMBEDDING], limit: 100 });
     expect(z.object({ items: z.array(z.unknown()).min(1) }).safeParse(ledger?.result).success).toBe(true);
+  }, 60_000);
+
+  it('TC-M5-009 falls back to a same-dimension embedding model after HTTP 503', async () => {
+    const loaded = loadSeeds('config');
+    if (!loaded.ok) throw new Error(loaded.error.message);
+    const primary = loaded.value.defaultEmbedding.modelKey;
+    sidecar = await startSidecar({}, undefined, { [primary]: ['http:503', 'http:503', 'http:503'] });
+    const { projectId, workspace, progress } = await createProject();
+    const fallbackKey = loaded.value.defaultEmbedding.fallbackModelKeys[0];
+    const fallback = loaded.value.models.find((model) => model.key === fallbackKey);
+    if (fallback === undefined) throw new Error('Embedding fallback model is missing');
+    await sidecar.call('secrets.set', { provider: fallback.provider, apiKey: 'integration-only-fake-key' });
+    await writeFile(resolve(workspace, 'fallback.md'), '# Fallback\n\nEmbedding fallback fixture.', 'utf8');
+    const jobId = await ingest(projectId, 'fallback.md');
+    await waitFor(() => progress.some((event) => event.id === jobId && event.status === 'indexed'));
+    const ledger = z
+      .object({ items: z.array(z.object({ modelKey: z.string(), purpose: z.string() })) })
+      .parse((await sidecar.call('ledger.query', { projectId, purposes: [CostPurpose.EMBEDDING], limit: 100 })).result);
+    expect(ledger.items.some((row) => row.modelKey === fallback.key)).toBe(true);
   }, 60_000);
 
   it('TC-M5-036 ingests a TypeScript-only folder into a fresh project', async () => {
@@ -171,7 +191,7 @@ async function createProject(): Promise<{
   readonly workspace: string;
   readonly progress: { readonly id: string; readonly status: string; readonly error?: unknown }[];
 }> {
-  sidecar = await startSidecar();
+  sidecar ??= await startSidecar();
   const workspace = resolve(sidecar.dataDir, 'rag-workspace');
   await mkdir(workspace);
   const projectId = projectSchema.parse(
