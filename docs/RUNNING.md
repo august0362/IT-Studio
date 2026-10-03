@@ -59,6 +59,8 @@ ITSTUDIO_DATA_DIR="$TEMP/itstudio-try" npm run dev
 
 ## 6. Running the tests
 
+Before shipping a release, run `npm run audit:prod` to check production dependencies for high or critical vulnerabilities.
+
 ```bash
 npm run typecheck && npm run lint && npm test     # unit (fast)
 npm run test:integration                          # real sidecar, scripted providers (~3 min)
