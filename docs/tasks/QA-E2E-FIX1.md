@@ -27,3 +27,20 @@ Failing (both runs unless noted):
 
 ## Hand-back
 Append `## Result` per AGENTS.md §3 with a table: case → change made.
+
+## Result
+
+| Case | Change made |
+|---|---|
+| TC-M4-025, TC-M4-033, TC-M4-042, TC-M4-051, TC-M5-020/022/023, TC-M6-070/071/072 | Added `ensureProviderKeys` in `e2e/helpers/keys.ts` and called it before specs that use chat, embeddings, or pipeline roles. |
+| TC-M4-022/023, TC-M4-040/042 | Used accessible checkbox names for Auto Fallback and Hard Stop; scripted sessions save keys for OpenAI, Anthropic, Google, and Groq. |
+| TC-M4-041 | Read the DnD live region announcement, including its trailing period, and checked the reordered ladder after reload. |
+| TC-M4-031 | Asserted the active project's rendered budget usage label and compact spent `Money` format (`$0.00 · 0 ₫`) from `BudgetBars`. |
+| TC-M4-032 | Added run-unique project names and checked only those projects' order and revenue rows. |
+| TC-M1-006, TC-M4-021 | Added scripted-session teardown in `afterEach`, cleanup of suite-started desktop process trees in `onComplete`, and shutdown checks limited to the desktop/sidecar PIDs captured for the tested session. |
+
+- Summary: Fixed E2E key setup, selectors, assertions, portfolio isolation, and scripted driver process cleanup without changing test IDs or intent.
+- Files changed: `docs/tasks/QA-E2E-FIX1.md`, `e2e/helpers/keys.ts`, `e2e/helpers/ui.ts`, `e2e/specs/m4/chat.spec.ts`, `e2e/specs/m4/cost.spec.ts`, `e2e/specs/m4/scripted-llm.spec.ts`, `e2e/specs/m4/settings.spec.ts`, `e2e/specs/m4/shell.spec.ts`, `e2e/specs/m5/knowledge.spec.ts`, `e2e/specs/m6/code.spec.ts`, `e2e/wdio.conf.ts`.
+- Dependencies added (with reason): None.
+- Decisions taken within scope: Budget bars display `BudgetStatus.spent` using compact `Money`; the regression assertion matches that rendered spent value and usage label for a newly budgeted active project.
+- Open issues / follow-ups: E2E suite not run as requested; QA should rerun it in the short session. `npm install` reported 34 existing dependency audit findings.

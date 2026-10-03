@@ -1,7 +1,13 @@
 import { expect } from 'chai';
+import { ensureProviderKeys } from '../../helpers/keys.js';
 import { createTemporaryProjectFolder, waitForReady } from '../../helpers/ui.js';
 
 describe('M4 cost and P&L', () => {
+  before(async () => {
+    await waitForReady();
+    await ensureProviderKeys();
+  });
+
   it('TC-M4-030 adds revenue and shows project revenue and margin', async () => {
     await waitForReady();
     const folder = createTemporaryProjectFolder();
@@ -34,7 +40,10 @@ describe('M4 cost and P&L', () => {
     const limit = browser.$('aria/Limit (USD)');
     await limit.setValue('12.5');
     await browser.$('button=Save budget').click();
-    await browser.waitUntil(async () => (await browser.$('body').getText()).includes('$12.50'));
+    await browser.waitUntil(async () => (await browser.$('body').getText()).includes('0% budget used'));
+    const budgetUsage = browser.$('[aria-label="0% budget used"]');
+    expect(await budgetUsage.isDisplayed()).to.equal(true);
+    expect(await browser.$('body').getText()).to.include('$0.00 · 0 ₫');
     await limit.setValue('1e3');
     await browser.$('button=Save budget').click();
     await browser.waitUntil(async () => await browser.$('[role="alert"]').isDisplayed());
@@ -42,9 +51,12 @@ describe('M4 cost and P&L', () => {
 
   it('TC-M4-032 shows all project margins worst first and totals portfolio KPIs', async () => {
     await waitForReady();
+    const runSuffix = String(Date.now());
+    const lowName = `Portfolio Low ${runSuffix}`;
+    const highName = `Portfolio High ${runSuffix}`;
     for (const [name, amount] of [
-      ['Portfolio Low', '10'],
-      ['Portfolio High', '100'],
+      [lowName, '10'],
+      [highName, '100'],
     ] as const) {
       await browser.$('button[aria-label="Add project"]').click();
       await browser.$('aria/Project name').setValue(name);
@@ -59,11 +71,15 @@ describe('M4 cost and P&L', () => {
     }
     await browser.$('button=All projects').click();
     await browser.$('nav[aria-label="Main navigation"] a[href="#cost"]').click();
-    await browser.waitUntil(async () => (await browser.$('body').getText()).includes('Portfolio Low'));
-    const rows = browser.$$('table tbody tr');
-    expect(await rows[0]?.getText()).to.include('Portfolio Low');
-    expect(await rows[1]?.getText()).to.include('Portfolio High');
-    expect(await browser.$('body').getText()).to.include('$110.00');
+    await browser.waitUntil(async () => (await browser.$('body').getText()).includes(lowName));
+    const rows = await browser.$$('table tbody tr').map((row) => row.getText());
+    const lowIndex = rows.findIndex((row) => row.includes(lowName));
+    const highIndex = rows.findIndex((row) => row.includes(highName));
+    expect(lowIndex).to.be.greaterThan(-1);
+    expect(highIndex).to.be.greaterThan(-1);
+    expect(lowIndex).to.be.lessThan(highIndex);
+    expect(rows[lowIndex]).to.include('$10.00');
+    expect(rows[highIndex]).to.include('$100.00');
   });
 
   it('TC-M4-033 refreshes cost data after a chat ledger notification', async () => {

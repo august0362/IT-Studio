@@ -1,9 +1,15 @@
 import { expect } from 'chai';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { ensureProviderKeys } from '../../helpers/keys.js';
 import { createTemporaryProjectFolder, waitForReady } from '../../helpers/ui.js';
 
 describe('M4 App shell', () => {
+  before(async () => {
+    await waitForReady();
+    await ensureProviderKeys();
+  });
+
   it('TC-M4-010 creates a project in the dialog and selects its tab', async () => {
     await waitForReady();
     const folder = createTemporaryProjectFolder();

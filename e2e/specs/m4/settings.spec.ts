@@ -1,19 +1,25 @@
 import { expect } from 'chai';
+import { ensureProviderKeys } from '../../helpers/keys.js';
 import { createTemporaryProjectFolder, waitForReady } from '../../helpers/ui.js';
 
 describe('M4 Settings', () => {
+  before(async () => {
+    await waitForReady();
+    await ensureProviderKeys();
+  });
+
   it('TC-M4-040 persists Auto Fallback after reload', async () => {
     await waitForReady();
     await browser.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
-    const toggle = browser.$('label*=Auto Fallback input');
+    const toggle = browser.$('aria/Auto Fallback');
     await browser.waitUntil(async () => toggle.isExisting());
     if (await toggle.isSelected()) await toggle.click();
     await browser.waitUntil(async () => !(await toggle.isSelected()));
     await browser.refresh();
     await waitForReady();
     await browser.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
-    await browser.waitUntil(async () => !(await browser.$('label*=Auto Fallback input').isSelected()));
-    expect(await browser.$('label*=Auto Fallback input').isSelected()).to.equal(false);
+    await browser.waitUntil(async () => !(await browser.$('aria/Auto Fallback').isSelected()));
+    expect(await browser.$('aria/Auto Fallback').isSelected()).to.equal(false);
   });
 
   it('TC-M4-041 reorders the ladder with the keyboard and announces the move', async () => {
@@ -29,12 +35,19 @@ describe('M4 Settings', () => {
     const secondName = await second.getText();
     await buttons[0].click();
     await browser.keys(['SPACE', 'ARROWDOWN', 'SPACE']);
-    await browser.waitUntil(async () =>
-      (await browser.$('body').getText()).includes(`Moved ${firstName} before ${secondName}`),
-    );
+    await browser.waitUntil(async () => {
+      const statuses = await browser.$$('[role="status"]').map((status) => status.getText());
+      return statuses.some((text) => text.includes(`Moved ${firstName} before ${secondName}.`));
+    });
     const after = browser.$$('ol li span');
     expect(await after[0]?.getText()).to.equal(secondName);
     expect(await after[1]?.getText()).to.equal(firstName);
+    await browser.refresh();
+    await waitForReady();
+    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
+    const persisted = browser.$$('ol li span');
+    expect(await persisted[0]?.getText()).to.equal(secondName);
+    expect(await persisted[1]?.getText()).to.equal(firstName);
   });
 
   it('TC-M4-042 blocks chat with a BUDGET_HARD_STOP error and remediation', async () => {
@@ -50,7 +63,7 @@ describe('M4 Settings', () => {
     await browser.$('aria/Limit (USD)').setValue('0.000001');
     await browser.$('button=Save budget').click();
     await browser.$('nav[aria-label="Main navigation"] a[href="#settings-budget"]').click();
-    const hardStop = browser.$('label*=Hard Stop input');
+    const hardStop = browser.$('aria/Hard Stop');
     if (!(await hardStop.isSelected())) await hardStop.click();
     await browser.$('nav[aria-label="Main navigation"] a[href="#chat"]').click();
     await browser.$('button=New chat').click();

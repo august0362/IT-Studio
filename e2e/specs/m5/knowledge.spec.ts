@@ -1,9 +1,15 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect } from 'chai';
+import { ensureProviderKeys } from '../../helpers/keys.js';
 import { createTemporaryProjectFolder, waitForReady } from '../../helpers/ui.js';
 
 describe('M5 knowledge', () => {
+  before(async () => {
+    await waitForReady();
+    await ensureProviderKeys();
+  });
+
   it('TC-M5-020 adds a markdown source and retrieves a matching chunk', async () => {
     await waitForReady();
     const folder = createTemporaryProjectFolder();

@@ -1,7 +1,13 @@
 import { expect } from 'chai';
+import { ensureProviderKeys } from '../../helpers/keys.js';
 import { createTemporaryProjectFolder, waitForReady } from '../../helpers/ui.js';
 
 describe('M6 Code pipeline', () => {
+  before(async () => {
+    await waitForReady();
+    await ensureProviderKeys();
+  });
+
   it('TC-M6-070 creates a project and observes the scripted pipeline complete', async () => {
     await waitForReady();
     const folder = createTemporaryProjectFolder();
