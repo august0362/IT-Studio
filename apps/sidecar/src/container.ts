@@ -31,6 +31,8 @@ import { RevenueRepository } from './infra/sqlite/revenue-repository.js';
 import { BudgetRepository } from './infra/sqlite/budget-repository.js';
 import { PriceRepository } from './infra/sqlite/price-repository.js';
 import { FxRepository } from './infra/sqlite/fx-repository.js';
+import { ActivityRepository } from './infra/sqlite/activity-repository.js';
+import { ActivityRecorder } from './services/activity-recorder.js';
 import { ProjectService } from './services/project-service.js';
 import { SettingsService } from './services/settings-service.js';
 import { ChatService } from './services/chat-service.js';
@@ -80,7 +82,7 @@ import { FailureReportBuilder } from './services/failure-report-builder.js';
 import { JournalRecoveryService } from './services/journal-recovery.js';
 import { ProjectContextService } from './services/project-context.js';
 import { PipelineOrchestrator } from './services/pipeline-orchestrator.js';
-import { toMoneyDisplay } from './domain/money.js';
+import { microUsd, toMoneyDisplay } from './domain/money.js';
 import { OpenAiEmbeddingProvider } from './providers/embedding/openai.js';
 import { GoogleEmbeddingProvider } from './providers/embedding/google.js';
 import { FakeEmbeddingProvider } from './infra/fake-embedding-provider.js';
@@ -335,6 +337,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const budgetRepository = new BudgetRepository(database.db);
   const priceRepository = new PriceRepository(database.db);
   const fxRepository = new FxRepository(database.db);
+  const activityRepository = new ActivityRepository(database.db);
   const documentRepository = new DocumentRepository(database.db);
   const settingsRepository = new SettingsRepository(database.db);
   const settingsService = new SettingsService({
@@ -427,6 +430,15 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
         }
       : new FetchHttpClient());
   const events = new EventBus<RpcNotificationMap>();
+  const activityRecorder = new ActivityRecorder({
+    events,
+    repository: activityRepository,
+    ids,
+    clock,
+    settings: settingsService,
+    aggregateCost: (amount) => toMoneyDisplay(microUsd(amount), fxService.getEffective()),
+    vscodeBridgeAvailable: vscodeBridgeEnabled,
+  });
   const fileSystem = new NodeFileSystem();
   let vscodeConnected = false;
   let vscodeStatus: VSCodeStatus = {
@@ -707,6 +719,9 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
         fxJobStopped = true;
         fxDailyJob.stop();
       },
+      () => {
+        activityRecorder.stop();
+      },
     ],
     ...(dependencies.exit === undefined ? {} : { exit: dependencies.exit }),
   });
@@ -787,6 +802,15 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
         }
       : { ok: true, value: run };
   });
+  server.register('workflow.graph', ({ projectId }) =>
+    activityRecorder.graph(projectId).then((value) => ({ ok: true as const, value })),
+  );
+  server.register('workflow.activity', ({ projectId, moduleId, limit, before }) =>
+    Promise.resolve({
+      ok: true,
+      value: activityRecorder.activity(projectId, limit, before, moduleId),
+    }),
+  );
   server.register('ledger.query', (query) => ledgerService.query(query));
   server.register('ledger.queryRows', (query) => ledgerService.queryRows(query));
   server.register('pnl.get', ({ projectId, from, to }) => pnlService.get(projectId, from, to));
@@ -848,6 +872,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     projectService,
     vscodeBridge,
     vscodeInternalEvents,
+    activityRecorder,
     events,
     logger,
     server,
@@ -862,6 +887,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
         'seeds loaded',
       );
       transport.start();
+      activityRecorder.start();
       void fxService.initialize().then(
         () => {
           if (!fxJobStopped) fxDailyJob.start();
