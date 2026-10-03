@@ -13,14 +13,16 @@ const nodeModules = join(root, 'node_modules');
 // esbuild validates plugin filters with Go's regexp engine, which rejects JS flags.
 const CONTAINER_FILTER_SOURCE = 'container\\.ts$';
 const SYSTEM_SERVICE_FILTER_SOURCE = 'system-service\\.ts$';
+const MODULE_FILTER_SOURCE = '.+';
 const nativePackages = [
   'better-sqlite3',
   '@lancedb/lancedb',
   '@lancedb/lancedb-win32-x64-msvc',
   '@napi-rs/keyring',
   '@napi-rs/keyring-win32-x64-msvc',
+  'apache-arrow',
 ];
-const externals = nativePackages;
+const nativeModules = join(root, 'apps/sidecar/src/infra/native-modules.ts');
 
 if (process.platform !== 'win32' || process.arch !== 'x64')
   throw new Error('The M9-01 SEA bundle must be built with Node.js on Windows x64.');
@@ -43,7 +45,6 @@ await runStep('esbuild sidecar bundle', async () => {
     minify: true,
     sourcemap: 'external',
     packages: 'bundle',
-    external: externals,
     plugins: [
       {
         name: 'sea-resource-module-paths',
@@ -61,6 +62,20 @@ await runStep('esbuild sidecar bundle', async () => {
               "require('node:path').join(require('node:path').dirname(process.execPath), 'resources/apps/sidecar/src/services')",
             ),
             loader: 'ts',
+          }));
+        },
+      },
+      {
+        name: 'sea-external-module-loader',
+        setup(context) {
+          context.onResolve({ filter: new RegExp(MODULE_FILTER_SOURCE) }, (args) => {
+            if (nativePackages.some((name) => args.path === name || args.path.startsWith(`${name}/`)))
+              return { path: args.path, namespace: 'sea-external' };
+            return undefined;
+          });
+          context.onLoad({ filter: new RegExp(MODULE_FILTER_SOURCE), namespace: 'sea-external' }, (args) => ({
+            contents: `module.exports = require(${JSON.stringify(nativeModules)}).loadExternal(${JSON.stringify(args.path)});`,
+            loader: 'js',
           }));
         },
       },

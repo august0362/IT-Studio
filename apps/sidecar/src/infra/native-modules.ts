@@ -22,17 +22,23 @@ export function resourcePath(...parts: readonly string[]): string {
 }
 
 function packageRequire(packageName: string, nativeFile: string): unknown {
-  if (!isSea()) return createRequire(join(process.cwd(), 'package.json'))(packageName) as unknown;
+  if (!isSea()) return loadExternal(packageName);
   const packageRoot = join(bundledResources, 'node_modules');
-  const requireFromResources = createRequire(join(bundledResources, 'loader.cjs'));
   const nativePath = join(packageRoot, nativeFile);
   if (!existsSync(nativePath)) throw new Error(`Missing native module file: ${nativePath}`);
   process.env.NAPI_RS_NATIVE_LIBRARY_PATH = nativePath;
+  return loadExternal(packageName);
+}
+
+export function loadExternal(packageName: string): unknown {
+  const requireFromPackage = isSea()
+    ? createRequire(join(bundledResources, 'node_modules', 'noop.js'))
+    : createRequire(join(process.cwd(), 'package.json'));
   try {
-    return requireFromResources(packageName) as unknown;
+    return requireFromPackage(packageName) as unknown;
   } catch (error) {
-    const detail = error instanceof Error ? error.message : 'Unknown native loader error';
-    throw new Error(`Failed to load native module file ${nativePath}: ${detail}`, { cause: error });
+    const detail = error instanceof Error ? error.message : 'Unknown external module loader error';
+    throw new Error(`Failed to load external module ${packageName}: ${detail}`, { cause: error });
   }
 }
 
