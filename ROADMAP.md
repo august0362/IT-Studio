@@ -171,8 +171,8 @@ Spec: ARCH §14.2.
 - [ ] **QA-E2E-FIX4** (C) *(backlog — skipped after 6 attempts, 2026-10-03)* Remaining E2E: TC-M4-022/023/031/033/041-046, TC-M5-020/022/023, TC-M6-071/072. Needs a different approach: run each spec in a fresh app + data dir (per-spec tauri-driver restart) and capture a DOM snapshot + screenshot on failure so fixes are not blind. Also fix `scripts/dev/measure-startup.mjs` (no stdin pipe → sidecar exits before ready).
 - [ ] **QA-TOOL-01** (C) Make StrykerJS mutation testing work with the Vitest 5 workspace (currently reports 0 % kills; manual mutation proves the tests are effective).
 - [x] **M9-01** (C) esbuild sidecar bundle + Node SEA build script; native module loading from resources.
-- [ ] **M9-02** (C) Tauri `externalBin` + resources (vsix, seeds); production sidecar spawn path.
-- [ ] **M9-03** (C) NSIS + MSI bundles; WebView2 bootstrapper.
+- [x] **M9-02** (C) Tauri `externalBin` + resources (vsix, seeds); production sidecar spawn path.
+- [x] **M9-03** (C) NSIS + MSI bundles; WebView2 bootstrapper.
 - [ ] **M9-04** (A) Code-signing setup (user supplies certificate) + updater key pair (private key outside repo).
 - [ ] **M9-05** (C) Version bump script (4 manifests) + release CHANGELOG automation.
 - [ ] **M9-06** (A) Clean-VM smoke test checklist and execution.
