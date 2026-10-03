@@ -18,7 +18,11 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: asset:; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost"
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPDATA/com.itstudio.app/images", "$APPDATA/com.itstudio.app/images/**"]
+      },
+      "csp": "default-src 'self'; img-src 'self' data: asset: http://asset.localhost; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost"
     }
   },
   "bundle": {

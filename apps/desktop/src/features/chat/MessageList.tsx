@@ -1,4 +1,4 @@
-import type { ChatMessage, MoneyDisplay, ModelDescriptor, ModelKey } from '@itstudio/schemas';
+import type { ChatMessage, ImageAsset, MoneyDisplay, ModelDescriptor, ModelKey } from '@itstudio/schemas';
 import type { JSX } from 'react';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,7 @@ import { Money } from '../../components/Money';
 import { SafeMarkdown } from '../../components/SafeMarkdown';
 import type { ChatBubble, FallbackInfo } from './chat-store';
 import { useState } from 'react';
+import { ChatImage } from './ChatImage';
 
 function messageText(message: ChatMessage): string {
   return message.parts
@@ -20,11 +21,13 @@ export function MessageList({
   costs,
   fallbacks,
   models,
+  images,
 }: {
   readonly bubbles: readonly ChatBubble[];
   readonly costs: Readonly<Record<string, MoneyDisplay>>;
   readonly fallbacks: Readonly<Record<string, FallbackInfo>>;
   readonly models: readonly ModelDescriptor[];
+  readonly images: readonly ImageAsset[];
 }): JSX.Element {
   const { t } = useTranslation();
   const listRef = useRef<HTMLOListElement>(null);
@@ -76,6 +79,12 @@ export function MessageList({
             ) : (
               <p className="whitespace-pre-wrap">{text}</p>
             )}
+            {message.parts
+              .filter((part) => part.type === 'image')
+              .map((part) => {
+                const asset = images.find((image) => image.id === part.assetId);
+                return asset === undefined ? null : <ChatImage asset={asset} key={asset.id} />;
+              })}
             {message.role === 'assistant'
               ? message.parts
                   .filter((part) => part.type === 'citation')

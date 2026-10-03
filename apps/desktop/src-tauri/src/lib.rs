@@ -8,6 +8,7 @@ use tauri::{Manager, RunEvent};
 pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_log::Builder::new().build())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let default_data_dir = app.path().app_data_dir()?;
             let data_dir = sidecar::spawn::resolve_data_dir(

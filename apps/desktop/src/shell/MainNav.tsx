@@ -5,6 +5,7 @@ export type ShellRoute =
   | 'chat'
   | 'code'
   | 'knowledge'
+  | 'gallery'
   | 'cost'
   | 'settings-api-keys'
   | 'settings-theme'
@@ -13,7 +14,8 @@ export type ShellRoute =
   | 'settings-pricing'
   | 'settings-fx'
   | 'settings-vscode'
-  | 'settings-pipeline';
+  | 'settings-pipeline'
+  | 'settings-images';
 
 export function MainNav({
   route,
@@ -47,9 +49,17 @@ export function MainNav({
             {label}
           </a>
         ))}
-        <span aria-disabled="true" className="block rounded px-3 py-2 text-text-muted" title={t('nav.comingSoon')}>
-          {t('nav.gallery')} <span className="text-xs">({t('nav.comingSoon')})</span>
-        </span>
+        <a
+          aria-current={route === 'gallery' ? 'page' : undefined}
+          className="block rounded px-3 py-2 hover:bg-surface-alt focus-visible:outline-2 focus-visible:outline-focus-ring"
+          href="#gallery"
+          onClick={(event) => {
+            event.preventDefault();
+            navigate('gallery');
+          }}
+        >
+          {t('nav.gallery')}
+        </a>
         <a
           aria-current={route === 'cost' ? 'page' : undefined}
           className="block rounded px-3 py-2 hover:bg-surface-alt focus-visible:outline-2 focus-visible:outline-focus-ring"
@@ -94,6 +104,7 @@ export function MainNav({
             'settings-fx',
             'settings-vscode',
             'settings-pipeline',
+            'settings-images',
           ] as const
         ).map((target) => (
           <a
