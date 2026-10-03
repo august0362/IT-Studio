@@ -100,7 +100,7 @@
 - [x] **M4-03** (C) Settings: Router ladder (dnd-kit), **Auto Fallback** toggle, lock model, Budget (+ **Hard Stop** toggle), Pricing (table, refresh, override), FX (rate, override), VS Code options, Pipeline role assignment.
 - [x] **M4-04** (C) Chat tab: conversation list, unified model dropdown (+ Lock), streaming with cancel, fallback badge + partial-reset handling, fallback modal (Auto OFF), per-message cost `<Money>`.
 - [x] **M4-05** (C) Cost & P&L tab: revenue/cost/margin KPIs, charts by model/purpose/day (Recharts), budget bars with warning states, revenue entry form (USD/VND), ledger table with filters; live refresh on `ledger.entry`. Plus **All-projects dashboard**: per-project margin table, portfolio totals, top spend by project/model.
-- [ ] **M4-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M4-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M4-report.md` sign-off. Scope: UI system tests: project tabs open/switch/close, theme switching (all 36 theme/mode pairs smoke + contrast), Settings flows, chat with fallback badge & modal, P&L dashboards; XSS corpus through chat rendering; keyboard-only navigation.
+- [x] **M4-QA** (A+C) *(conditional sign-off — E2E follow-up QA-E2E-FIX2)* Milestone QA gate (TESTING.md §7): A writes `docs/qa/M4-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M4-report.md` sign-off. Scope: UI system tests: project tabs open/switch/close, theme switching (all 36 theme/mode pairs smoke + contrast), Settings flows, chat with fallback badge & modal, P&L dashboards; XSS corpus through chat rendering; keyboard-only navigation.
 
 ## M5 — RAG
 
@@ -113,7 +113,7 @@
 - [x] **M5-05** (C) `RagService` ingest jobs: discovery, hash skip, progress events, per-file failure isolation, `rag.*` RPC.
 - [x] **M5-06** (C) Retrieval: minScore filter, MMR, context injection, citation parts, `search_knowledge` tool; chat `ragEnabled` toggle.
 - [x] **M5-07** (C) Knowledge tab: add files/folder, document list (format, chunks, model, date), re-index, delete, test-query panel.
-- [ ] **M5-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M5-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M5-report.md` sign-off. Scope: RAG: ingest md/pdf/docx/code, unchanged-file skip, per-file failure isolation, cited answers, embedding cost in P&L, re-index on model change.
+- [x] **M5-QA** (A+C) *(conditional sign-off — E2E follow-up QA-E2E-FIX2)* Milestone QA gate (TESTING.md §7): A writes `docs/qa/M5-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M5-report.md` sign-off. Scope: RAG: ingest md/pdf/docx/code, unchanged-file skip, per-file failure isolation, cited answers, embedding cost in P&L, re-index on model change.
 
 ## M6 — Agent pipeline & Worker
 
@@ -127,7 +127,7 @@
 - [x] **M6-06** (C) `FailureReportBuilder` + remediation table for every `ErrorCode`.
 - [x] **M6-08** (C) Pipeline cost attribution: `LlmRouter` forwards `pipelineRunId` to the ledger; `PipelineRun` cost = sum of its ledger rows (follow-up from M6-05 QA).
 - [x] **M6-07** (C) Code tab: prompt box, stage timeline, spec/review viewers, Monaco diff viewer, live command output, failure report panel, run history.
-- [ ] **M6-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M6-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M6-report.md` sign-off. Scope: Pipeline: happy path to COMPLETED, review-reject → fix → approve, failing validation → byte-identical rollback, crash mid-commit recovery, path-traversal corpus, cancel at every stage; StrykerJS on worker/domain (score reported). **Carry-over:** case-insensitive `</context>` neutralisation (from M6-04 QA); chunker branch coverage ≥ 90 % (from M5-02 QA) belongs to M5-QA.
+- [x] **M6-QA** (A+C) *(conditional sign-off — E2E follow-up QA-E2E-FIX2)* Milestone QA gate (TESTING.md §7): A writes `docs/qa/M6-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M6-report.md` sign-off. Scope: Pipeline: happy path to COMPLETED, review-reject → fix → approve, failing validation → byte-identical rollback, crash mid-commit recovery, path-traversal corpus, cancel at every stage; StrykerJS on worker/domain (score reported). **Carry-over:** case-insensitive `</context>` neutralisation (from M6-04 QA); chunker branch coverage ≥ 90 % (from M5-02 QA) belongs to M5-QA.
 
 ## M7 — VS Code companion extension
 
@@ -167,6 +167,8 @@ Spec: ARCH §14.2.
 
 - [ ] **SEC-01** (A+C) Dependency audit hardening before release: production audit (2026-10-02) = 3 high, all from @lancedb/lancedb → @huggingface/transformers → sharp (libvips CVE-2026-33327/33328/35590/35591). Options: npm `overrides` to a patched sharp, or exclude the optional transformers dependency; add `npm audit --omit=dev --audit-level=high` to the release checklist. Also (2026-10-02): low — dompurify (IN_PLACE hook XSS) via monaco-editor 0.57; upgrade when monaco ships a patched dompurify.
 - [ ] **PERF-01** (C) Sidecar cold start: dev start ≈ 4 s before `main` runs (html-to-text ≈ 1.7 s, LanceDB, parsers). Lazy-load heavy modules on first use; run the E2E crash hook before importing the container; target < 1.5 s in dev, measure the M9 bundle. UI: lazy-load the Cost tab (Recharts) — main chunk 1.13 MB after M4-03. Integration TC-M1-033 (4 sequential sidecar starts) hit its 30 s timeout once.
+- [ ] **QA-E2E-FIX2** (C) Finish the remaining E2E cases (TC-M4-023/031/043-046, TC-M5-022/023, TC-M6-070-072): give the Code E2E project a passing validation command, isolate each spec session (fresh data dir per spec or full settings reset), fix the fallback-modal and budget assertions. Product behaviour for all of them passes at L2/L3.
+- [ ] **QA-TOOL-01** (C) Make StrykerJS mutation testing work with the Vitest 5 workspace (currently reports 0 % kills; manual mutation proves the tests are effective).
 - [ ] **M9-01** (C) esbuild sidecar bundle + Node SEA build script; native module loading from resources.
 - [ ] **M9-02** (C) Tauri `externalBin` + resources (vsix, seeds); production sidecar spawn path.
 - [ ] **M9-03** (C) NSIS + MSI bundles; WebView2 bootstrapper.
