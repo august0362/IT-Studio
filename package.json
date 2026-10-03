@@ -11,6 +11,10 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit && npm --cache .npm-cache run typecheck --workspaces --if-present && npm --cache .npm-cache run typecheck:tests",
+    "build:sidecar": "node scripts/build/build-sidecar.mjs",
+    "build:app": "node scripts/build/build-app.mjs",
+    "release:bump": "node scripts/release/bump-version.mjs",
+    "smoke:sidecar": "node scripts/build/smoke-sidecar.mjs",
     "dev": "npm run tauri:dev -w @itstudio/desktop",
     "lint": "eslint . --max-warnings 0 && prettier --check . --log-level warn && node -e \"const{execFileSync,spawnSync}=require('node:child_process');const{existsSync}=require('node:fs');const files=execFileSync('git',['ls-files','-z','-co','--exclude-standard'],{encoding:'utf8'}).split('\\0').filter((file)=>file&&!file.startsWith('scripts/lint-fixtures/')&&existsSync(file));const result=spawnSync(process.execPath,['scripts/scan-secrets.mjs',...files],{stdio:'inherit'});process.exitCode=result.status??1\"",
     "lint:selftest": "node scripts/lint-fixtures/selftest.mjs",

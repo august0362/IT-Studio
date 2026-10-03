@@ -176,3 +176,15 @@ export const pipelineRuns = sqliteTable(
   },
   (table) => [index('pipeline_runs_project_started_idx').on(table.projectId, table.startedAt)],
 );
+
+export const activityEvents = sqliteTable(
+  'activity_events',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id'),
+    moduleId: text('module_id').notNull(),
+    occurredAt: text('occurred_at').notNull(),
+    eventJson: text('event_json').notNull(),
+  },
+  (table) => [index('activity_events_project_occurred_idx').on(table.projectId, table.occurredAt)],
+);

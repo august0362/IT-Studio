@@ -34,6 +34,7 @@ import { commandKindSchema, diagnosticSchema, commandRunSchema } from './worker.
 import { vscodeStatusSchema } from './vscode.js';
 import { imageAssetSchema } from './image.js';
 import { appErrorSchema } from './errors.js';
+import { activityEventSchema, workflowGraphSchema, workflowModuleIdSchema } from './workflow.js';
 import {
   projectIdSchema,
   conversationIdSchema,
@@ -131,6 +132,15 @@ export const rpcParamsSchemas = {
   'pipeline.get': z.object({ runId: pipelineRunIdSchema }).readonly(),
   'pipeline.list': z.object({ projectId: projectIdSchema, limit: z.number() }).readonly(),
   'pipeline.cancel': z.object({ runId: pipelineRunIdSchema }).readonly(),
+  'workflow.graph': z.object({ projectId: projectIdSchema.nullable() }).readonly(),
+  'workflow.activity': z
+    .object({
+      projectId: projectIdSchema.nullable(),
+      moduleId: workflowModuleIdSchema.exactOptional(),
+      limit: z.number().int().min(1).max(200),
+      before: isoDateTimeSchema.exactOptional(),
+    })
+    .readonly(),
   'workspace.openInVSCode': z.object({ projectId: projectIdSchema }).readonly(),
   'workspace.readFile': z.object({ projectId: projectIdSchema, path: workspaceRelativePathSchema }).readonly(),
   'workspace.runCommand': z.object({ projectId: projectIdSchema, kind: commandKindSchema }).readonly(),
@@ -171,6 +181,7 @@ export const rpcNotificationParamsSchemas = {
   'vscode.diagnostics': z
     .object({ projectId: projectIdSchema, diagnostics: z.array(diagnosticSchema).readonly() })
     .readonly(),
+  'workflow.activity': z.array(activityEventSchema).readonly(),
 } satisfies { [N in RpcNotificationName]: z.ZodType<RpcNotificationMap[N]> };
 
 export const rpcResultSchemas = {
@@ -225,6 +236,8 @@ export const rpcResultSchemas = {
   'pipeline.get': pipelineRunSchema,
   'pipeline.list': z.array(pipelineRunSchema).readonly(),
   'pipeline.cancel': pipelineRunSchema,
+  'workflow.graph': workflowGraphSchema,
+  'workflow.activity': z.array(activityEventSchema).readonly(),
   'workspace.openInVSCode': vscodeStatusSchema,
   'workspace.readFile': z.object({ content: z.string(), hash: sha256Schema }).readonly(),
   'workspace.runCommand': commandRunSchema,

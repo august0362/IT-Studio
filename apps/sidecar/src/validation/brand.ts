@@ -14,6 +14,7 @@ export const chunkIdSchema = brandedUuid<'ChunkId'>();
 export const ingestJobIdSchema = brandedUuid<'IngestJobId'>();
 export const transactionIdSchema = brandedUuid<'TransactionId'>();
 export const commandRunIdSchema = brandedUuid<'CommandRunId'>();
+export const activityEventIdSchema = brandedUuid<'ActivityEventId'>();
 /** Provider-issued opaque id (Anthropic toolu_…, OpenAI call_…, Gemini synthetic call_<n>) — not a UUID (CONVENTIONS §2.1). */
 export const toolCallIdSchema = z
   .string()

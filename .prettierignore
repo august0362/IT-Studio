@@ -1,7 +1,10 @@
 **/*.md
 **/package-lock.json
 **/dist/**
+**/dist-sidecar/**
 **/target/**
+apps/desktop/src-tauri/binaries/**
+apps/desktop/src-tauri/bundle-resources/**
 apps/desktop/src-tauri/gen/**
 config/themes.json
 config/commands.default.json

@@ -96,6 +96,7 @@ export default [
   {
     ignores: [
       '**/dist/**',
+      '**/dist-sidecar/**',
       '**/target/**',
       '**/node_modules/**',
       '.npm-cache/**',

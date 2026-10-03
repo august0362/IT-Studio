@@ -12,5 +12,6 @@ git -C "$WT" add -A
 git -C "$WT" commit -q -m "$SUBJECT" -m "Implemented by Codex from docs/tasks/$ID.md; reviewed by Claude (QA)." -m "$TRAILER"
 git -C "$ROOT" merge -q --no-ff "task/$ID" -m "merge: task/$ID" -m "$TRAILER"
 git -C "$ROOT" worktree remove --force "$WT"
+[ -d "$WT" ] && rm -rf "$WT"   # remove leftovers (locked node_modules) so remnants do not pile up
 git -C "$ROOT" branch -q -d "task/$ID"
 git -C "$ROOT" log --oneline -3

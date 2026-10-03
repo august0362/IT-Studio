@@ -6,7 +6,10 @@ docs/tasks/*.last.txt
 
 # build outputs
 dist/
+dist-sidecar/
 build/
+!scripts/build/
+!scripts/build/**
 out/
 target/
 *.vsix
@@ -33,4 +36,7 @@ Thumbs.db
 
 # tauri generated
 apps/desktop/src-tauri/gen/
+apps/desktop/src-tauri/binaries/
+apps/desktop/src-tauri/bundle-resources/
+apps/desktop/src-tauri/target/release/bundle/
 .vscode-test/
