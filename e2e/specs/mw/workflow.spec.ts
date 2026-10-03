@@ -24,9 +24,12 @@ describe('MW workflow map', () => {
     await browser.waitUntil(async () => (await browser.$('body').getText()).includes('Scripted assistant reply.'));
     await browser.$('nav[aria-label="Main navigation"] a[href="#workflow"]').click();
     await browser.waitUntil(async () => (await browser.$('body').getText()).includes('Router'));
-    await browser.$('[data-id="router"].react-flow__node').click();
-    await browser.$('[role="tab"][aria-selected="false"][role="tab"]').click();
-    expect(await browser.$('body').getText()).to.include('Recent');
-    expect(await browser.$('body').getText()).to.include('workflow');
+    const routerNode = browser.$('[data-id="router"].react-flow__node');
+    await browser.waitUntil(async () => /Calls \(24 h\)\s*[1-9]\d*/.test(await routerNode.getText()));
+    await routerNode.click();
+    await browser.$('button=Recent').click();
+    const body = await browser.$('body').getText();
+    expect(body).to.match(/Router completed on [a-z0-9_-]+\/[a-z0-9._-]+/i);
+    expect(body).not.to.include('workflow smoke request');
   });
 });
