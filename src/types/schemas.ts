@@ -1207,6 +1207,99 @@ export interface ThemeCatalog {
 }
 
 /* ============================================================================
+ * §12b. WORKFLOW MAP (v1 addendum — milestone MW; ARCHITECTURE.md §13.1, D32)
+ * Types only; RPC methods `workflow.graph`, `workflow.activity` and the notification
+ * `workflow.activity` are added together with their validators by MW-01.
+ * ========================================================================== */
+
+export type ActivityEventId = Brand<string, 'ActivityEventId'>;
+
+export const WorkflowModuleId = {
+  CHAT: 'chat',
+  CODE: 'code',
+  KNOWLEDGE: 'knowledge',
+  ROUTER: 'router',
+  PROVIDERS: 'providers',
+  BUDGET_GUARD: 'budget_guard',
+  LEDGER: 'ledger',
+  PNL: 'pnl',
+  PRICING_FX: 'pricing_fx',
+  RAG_INGEST: 'rag_ingest',
+  EMBEDDINGS: 'embeddings',
+  VECTOR_STORE: 'vector_store',
+  RETRIEVER: 'retriever',
+  PIPELINE_PM: 'pipeline_pm',
+  PIPELINE_CODER: 'pipeline_coder',
+  PIPELINE_REVIEWER: 'pipeline_reviewer',
+  WORKER: 'worker',
+  COMMAND_RUNNER: 'command_runner',
+  WORKSPACE_FS: 'workspace_fs',
+  VSCODE_BRIDGE: 'vscode_bridge',
+  STORAGE: 'storage',
+} as const;
+export type WorkflowModuleId = (typeof WorkflowModuleId)[keyof typeof WorkflowModuleId];
+
+export type WorkflowLane = 'ui' | 'engine' | 'data' | 'pipeline' | 'storage';
+
+export interface WorkflowNode {
+  readonly id: WorkflowModuleId;
+  readonly lane: WorkflowLane;
+  /** i18n key for the display name. */
+  readonly labelKey: string;
+  readonly status: 'idle' | 'active' | 'error' | 'disabled';
+  /** In-flight items right now (streams, stages, jobs, commands). */
+  readonly inFlight: number;
+  /** Rolling 24 h counters. */
+  readonly calls24h: number;
+  readonly errors24h: number;
+  readonly cost24h?: MoneyDisplay;
+}
+
+export interface WorkflowEdge {
+  readonly id: string;
+  readonly from: WorkflowModuleId;
+  readonly to: WorkflowModuleId;
+  /** Name of the schema type carried on this link, e.g. "LlmRequest", "RetrievalHit[]", "FileOperation[]". */
+  readonly contract: string;
+  /** Time of the last event that travelled on this edge (drives the UI animation). */
+  readonly lastFlowAt?: IsoDateTime;
+}
+
+export interface WorkflowGraph {
+  /** null = aggregated over all projects. */
+  readonly projectId: ProjectId | null;
+  readonly nodes: readonly WorkflowNode[];
+  readonly edges: readonly WorkflowEdge[];
+  readonly generatedAt: IsoDateTime;
+}
+
+export type ActivityKind = 'started' | 'progress' | 'completed' | 'failed' | 'info';
+
+export interface ActivityEvent {
+  readonly id: ActivityEventId;
+  readonly projectId: ProjectId | null;
+  readonly moduleId: WorkflowModuleId;
+  /** Edge the data travelled on, when the event represents a hand-off between modules. */
+  readonly edgeId?: string;
+  readonly kind: ActivityKind;
+  /** Human-readable, redacted: sizes, counts, model ids, stage names, paths — never prompt/document text or keys. */
+  readonly summary: string;
+  /** Deep-link references for the UI. */
+  readonly refs: {
+    readonly requestId?: LlmRequestId;
+    readonly conversationId?: ConversationId;
+    readonly pipelineRunId?: PipelineRunId;
+    readonly ingestJobId?: IngestJobId;
+    readonly ledgerEntryId?: LedgerEntryId;
+    readonly transactionId?: TransactionId;
+    readonly commandRunId?: CommandRunId;
+  };
+  readonly durationMs?: number;
+  readonly cost?: MoneyDisplay;
+  readonly ts: IsoDateTime;
+}
+
+/* ============================================================================
  * §13. IMAGE GENERATION (DEFERRED — M8; contracts frozen now to avoid later breakage)
  * ========================================================================== */
 

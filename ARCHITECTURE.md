@@ -354,6 +354,48 @@ Heartbeat: `ping` every 15 s; 2 missed → disconnected. VS Code closed or not i
 - Every router attempt logs model, latency, outcome, failure kind (never prompt bodies at `info`).
 - Settings → "Open logs folder".
 
+### 13.1 Workflow map (v1 addendum — milestone MW, D32)
+
+A **Workflow** tab per project shows the app's modules as a live graph: which modules exist, how they are linked, what data flows along each link, and — on click — what a module is doing now and did recently. It is a *read-only observer*: it never changes behaviour and costs no LLM tokens.
+
+**Topology (static catalogue, `domain/workflow-topology.ts`).** Nodes are `WorkflowModuleId`s grouped in lanes; edges are typed with the contract that travels on them:
+
+```
+ UI lane        Chat ──▶ Router ◀── Code (Pipeline)        Knowledge ──▶ RAG Ingest
+                  │        │  ▲                                            │
+ Engine lane      │        ▼  │ deltas / fallback                          ▼
+                  │   Providers (per provider id)          Embeddings ◀── RAG Ingest ──▶ Vector store (LanceDB)
+                  │        │ usage                                         ▲
+                  ▼        ▼                                               │ query vector → hits
+ Data lane     Retriever ─────────▶ (context blocks) ──▶ Router          Retriever
+                Ledger ◀── RouterCompleted / embedding usage ──  Budget guard ◀─ check before every paid call
+                P&L ◀── ledger + revenue          Pricing / FX ──▶ Ledger (frozen cost)
+ Pipeline lane  PM ──TaskSpec──▶ Coder ──CoderOutput──▶ Reviewer ──ReviewVerdict──▶ Worker ──FileOperation[]──▶ Workspace FS
+                                                                                   Worker ──CommandSpec──▶ Command runner
+                                                                                   Worker ──transaction/reveal──▶ VS Code bridge ──WS──▶ VS Code
+ Storage        SQLite · LanceDB · Keychain (key status only) · Journal (.itstudio/tx)
+```
+
+Each edge declares `{ from, to, contract, direction }` where `contract` names the schema type (e.g. `LlmRequest`, `RetrievalHit[]`, `FileOperation[]`). Disabled modules (e.g. VS Code bridge off, Gallery deferred) render greyed out.
+
+**Activity stream (sidecar `services/activity-recorder.ts`).** Subscribes to the existing in-process events — `router.event`, `chat.delta/completed/failed`, `pipeline.event`, `pipeline.failureReport`, `rag.progress`, `ledger.entry`, `budget.alert`, `pricing.updated`, `fx` changes, `vscode.status`, `vscode.diagnostics` — and maps each to an `ActivityEvent { id, projectId, moduleId, edge?, kind, summary, refs, durationMs?, cost?, ts }`. No service gets new instrumentation beyond what it already publishes; anything missing is added as an event, never as a polling job.
+
+- **Privacy:** summaries carry sizes, counts, model ids, stage names, file paths and costs — **never prompt / message / document text or keys** (pass through `domain/redact.ts`).
+- **Live:** notification `workflow.activity` (batched, ≤ 4 / s per project); the UI animates the edge and pulses the node.
+- **History:** SQLite `activity_events`, retention 7 days or 20 000 rows per project (whichever first), pruned on startup and hourly while the app runs; in-memory ring of the last 500 per project for instant panel open.
+- **In-flight state:** the recorder keeps a per-module set of open items (request streaming, pipeline stage, ingest job, validation command) so the panel can show "now" without replaying history.
+
+**RPC (added by MW-01):** `workflow.graph({projectId})` → `WorkflowGraph` (topology + per-node status `idle | active | error | disabled` + counters for the last 24 h); `workflow.activity({projectId, moduleId?, limit ≤ 200, before?})` → `ActivityEvent[]` (newest first); notification `workflow.activity` (`ActivityEvent[]`).
+
+**UI (Workflow tab).** Graph rendered with React Flow (`@xyflow/react`, pre-installed by the Architect when MW starts), theme tokens only, auto-layout by lanes, zoom / pan / fit, keyboard navigation between nodes. Clicking a node opens a side panel:
+1. **Now** — in-flight items with progress (e.g. "streaming 812 tokens from claude-sonnet-5-5", "VALIDATING: npm test (00:12)").
+2. **Recent** — the module's last events (filter by kind, newest first, "load more" from history).
+3. **Metrics (24 h)** — calls, errors, p50 / p95 duration, cost (`<Money>`).
+4. **Links in / out** — incoming and outgoing edges with their contract and last payload *summary*.
+5. **Deep links** — open the chat message, the pipeline run in the Code tab, the ingest job in Knowledge, the ledger rows in Cost & P&L.
+
+"All projects" shows the same graph aggregated across projects (per-project filter chips).
+
 ## 14. Deferred components (specified, not implemented in v1)
 
 ### 14.1 Image generation — M8
