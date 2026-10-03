@@ -30,18 +30,15 @@ pub enum SpawnError {
 }
 
 #[cfg(any(not(debug_assertions), test))]
-const PACKAGED_SIDECAR: &str = "itstudio-sidecar-x86_64-pc-windows-msvc.exe";
+const PACKAGED_SIDECAR: &str = "itstudio-sidecar.exe";
 
 #[cfg(any(not(debug_assertions), test))]
 pub fn resolve_packaged_sidecar(resource_dir: &Path) -> Result<PathBuf, SpawnError> {
-    let candidates = [
-        resource_dir.join("binaries").join(PACKAGED_SIDECAR),
-        resource_dir.join(PACKAGED_SIDECAR),
-    ];
-    if let Some(sidecar) = candidates.iter().find(|path| path.is_file()) {
-        Ok(sidecar.clone())
+    let sidecar = resource_dir.join(PACKAGED_SIDECAR);
+    if sidecar.is_file() {
+        Ok(sidecar)
     } else {
-        Err(SpawnError::MissingPackagedSidecar(candidates[0].clone()))
+        Err(SpawnError::MissingPackagedSidecar(sidecar))
     }
 }
 
@@ -124,9 +121,8 @@ mod tests {
     fn resolves_sidecar_in_installed_resource_directory() {
         let resource_dir =
             std::env::temp_dir().join(format!("itstudio-sidecar-layout-{}", std::process::id()));
-        let binary_dir = resource_dir.join("binaries");
-        std::fs::create_dir_all(&binary_dir).expect("create resource fixture");
-        let sidecar = binary_dir.join("itstudio-sidecar-x86_64-pc-windows-msvc.exe");
+        std::fs::create_dir_all(&resource_dir).expect("create resource fixture");
+        let sidecar = resource_dir.join("itstudio-sidecar.exe");
         std::fs::write(&sidecar, b"fixture").expect("write sidecar fixture");
 
         assert_eq!(

@@ -24,7 +24,7 @@ await runNpm([
   '--bundles',
   'nsis,msi',
   '--config',
-  'tauri.conf.release.json',
+  'src-tauri/tauri.conf.release.json',
 ]);
 await printInstallers();
 
