@@ -44,3 +44,20 @@ Append `## Result` per AGENTS.md §3 with a table: case → change made.
 - Dependencies added (with reason): None.
 - Decisions taken within scope: Budget bars display `BudgetStatus.spent` using compact `Money`; the regression assertion matches that rendered spent value and usage label for a newly budgeted active project.
 - Open issues / follow-ups: E2E suite not run as requested; QA should rerun it in the short session. `npm install` reported 34 existing dependency audit findings.
+
+## QA (Claude) — round 2 (offline analysis of the 2026-10-03 re-run, 2 runs)
+Now passing: TC-M4-032/033/040/042, TC-M1-006. VS Code L4: TC-M7-050/051 pass (runner must unset `ELECTRON_RUN_AS_NODE`), manual TC-M7-052 pass. QA fixed the `onPrepare` crash (`Get-Process` exits 1 when no process → added `; exit 0`).
+Remaining failures — page text captured from the WDIO log right before each failure:
+
+| Case | What the app showed | Cause | Fix |
+|---|---|---|---|
+| TC-M4-025 | composer text `first lineSHIFTENTERsecond lineENTER` | `browser.keys(['SHIFT','ENTER'])` types words | use `Key.Shift` / `Key.Enter` from `webdriverio` (and release Shift) |
+| TC-M4-031 | `budget used: 0% · $0.00 · 0 ₫` | wrong expected text | assert the rendered text / `aria-label` exactly as `BudgetBars.tsx` renders it |
+| TC-M4-041 | live region `Moved Gemini 3.8 Flash before Gemini 3.8 Flash.` repeatedly | keys sent in one burst; dnd-kit keyboard sensor needs time to measure | send `Key.Space`, pause ≥ 300 ms, `Key.ArrowDown`, pause ≥ 300 ms, `Key.Space` |
+| TC-M5-020 (+022/023) | `guide.md · Indexed`, search returns no hits | fake embeddings score low; panel uses the settings default minScore | set the panel's "Minimum score" to 0 before searching |
+| TC-M6-070/071/072 | pipeline failed in Specify: "The role returned an invalid response after one retry" | E2E scripted reply is plain text; PM / Coder / Reviewer need JSON | run the Code spec in a scripted session whose `ITSTUDIO_E2E_LLM_TEXT` is a JSON map model-id → role JSON (same shapes as `apps/sidecar/test/integration/pipeline.test.ts`); for TC-M6-071 a failing validation command; ensure the role models' providers have keys |
+| TC-M4-021 | after Send, `Stop` never displayed | the slow-stream script is not on the model the router actually uses | select the scripted model explicitly in the picker (works with fallback after M4-FIX2) or script the first eligible ladder model |
+| TC-M4-022/023 | `LADDER_EXHAUSTED` after 3 × model A | product BUG-M4-002 (being fixed in M4-FIX2) | keep the cases; make sure model B's provider has a key |
+| TC-M4-043/044/045, TC-M4-051 | cascade / same spec session | re-check after the fixes above; fix selectors from component code if still failing | |
+
+Do only these test fixes (e2e/** only), type-check and lint `e2e`. Do not run E2E. Also make `test:vscode-e2e` unset `ELECTRON_RUN_AS_NODE` for the VS Code child (in `apps/vscode-ext/test/e2e/run.mjs`, pass an env without it via `extensionTestsEnv`/launch env) and add `.vscode-test/` to `.gitignore`.
