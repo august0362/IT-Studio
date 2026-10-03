@@ -20,6 +20,7 @@
     "test:vscode-e2e": "npm --cache .npm-cache run build -w itstudio-vscode && node apps/vscode-ext/test/e2e/run.mjs",
     "test:e2e": "node e2e/run-e2e.mjs",
     "test:all": "npm run test && npm run test:integration && npm run test:e2e",
+    "audit:prod": "npm audit --omit=dev --audit-level=high",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
     "test:mutation": "stryker run",
@@ -48,5 +49,11 @@
     "typescript-eslint": "^8.71.0",
     "vitest": "^5.0.3",
     "webdriverio": "9.32.0"
+  },
+  "overrides": {
+    "sharp": "0.35.5",
+    "monaco-editor": {
+      "dompurify": "3.4.16"
+    }
   }
 }
