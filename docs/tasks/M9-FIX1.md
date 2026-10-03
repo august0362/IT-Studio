@@ -22,3 +22,13 @@ resource path `bundle-resources\resources` doesn't exist
 
 ## Hand-back
 Append `## Result` per AGENTS.md §3.
+
+## Result
+- Summary: Moved staged resources into the release Tauri overlay and added a guard script that rejects staged-output paths in the base config.
+- Files changed: `apps/desktop/src-tauri/tauri.conf.json`, `apps/desktop/src-tauri/tauri.conf.release.json`, `scripts/build/tauri-debug-config.test.mjs`, `docs/tasks/M9-FIX1.md`.
+- Dependencies added (with reason): None.
+- Decisions taken within scope: Kept `scripts/build/build-app.mjs` unchanged because it already passes the release overlay when building NSIS and MSI installers. The guard runs directly with Node; making `npm test` discover it requires editing `package.json` or a Vitest project config, both outside this task's Scope.
+- Open issues / follow-ups: `npm run typecheck` and `npm run lint` passed. The guard script passed when run directly. `npm test` ran 120 files and failed one DOCX parser case (`converts DOCX headings to markdown`) at its 5-second timeout (845 passed, 1 failed, 1 skipped). E2E was not run. Tauri debug build and `npm run build:app` were not run.
+
+## QA (Claude)
+- Verdict: **PASS**. In a fresh worktree with nothing staged, `tauri build --debug --no-bundle` succeeds (was failing). typecheck ✔, lint ✔, unit pass except the known DOCX timeout flake. Note: the guard `scripts/build/tauri-debug-config.test.mjs` runs with `node --test`, not part of `npm test` — add to the release checklist with the bump-script tests.
