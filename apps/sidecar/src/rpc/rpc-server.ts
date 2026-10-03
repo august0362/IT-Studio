@@ -125,4 +125,5 @@ const NOTIFICATION_NAMES: readonly RpcNotificationName[] = [
   'pipeline.failureReport',
   'vscode.status',
   'vscode.diagnostics',
+  'workflow.activity',
 ];

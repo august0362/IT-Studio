@@ -996,6 +996,12 @@ export interface RpcMethodMap {
   'pipeline.list': { params: { readonly projectId: ProjectId; readonly limit: number }; result: readonly PipelineRun[] };
   'pipeline.cancel': { params: { readonly runId: PipelineRunId }; result: PipelineRun };
 
+  'workflow.graph': { params: { readonly projectId: ProjectId | null }; result: WorkflowGraph };
+  'workflow.activity': {
+    params: { readonly projectId: ProjectId | null; readonly moduleId?: WorkflowModuleId; readonly limit: number; readonly before?: IsoDateTime };
+    result: readonly ActivityEvent[];
+  };
+
   'workspace.openInVSCode': { params: { readonly projectId: ProjectId }; result: VSCodeStatus };
   'workspace.readFile': { params: { readonly projectId: ProjectId; readonly path: WorkspaceRelativePath }; result: { readonly content: string; readonly hash: Sha256 } };
   'workspace.runCommand': { params: { readonly projectId: ProjectId; readonly kind: CommandKind }; result: CommandRun };
@@ -1019,6 +1025,7 @@ export interface RpcNotificationMap {
   'pipeline.failureReport': FailureReport;
   'vscode.status': VSCodeStatus;
   'vscode.diagnostics': { readonly projectId: ProjectId; readonly diagnostics: readonly Diagnostic[] };
+  'workflow.activity': readonly ActivityEvent[];
 }
 export type RpcNotificationName = keyof RpcNotificationMap;
 
