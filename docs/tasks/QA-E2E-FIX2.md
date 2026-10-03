@@ -18,3 +18,18 @@ Role: Implementer (ROLES §1.3) · **Deps pre-installed** · Source: QA E2E sess
 
 ## Hand-back
 Append `## Result` per AGENTS.md §3 with a table case → change.
+
+## Result
+- Summary: Made the affected E2E setup deterministic and strengthened the brittle assertions and session steps.
+- Files changed: `e2e/specs/m6/code.spec.ts`, `e2e/specs/m4/scripted-llm.spec.ts`, `e2e/specs/m4/cost.spec.ts`, `e2e/specs/m4/settings.spec.ts`.
+- Dependencies added (with reason): None.
+- Decisions taken within scope:
+
+  | Case | Change |
+  |---|---|
+  | TC-M6-070/071/072 | Each temporary project now gets an explicit `node_modules/typescript/bin/tsc` shim that deterministically passes or fails validation as the scenario requires. |
+  | TC-M4-023 | Reassert Auto Fallback OFF immediately before each scripted failing send, check the full fallback dialog actions, then exercise Use and Escape; existing `afterEach` restores Auto Fallback ON. |
+  | TC-M4-031 | Assert the rendered 0% budget bar's `aria-label`, visible usage and `$0.00` output, plus the actual positive-limit validation message for `1e3`. |
+  | TC-M4-043/044/045/046, TC-M5-022/023 | Kept each case on its own created project; strengthened M4 cleanup of router, budget, FX, and price settings, and made M4-044 establish its own active project before switching to All projects. |
+
+- Open issues / follow-ups: E2E was not run, as requested. `npm run typecheck` passed (including `e2e/tsconfig.json`); scoped ESLint and Prettier checks passed.

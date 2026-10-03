@@ -161,6 +161,13 @@ describe('M4 Settings', () => {
 
   it('TC-M4-044 disables price updates without an active project and explains D31', async () => {
     await waitForReady();
+    await browser.$('button[aria-label="Add project"]').click();
+    await browser.$('aria/Project name').setValue('No Active Pricing Project');
+    await browser.$('aria/Folder path').setValue(createTemporaryProjectFolder());
+    await browser.$('button=Create project').click();
+    await browser.waitUntil(
+      async () => (await browser.$('[role="tab"][aria-selected="true"]').getText()) === 'No Active Pricing Project',
+    );
     await browser.$('[role="tab"][aria-selected="true"]').click();
     await browser.$('button=All projects').click();
     await browser.$('nav[aria-label="Main navigation"] a[href="#settings-pricing"]').click();
