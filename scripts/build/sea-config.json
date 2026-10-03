@@ -1,0 +1,8 @@
+{
+  "main": "dist-sidecar/sidecar.cjs",
+  "output": "dist-sidecar/sea.blob",
+  "disableExperimentalSEAWarning": true,
+  "useSnapshot": false,
+  "useCodeCache": false,
+  "assets": {}
+}

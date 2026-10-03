@@ -119,8 +119,10 @@ class ScriptedKeyVerifier implements IProviderKeyVerifier {
   private readonly outcomes: Readonly<Record<string, VerifierOutcome>>;
   private readonly override: VerifierOutcome | undefined;
 
-  constructor(override: string | undefined) {
-    const fixturePath = resolve(dirname(fileURLToPath(import.meta.url)), '../test/integration/fixtures/verifier.json');
+  constructor(override: string | undefined, fixturePathOverride: string | undefined) {
+    const fixturePath =
+      fixturePathOverride ??
+      resolve(dirname(fileURLToPath(import.meta.url)), '../test/integration/fixtures/verifier.json');
     this.outcomes = verifierFixtureSchema.parse(JSON.parse(readFileSync(fixturePath, 'utf8')));
     const parsedOverride = verifierOutcomeSchema.safeParse(override);
     this.override = parsedOverride.success ? parsedOverride.data : undefined;
@@ -355,7 +357,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     verifier:
       dependencies.keyVerifier ??
       (e2e
-        ? new ScriptedKeyVerifier(env.ITSTUDIO_E2E_VERIFIER_OUTCOME)
+        ? new ScriptedKeyVerifier(env.ITSTUDIO_E2E_VERIFIER_OUTCOME, env.ITSTUDIO_E2E_VERIFIER_FIXTURE)
         : new ProviderKeyVerifier(new FetchHttpClient())),
     clock,
   });
