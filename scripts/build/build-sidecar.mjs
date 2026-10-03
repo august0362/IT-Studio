@@ -74,8 +74,9 @@ await runStep('esbuild sidecar bundle', async () => {
             return undefined;
           });
           context.onLoad({ filter: new RegExp(MODULE_FILTER_SOURCE), namespace: 'sea-external' }, (args) => ({
-            contents: `module.exports = require(${JSON.stringify(nativeModules)}).loadExternal(${JSON.stringify(args.path)});`,
+            contents: `module.exports = require('./native-modules.js').loadExternal(${JSON.stringify(args.path)});`,
             loader: 'js',
+            resolveDir: dirname(nativeModules),
           }));
         },
       },
