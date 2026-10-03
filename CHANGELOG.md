@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add "Clear override" for manual prices ([M4-FIX3](docs/tasks/M4-FIX3.md))
 - Add Settings: router ladder (drag & keyboard), Auto Fallback, lock model, Hard Stop, pricing table with refresh and USD override, FX override, VS Code, pipeline roles ([M4-03](docs/tasks/M4-03.md))
 - Add Knowledge tab, chat "Use knowledge" toggle and citation chips ([M5-07](docs/tasks/M5-07.md))
 - Add Cost & P&L tab and All-projects dashboard; sidecar money display rows and decimal-USD budget input ([M4-05](docs/tasks/M4-05.md))
@@ -45,6 +46,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 - Add L3 sidecar integration harness and M1 integration suite ([M1-QA](docs/tasks/M1-QA.md))
 
 ### Fixed
+- Worker creates missing parent directories and rolls them back (BUG-M6-002, S1, [M6-FIX2](docs/tasks/M6-FIX2.md))
+- Choosing a model in Chat keeps router fallback (BUG-M4-002); Code timeline marks never-run stages (BUG-M6-001) ([M4-FIX2](docs/tasks/M4-FIX2.md))
+- Code-first RAG ingest no longer loses files — explicit LanceDB schema (BUG-M5-001, [M5-QA](docs/tasks/M5-QA.md))
+- Numbers and dates follow the app locale (BUG-M4-001, [M4-QA](docs/tasks/M4-QA.md))
+- Case-insensitive `</context>` neutralisation ([M6-QA](docs/tasks/M6-QA.md)); pricing refresh honours Hard Stop ([M3-QA](docs/tasks/M3-QA.md)); VS Code own-write window and autoLaunch fixes ([M7-QA](docs/tasks/M7-QA.md))
 - Sidecar shuts down when stdin closes, so it no longer outlives a crashed or killed app (BUG-M7-001, [M1-FIX4](docs/tasks/M1-FIX4.md))
 - Accessible in-app ConfirmDialog replaces window.confirm (BUG-M1-005)
 - UI RpcClient now sends request params (BUG-M1-004, S1)
