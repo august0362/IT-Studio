@@ -154,8 +154,8 @@ Ref: ARCHITECTURE §13.1, schemas §12b. Per-project graph of modules, links and
 
 Spec: ARCH §14.1, `schemas.ts` §13.
 
-- [ ] **M8-01** (C) `IImageProvider` port + DALL·E 3 adapter.
-- [ ] **M8-02** (C) FLUX adapters (Together sync, Replicate polling); Midjourney adapter compiled but disabled.
+- [x] **M8-01** (C) `IImageProvider` port + DALL·E 3 adapter.
+- [x] **M8-02** (C) FLUX adapters (Together sync, Replicate polling); Midjourney adapter compiled but disabled.
 - [ ] **M8-03** (C) `generate_image` tool dispatch: validation, BudgetGuard, provider fallback, download-and-store, ledger (`purpose=image`).
 - [ ] **M8-04** (C) Chat inline image rendering via asset protocol.
 - [ ] **M8-05** (C) Gallery tab.
