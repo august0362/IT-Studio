@@ -53,6 +53,7 @@ export async function startSidecar(
   extraEnv: Readonly<Record<string, string>> = {},
   scriptedModels?: Readonly<Record<string, readonly string[]>>,
   scriptedEmbeddingModels?: Readonly<Record<string, readonly string[]>>,
+  scriptedImageProviders?: Readonly<Record<string, readonly string[]>>,
 ): Promise<SidecarHarness> {
   const dataDir = await mkdtemp(resolve(tmpdir(), 'itstudio-m1-'));
   if (scriptedModels !== undefined) {
@@ -64,6 +65,11 @@ export async function startSidecar(
     const fixturePath = resolve(dataDir, 'embedding-script.json');
     await writeFile(fixturePath, JSON.stringify(scriptedEmbeddingModels), 'utf8');
     extraEnv = { ...extraEnv, ITSTUDIO_E2E_EMBEDDING_SCRIPT: fixturePath };
+  }
+  if (scriptedImageProviders !== undefined) {
+    const fixturePath = resolve(dataDir, 'image-script.json');
+    await writeFile(fixturePath, JSON.stringify(scriptedImageProviders), 'utf8');
+    extraEnv = { ...extraEnv, ITSTUDIO_E2E_IMAGE_SCRIPT: fixturePath };
   }
   const stdoutLines: string[] = [];
   const stderr: string[] = [];
