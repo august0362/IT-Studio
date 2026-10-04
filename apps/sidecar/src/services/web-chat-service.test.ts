@@ -46,7 +46,7 @@ function setup(
     ui: { themeId: 'theme' as AppSettings['ui']['themeId'], mode: 'system', locale: 'en' },
     webChat: { ...DEFAULT_WEB_CHAT_SETTINGS, browser, customBrowserPath },
   };
-  const getSettings = vi.fn(() => Promise.resolve({ ok: true as const, value: settings }));
+  const getSettings = vi.fn((): Promise<Result<AppSettings>> => Promise.resolve({ ok: true, value: settings }));
   const settingsService = { get: getSettings } as unknown as SettingsService;
   const files = new Set<string>();
   const fs = { exists: (path: string) => Promise.resolve({ ok: true as const, value: files.has(path) }) };
@@ -91,10 +91,41 @@ function setup(
     env,
     logger: createLogger({ streams: [] }),
   });
-  return { service, settings, getSettings, launch, launches, files, getProject, buildWebChatTree, project, env };
+  return {
+    service,
+    settings,
+    getSettings,
+    launch,
+    launches,
+    files,
+    getProject,
+    buildWebChatTree,
+    project,
+    env,
+    locator,
+  };
 }
 
 describe('WebChatService', () => {
+  it('lists available browsers and propagates settings errors', async () => {
+    const { service, getSettings, files } = setup();
+    files.add('C:\\Program Files\\CocCoc\\Browser\\Application\\browser.exe');
+    const browsers = await service.browsers();
+    expect(browsers.ok).toBe(true);
+    if (browsers.ok)
+      expect(browsers.value).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ browser: WebChatBrowser.DEFAULT, installed: true }),
+          expect.objectContaining({ browser: WebChatBrowser.COCCOC, installed: true }),
+        ]),
+      );
+    getSettings.mockResolvedValue({
+      ok: false,
+      error: { code: 'INTERNAL', message: 'Settings failed.', remediation: ['Try again.'], retryable: false },
+    });
+    await expect(service.browsers()).resolves.toMatchObject({ ok: false, error: { code: 'INTERNAL' } });
+  });
+
   it.each([WebChatBrowser.COCCOC, WebChatBrowser.CHROME, WebChatBrowser.EDGE, WebChatBrowser.FIREFOX])(
     'opens links in installed %s',
     async (browser) => {
@@ -162,6 +193,13 @@ describe('WebChatService', () => {
         code: 'INTERNAL',
         remediation: ['Choose another browser in Settings → Web chat.'],
       },
+    });
+
+    const relativeExecutable = setup(WebChatBrowser.CHROME);
+    vi.spyOn(relativeExecutable.locator, 'locate').mockResolvedValue('relative.exe');
+    await expect(relativeExecutable.service.open('chatgpt' as WebChatLinkId)).resolves.toMatchObject({
+      ok: false,
+      error: { code: 'INTERNAL' },
     });
   });
 
