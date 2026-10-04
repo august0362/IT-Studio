@@ -261,7 +261,10 @@ export class PipelineOrchestrator {
       const validationController = new AbortController();
       this.validationControllers.set(run.id, validationController);
       for (const command of currentSettings.value.validationCommands) {
-        const commandRun = await this.deps.commands.run(project.workspaceRoot, command, validationController.signal);
+        const commandRun = await this.deps.commands.run(project.workspaceRoot, command, validationController.signal, {
+          projectId: run.projectId,
+          pipelineRunId: run.id,
+        });
         if (!commandRun.ok) {
           await this.fail(run, commandRun.error, true, true, validation);
           return;

@@ -19,7 +19,7 @@
 | M5 RAG | **Done** (conditional — QA-E2E-FIX4) | 8 / 8 |
 | M6 Agent pipeline & Worker | **Done** (conditional — QA-E2E-FIX4) | 9 / 9 |
 | M7 VS Code companion extension | **Done** (QA signed off) | 6 / 6 |
-| MW Workflow map (v1 addendum) | In progress | 4 / 6 |
+| MW Workflow map (v1 addendum) | **Done** (conditional QA sign-off; exploratory follow-up) | 6 / 6 |
 | WC Quick web chat (v1 addendum) | **Done** | 1 / 1 |
 | M8 Image generation | **Done** (conditional QA sign-off; exploratory follow-up) | 6 / 6 |
 | M9 Packaging & release | In progress (QA) | 6 / 7 |
@@ -152,8 +152,8 @@ Ref: ARCHITECTURE §13.1, schemas §12b. Per-project graph of modules, links and
 - [x] **MW-01** (C) Sidecar: `domain/workflow-topology.ts` (static catalogue of nodes / lanes / typed edges), `services/activity-recorder.ts` (maps existing events → `ActivityEvent`, redaction, in-flight sets, batching ≤ 4/s), `activity_events` table + retention (7 d / 20 000 per project), RPC `workflow.graph`, `workflow.activity`, notification `workflow.activity` + validators.
 - [x] **MW-02** (C) Workflow tab: React Flow graph by lanes, theme tokens, node status / counters, edge animation on live events, zoom / pan / fit, keyboard navigation, "All projects" aggregate with project filter chips.
 - [x] **MW-03** (C) Module side panel: Now (in-flight with progress), Recent (filters, load-more from history), Metrics 24 h (calls, errors, p50 / p95, cost via `<Money>`), Links in / out with contract + last payload summary, deep links to Chat / Code / Knowledge / Cost.
-- [~] **MW-04** (C) *(implemented on branch `task/MW-04`, unit green; integration + E2E pending — see `docs/HANDOFF.md` §4.2)* Missing events: add only the events the recorder cannot derive today (e.g. retriever query / hits count, command start / end, VS Code action acks) as in-process events — no polling.
-- [ ] **MW-QA** (A+C) QA gate (TESTING.md §7): topology completeness vs ARCH §13.1, event → module mapping table, redaction corpus (no prompt text / keys in any summary), retention boundaries, UI live update under load (100 events/s burst), E2E: run a chat + an ingest + a pipeline and see the right nodes / edges light up and the panel history match.
+- [x] **MW-04** (C) Missing workflow events and Chat / Code / Knowledge / Cost deep links; typecheck, lint, unit, integration (109/109), and MW E2E passed.
+- [x] **MW-QA** (A+C) *(conditional sign-off: automated cases and E2E pass; 20-minute exploratory session and QA report remain)* Topology, mapping/redaction, retention, 100-event UI burst, deep links, and scripted workflow E2E verified.
 
 ## WC — Quick web chat *(v1 addendum, D34)*
 Open ChatGPT / Gemini / Grok / … in the owner's browser (default Cốc Cốc) from IT Studio; copy a project brief to paste. No scraping, no metering.

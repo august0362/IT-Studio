@@ -17,6 +17,7 @@ import { activityEventIdSchema, isoDateTimeSchema } from '../validation/brand.js
 import type { ActivityRepository } from '../infra/sqlite/activity-repository.js';
 import type { EventBus } from '../rpc/event-bus.js';
 import type { SettingsService } from './settings-service.js';
+import type { WorkflowInternalEvent, WorkflowInternalEventBus } from './workflow-internal-events.js';
 
 type SourceName =
   | 'router.event'
@@ -245,6 +246,73 @@ export function mapWorkflowEvent(
   }
 }
 
+export function mapWorkflowInternalEvent(
+  source: WorkflowInternalEvent,
+  costDisplay?: (microUsdAmount: number) => MoneyDisplay,
+): ActivityMapping {
+  switch (source.type) {
+    case 'retriever':
+      return {
+        projectId: source.projectId,
+        moduleId: WorkflowModuleId.RETRIEVER,
+        edgeId: source.phase === 'started' ? 'query-retriever' : 'retriever-router',
+        kind: source.phase === 'started' ? 'started' : 'completed',
+        summary:
+          source.phase === 'started'
+            ? 'Retrieval started'
+            : `Retrieved ${String(source.hitCount ?? 0)} hits${source.topScore === undefined ? '' : ` (top score ${source.topScore.toFixed(2)})`}`,
+        refs: {},
+        ...(source.durationMs === undefined ? {} : { durationMs: source.durationMs }),
+      };
+    case 'command':
+      return {
+        projectId: source.projectId ?? null,
+        moduleId: WorkflowModuleId.COMMAND_RUNNER,
+        edgeId: 'worker-commands',
+        kind:
+          source.phase === 'started' ? 'started' : source.timedOut || source.exitCode !== 0 ? 'failed' : 'completed',
+        summary:
+          source.phase === 'started'
+            ? `Command started: ${source.executable} (${String(source.argCount)} args)`
+            : `Command ${source.timedOut ? 'timed out' : source.exitCode === 0 ? 'finished' : `exited ${String(source.exitCode)}`}: ${source.executable} (${String(source.argCount)} args)`,
+        refs: {
+          commandRunId: source.commandRunId,
+          ...(source.pipelineRunId === undefined ? {} : { pipelineRunId: source.pipelineRunId }),
+        },
+        ...(source.durationMs === undefined ? {} : { durationMs: source.durationMs }),
+      };
+    case 'vscode':
+      return {
+        projectId: source.projectId,
+        moduleId: WorkflowModuleId.VSCODE_BRIDGE,
+        edgeId: 'worker-vscode',
+        kind: source.phase === 'sent' ? 'started' : 'completed',
+        summary: `VS Code ${source.action} ${source.phase}${source.path === undefined ? '' : `: ${source.path}`}`,
+        refs: {},
+      };
+    case 'image':
+      return {
+        projectId: source.projectId,
+        moduleId: WorkflowModuleId.CHAT,
+        edgeId: 'chat-router',
+        kind: source.phase === 'started' ? 'started' : source.phase === 'failed' ? 'failed' : 'completed',
+        summary: `Image generation ${source.phase}: ${source.provider}, ${String(source.count)} image${source.count === 1 ? '' : 's'}`,
+        refs: {},
+        ...(source.cost === undefined || costDisplay === undefined ? {} : { cost: costDisplay(source.cost) }),
+      };
+    case 'embedding':
+      return {
+        projectId: source.projectId,
+        moduleId: WorkflowModuleId.EMBEDDINGS,
+        edgeId: 'embeddings-ledger',
+        kind: 'completed',
+        summary: `Embedded ${String(source.chunkCount)} chunks with ${source.modelKey}`,
+        refs: {},
+        ...(costDisplay === undefined ? {} : { cost: costDisplay(source.cost) }),
+      };
+  }
+}
+
 export class ActivityRecorder {
   private readonly events: EventBus<RpcNotificationMap>;
   private readonly repository: Pick<ActivityRepository, 'insert' | 'query' | 'since' | 'prune'>;
@@ -273,6 +341,7 @@ export class ActivityRecorder {
     settings: Pick<SettingsService, 'get'>;
     aggregateCost: (microUsdAmount: number) => MoneyDisplay;
     vscodeBridgeAvailable: boolean;
+    internalEvents?: WorkflowInternalEventBus;
   }) {
     this.events = input.events;
     this.repository = input.repository;
@@ -301,6 +370,12 @@ export class ActivityRecorder {
         }),
       );
     }
+    if (input.internalEvents !== undefined)
+      this.unsubscribers.push(
+        input.internalEvents.subscribe((event) => {
+          this.trackInternal(event);
+        }),
+      );
   }
 
   start(): void {
@@ -488,6 +563,49 @@ export class ActivityRecorder {
       () => this.recording.delete(pending),
       () => this.recording.delete(pending),
     );
+  }
+
+  private trackInternal(source: WorkflowInternalEvent): void {
+    const pending = this.recordInternal(source);
+    this.recording.add(pending);
+    void pending.then(
+      () => this.recording.delete(pending),
+      () => this.recording.delete(pending),
+    );
+  }
+
+  private async recordInternal(source: WorkflowInternalEvent): Promise<void> {
+    const configured = await this.settings.get();
+    const projectId =
+      source.type === 'command'
+        ? (source.projectId ?? (configured.ok ? configured.value.activeProjectId : null))
+        : source.projectId;
+    const mapped = mapWorkflowInternalEvent(source, this.aggregateCost);
+    const id = activityEventIdSchema.parse(this.ids.uuid());
+    const ts = isoDateTimeSchema.parse(this.clock.now().toISOString());
+    const event: ActivityEvent = {
+      id,
+      ts,
+      ...mapped,
+      projectId,
+      summary: redactLogLine(mapped.summary).slice(0, 500),
+    };
+    await this.repository.insert(event);
+    const key = projectId ?? '*';
+    const ring = this.rings.get(key) ?? [];
+    ring.push(event);
+    this.rings.set(key, ring.slice(-500));
+    const pending = this.pending.get(key) ?? [];
+    pending.push(event);
+    this.pending.set(key, pending);
+    this.updateFlight(projectId, event);
+    if (!this.timers.has(key))
+      this.timers.set(
+        key,
+        setTimeout(() => {
+          this.flush(key);
+        }, 250),
+      );
   }
 
   private async flushPendingRecords(): Promise<void> {

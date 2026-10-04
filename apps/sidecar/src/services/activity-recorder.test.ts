@@ -24,8 +24,9 @@ import {
 import { chatMessageSchema } from '../validation/chat.js';
 import { ledgerEntrySchema, moneyDisplaySchema } from '../validation/cost.js';
 import { modelKeySchema, workspaceRelativePathSchema } from '../validation/common.js';
-import { mapWorkflowEvent } from './activity-recorder.js';
+import { mapWorkflowEvent, mapWorkflowInternalEvent } from './activity-recorder.js';
 import { ActivityRecorder } from './activity-recorder.js';
+import type { WorkflowInternalEvent } from './workflow-internal-events.js';
 import { ActivityRepository } from '../infra/sqlite/activity-repository.js';
 import { openDatabase } from '../infra/sqlite/database.js';
 import { EventBus } from '../rpc/event-bus.js';
@@ -48,6 +49,80 @@ const settingsFailure: Result<AppSettings> = {
 afterEach(() => vi.useRealTimers());
 
 describe('ActivityRecorder correlations', () => {
+  it('TC-MW-004 records retrieval, embedding, and validation command events for a RAG chat pipeline', async () => {
+    const database = openDatabase(':memory:');
+    const repository = new ActivityRepository(database.db);
+    const events = new EventBus<RpcNotificationMap>();
+    const internal = new EventBus<{ activity: WorkflowInternalEvent }>();
+    let generated = 0;
+    const recorder = new ActivityRecorder({
+      events,
+      internalEvents: {
+        publish: (event) => {
+          internal.publish('activity', event);
+        },
+        subscribe: (handler) => internal.subscribe('activity', handler),
+      },
+      repository,
+      ids: { uuid: () => `00000000-0000-4000-8000-${String(++generated).padStart(12, '0')}` },
+      clock: createFakeClock(new Date(fxAsOf)),
+      settings: { get: (): Promise<Result<AppSettings>> => Promise.resolve(settingsFailure) },
+      aggregateCost: () => money,
+      vscodeBridgeAvailable: false,
+    });
+    const runCommandId = commandRunIdSchema.parse('00000000-0000-4000-8000-000000000007');
+    internal.publish('activity', { type: 'retriever', phase: 'started', projectId });
+    internal.publish('activity', {
+      type: 'retriever',
+      phase: 'completed',
+      projectId,
+      hitCount: 2,
+      topScore: 0.91,
+      durationMs: 15,
+    });
+    internal.publish('activity', {
+      type: 'embedding',
+      projectId,
+      modelKey: modelKeySchema.parse('openai/text-embedding-3-small'),
+      chunkCount: 3,
+      cost: 8,
+    });
+    internal.publish('activity', {
+      type: 'command',
+      phase: 'started',
+      projectId,
+      pipelineRunId: runId,
+      commandRunId: runCommandId,
+      executable: 'npm',
+      argCount: 2,
+    });
+    internal.publish('activity', {
+      type: 'command',
+      phase: 'finished',
+      projectId,
+      pipelineRunId: runId,
+      commandRunId: runCommandId,
+      executable: 'npm',
+      argCount: 2,
+      exitCode: 0,
+      timedOut: false,
+      durationMs: 40,
+    });
+    await vi.waitFor(() => {
+      expect(recorder.activity(projectId, 10)).toHaveLength(5);
+    });
+    expect(recorder.activity(projectId, 10).map((event) => event.moduleId)).toEqual([
+      WorkflowModuleId.COMMAND_RUNNER,
+      WorkflowModuleId.COMMAND_RUNNER,
+      WorkflowModuleId.EMBEDDINGS,
+      WorkflowModuleId.RETRIEVER,
+      WorkflowModuleId.RETRIEVER,
+    ]);
+    expect(recorder.activity(projectId, 10).every((event) => !event.summary.includes('hidden'))).toBe(true);
+    recorder.stop();
+    database.client.close();
+  });
+
   it('TC-MW-003 counts completed scripted chat calls for a project and the all-project aggregate', async () => {
     const database = openDatabase(':memory:');
     const repository = new ActivityRepository(database.db);
@@ -548,5 +623,118 @@ describe('mapWorkflowEvent', () => {
       inFlight: 0,
     });
     recorder.stop();
+  });
+});
+
+describe('mapWorkflowInternalEvent', () => {
+  it.each([
+    [{ type: 'retriever', phase: 'started', projectId }, WorkflowModuleId.RETRIEVER, 'started'],
+    [
+      { type: 'retriever', phase: 'completed', projectId, hitCount: 2, topScore: 0.91, durationMs: 8 },
+      WorkflowModuleId.RETRIEVER,
+      'completed',
+    ],
+    [
+      {
+        type: 'command',
+        phase: 'started',
+        projectId,
+        pipelineRunId: runId,
+        commandRunId: commandRunIdSchema.parse('00000000-0000-4000-8000-000000000007'),
+        executable: 'npm',
+        argCount: 2,
+      },
+      WorkflowModuleId.COMMAND_RUNNER,
+      'started',
+    ],
+    [
+      {
+        type: 'command',
+        phase: 'finished',
+        projectId,
+        pipelineRunId: runId,
+        commandRunId: commandRunIdSchema.parse('00000000-0000-4000-8000-000000000007'),
+        executable: 'npm',
+        argCount: 2,
+        exitCode: 1,
+        timedOut: false,
+        durationMs: 12,
+      },
+      WorkflowModuleId.COMMAND_RUNNER,
+      'failed',
+    ],
+    [
+      {
+        type: 'vscode',
+        phase: 'sent',
+        projectId,
+        action: 'show_diff',
+        path: workspaceRelativePathSchema.parse('src/a.ts'),
+      },
+      WorkflowModuleId.VSCODE_BRIDGE,
+      'started',
+    ],
+    [
+      {
+        type: 'vscode',
+        phase: 'acked',
+        projectId,
+        action: 'show_diff',
+        path: workspaceRelativePathSchema.parse('src/a.ts'),
+      },
+      WorkflowModuleId.VSCODE_BRIDGE,
+      'completed',
+    ],
+    [
+      { type: 'image', phase: 'started', projectId, provider: 'openai_dalle3', count: 2 },
+      WorkflowModuleId.CHAT,
+      'started',
+    ],
+    [
+      { type: 'image', phase: 'failed', projectId, provider: 'openai_dalle3', count: 2 },
+      WorkflowModuleId.CHAT,
+      'failed',
+    ],
+    [
+      {
+        type: 'embedding',
+        projectId,
+        modelKey: modelKeySchema.parse('openai/text-embedding-3-small'),
+        chunkCount: 4,
+        cost: 23,
+      },
+      WorkflowModuleId.EMBEDDINGS,
+      'completed',
+    ],
+  ] as const)('maps %s to its module and kind', (source, moduleId, kind) => {
+    const mapped = mapWorkflowInternalEvent(source, () => money);
+    expect(mapped).toMatchObject({ moduleId, kind });
+  });
+
+  it('keeps retrieval text and secret-bearing command arguments out of summaries', () => {
+    const queryText = 'private customer prompt';
+    const secretArgument = '--token=super-secret-value';
+    const retrieval = mapWorkflowInternalEvent({
+      type: 'retriever',
+      phase: 'completed',
+      projectId,
+      hitCount: 1,
+      topScore: 0.8,
+      durationMs: 2,
+    });
+    const command = mapWorkflowInternalEvent({
+      type: 'command',
+      phase: 'finished',
+      projectId,
+      commandRunId: commandRunIdSchema.parse('00000000-0000-4000-8000-000000000007'),
+      executable: 'npm',
+      argCount: 1,
+      exitCode: 0,
+      timedOut: false,
+      durationMs: 1,
+    });
+    expect(`${retrieval.summary} ${command.summary}`).not.toContain(queryText);
+    expect(`${retrieval.summary} ${command.summary}`).not.toContain(secretArgument);
+    expect(command.summary).toContain('1 args');
   });
 });

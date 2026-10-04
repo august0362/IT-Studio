@@ -1,7 +1,7 @@
 import type { AppError, IngestJob, Project, ProjectId, SourceDocument } from '@itstudio/schemas';
 import { useQueryClient } from '@tanstack/react-query';
 import type { JSX } from 'react';
-import { useMemo, useReducer } from 'react';
+import { useEffect, useMemo, useReducer, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNotification } from '../../hooks/use-notification';
 import { useRpcQuery } from '../../hooks/use-rpc-query';
@@ -12,6 +12,7 @@ import { DocumentTable } from './DocumentTable';
 import { IngestProgress } from './IngestProgress';
 import { ingestReducer, initialIngestState } from './ingest-store';
 import { TestQueryPanel } from './TestQueryPanel';
+import { useNavigationIntent } from '../../state/navigation-intent';
 
 export function KnowledgePage({
   project,
@@ -32,6 +33,19 @@ export function KnowledgePage({
   const [ingest, dispatch] = useReducer(ingestReducer, initialIngestState);
   const documents: readonly SourceDocument[] = documentsQuery.data ?? [];
   const jobs = useMemo(() => Object.values(ingest.jobs), [ingest.jobs]);
+  const navigationIntent = useNavigationIntent((state) => state.intent);
+  const clearNavigationIntent = useNavigationIntent((state) => state.clearIntent);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  useEffect(() => {
+    if (navigationIntent?.kind !== 'ingestJob') return;
+    const timer = window.setTimeout(() => {
+      setSelectedJobId(navigationIntent.id);
+      clearNavigationIntent();
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [clearNavigationIntent, navigationIntent]);
   useNotification('rag.progress', (job) => {
     dispatch(job);
     if (['indexed', 'failed', 'skipped_unchanged'].includes(job.status)) {
@@ -67,7 +81,7 @@ export function KnowledgePage({
         </p>
       ) : null}
       <AddSourcesForm onStarted={started} projectId={projectId} />
-      <IngestProgress jobs={jobs} skippedUnchanged={ingest.skippedUnchanged} />
+      <IngestProgress jobs={jobs} selectedJobId={selectedJobId} skippedUnchanged={ingest.skippedUnchanged} />
       <DocumentTable
         documents={documents}
         onStarted={started}

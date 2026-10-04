@@ -14,6 +14,7 @@ import type { SettingsService } from '../settings-service.js';
 import { rerankMmr } from '../../domain/mmr.js';
 import { retrievalHitSchema, retrievalQuerySchema } from '../../validation/rag.js';
 import { documentIdSchema } from '../../validation/brand.js';
+import type { WorkflowInternalEventBus } from '../workflow-internal-events.js';
 
 const MODEL_MISMATCH = 'Knowledge index uses another embedding model — re-index required';
 
@@ -22,6 +23,7 @@ export interface RetrieverDependencies {
   readonly vectors: IVectorStore;
   readonly embeddings: Pick<EmbeddingDispatcher, 'embed'>;
   readonly settings: Pick<SettingsService, 'get'>;
+  readonly internalEvents?: WorkflowInternalEventBus;
 }
 
 export class Retriever {
@@ -32,6 +34,22 @@ export class Retriever {
   }
 
   async query(input: RetrievalQuery): Promise<Result<readonly RetrievalHit[]>> {
+    const startedAt = performance.now();
+    this.deps.internalEvents?.publish({ type: 'retriever', phase: 'started', projectId: input.projectId });
+    const result = await this.queryInternal(input);
+    const hits = result.ok ? result.value : [];
+    this.deps.internalEvents?.publish({
+      type: 'retriever',
+      phase: 'completed',
+      projectId: input.projectId,
+      hitCount: hits.length,
+      ...(hits[0] === undefined ? {} : { topScore: hits[0].score }),
+      durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
+    });
+    return result;
+  }
+
+  private async queryInternal(input: RetrievalQuery): Promise<Result<readonly RetrievalHit[]>> {
     const parsed = retrievalQuerySchema.safeParse(input);
     if (!parsed.success)
       return failure(ErrorCode.VALIDATION, 'Retrieval query is invalid.', ['Correct the query and retrieval options.']);

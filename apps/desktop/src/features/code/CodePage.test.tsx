@@ -7,12 +7,14 @@ import { RpcClient } from '../../rpc/rpc-client';
 import { RpcClientProvider } from '../../rpc/rpc-context';
 import { FakeTransport } from '../../rpc/transport';
 import { CodePage } from './CodePage';
+import { useNavigationIntent } from '../../state/navigation-intent';
 
 vi.mock('./monaco-setup', () => ({}));
 vi.mock('@monaco-editor/react', () => ({ Editor: () => null, DiffEditor: () => null }));
 
 afterEach(() => {
   cleanup();
+  useNavigationIntent.getState().clearIntent();
   vi.restoreAllMocks();
   void i18n.changeLanguage('en');
 });
@@ -44,7 +46,7 @@ function pipeline(stage: PipelineRun['stage']): PipelineRun {
   };
 }
 
-function setup(stage: PipelineRun['stage']) {
+function setup(stage: PipelineRun['stage'], withRun = false) {
   const transport = new FakeTransport();
   transport.setStatus({ running: true, ready: true, restarts: 0 });
   const startingRun = pipeline(stage);
@@ -54,7 +56,9 @@ function setup(stage: PipelineRun['stage']) {
     if (request.id === undefined || request.method === undefined) return Promise.resolve();
     const result =
       request.method === 'pipeline.list'
-        ? []
+        ? withRun
+          ? [startingRun]
+          : []
         : request.method === 'pipeline.start'
           ? startingRun
           : request.method === 'pipeline.cancel'
@@ -77,6 +81,13 @@ function setup(stage: PipelineRun['stage']) {
 }
 
 describe('CodePage', () => {
+  it('TC-MW-009 selects the pipeline run referenced by a workflow deep link', async () => {
+    useNavigationIntent.getState().setIntent({ kind: 'pipelineRun', id: 'run-1' });
+    setup(PipelineStage.COMPLETED, true);
+    const run = await screen.findByRole('button', { name: /Build a sample/ });
+    await waitFor(() => expect(run).toHaveAttribute('aria-current', 'true'));
+    expect(useNavigationIntent.getState().intent).toBeNull();
+  });
   it('starts a run through RPC and asks for confirmation when cancelling during writing', async () => {
     const transport = setup(PipelineStage.WRITING);
     fireEvent.change(screen.getByLabelText('What should we build?'), { target: { value: 'Build a sample' } });

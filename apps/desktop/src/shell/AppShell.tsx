@@ -21,6 +21,7 @@ import { VSCodeSettingsPage } from '../features/settings/vscode/VSCodeSettingsPa
 import { PipelineSettingsPage } from '../features/settings/pipeline/PipelineSettingsPage';
 import { KnowledgePage } from '../features/knowledge/KnowledgePage';
 import { ImagesSettingsPage } from '../features/settings/images/ImagesSettingsPage';
+import { useNavigationIntent } from '../state/navigation-intent';
 import { WebChatSettingsPage } from '../features/settings/web-chat/WebChatSettingsPage';
 
 const CodePage = lazy(() => import('../features/code/CodePage').then(({ CodePage: page }) => ({ default: page })));
@@ -169,7 +170,19 @@ export function AppShell(): JSX.Element {
     content = (
       <Suspense fallback={<p role="status">{t('workflow.loading')}</p>}>
         <WorkflowPage
-          onNavigate={(target) => {
+          onNavigate={(target, event) => {
+            const refs = event?.refs;
+            if (target === 'chat' && refs?.conversationId !== undefined)
+              useNavigationIntent.getState().setIntent({ kind: 'conversation', id: refs.conversationId });
+            else if (target === 'code' && refs?.pipelineRunId !== undefined)
+              useNavigationIntent.getState().setIntent({ kind: 'pipelineRun', id: refs.pipelineRunId });
+            else if (target === 'knowledge' && refs?.ingestJobId !== undefined)
+              useNavigationIntent.getState().setIntent({ kind: 'ingestJob', id: refs.ingestJobId });
+            else if (target === 'cost') {
+              const field = refs?.requestId !== undefined ? 'requestId' : 'pipelineRunId';
+              const id = refs?.[field];
+              if (id !== undefined) useNavigationIntent.getState().setIntent({ kind: 'ledger', id, field });
+            }
             navigate(target);
           }}
           projectId={activeId === null ? null : (projects.find((project) => project.id === activeId)?.id ?? null)}

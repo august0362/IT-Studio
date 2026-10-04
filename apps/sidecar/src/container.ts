@@ -106,6 +106,7 @@ import { FakeImageProvider } from './infra/fake-image-provider.js';
 import { isoDateTimeSchema } from './validation/brand.js';
 import { toolCallSchema } from './validation/chat.js';
 import { jsonObjectSchema, modelKeySchema } from './validation/common.js';
+import type { WorkflowInternalEvent } from './services/workflow-internal-events.js';
 
 class MemorySecretStore implements ISecretStore {
   private readonly values = new Map<ProviderId, string>();
@@ -485,6 +486,13 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
         }
       : new FetchHttpClient());
   const events = new EventBus<RpcNotificationMap>();
+  const workflowInternalBus = new EventBus<{ activity: WorkflowInternalEvent }>();
+  const workflowInternalEvents = {
+    publish: (event: WorkflowInternalEvent) => {
+      workflowInternalBus.publish('activity', event);
+    },
+    subscribe: (handler: (event: WorkflowInternalEvent) => void) => workflowInternalBus.subscribe('activity', handler),
+  };
   const activityRecorder = new ActivityRecorder({
     events,
     repository: activityRepository,
@@ -493,6 +501,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     settings: settingsService,
     aggregateCost: (amount) => toMoneyDisplay(microUsd(amount), fxService.getEffective()),
     vscodeBridgeAvailable: vscodeBridgeEnabled,
+    internalEvents: workflowInternalEvents,
   });
   const fileSystem = new NodeFileSystem();
   let vscodeConnected = false;
@@ -523,6 +532,9 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
       },
       publishInternal: (value) => {
         vscodeInternalEvents.publish('file_saved_by_user', value);
+      },
+      publishActivity: (value) => {
+        workflowInternalEvents.publish(value);
       },
     },
   });
@@ -596,6 +608,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     ids,
     clock,
     logger,
+    internalEvents: workflowInternalEvents,
   });
   const embeddingProviders = {
     [ProviderId.OPENAI]: e2e
@@ -632,6 +645,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
           );
         },
         completed: routerCompleted,
+        internalEvents: workflowInternalEvents,
         ...(e2e ? { sleep: () => Promise.resolve() } : {}),
       });
       return dispatcher.embed(texts, context);
@@ -643,6 +657,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     vectors: vectorStore,
     embeddings: embeddingDispatcher,
     settings: settingsService,
+    internalEvents: workflowInternalEvents,
   });
   const ragService = new RagService({
     projects: projectRepository,
@@ -746,7 +761,12 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const pipelineRepository = new PipelineRepository(database.db);
   const roleCaller = new RoleCaller({ router: llmRouter, logger, ids, now: () => clock.now() });
   const writeTransaction = new WriteTransactionService({ fileSystem, ids, clock });
-  const commandRunner = new CommandRunner({ processRunner: new NodeProcessRunner(), fileSystem, ids });
+  const commandRunner = new CommandRunner({
+    processRunner: new NodeProcessRunner(),
+    fileSystem,
+    ids,
+    internalEvents: workflowInternalEvents,
+  });
   const journalRecovery = new JournalRecoveryService(fileSystem, clock);
   const projectContext = new ProjectContextService(fileSystem);
   const browserLocator = new BrowserLocator(fileSystem, env);

@@ -20,6 +20,7 @@ import { retryDelayMs } from '../domain/backoff.js';
 import type { EventBus } from '../rpc/event-bus.js';
 import type { RouterCompleted } from './llm-router.js';
 import { llmRequestIdSchema, projectIdSchema } from '../validation/brand.js';
+import type { WorkflowInternalEventBus } from './workflow-internal-events.js';
 
 const MAX_ESTIMATED_TOKENS = 8_000;
 const MAX_RETRIES = 2;
@@ -46,6 +47,7 @@ export interface EmbeddingDispatcherDependencies {
   readonly completed: EventBus<{ completed: RouterCompleted }>;
   readonly sleep?: (ms: number) => Promise<void>;
   readonly random?: () => number;
+  readonly internalEvents?: WorkflowInternalEventBus;
 }
 
 function failure(
@@ -98,6 +100,13 @@ export class EmbeddingDispatcher {
       if (!result.ok) return result;
       vectors.push(...result.value.vectors.map(normalize));
       const modelKey = result.value.modelKey;
+      this.deps.internalEvents?.publish({
+        type: 'embedding',
+        projectId: context.projectId,
+        modelKey,
+        chunkCount: batch.length,
+        cost: this.deps.estimateCostMicroUsd(modelKey, batch),
+      });
       this.deps.completed.publish('completed', {
         requestId: llmRequestIdSchema.parse(this.deps.ids.uuid()),
         projectId: projectIdSchema.parse(context.projectId),
