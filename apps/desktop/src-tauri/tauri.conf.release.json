@@ -4,6 +4,11 @@
     "externalBin": ["binaries/itstudio-sidecar"],
     "resources": {
       "bundle-resources/resources": "resources"
+    },
+    "windows": {
+      "wix": {
+        "template": "wix/main.wxs"
+      }
     }
   }
 }
