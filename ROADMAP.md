@@ -1,5 +1,6 @@
 # ROADMAP.md — Milestones & Tasks
 
+> **Continuing after a stop? Read `docs/HANDOFF.md` first** (status, in-flight work, process rules, environment).
 > **How to use:** work on the first unchecked task whose dependencies are all checked.
 > `- [ ]` pending · `- [x]` done (QA-verified) · `- [~]` in progress · `- [!]` blocked (reason inline).
 > Only the QA role ticks boxes (ROLES §1.2). Each task's full prompt lives in `docs/tasks/<ID>.md` (created just-in-time by the Architect).
@@ -147,7 +148,7 @@ Ref: ARCHITECTURE §13.1, schemas §12b. Per-project graph of modules, links and
 - [x] **MW-01** (C) Sidecar: `domain/workflow-topology.ts` (static catalogue of nodes / lanes / typed edges), `services/activity-recorder.ts` (maps existing events → `ActivityEvent`, redaction, in-flight sets, batching ≤ 4/s), `activity_events` table + retention (7 d / 20 000 per project), RPC `workflow.graph`, `workflow.activity`, notification `workflow.activity` + validators.
 - [x] **MW-02** (C) Workflow tab: React Flow graph by lanes, theme tokens, node status / counters, edge animation on live events, zoom / pan / fit, keyboard navigation, "All projects" aggregate with project filter chips.
 - [x] **MW-03** (C) Module side panel: Now (in-flight with progress), Recent (filters, load-more from history), Metrics 24 h (calls, errors, p50 / p95, cost via `<Money>`), Links in / out with contract + last payload summary, deep links to Chat / Code / Knowledge / Cost.
-- [ ] **MW-04** (C) Missing events: add only the events the recorder cannot derive today (e.g. retriever query / hits count, command start / end, VS Code action acks) as in-process events — no polling.
+- [~] **MW-04** (C) *(implemented on branch `task/MW-04`, unit green; integration + E2E pending — see `docs/HANDOFF.md` §4.2)* Missing events: add only the events the recorder cannot derive today (e.g. retriever query / hits count, command start / end, VS Code action acks) as in-process events — no polling.
 - [ ] **MW-QA** (A+C) QA gate (TESTING.md §7): topology completeness vs ARCH §13.1, event → module mapping table, redaction corpus (no prompt text / keys in any summary), retention boundaries, UI live update under load (100 events/s burst), E2E: run a chat + an ingest + a pipeline and see the right nodes / edges light up and the panel history match.
 
 ## M8 — Image generation *(deferred — do not start without user go-ahead)*
@@ -159,7 +160,7 @@ Spec: ARCH §14.1, `schemas.ts` §13.
 - [x] **M8-03** (C) `generate_image` tool dispatch: validation, BudgetGuard, provider fallback, download-and-store, ledger (`purpose=image`).
 - [x] **M8-04** (C) Chat inline image rendering via asset protocol.
 - [x] **M8-05** (C) Gallery tab.
-- [ ] **M8-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M8-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M8-report.md` sign-off. Scope: Image generation: tool call → image stored locally, provider fallback, cost per image, gallery.
+- [~] **M8-QA** (A+C) *(automated on branch `task/M8-QA`; L3 111/111 green; E2E TC-M8-010 failing — see `docs/HANDOFF.md` §4.1)* Milestone QA gate (TESTING.md §7): A writes `docs/qa/M8-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M8-report.md` sign-off. Scope: Image generation: tool call → image stored locally, provider fallback, cost per image, gallery.
 
 ## M9 — Packaging & release *(deferred)*
 
