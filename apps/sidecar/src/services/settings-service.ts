@@ -44,11 +44,13 @@ export class SettingsService {
     } catch {
       return this.recoverCorrupted(stored.json, 'Settings row contains invalid JSON');
     }
-    const parsed = appSettingsSchema.safeParse(decoded);
+    const upgraded = addMissingTopLevelDefaults(decoded, this.defaults);
+    const parsed = appSettingsSchema.safeParse(upgraded);
     if (!parsed.success) return this.recoverCorrupted(stored.json, 'Settings row failed validation');
     if (!this.themeIds.has(parsed.data.ui.themeId)) {
       return this.recoverCorrupted(stored.json, 'Settings row refers to an unknown theme');
     }
+    if (upgraded !== decoded) await this.persist(parsed.data);
     return { ok: true, value: parsed.data };
   }
 
@@ -111,7 +113,26 @@ function mergeSettings(current: AppSettings, patch: SettingsPatch): AppSettings 
     rag: { ...current.rag, ...patch.rag },
     image: { ...current.image, ...patch.image },
     ui: { ...current.ui, ...patch.ui },
+    webChat: { ...current.webChat, ...patch.webChat },
   };
+}
+
+function addMissingTopLevelDefaults(value: unknown, defaults: AppSettings): unknown {
+  if (!isRecord(value)) return value;
+  const stored = value;
+  let changed = false;
+  const merged: Record<string, unknown> = { ...stored };
+  for (const [key, defaultValue] of Object.entries(defaults)) {
+    if (!(key in stored)) {
+      merged[key] = defaultValue;
+      changed = true;
+    }
+  }
+  return changed ? merged : value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function validationError(message: string, details?: AppError['details']): Result<never> {

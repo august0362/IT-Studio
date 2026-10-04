@@ -1,5 +1,6 @@
 # ROADMAP.md — Milestones & Tasks
 
+> **Continuing after a stop? Read `docs/HANDOFF.md` first** (status, in-flight work, process rules, environment).
 > **How to use:** work on the first unchecked task whose dependencies are all checked.
 > `- [ ]` pending · `- [x]` done (QA-verified) · `- [~]` in progress · `- [!]` blocked (reason inline).
 > Only the QA role ticks boxes (ROLES §1.2). Each task's full prompt lives in `docs/tasks/<ID>.md` (created just-in-time by the Architect).
@@ -13,23 +14,27 @@
 | M0 Environment & scaffold | **Done** | 8 / 8 |
 | M1 Sidecar core & IPC | **Done** (QA signed off) | 8 / 8 |
 | M2 LLM router & providers | **Done** (QA signed off) | 11 / 11 |
-| M3 Cost, pricing, FX, budget, P&L | In progress | 5 / 8 |
-| M4 UI shell, Settings, Chat, P&L | In progress | 3 / 8 |
-| M5 RAG | In progress | 4 / 8 |
-| M6 Agent pipeline & Worker | In progress | 5 / 8 |
-| M7 VS Code companion extension | In progress | 3 / 6 |
-| M8 Image generation *(deferred)* | Deferred | 0 / 6 |
-| M9 Packaging & release *(deferred)* | Deferred | 0 / 7 |
-| **v2** M10 Agent Orchestrator | After v1 | 0 / 8 |
-| **v2** M11 Agent Memory | After v1 | 0 / 7 |
-| **v2** M12 Channels framework + Outbox + VS Code chat | After v1 | 0 / 7 |
-| **v2** M13 Gmail channel | After v1 | 0 / 7 |
-| **v2** M14 Facebook Page channel | After v1 | 0 / 5 |
-| **v3** M15 SSH foundation & server registry | After v2 | 0 / 6 |
-| **v3** M16 Metrics, monitoring & alerts | After v2 | 0 / 8 |
-| **v3** M17 Docker management | After v2 | 0 / 6 |
-| **v3** M18 Remote file manager | After v2 | 0 / 6 |
-| **v3** M19 System actions | After v2 | 0 / 4 |
+| M3 Cost, pricing, FX, budget, P&L | **Done** (QA signed off) | 8 / 8 |
+| M4 UI shell, Settings, Chat, P&L | **Done** (conditional — QA-E2E-FIX4) | 8 / 8 |
+| M5 RAG | **Done** (conditional — QA-E2E-FIX4) | 8 / 8 |
+| M6 Agent pipeline & Worker | **Done** (conditional — QA-E2E-FIX4) | 9 / 9 |
+| M7 VS Code companion extension | **Done** (QA signed off) | 6 / 6 |
+| MW Workflow map (v1 addendum) | In progress | 4 / 6 |
+| WC Quick web chat (v1 addendum) | **Done** | 1 / 1 |
+| M8 Image generation | In progress (QA) | 5 / 6 |
+| M9 Packaging & release | In progress (QA) | 6 / 7 |
+| **v2** M10 Agent Orchestrator | Specified — waits for owner go-ahead | 0 / 11 |
+| **v2** M11 Agent Memory | Specified | 0 / 9 |
+| **v2** M12 Channels framework + Outbox + VS Code chat | Specified | 0 / 10 |
+| **v2** M13 Gmail channel | Specified | 0 / 9 |
+| **v2** M14 Facebook Page channel (+ REL-V2) | Specified | 0 / 7 |
+| **v3** M15 SSH foundation & server registry | Specified | 0 / 8 |
+| **v3** M16 Metrics, monitoring & alerts | Specified | 0 / 9 |
+| **v3** M17 Docker management | Specified | 0 / 7 |
+| **v3** M18 Remote file manager | Specified | 0 / 7 |
+| **v3** M19 System actions (+ REL-V3) | Specified | 0 / 6 |
+
+> v2/v3 planning baseline (2026-10-04): requirements `docs/specs/v2-requirements.md`, `docs/specs/v3-requirements.md`; plan (WBS, dependencies, risks) `docs/plans/v2-v3-delivery-plan.md`; every task below has a work order in `docs/tasks/<ID>.md`.
 
 ---
 
@@ -147,8 +152,13 @@ Ref: ARCHITECTURE §13.1, schemas §12b. Per-project graph of modules, links and
 - [x] **MW-01** (C) Sidecar: `domain/workflow-topology.ts` (static catalogue of nodes / lanes / typed edges), `services/activity-recorder.ts` (maps existing events → `ActivityEvent`, redaction, in-flight sets, batching ≤ 4/s), `activity_events` table + retention (7 d / 20 000 per project), RPC `workflow.graph`, `workflow.activity`, notification `workflow.activity` + validators.
 - [x] **MW-02** (C) Workflow tab: React Flow graph by lanes, theme tokens, node status / counters, edge animation on live events, zoom / pan / fit, keyboard navigation, "All projects" aggregate with project filter chips.
 - [x] **MW-03** (C) Module side panel: Now (in-flight with progress), Recent (filters, load-more from history), Metrics 24 h (calls, errors, p50 / p95, cost via `<Money>`), Links in / out with contract + last payload summary, deep links to Chat / Code / Knowledge / Cost.
-- [ ] **MW-04** (C) Missing events: add only the events the recorder cannot derive today (e.g. retriever query / hits count, command start / end, VS Code action acks) as in-process events — no polling.
+- [~] **MW-04** (C) *(implemented on branch `task/MW-04`, unit green; integration + E2E pending — see `docs/HANDOFF.md` §4.2)* Missing events: add only the events the recorder cannot derive today (e.g. retriever query / hits count, command start / end, VS Code action acks) as in-process events — no polling.
 - [ ] **MW-QA** (A+C) QA gate (TESTING.md §7): topology completeness vs ARCH §13.1, event → module mapping table, redaction corpus (no prompt text / keys in any summary), retention boundaries, UI live update under load (100 events/s burst), E2E: run a chat + an ingest + a pipeline and see the right nodes / edges light up and the panel history match.
+
+## WC — Quick web chat *(v1 addendum, D34)*
+Open ChatGPT / Gemini / Grok / … in the owner's browser (default Cốc Cốc) from IT Studio; copy a project brief to paste. No scraping, no metering.
+
+- [x] **WC-01** (C) Web chat links + browser locator + `webchat.*` RPC + Chat header menu + Settings → Web chat; upgrade-safe settings defaults.
 
 ## M8 — Image generation *(deferred — do not start without user go-ahead)*
 
@@ -159,7 +169,7 @@ Spec: ARCH §14.1, `schemas.ts` §13.
 - [x] **M8-03** (C) `generate_image` tool dispatch: validation, BudgetGuard, provider fallback, download-and-store, ledger (`purpose=image`).
 - [x] **M8-04** (C) Chat inline image rendering via asset protocol.
 - [x] **M8-05** (C) Gallery tab.
-- [ ] **M8-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M8-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M8-report.md` sign-off. Scope: Image generation: tool call → image stored locally, provider fallback, cost per image, gallery.
+- [~] **M8-QA** (A+C) *(automated on branch `task/M8-QA`; L3 111/111 green; E2E TC-M8-010 failing — see `docs/HANDOFF.md` §4.1)* Milestone QA gate (TESTING.md §7): A writes `docs/qa/M8-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M8-report.md` sign-off. Scope: Image generation: tool call → image stored locally, provider fallback, cost per image, gallery.
 
 ## M9 — Packaging & release *(deferred)*
 
@@ -180,125 +190,148 @@ Spec: ARCH §14.2.
 
 ---
 
-# v2 — Multi-Agent & Omnichannel Hub (start only after M7; ADR-0003, ARCH Part II)
+# v2 — Multi-Agent & Omnichannel Hub (ADR-0003, ARCH Part II, SRS `docs/specs/v2-requirements.md`)
+
+> Start only on the owner's go-ahead after v1 hands-on testing (HANDOFF §3 rule 7). Each milestone starts with an Architect `Mx-00` (contracts, dependencies, open questions) and ends with its QA gate. Requirement IDs (FR-…) refer to the SRS. Dependencies and lanes: `docs/plans/v2-v3-delivery-plan.md` §2.
 
 ## M10 — Agent Orchestrator
 
-**Exit criteria:** user creates a custom agent in the Agent Builder and chats with it; the v1 pipeline runs as an agent team with unchanged behaviour; agent costs appear in P&L.
+**Exit criteria:** user creates a custom agent in the Agent Builder and chats with it; the v1 pipeline runs as an agent team with unchanged behaviour; agent costs appear in P&L; `start_pipeline` never runs without the user's confirmation.
 
-- [ ] **M10-01** (A+C) `agents` table + repo; A writes `config/agents.seed.json` (6 templates); seeded on first run; `agents.*` RPC; additive CostPurpose `agent`, `memory_extraction`, `triage` (ADR).
-- [ ] **M10-02** (C) `AgentRunner`: context building, tool loop (≤ 6 calls), trigger-based tool restrictions (ARCH §15.2), `AgentRun` persistence.
-- [ ] **M10-03** (C) Routing rules repo + matcher + `routing.*` RPC.
-- [ ] **M10-04** (C) Tools `search_knowledge`, `draft_reply` (Outbox stub until M12-02), `start_pipeline`.
-- [ ] **M10-05** (C) Re-express the §8 pipeline as a PM/Coder/QA agent team (no behaviour change; M6 regression tests).
-- [ ] **M10-06** (C) Settings → Agents: Agent Builder UI (list, clone template, edit persona/ladder/tools/channels/memory policy).
-- [ ] **M10-07** (C) Chat tab agent picker + per-project default agent.
-- [ ] **M10-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M10-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M10-report.md` sign-off. Scope: Agents: create/clone/edit agent, team pipeline regression (M6 suite), external-trigger tool restrictions (decision table), agent cost in P&L.
+- [ ] **M10-00** (A) Contracts (ErrorCode, ToolName, CostPurpose, optional fields), `config/agents.seed.json` (6 templates), task review.
+- [ ] **M10-01** (C) Agent registry: `agents` + `project_agent_defaults` tables, seeding, validation, `agents.*` CRUD/clone, project default. *FR-AG-01…05*
+- [ ] **M10-02** (C) Tool policy (pure decision table) + agent tool registry (`search_knowledge`, stubs). *FR-AG-07/08*
+- [ ] **M10-03** (C) `AgentRunner` (context, tool loop ≤ 6, cancel), `agent_runs`, chat integration, ledger purpose `agent`. *FR-AG-06/10/11/16*
+- [ ] **M10-04** (C) `start_pipeline` with user confirmation (`awaiting_approval`). *FR-AG-09, DD-V2-02*
+- [ ] **M10-05** (C) Routing rules repo + pure matcher + `routing.*` RPC. *FR-AG-13*
+- [ ] **M10-06** (C) Code pipeline as PM/Coder/QA agent team + role-assignment migration (M6 regression). *FR-AG-12*
+- [ ] **M10-07** (C) Settings → Agents (Agent Builder) + routing rules editor. *FR-AG-14*
+- [ ] **M10-08** (C) Chat agent picker, project default, run cost, tool cards, pipeline confirmation card. *FR-AG-15*
+- [ ] **M10-09** (C) Workflow map: Agent runner module. *FR-WF2-01/02*
+- [ ] **M10-QA** (A+C) Milestone QA gate (TESTING.md §7) — outline in `docs/tasks/M10-QA.md`.
 
 ## M11 — Agent Memory
 
-**Exit criteria:** after a conversation the agent recalls a stated preference in a new conversation; the user can view/edit/pin/delete it; nothing is extracted from external channels by default.
+**Exit criteria:** after a conversation the agent recalls a stated preference in a new conversation; the user can view/edit/pin/delete it; nothing is extracted from external channels by default; no LLM call happens without a user action.
 
-- [ ] **M11-01** (C) `memories` table + LanceDB `memories_<agentId>` store (upsert, delete, search).
-- [ ] **M11-02** (C) Extraction service (prompt ROLES §2.8), dedupe (cos ≥ 0.92), secret/PII filter; runs when a user-driven conversation closes.
-- [ ] **M11-03** (C) Recall scoring (ARCH §16.3), memory context injection, `recall_memory` tool.
-- [ ] **M11-04** (C) Explicit remember: "remember …" phrase, message action, `remember` tool (non-external triggers only).
-- [ ] **M11-05** (C) `memory.*` RPC (list/search/update/pin/delete/forgetAll/export/cleanup).
-- [ ] **M11-06** (C) Memory page UI.
-- [ ] **M11-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M11-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M11-report.md` sign-off. Scope: Memory: extraction, dedupe, recall ranking, pin/delete/forget, external extraction off by default, secret/PII filter negatives.
+- [ ] **M11-00** (A) Contracts, shared secret-pattern source, task review.
+- [ ] **M11-01** (C) Memory store: SQLite `memories` + LanceDB `memories_<agentId>` (explicit schema), repair. *FR-MEM-01*
+- [ ] **M11-02** (C) Memory filter (secrets / third-party PII) + dedupe rules (pure). *FR-MEM-04/05*
+- [ ] **M11-03** (C) Extraction service, `chat.closeConversation`, pending extraction on exit. *FR-MEM-02/03, DD-V2-03*
+- [ ] **M11-04** (C) Recall scoring, `<context name="memory">` injection, `recall_memory` tool. *FR-MEM-06/07*
+- [ ] **M11-05** (C) Explicit remember: en/vi phrase, message action, `remember` tool. *FR-MEM-08*
+- [ ] **M11-06** (C) `memory.*` RPC (list/search/CRUD/pin/forgetAll/export/cleanup/extractNow). *FR-MEM-09*
+- [ ] **M11-07** (C) Memory page UI. *FR-MEM-10*
+- [ ] **M11-QA** (A+C) Milestone QA gate — outline in `docs/tasks/M11-QA.md`.
 
 ## M12 — Channels framework, Outbox, VS Code chat
 
-**Exit criteria:** a fake adapter syncs on click, an agent drafts a reply into the Outbox, nothing is sent until approved; the VS Code chat panel talks to agents.
+**Exit criteria:** a fake adapter syncs on click, an agent drafts a reply into the Outbox, nothing is sent until approved (max 20/h/account); the VS Code chat panel talks to agents; the injection corpus causes no send, no forbidden tool, no memory write.
 
-- [ ] **M12-01** (C) `IChannelAdapter` port, `ChannelService` (user-triggered sync), `channel_accounts` / `channel_messages` tables, `channels.*` RPC, fake adapter + contract tests.
-- [ ] **M12-02** (C) `OutboxService`: approval lifecycle, edit, send-only-on-approve, 20/h/account cap, expiry; `outbox.*` RPC.
-- [ ] **M12-03** (C) Triage service (batch, cheapest JSON model, purpose `triage`) + "Process" → routing → AgentRunner.
-- [ ] **M12-04** (C) Inbox tab UI (Inbound / Outbox panes, badges, approve/edit/reject).
-- [ ] **M12-05** (C) VS Code protocol v2 + webview chat panel (agent picker, send selection/file).
-- [ ] **M12-06** (C) Sidecar side of VS Code chat (route to AgentRunner, stream replies).
-- [ ] **M12-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M12-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M12-report.md` sign-off. Scope: Channels/Outbox: sync only on click (no background traffic), approval lifecycle state transitions, 20/h cap BVA, VS Code chat panel round trip, prompt-injection corpus.
+- [ ] **M12-00** (A) Contracts (error codes, protocol v2 types), `markdown-it` for the extension, fake-channel script format.
+- [ ] **M12-01** (C) `IChannelAdapter` port, tables, repositories, fake adapter, contract suite. *FR-CH-01/04*
+- [ ] **M12-02** (C) `ChannelService` + `channels.*` (accounts, user-triggered sync, messages). *FR-CH-02/03*
+- [ ] **M12-03** (C) Outbox: pure state machine, send cap, `outbox.*`, `draft_reply` tool, crash-safe send. *FR-OB-01…07*
+- [ ] **M12-04** (C) Triage (batch ≤ 20, confirm before apply) + *Process* via routing → AgentRunner (external restrictions). *FR-CH-05/06*
+- [ ] **M12-05** (C) Inbox tab UI (Inbound / Outbox, badges, approve/edit/reject). *FR-CH-07*
+- [ ] **M12-06** (C) VS Code protocol v2 — sidecar side (chat routing, streaming, v1 compatibility). *FR-CH-08/09*
+- [ ] **M12-07** (C) VS Code extension chat panel (webview, CSP, sanitized markdown). *FR-CH-08/10*
+- [ ] **M12-08** (C) Workflow map: Channels, Triage, Outbox, Memory modules. *FR-WF2-01/02*
+- [ ] **M12-QA** (A+C) Milestone QA gate — outline in `docs/tasks/M12-QA.md`.
 
 ## M13 — Gmail channel
 
-**Exit criteria:** on click, new mail is fetched; Triage labels it; an agent drafts a reply; approve sends it in-thread; an `[ITS]` email from the user's own address becomes a confirmed command.
+**Exit criteria:** on click, new mail is fetched; triage labels it after confirmation; an agent drafts a reply; approve sends it in-thread; an `[ITS]` email from the owner's own address with DKIM pass becomes a command that runs only after in-app confirmation.
 
-- [ ] **M13-01** (C) OAuth installed-app flow (PKCE, loopback) + refresh token in keychain; connect/disconnect.
-- [ ] **M13-02** (C) Sync via `history.list` (fallback `messages.list`), MIME → plain text, attachment names only.
-- [ ] **M13-03** (C) Send with threading headers; Outbox integration.
-- [ ] **M13-04** (C) Apply `ITStudio/*` labels after triage confirmation.
-- [ ] **M13-05** (C) Email commands (allow-list, `[ITS]` prefix, DKIM pass, in-app confirmation).
-- [ ] **M13-06** (A+C) "Email me this report" actions + A writes `docs/guides/gmail-setup.md`.
-- [ ] **M13-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M13-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M13-report.md` sign-off. Scope: Gmail (fake Gmail API + optional live run): OAuth flow, history sync, threading on send, labels, email-command decision table (sender × prefix × DKIM), report emails.
+- [ ] **M13-00** (A) `mailparser`, opener allow-list for Google auth, `config/channels.json`, Q-06/Q-08.
+- [ ] **M13-01** (C) OAuth installed-app flow (PKCE, loopback), refresh token in keychain, connect/disconnect. *FR-GM-01/02*
+- [ ] **M13-02** (C) Gmail client + sync (`history.list` / `messages.list`) + MIME → text. *FR-GM-03/04*
+- [ ] **M13-03** (C) RFC 5322 composition + threaded send. *FR-GM-05*
+- [ ] **M13-04** (C) `ITStudio/*` labels after triage confirmation. *FR-GM-06*
+- [ ] **M13-05** (C) Email commands: policy (sender × prefix × DKIM) + confirmed run. *FR-GM-07/08*
+- [ ] **M13-06** (C) "Email me this report" (P&L, failure report, overnight summary). *FR-GM-09*
+- [ ] **M13-07** (A) `docs/guides/gmail-setup.md`.
+- [ ] **M13-QA** (A+C) Milestone QA gate — outline in `docs/tasks/M13-QA.md`.
 
 ## M14 — Facebook Page channel
 
-**Exit criteria:** on click, new Page conversations are fetched; an agent drafts; approve sends within the 24 h window; expired drafts are blocked with guidance.
+**Exit criteria:** on click, new Page conversations are fetched; an agent drafts; approve sends within the 24 h window; expired drafts are blocked with guidance; rate limits back off.
 
-- [ ] **M14-01** (C) Page token connect (keychain), page info + permission check.
-- [ ] **M14-02** (C) Conversations sync (user-triggered).
-- [ ] **M14-03** (C) Send API with 24 h window enforcement + rate-limit backoff.
-- [ ] **M14-04** (A) `docs/guides/facebook-page-setup.md` (Meta app, permissions, long-lived Page token).
-- [ ] **M14-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M14-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M14-report.md` sign-off. Scope: Facebook (fake Graph API + optional live): sync, send within window, 24 h BVA expiry, rate-limit backoff.
+- [ ] **M14-00** (A) Contracts, Graph version pin, Q-07, verify Meta rules.
+- [ ] **M14-01** (C) Page token connect + validation + keychain. *FR-FB-01/06*
+- [ ] **M14-02** (C) Conversations sync (user-triggered). *FR-FB-02*
+- [ ] **M14-03** (C) Send with 24 h window + rate-limit backoff. *FR-FB-03/04/05*
+- [ ] **M14-04** (A) `docs/guides/facebook-page-setup.md`.
+- [ ] **M14-QA** (A+C) Milestone QA gate + v2 regression — outline in `docs/tasks/M14-QA.md`.
+- [ ] **REL-V2** (A+C) Release v2.0.0: upgrade test from v1 data, audit, bump, installers, install smoke.
 
 ---
 
-# v3 — Agentless Infrastructure Management (start only after M14; ADR-0004, ARCH Part III)
+# v3 — Agentless Infrastructure Management (ADR-0004, ARCH Part III, SRS `docs/specs/v3-requirements.md`)
+
+> Starts after REL-V2, or earlier if the owner prefers (no functional dependency on v2). Servers are app-global (DD-V3-01, Q-09).
 
 ## M15 — SSH foundation & server registry
 
-**Exit criteria:** user adds a Linux, a macOS and a Windows server (key file + optional passphrase), confirms the host-key fingerprint, and the card shows Online with detected OS; a changed host key blocks the connection.
+**Exit criteria:** user adds a Linux, a macOS and a Windows server (key file + optional passphrase), confirms the host-key fingerprint, and the card shows Online with detected OS; a changed host key blocks the connection before authentication.
 
-- [ ] **M15-01** (C) `servers` table + repo + `server.*` CRUD RPC; `AppSettings.monitoring` (additive schema change, ADR-0004).
-- [ ] **M15-02** (C) Key vault: AES-256-GCM encrypted key file + keychain data key/passphrase; import & validate key formats; zeroing.
-- [ ] **M15-03** (C) `SshConnectionManager`: pooled ssh2 clients, ref-counted consumers, keepalive, reconnect backoff, idle close.
-- [ ] **M15-04** (C) Host-key TOFU flow (fingerprint confirm RPC + notification), mismatch handling; OS detection.
-- [ ] **M15-05** (C) AddServerModal + Servers tab skeleton (cards with connection state, fingerprint confirm dialog).
-- [ ] **M15-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M15-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M15-report.md` sign-off. Scope: SSH foundation: add server (ed25519/RSA/passphrase EP), TOFU confirm, host-key mismatch blocks, reconnect, key vault encryption round trip (fake SSH server in tests).
+- [ ] **M15-00** (A) `ssh2`, dialog plugin, SEA check, contracts (`AppSettings.monitoring`, error codes), Q-09/Q-10.
+- [ ] **M15-01** (C) Server registry + validation + monitoring defaults. *FR-SV-01/02*
+- [ ] **M15-02** (C) Key vault: import, AES-256-GCM envelope, keychain data key, zeroing. *FR-KV-01…03*
+- [ ] **M15-03** (C) Pure SSH connection machine + pooled connection manager + fake SSH server harness. *FR-SV-03/04/08*
+- [ ] **M15-04** (C) Host-key TOFU, OS detection, fixed remote command catalog. *FR-SV-05…07*
+- [ ] **M15-05** (C) Servers tab skeleton, AddServerModal, host-key dialog. *FR-SV-09*
+- [ ] **M15-06** (C) Workflow map: infra lane. *FR-WF3-01/02*
+- [ ] **M15-QA** (A+C) Milestone QA gate — outline in `docs/tasks/M15-QA.md`.
 
 ## M16 — Metrics, monitoring & alerts
 
 **Exit criteria:** cards show live CPU/RAM/net/disk/battery for all three OS families from fixtures and a real host; with background monitoring off, no SSH traffic occurs when the tab is hidden; with it on, a RAM > 90 % condition raises a toast.
 
-- [ ] **M16-01** (C) Linux collector + pure parser (`/proc`, `/sys`, `df`) with fixtures.
-- [ ] **M16-02** (C) macOS collector + parser (`vm_stat`, `sysctl`, `netstat -ib`, `pmset`).
-- [ ] **M16-03** (C) Windows collector + parser (PowerShell CIM, JSON output).
-- [ ] **M16-04** (C) `MetricsCollector` scheduler: watch/unwatch, background mode, single-flight, ring buffer, `server.metrics` notifications.
-- [ ] **M16-05** (C) `AlertEngine`: rules, debounce, fire/resolve, `server.alert`; Tauri OS notifications (opt-in).
-- [ ] **M16-06** (C) ServerCard UI: gauges, sparkline, net rates, disk, conditional battery, theme status tokens.
-- [ ] **M16-07** (C) Settings → Monitoring: background toggle, interval, alert rules editor.
-- [ ] **M16-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M16-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M16-report.md` sign-off. Scope: Metrics: parser fixtures for Linux/macOS/Windows, tab-visible vs background mode (no traffic when hidden & off), alert BVA + debounce, battery widget hidden when null.
+- [ ] **M16-00** (A) Notification plugin, scrubbed real-host fixtures, contracts.
+- [ ] **M16-01** (C) Linux collector + pure parser. *FR-MT-01/04/05*
+- [ ] **M16-02** (C) macOS collector + parser. *FR-MT-02*
+- [ ] **M16-03** (C) Windows collector + parser (PowerShell JSON). *FR-MT-03*
+- [ ] **M16-04** (C) `MetricsCollector` scheduler: watch/unwatch, background mode, single-flight, ring buffer. *FR-MT-06…08*
+- [ ] **M16-05** (C) Pure alert engine (debounce, fire/resolve) + alert service. *FR-AL-01/02*
+- [ ] **M16-06** (C) ServerCard metrics UI, alert toasts/center, OS notifications. *FR-MT-09, FR-AL-03*
+- [ ] **M16-07** (C) Settings → Monitoring. *FR-MT-10*
+- [ ] **M16-QA** (A+C) Milestone QA gate — outline in `docs/tasks/M16-QA.md`.
 
 ## M17 — Docker management
 
-**Exit criteria:** containers on a remote host listed; start/stop/restart work; logs stream smoothly at high volume without freezing the UI.
+**Exit criteria:** containers on a remote host listed; start/stop/restart work; unexpected exits alert; logs stream smoothly at high volume without freezing the UI.
 
-- [ ] **M17-01** (C) `DockerManager` over SSH `dial-stdio` (dockerode custom transport), availability check + remediation.
-- [ ] **M17-02** (C) List/inspect/start/stop/restart + Docker events → refresh + container-exited alerts.
-- [ ] **M17-03** (C) Log streaming (open/close, chunking, coalescing, back-pressure, auto-close).
-- [ ] **M17-04** (C) ContainerDrawer UI: table, actions with confirmations, state chips.
-- [ ] **M17-05** (C) Virtualized log viewer: auto-scroll toggle, filter, stdout/stderr toggle, download.
-- [ ] **M17-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M17-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M17-report.md` sign-off. Scope: Docker: list/start/stop/restart via fake dial-stdio daemon, events → alerts, high-volume log stream without UI freeze (performance budget).
+- [ ] **M17-00** (A) `dockerode`, `react-virtuoso`, fake Docker Engine plan, contracts.
+- [ ] **M17-01** (C) `DockerManager` over SSH `dial-stdio` + availability check. *FR-DK-01/02*
+- [ ] **M17-02** (C) List/inspect/actions + Docker events → refresh + container-exited alerts. *FR-DK-03/04*
+- [ ] **M17-03** (C) Log streaming (demux, coalescing, back-pressure, auto-close). *FR-DK-05*
+- [ ] **M17-04** (C) ContainerDrawer UI. *FR-DK-06*
+- [ ] **M17-05** (C) Virtualised log viewer. *FR-DK-07*
+- [ ] **M17-QA** (A+C) Milestone QA gate — outline in `docs/tasks/M17-QA.md`.
 
 ## M18 — Remote file manager
 
-**Exit criteria:** browse, upload, download; edit `.env` and `docker-compose.yml` with diff + backup; a concurrent remote change is detected as a conflict; undo restores the backup.
+**Exit criteria:** browse, upload, download; edit `.env` and `docker-compose.yml` with diff + backup; a concurrent remote change is detected as a conflict; undo restores the backup; a dropped connection mid-save never truncates the file.
 
-- [ ] **M18-01** (C) `SftpService`: list/stat/read/mkdir/rename/delete (non-recursive), Windows path handling.
-- [ ] **M18-02** (C) Safe write: hash conflict check, backup, tmp+rename, undo; binary detection; size limits.
-- [ ] **M18-03** (C) Upload/download via native save/open dialogs (Tauri dialog plugin, command-scoped permission).
-- [ ] **M18-04** (C) RemoteFileManager UI: dual pane, breadcrumbs, file table.
-- [ ] **M18-05** (C) Monaco editor + diff-before-save + conflict resolution dialog.
-- [ ] **M18-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M18-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M18-report.md` sign-off. Scope: SFTP: browse/upload/download, edit with diff + backup, conflict detection, undo, binary/size limits, Windows path handling.
+- [ ] **M18-00** (A) Contracts, fake SFTP harness plan.
+- [ ] **M18-01** (C) `SftpService` browse ops + pure remote path rules (incl. Windows hosts). *FR-FS-01/05*
+- [ ] **M18-02** (C) Read + safe write (hash check, backup, atomic rename) + undo. *FR-FS-02…04*
+- [ ] **M18-03** (C) Upload/download with progress and cancel (dialog-chosen paths). *FR-FS-06*
+- [ ] **M18-04** (C) RemoteFileManager UI. *FR-FS-07*
+- [ ] **M18-05** (C) Monaco editor, diff before save, conflict dialog, undo. *FR-FS-08*
+- [ ] **M18-QA** (A+C) Milestone QA gate — outline in `docs/tasks/M18-QA.md`.
 
 ## M19 — System actions
 
 **Exit criteria:** reboot and shutdown work on all three OS families with typed-name confirmation, are audited, and the card tracks reboot progress.
 
-- [ ] **M19-01** (C) `SystemActionService`: per-OS command catalog, `sudo -n` handling + remediation, audit log table.
-- [ ] **M19-02** (C) Confirmation UI (type server name) + rebooting state tracking.
-- [ ] **M19-03** (A) `docs/guides/server-setup.md`: SSH key setup, Tailscale notes, sudoers lines, Docker permissions, Windows OpenSSH, macOS remote login.
-- [ ] **M19-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M19-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M19-report.md` sign-off. Scope: System actions: per-OS command catalog, sudo -n failure remediation, typed-name confirmation, audit log, reboot tracking.
+- [ ] **M19-00** (A) Contracts, sudoers lines per OS.
+- [ ] **M19-01** (C) `SystemActionService` (catalog, `sudo -n` remediation, audit log, rebooting tracking). *FR-SA-01…04*
+- [ ] **M19-02** (C) Confirmation UI (type server name), rebooting state, audit view. *FR-SA-02…04*
+- [ ] **M19-03** (A) `docs/guides/server-setup.md`. *FR-SA-05*
+- [ ] **M19-QA** (A+C) Milestone QA gate + v3 regression — outline in `docs/tasks/M19-QA.md`.
+- [ ] **REL-V3** (A+C) Release v3.0.0.
 
 > Deferred (not scheduled): AI agents operating servers — ARCH §23, needs a new ADR.
 
@@ -308,4 +341,4 @@ Spec: ARCH §14.2.
 
 *(Contradictions or gaps found in docs; Architect resolves before the next task.)*
 
-- none
+- **DD-V3-01 / D13:** D13 says every persisted entity carries `projectId`; v3 servers (`ServerConfig`, approved in ADR-0004) have none. Proposed clarification: D13 applies to project work; infrastructure (servers, server actions) is app-global. Confirm with the owner (Q-09) in M15-00, then add the clarification to CONTEXT D13.
