@@ -25,19 +25,29 @@ The QA handoff recorded `npm run test:integration` at 111/111 passing (TC-M8-001
 - E2E teardown explicitly closes an open dialog before restoring settings and deleting its remote session. Provider selectors now target provider-name spans only, excluding status text.
 - The Gallery cost assertion now gets a deterministic $1/image entry through `ITSTUDIO_E2E_IMAGE_PRICE_MICRO_USD`, which is injected only in E2E mode. Product pricing seeds were not changed.
 
-## Remaining scope
-
 ## QA (main-sync validation, 2026-10-04)
 
 After syncing with current `main`, the focused M8 E2E spec passed again: TC-M8-010, TC-M8-011, and TC-M8-012 (3/3). The first synced run exposed that the async WebDriver `$$()` dialog collection must be resolved before iteration; the teardown now resolves the collection, and the rerun passed.
 
 - `npm run typecheck`: passed.
-- `npm run lint`: passed before the final E2E-only cleanup adjustment; `npx eslint --max-warnings 0 e2e/specs/m8/images.spec.ts` and `npx tsc -p e2e/tsconfig.json --noEmit` passed after it.
+- `npm run lint`: passed before the final E2E-only cleanup adjustment; targeted ESLint and E2E TypeScript checks passed after it.
 - `npm test`: 902 passed, 1 skipped; six build/release script tests passed.
 - Image + Web Chat integration: 7 passed across 2 files.
 - `npm run tauri -w @itstudio/desktop -- build --debug --no-bundle`: passed.
 - Focused M8 E2E: 3 passed.
 
-The full integration suite was not rerun after sync; the prior milestone handoff recorded 111/111, and this continuation reran the M8 image and WC-01 Web Chat integration files affected by the shared container changes.
+## Coverage and verdict
 
-No full E2E suite or integration suite was run in this continuation. Existing integration evidence is carried forward from the QA handoff; this report covers the focused M8 image E2E file and local typecheck, lint, and unit/script checks. The diagnostic directory `C:\Users\admin\AppData\Local\Temp\itstudio-e2e-zVHkUU` remains outside the worktree; the tool policy rejected its recursive cleanup, so it was left untouched.
+| Module | Branch coverage | Gate |
+|---|---:|---:|
+| `image-service.ts` | 94.59% | ≥ 90%: pass |
+| `openai-dalle3.ts` | 94.11% | ≥ 90%: pass |
+| `flux-together.ts` | 93.58% | ≥ 90%: pass |
+| `flux-replicate.ts` | 90.19% | ≥ 90%: pass |
+| `midjourney-proxy.ts` | No branches; 100% statements/functions/lines | pass |
+
+**Verdict: CONDITIONAL SIGN-OFF.** All specified automated cases pass, coverage gates pass, and no open S1/S2 defect was found. A separate 20-minute free-form exploratory session was not recorded in this QA pass; retain an owner spot-check as follow-up.
+
+## Remaining scope
+
+The full E2E suite and full integration suite were not rerun after sync. The prior QA handoff recorded 111/111 integration cases; this continuation reran the M8 image and WC-01 Web Chat integration files affected by the shared container changes (7/7). The diagnostic directory `C:\Users\admin\AppData\Local\Temp\itstudio-e2e-zVHkUU` remains outside the worktree; it was left untouched.

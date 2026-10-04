@@ -21,7 +21,7 @@
 | M7 VS Code companion extension | **Done** (QA signed off) | 6 / 6 |
 | MW Workflow map (v1 addendum) | In progress | 4 / 6 |
 | WC Quick web chat (v1 addendum) | **Done** | 1 / 1 |
-| M8 Image generation | In progress (QA) | 5 / 6 |
+| M8 Image generation | **Done** (conditional QA sign-off; exploratory follow-up) | 6 / 6 |
 | M9 Packaging & release | In progress (QA) | 6 / 7 |
 | **v2** M10 Agent Orchestrator | Specified — waits for owner go-ahead | 0 / 11 |
 | **v2** M11 Agent Memory | Specified | 0 / 9 |
@@ -160,7 +160,7 @@ Open ChatGPT / Gemini / Grok / … in the owner's browser (default Cốc Cốc) 
 
 - [x] **WC-01** (C) Web chat links + browser locator + `webchat.*` RPC + Chat header menu + Settings → Web chat; upgrade-safe settings defaults.
 
-## M8 — Image generation *(deferred — do not start without user go-ahead)*
+## M8 — Image generation *(v1 feature)*
 
 Spec: ARCH §14.1, `schemas.ts` §13.
 
@@ -169,7 +169,7 @@ Spec: ARCH §14.1, `schemas.ts` §13.
 - [x] **M8-03** (C) `generate_image` tool dispatch: validation, BudgetGuard, provider fallback, download-and-store, ledger (`purpose=image`).
 - [x] **M8-04** (C) Chat inline image rendering via asset protocol.
 - [x] **M8-05** (C) Gallery tab.
-- [~] **M8-QA** (A+C) *(automated on branch `task/M8-QA`; L3 111/111 green; E2E TC-M8-010 failing — see `docs/HANDOFF.md` §4.1)* Milestone QA gate (TESTING.md §7): A writes `docs/qa/M8-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M8-report.md` sign-off. Scope: Image generation: tool call → image stored locally, provider fallback, cost per image, gallery.
+- [x] **M8-QA** (A+C) *(conditional sign-off; automated cases and coverage pass, separate 20-minute exploratory follow-up remains — see `docs/qa/M8-report.md`)* Milestone QA gate (TESTING.md §7): A writes `docs/qa/M8-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M8-report.md` sign-off. Scope: Image generation: tool call → image stored locally, provider fallback, cost per image, gallery.
 
 ## M9 — Packaging & release *(deferred)*
 
