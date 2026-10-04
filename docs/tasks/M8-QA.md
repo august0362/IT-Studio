@@ -38,3 +38,9 @@ Append `## Result` per AGENTS.md §3 with a case → file → status table.
   | TC-M8-012 | `e2e/specs/m8/images.spec.ts` | Added settings persistence and keyboard reorder E2E |
 
 - Open issues / follow-ups: `npm run typecheck`, `npm run lint`, and `npm test` pass. `npm run test:integration` could not run in this sandbox because spawned `tsx` processes fail in `node:os.userInfo()` with `uv_os_get_passwd returned ENOMEM`; the same failure affects all integration suites. E2E was not run as instructed; QA should run the integration and M8 E2E cases. `npm install` added no dependencies; it reported 29 existing audit advisories.
+
+## QA (Claude) — state at hand-off (2026-10-04, owner-requested stop)
+- Merged `main` (resolved `e2e/wdio.conf.ts`: kept `./specs/m8/images.spec.ts` and `./specs/mw/workflow.spec.ts`, `shutdown.spec.ts` last).
+- typecheck ✔, lint ✔, unit 860 ✔, integration **111/111 ✔** (TC-M8-001…006).
+- E2E `e2e/specs/m8/images.spec.ts` **FAIL** (1 run, 43 s): `✖ TC-M8-010` — `waitUntil condition timed out after 5000ms` in `openImageSession` (`images.spec.ts:25`, called from line 97); reason `Cannot read properties of undefined (reading 'isDisplayed')`. The spec opens its own `remote({ port: 4449 })` session instead of the wdio `browser` session; not yet diagnosed.
+- Next (fix round 1): use the standard `browser` session and pass `ITSTUDIO_E2E_IMAGE_SCRIPT` the way the m4 specs pass `ITSTUDIO_E2E_LLM_SCRIPT`, or fix the remote-session element handling and use a 30 s start-up timeout. Then rerun only this spec, write `docs/qa/M8-report.md`, land. See `docs/HANDOFF.md` §4.1.
