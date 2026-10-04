@@ -418,6 +418,7 @@ Each edge declares `{ from, to, contract, direction }` where `contract` names th
 # Part II — v2: Multi-Agent & Omnichannel Orchestration Hub (after v1 = M0–M7)
 
 > Decisions D18–D23 (CONTEXT §3), ADR-0003. Types: `schemas.ts` §14–§16. Built in M10–M14.
+> Detailed requirements, exact RPC/notification contracts, tables, state machines (AgentRun, Outbox), decision tables (tool policy, email commands) and error codes: **`docs/specs/v2-requirements.md`** (design decisions DD-V2-01…09 refine this part).
 > **Operating principle (D21): nothing runs in the background.** Every agent run, channel sync and LLM call is started by a user action (button, chat message, VS Code command). No timers, no polling loops for channels.
 
 ```
@@ -554,6 +555,7 @@ Webview **chat panel** in the companion extension (re-uses the M7 WebSocket brid
 # Part III — v3: Agentless Infrastructure Management (after v2 = M10–M14)
 
 > Decisions D24–D30 (CONTEXT §3), ADR-0004. Types: `schemas.ts` §17. Built in M15–M19.
+> Detailed requirements, exact contracts, tables, the SSH connection state machine, alert engine model, safe-write protocol and error codes: **`docs/specs/v3-requirements.md`** (design decisions DD-V3-01…09 refine this part).
 > Agentless: nothing is installed on the managed hosts. Everything runs over one SSH connection per server (`ssh2`): exec channels for metrics/actions, SFTP subsystem for files, `docker system dial-stdio` for the Docker API.
 
 ```

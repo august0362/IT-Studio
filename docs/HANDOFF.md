@@ -15,6 +15,8 @@
 > | `docs/tasks/<ID>.md` | One work order per task, with Codex `## Result` and QA verdict sections. |
 > | `docs/qa/Mx-test-cases.md`, `docs/qa/Mx-report.md` | Milestone QA specs and sign-off reports. |
 > | `docs/decisions/ADR-000x-*.md` | ADR-0001 foundations, 0002 toolchain pins, 0003 v2, 0004 v3. |
+> | `docs/specs/v2-requirements.md`, `docs/specs/v3-requirements.md` | v2 / v3 software requirements specifications (ISO/IEC/IEEE 29148 structure). |
+> | `docs/plans/v2-v3-delivery-plan.md` | v2 / v3 WBS, dependencies, estimates, risks, gates. |
 > | `docs/reports/overnight-2026-10-02.md` | Environment findings (ENV-1 … : sandbox limits). |
 
 ---
@@ -46,8 +48,8 @@
 | **M8** image generation | 5/6 | 🟡 | M8-QA automated, **E2E failing**, not landed |
 | **M9** packaging | 6/7 | 🟡 | M9-04 (signing / clean VM) marked not needed by D33; M9-QA not started |
 | QA tooling | 1/3 | backlog | `QA-E2E-FIX4`, `QA-TOOL-01` |
-| **v2** M10–M14 | 0 | ⏸ not started | fully specified (see §7), no task files yet |
-| **v3** M15–M19 | 0 | ⏸ not started | fully specified (see §7), no task files yet |
+| **v2** M10–M14 (+ REL-V2) | 0/46 | ⏸ not started | SRS, plan and all 46 task files written (see §7) |
+| **v3** M15–M19 (+ REL-V3) | 0/37 | ⏸ not started | SRS, plan and all 37 task files written (see §7) |
 
 Delivered numbers: about 875 unit tests (1 skipped) and about 111 integration tests. Packaging: SEA sidecar 96 MB, NSIS installer 93 MB, MSI 147 MB (LanceDB native binary is ~317 MB unpacked). Install smoke 7/7.
 
@@ -296,19 +298,24 @@ E2E fakes (only active when `ITSTUDIO_E2E=1`):
 
 ## 7. Starting v2 / v3 (only after the owner says go)
 
-- **v2 (M10–M14): orchestration hub.** Agents, long-term memory, channels + Outbox approval, Gmail, Facebook Page.
-  - Specified in ARCHITECTURE Part II (§14–§18), ADR-0003, `schemas.ts` §14–§16, ROLES §2.x prompts, and the ROADMAP task lists M10-01 … M14-QA.
-- **v3 (M15–M19): agentless server management over SSH.** SSH and key vault, metrics collectors, Docker, and so on.
-  - Specified in ARCHITECTURE Part III, ADR-0004, `schemas.ts` §17, and ROADMAP M15–M19.
-- **No `docs/tasks/M10-*.md` files exist yet.**
+v2 and v3 are **fully planned and specified (baseline 2026-10-04)**; nothing is implemented yet.
 
-  | Step | Action |
-  |---|---|
-  | 1 | Write the M10 task specs from the ROADMAP lines. |
-  | 2 | Pre-install that milestone's dependencies in one commit. |
-  | 3 | Run independent tasks in parallel. M10-01 first: it adds the `agents` table, migration and additive `CostPurpose` values. |
-  | 4 | Generate migrations as Architect. |
-  | 5 | Finish the milestone with the M10-QA gate. |
+| What | Where |
+|---|---|
+| v2 requirements (FR-AG/MEM/CH/OB/GM/FB, NFRs, exact RPC contracts, tables, state machines, error codes, open questions Q-06…Q-08) | `docs/specs/v2-requirements.md` |
+| v3 requirements (FR-SV/KV/MT/AL/DK/FS/SA, NFRs, contracts, tables, SSH state machine, open questions Q-09…Q-11) | `docs/specs/v3-requirements.md` |
+| Plan: WBS (83 items), dependencies / lanes, critical path, estimates, dependencies to pre-install, risk register, gates | `docs/plans/v2-v3-delivery-plan.md` |
+| Status checklist | `ROADMAP.md` (M10 … M19, REL-V2, REL-V3) |
+| Work orders | `docs/tasks/M10-00.md` … `docs/tasks/REL-V3.md` — one per item; `Mx-00` = Architect pre-work, `Mx-QA` = gate outline with planned test cases |
+
+How to start a milestone:
+1. Get the owner's go-ahead (v2 first unless the owner chooses v3).
+2. Do `Mx-00` yourself: apply the milestone's additive contract changes to `src/types/schemas.ts` (SRS §6), pre-install dependencies, ask that milestone's open questions, re-check task files against the code, commit.
+3. Run the `C` tasks with `run-task.sh` in dependency order, parallel lanes per the plan §2 (≤ 3 at once, disjoint scopes).
+4. Generate migrations after tasks that change `infra/sqlite/schema.ts`; QA each task (§2.3); land.
+5. Close with `Mx-QA`: write `docs/qa/Mx-test-cases.md` from the outline, let Codex automate, execute, report.
+
+Design decisions already taken in the SRS (no ADR needed): DD-V2-01…09 (e.g. `start_pipeline` needs a confirmation click; memory extraction on conversation switch, never on exit) and DD-V3-01…09 (e.g. servers are app-global — pending owner confirmation Q-09, see ROADMAP *Doc Debt*).
 
 ---
 

@@ -75,6 +75,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 - Add npm-workspaces monorepo scaffold: sidecar, desktop (Tauri v2 + React 19 + Vite 8 + Tailwind 4), VS Code extension skeleton ([M0-04](docs/tasks/M0-04.md))
 
 ### Docs
+- Add v2/v3 planning baseline: requirements specifications (docs/specs/v2-requirements.md, docs/specs/v3-requirements.md), delivery plan (docs/plans/v2-v3-delivery-plan.md), re-planned ROADMAP M10–M19 + REL-V2/REL-V3 and 83 task work orders; open questions Q-06…Q-11
+- Add continuation guide for another agent (docs/HANDOFF.md)
 - Add Workflow map (D32, milestone MW): architecture §13.1, schema types §12b, roadmap MW-00…MW-QA
 - Add theme system spec with 18 color-psychology themes derived from user palettes (docs/design/THEMES.md, config/themes.json) (D17)
 - Add specification set: CONTEXT, ARCHITECTURE, ROLES, ROADMAP, CONVENTIONS, AGENTS, ADR-0001 (M0-00)

@@ -8,7 +8,7 @@
 | Product | **IT Studio** — Desktop Multi-Agent Command Center |
 | Doc owner | Architect role (Claude) |
 | Last updated | 2026-10-04 |
-| Status | v1 delivered (M0–M7, M9 packaging, M8 images, MW workflow map); continuation guide: `docs/HANDOFF.md`; task status: `ROADMAP.md` |
+| Status | v1 delivered (M0–M7, M9 packaging, M8 images, MW workflow map); v2 (M10–M14) and v3 (M15–M19) fully specified, not started; continuation guide: `docs/HANDOFF.md`; task status: `ROADMAP.md` |
 
 ---
 
@@ -76,6 +76,14 @@ Changing any row requires an ADR in `docs/decisions/` and user approval.
 | ID | Question | Needed by | Default if unanswered |
 |---|---|---|---|
 | Q-02 | Exact default Coder model id (Codex-class) and PM/Reviewer Claude model id. | M2 | Verified from provider `/models` endpoints during M2; written to seed config. |
+| Q-06 | Which Gmail account, and which project does it belong to? | M13 | One account, active project |
+| Q-07 | Which Facebook Page; Meta app stays in development mode? | M14 | Development-mode app, owner is Page admin |
+| Q-08 | Email reports: include an "overnight summary" (runs + spend of the last 24 h)? | M13-06 | Yes, plain text, no LLM |
+| Q-09 | Servers are app-global, not per project (clarifies D13 — see ROADMAP *Doc Debt*)? | M15-00 | Global |
+| Q-10 | Real hosts available for live v3 QA (Dell via Tailscale, VPS, macOS, Windows Server)? | M15-QA / M16-00 | Fake SSH host + any real Linux host the owner provides |
+| Q-11 | Background monitoring on by default for the home-lab only? | M16 | Off for all (D25) |
+
+v2/v3 open questions are also listed with context in `docs/specs/v2-requirements.md` §11 and `docs/specs/v3-requirements.md` §11.
 
 **Resolved 2026-10-02:** Q-01 → D13 (multi-project + aggregate P&L) · Q-03 → generic open FX API (`open.er-api.com`, no key, daily fetch — no LLM tokens) · Q-05 → D9 (manual price updates) · Sandbox/worktree workflow kept (AGENTS.md §5).
 
@@ -101,6 +109,14 @@ Changing any row requires an ADR in `docs/decisions/` and user approval.
 | **Server** (v3) | A managed SSH host (`ServerConfig`): Linux, macOS or Windows; no agent installed. |
 | **Background monitoring** | Opt-in setting: poll server metrics continuously and raise alerts (D25). |
 | **Outbox** | Approval queue of drafted outbound messages; nothing external is sent without approval. |
+| **Agent run** (v2) | One agent turn (`AgentRun`), always started by a user action; may wait in `awaiting_approval` for a pipeline confirmation. |
+| **External trigger** (v2) | A run whose input came from Gmail / Facebook; gets the restricted tool set (search, recall, draft only). |
+| **Triage** (v2) | User-started batch classification of inbound messages (urgent / action / fyi / spam / command); applied only after the user confirms. |
+| **Routing rule** (v2) | Ordered rule mapping an inbound message to an agent (`RoutingRule`). |
+| **Key vault** (v3) | AES-256-GCM encrypted SSH private keys on disk; data keys and passphrases in the OS keychain. |
+| **TOFU** (v3) | Trust on first use: the host-key fingerprint is pinned after the user confirms it; a later mismatch blocks the connection. |
+| **Collector** (v3) | Per-OS strategy that produces one metrics sample from one remote command. |
+| **Watch** (v3) | UI-declared interest in a server's metrics; without background monitoring only watched servers are polled. |
 
 > **v2 (after v1):** the sidecar also hosts the Agent Orchestrator, Agent Memory and Channel Adapters — see ARCHITECTURE Part II (§15–§17).
 > **v3 (after v2):** agentless server management (SSH metrics, Docker, SFTP, system actions) — see ARCHITECTURE Part III (§18–§24).
@@ -187,3 +203,6 @@ IT Studio/
 | How to write code / commit / log changes | `CONVENTIONS.md` |
 | How we test, QA gates, test cases & reports | `TESTING.md`, `docs/qa/` |
 | Why something was decided | §3 above, then `docs/decisions/` |
+| v2 / v3 requirements (numbered FR/NFR, contracts, data model) | `docs/specs/v2-requirements.md`, `docs/specs/v3-requirements.md` |
+| v2 / v3 plan (WBS, dependencies, estimates, risks) | `docs/plans/v2-v3-delivery-plan.md` |
+| Current status and how to continue after a stop | `docs/HANDOFF.md` |
