@@ -69,6 +69,7 @@ export function ChatPage({
     dispatch({ type: 'completed', requestId: event.requestId, message: event.message, cost: event.cost });
     setActiveRequest((current) => (current === event.requestId ? null : current));
     void queryClient.invalidateQueries({ queryKey: ['chat.listConversations', { projectId }] });
+    void queryClient.invalidateQueries({ queryKey: ['images.list', { projectId }] });
   });
   useNotification('chat.failed', (event) => {
     dispatch({ type: 'failed', requestId: event.requestId, error: event.error });

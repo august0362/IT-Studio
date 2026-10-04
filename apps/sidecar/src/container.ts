@@ -1,8 +1,10 @@
 import {
   FailureKind,
   CostPurpose,
+  ImageProviderId,
   ProviderId,
   PipelineStage,
+  type PriceEntry,
   type ProjectId,
   type RpcNotificationMap,
   type VSCodeStatus,
@@ -103,7 +105,7 @@ import { FluxReplicateProvider } from './providers/image/flux-replicate.js';
 import { FakeImageProvider } from './infra/fake-image-provider.js';
 import { isoDateTimeSchema } from './validation/brand.js';
 import { toolCallSchema } from './validation/chat.js';
-import { jsonObjectSchema } from './validation/common.js';
+import { jsonObjectSchema, modelKeySchema } from './validation/common.js';
 
 class MemorySecretStore implements ISecretStore {
   private readonly values = new Map<ProviderId, string>();
@@ -126,6 +128,10 @@ class MemorySecretStore implements ISecretStore {
 type VerifierOutcome = 'success' | 'auth' | 'server' | 'timeout';
 const verifierOutcomeSchema = z.enum(['success', 'auth', 'server', 'timeout']);
 const verifierFixtureSchema = z.record(z.string(), verifierOutcomeSchema);
+const imageScriptSchema = z.partialRecord(
+  z.enum([ImageProviderId.OPENAI_DALLE3, ImageProviderId.FLUX_TOGETHER, ImageProviderId.FLUX_REPLICATE]),
+  z.array(z.string().regex(/^(success|http:\d{3})$/u)),
+);
 
 class ScriptedKeyVerifier implements IProviderKeyVerifier {
   private readonly outcomes: Readonly<Record<string, VerifierOutcome>>;
@@ -340,6 +346,11 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     e2e && env.ITSTUDIO_E2E_EMBEDDING_SCRIPT !== undefined
       ? embeddingScriptSchema.parse(JSON.parse(readFileSync(env.ITSTUDIO_E2E_EMBEDDING_SCRIPT, 'utf8')))
       : {};
+  const imageScripts =
+    e2e && env.ITSTUDIO_E2E_IMAGE_SCRIPT !== undefined
+      ? imageScriptSchema.parse(JSON.parse(readFileSync(env.ITSTUDIO_E2E_IMAGE_SCRIPT, 'utf8')))
+      : {};
+  const imageScriptCursors = new Map<string, number>();
   const embeddingScriptCursors = new Map<string, number>();
   const configuredLlmText = env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.';
   let llmTexts: string | Readonly<Record<string, string>> = configuredLlmText;
@@ -439,6 +450,21 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     clock,
   });
   pricingService.initialize();
+  if (e2e && env.ITSTUDIO_E2E_IMAGE_PRICE_MICRO_USD !== undefined) {
+    const perImageMicroUsd = Number(env.ITSTUDIO_E2E_IMAGE_PRICE_MICRO_USD);
+    if (!Number.isSafeInteger(perImageMicroUsd) || perImageMicroUsd < 0)
+      throw new Error('ITSTUDIO_E2E_IMAGE_PRICE_MICRO_USD must be a non-negative safe integer.');
+    const imagePrice: PriceEntry = {
+      modelKey: modelKeySchema.parse('openai/image-generation'),
+      inputPerMTokMicroUsd: microUsd(0),
+      outputPerMTokMicroUsd: microUsd(0),
+      cachedInputPerMTokMicroUsd: microUsd(0),
+      perImageMicroUsd: microUsd(perImageMicroUsd),
+      freeTier: false,
+      sourceUrl: 'https://example.invalid/e2e-image-price',
+    };
+    pricingService.applyExtracted([imagePrice]);
+  }
   const pricingHttpClient: IHttpClient =
     dependencies.pricingHttpClient ??
     (e2e
@@ -548,7 +574,11 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     clock,
   });
   const imageProviders = e2e
-    ? [new FakeImageProvider()]
+    ? [
+        new FakeImageProvider(ImageProviderId.OPENAI_DALLE3, imageScripts, imageScriptCursors),
+        new FakeImageProvider(ImageProviderId.FLUX_TOGETHER, imageScripts, imageScriptCursors),
+        new FakeImageProvider(ImageProviderId.FLUX_REPLICATE, imageScripts, imageScriptCursors),
+      ]
     : [
         new OpenAiDalle3Provider(secretStore),
         new FluxTogetherProvider(secretStore, new FetchHttpClient()),
