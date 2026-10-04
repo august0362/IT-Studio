@@ -85,7 +85,7 @@ describe('M8 image generation', () => {
     if (active === undefined) return;
     try {
       await active.keys('ESC');
-      const dialogs = active.$$('[role="dialog"], [role="alertdialog"]');
+      const dialogs = await Promise.resolve(active.$$('[role="dialog"], [role="alertdialog"]'));
       for (const dialog of dialogs) {
         if (!(await dialog.isDisplayed())) continue;
         const cancel = dialog.$('button=Cancel');
@@ -95,7 +95,7 @@ describe('M8 image generation', () => {
       }
       await active.waitUntil(
         async () => {
-          const dialogs = active.$$('[role="dialog"], [role="alertdialog"]');
+          const dialogs = await Promise.resolve(active.$$('[role="dialog"], [role="alertdialog"]'));
           for (const dialog of dialogs) if (await dialog.isDisplayed()) return false;
           return true;
         },

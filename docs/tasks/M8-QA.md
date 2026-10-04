@@ -67,3 +67,10 @@ Append `## Result` per AGENTS.md §3 with a case → file → status table.
 - Dependencies added (with reason): None.
 - Decisions taken within scope: Ran only the affected image integration file, not the full integration suite.
 - Open issues / follow-ups: `npx vitest run --config vitest.integration.config.ts apps/sidecar/test/integration/images.test.ts` passed (1 file, 5 tests). The E2E report records 3/3 cases passing; main branch integration still requires merging/reconciling the task worktree.
+
+## Result (QA continuation 3)
+- Summary: Synced M8 with current `main`, fixed dialog teardown to resolve WebDriver's async `$$()` collection before iteration, and revalidated the focused M8 E2E spec.
+- Files changed: `e2e/specs/m8/images.spec.ts`, `docs/qa/M8-report.md`, `docs/tasks/M8-QA.md`.
+- Dependencies added (with reason): None.
+- Decisions taken within scope: Kept integration verification targeted to the image and Web Chat files affected by the shared sidecar container changes.
+- Open issues / follow-ups: Typecheck, lint, and `npm test` passed after syncing; unit/script tests were 902 passed and 1 skipped. Image + Web Chat integration passed (7 tests across 2 files). Debug app build passed. Focused M8 E2E passed (3/3) after the teardown fix. The full integration suite was not rerun after sync; the prior recorded result is 111/111.

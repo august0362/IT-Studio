@@ -27,4 +27,17 @@ The QA handoff recorded `npm run test:integration` at 111/111 passing (TC-M8-001
 
 ## Remaining scope
 
+## QA (main-sync validation, 2026-10-04)
+
+After syncing with current `main`, the focused M8 E2E spec passed again: TC-M8-010, TC-M8-011, and TC-M8-012 (3/3). The first synced run exposed that the async WebDriver `$$()` dialog collection must be resolved before iteration; the teardown now resolves the collection, and the rerun passed.
+
+- `npm run typecheck`: passed.
+- `npm run lint`: passed before the final E2E-only cleanup adjustment; `npx eslint --max-warnings 0 e2e/specs/m8/images.spec.ts` and `npx tsc -p e2e/tsconfig.json --noEmit` passed after it.
+- `npm test`: 902 passed, 1 skipped; six build/release script tests passed.
+- Image + Web Chat integration: 7 passed across 2 files.
+- `npm run tauri -w @itstudio/desktop -- build --debug --no-bundle`: passed.
+- Focused M8 E2E: 3 passed.
+
+The full integration suite was not rerun after sync; the prior milestone handoff recorded 111/111, and this continuation reran the M8 image and WC-01 Web Chat integration files affected by the shared container changes.
+
 No full E2E suite or integration suite was run in this continuation. Existing integration evidence is carried forward from the QA handoff; this report covers the focused M8 image E2E file and local typecheck, lint, and unit/script checks. The diagnostic directory `C:\Users\admin\AppData\Local\Temp\itstudio-e2e-zVHkUU` remains outside the worktree; the tool policy rejected its recursive cleanup, so it was left untouched.
