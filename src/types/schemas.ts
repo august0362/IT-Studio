@@ -936,6 +936,9 @@ export interface RpcMethodMap {
 
   'settings.get': { params: Empty; result: AppSettings };
   'settings.update': { params: { readonly patch: SettingsPatch }; result: AppSettings };
+  'webchat.browsers': { params: Empty; result: readonly { readonly browser: WebChatBrowser; readonly installed: boolean; readonly path: string | null }[] };
+  'webchat.open': { params: { readonly linkId: WebChatLinkId }; result: { readonly opened: true; readonly browser: WebChatBrowser } };
+  'webchat.projectBrief': { params: { readonly projectId: ProjectId }; result: { readonly text: string } };
 
   /** Write-only: the key is stored in the OS keychain and never returned. */
   'secrets.set': { params: { readonly provider: ProviderId; readonly apiKey: string }; result: SecretStatus };
@@ -1142,6 +1145,29 @@ export interface AppSettings {
   readonly rag: RagSettings;
   readonly image: ImageSettings;
   readonly ui: UiSettings;
+  readonly webChat: WebChatSettings;
+}
+
+export type WebChatLinkId = Brand<string, 'WebChatLinkId'>;
+export interface WebChatLink {
+  readonly id: WebChatLinkId;
+  readonly name: string;
+  readonly url: string;
+  readonly enabled: boolean;
+}
+export const WebChatBrowser = {
+  DEFAULT: 'default',
+  COCCOC: 'coccoc',
+  CHROME: 'chrome',
+  EDGE: 'edge',
+  FIREFOX: 'firefox',
+  CUSTOM: 'custom',
+} as const;
+export type WebChatBrowser = (typeof WebChatBrowser)[keyof typeof WebChatBrowser];
+export interface WebChatSettings {
+  readonly browser: WebChatBrowser;
+  readonly customBrowserPath: string | null;
+  readonly links: readonly WebChatLink[];
 }
 
 /** Deep-partial patch accepted by `settings.update`. */

@@ -81,6 +81,10 @@ import { CommandRunner } from './services/command-runner.js';
 import { FailureReportBuilder } from './services/failure-report-builder.js';
 import { JournalRecoveryService } from './services/journal-recovery.js';
 import { ProjectContextService } from './services/project-context.js';
+import { BrowserLocator } from './infra/browser-locator.js';
+import { NodeBrowserLauncher } from './infra/node-browser-launcher.js';
+import { WebChatService } from './services/web-chat-service.js';
+import type { IBrowserLauncher } from './ports/browser-launcher.js';
 import { PipelineOrchestrator } from './services/pipeline-orchestrator.js';
 import { microUsd, toMoneyDisplay } from './domain/money.js';
 import { OpenAiEmbeddingProvider } from './providers/embedding/openai.js';
@@ -715,6 +719,37 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const commandRunner = new CommandRunner({ processRunner: new NodeProcessRunner(), fileSystem, ids });
   const journalRecovery = new JournalRecoveryService(fileSystem, clock);
   const projectContext = new ProjectContextService(fileSystem);
+  const browserLocator = new BrowserLocator(fileSystem, env);
+  const browserLaunches: { readonly executable: string; readonly args: readonly string[] }[] = [];
+  const browserLauncher: IBrowserLauncher = e2e
+    ? {
+        launch: (executable, url) => {
+          const record = { executable, args: [url] } as const;
+          browserLaunches.push(record);
+          let safeUrl = url;
+          try {
+            const parsedUrl = new URL(url);
+            parsedUrl.search = '';
+            parsedUrl.hash = '';
+            safeUrl = parsedUrl.toString();
+          } catch {
+            // The launcher validates URLs before the E2E recorder receives them.
+          }
+          logger.info({ svc: 'webchat-e2e', executable, args: [safeUrl] }, 'Recorded browser launch request');
+          return { ok: true, value: undefined };
+        },
+      }
+    : new NodeBrowserLauncher(logger);
+  const webChatService = new WebChatService({
+    settings: settingsService,
+    projects: projectRepository,
+    context: projectContext,
+    launcher: browserLauncher,
+    locator: browserLocator,
+    fileSystem,
+    env,
+    logger,
+  });
   const failureReportBuilder = new FailureReportBuilder();
   const pipelineOrchestrator = new PipelineOrchestrator({
     repository: pipelineRepository,
@@ -775,6 +810,9 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   service.register(server);
   server.register('settings.get', () => settingsService.get());
   server.register('settings.update', ({ patch }) => settingsService.update(patch));
+  server.register('webchat.browsers', () => webChatService.browsers());
+  server.register('webchat.open', ({ linkId }) => webChatService.open(linkId));
+  server.register('webchat.projectBrief', ({ projectId }) => webChatService.projectBrief(projectId));
   server.register('fx.get', () => fxService.get());
   server.register('fx.override', ({ usdToVnd }) => fxService.override(usdToVnd));
   server.register('router.getConfig', () => routerConfigService.getConfig());
@@ -913,6 +951,8 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     ids,
     database,
     settingsService,
+    browserLaunches,
+    webChatService,
     secretsService,
     providers,
     modelRegistry,

@@ -16,7 +16,8 @@ export type ShellRoute =
   | 'settings-fx'
   | 'settings-vscode'
   | 'settings-pipeline'
-  | 'settings-images';
+  | 'settings-images'
+  | 'settings-web-chat';
 
 export function MainNav({
   route,
@@ -107,6 +108,7 @@ export function MainNav({
             'settings-vscode',
             'settings-pipeline',
             'settings-images',
+            'settings-web-chat',
           ] as const
         ).map((target) => (
           <a

@@ -21,8 +21,16 @@ import { FallbackModal } from './FallbackModal';
 import { MessageList } from './MessageList';
 import { ModelPicker } from './ModelPicker';
 import { chatReducer, initialChatState } from './chat-store';
+import { WebChatMenu } from './WebChatMenu';
+import type { ShellRoute } from '../../shell/MainNav';
 
-export function ChatPage({ projectId }: { readonly projectId: ProjectId | null }): JSX.Element {
+export function ChatPage({
+  projectId,
+  onNavigate = () => undefined,
+}: {
+  readonly projectId: ProjectId | null;
+  readonly onNavigate?: (route: ShellRoute) => void;
+}): JSX.Element {
   const { t } = useTranslation();
   const rpc = useRpcClient();
   const queryClient = useQueryClient();
@@ -182,6 +190,12 @@ export function ChatPage({ projectId }: { readonly projectId: ProjectId | null }
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between gap-4 border-b border-border p-3">
           <h1 className="truncate font-semibold">{active?.title ?? t('chat.heading')}</h1>
+          <WebChatMenu
+            onEdit={() => {
+              onNavigate('settings-web-chat');
+            }}
+            projectId={projectId}
+          />
           {active !== undefined ? (
             <label className="flex items-center gap-2 text-sm">
               <input

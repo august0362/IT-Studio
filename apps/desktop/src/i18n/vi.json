@@ -14,6 +14,7 @@
     "settings": "Cài đặt",
     "apiKeys": "Khóa API",
     "theme": "Giao diện",
+    "webChat": "Trò chuyện web",
     "empty": "Khu vực này sẽ được bổ sung trong tác vụ sau."
   },
   "projects": {
@@ -63,6 +64,23 @@
     },
     "useKnowledge": "Sử dụng kiến thức",
     "citation": "Trích dẫn {{number}}",
+    "webChat": {
+      "label": "Trò chuyện web",
+      "copyBrief": "Sao chép tóm tắt dự án",
+      "editLinks": "Chỉnh sửa liên kết…",
+      "opened": "Đã mở bằng {{browser}}",
+      "copied": "Đã sao chép",
+      "openError": "Không thể mở trang trò chuyện web.",
+      "copyError": "Không thể sao chép tóm tắt dự án.",
+      "browser": {
+        "default": "trình duyệt mặc định",
+        "coccoc": "Cốc Cốc",
+        "chrome": "Chrome",
+        "edge": "Edge",
+        "firefox": "Firefox",
+        "custom": "trình duyệt tùy chỉnh"
+      }
+    },
     "openImage": "Mở hình ảnh: {{alt}}"
   },
   "code": {
@@ -136,7 +154,8 @@
       "fx": "Tỷ giá",
       "vscode": "VS Code",
       "pipeline": "Vai trò quy trình",
-      "images": "Hình ảnh"
+      "images": "Hình ảnh",
+      "web-chat": "Trò chuyện web"
     },
     "saved": "Đã lưu cài đặt.",
     "save": "Lưu",
@@ -238,6 +257,29 @@
         "flux_replicate": "FLUX (Replicate)",
         "midjourney_proxy": "Midjourney (đã tắt)"
       }
+    },
+    "webChat": {
+      "browser": "Trình duyệt",
+      "browserName": {
+        "default": "Trình duyệt mặc định",
+        "coccoc": "Cốc Cốc",
+        "chrome": "Chrome",
+        "edge": "Microsoft Edge",
+        "firefox": "Firefox",
+        "custom": "Tệp chạy tùy chỉnh"
+      },
+      "notInstalled": "(chưa cài đặt)",
+      "customPath": "Đường dẫn tệp .exe của trình duyệt",
+      "name": "Tên",
+      "url": "URL",
+      "enabled": "Đã bật",
+      "actions": "Thao tác",
+      "moveUp": "Di chuyển lên",
+      "moveDown": "Di chuyển xuống",
+      "delete": "Xóa",
+      "add": "Thêm liên kết",
+      "reset": "Đặt lại mặc định",
+      "save": "Lưu cài đặt trò chuyện web"
     }
   },
   "api": {
@@ -478,7 +520,12 @@
     "openLink": "Mở khu vực liên quan",
     "noSummary": "Không có tóm tắt gần đây.",
     "noLinks": "Mô-đun này không có liên kết.",
-    "status": { "idle": "Chờ", "active": "Đang chạy", "error": "Lỗi", "disabled": "Đã tắt" },
+    "status": {
+      "idle": "Chờ",
+      "active": "Đang chạy",
+      "error": "Lỗi",
+      "disabled": "Đã tắt"
+    },
     "kinds": {
       "started": "Đã bắt đầu",
       "progress": "Đang tiến hành",
@@ -493,7 +540,12 @@
       "links": "Liên kết vào / ra",
       "deepLinks": "Liên kết nhanh"
     },
-    "open": { "chat": "Mở Trò chuyện", "code": "Mở Mã", "knowledge": "Mở Kiến thức", "cost": "Mở Chi phí" },
+    "open": {
+      "chat": "Mở Trò chuyện",
+      "code": "Mở Mã",
+      "knowledge": "Mở Kiến thức",
+      "cost": "Mở Chi phí"
+    },
     "module": {
       "chat": "Trò chuyện",
       "code": "Mã",

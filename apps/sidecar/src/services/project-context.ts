@@ -21,25 +21,7 @@ export class ProjectContextService {
   }
 
   async build(root: string, allowedPaths: readonly string[] = []): Promise<ProjectFileContext> {
-    const files: string[] = [];
-    const visit = async (directory: string, depth: number): Promise<void> => {
-      if (depth >= 4 || files.length >= MAX_FILES) return;
-      const entries = await this.fs.readdir(directory);
-      if (!entries.ok) return;
-      for (const name of [...entries.value].sort()) {
-        if (IGNORED.has(name) || files.length >= MAX_FILES) continue;
-        const absolute = join(directory, name);
-        const stat = await this.fs.stat(absolute);
-        if (!stat.ok || stat.value.isSymbolicLink) continue;
-        const path = relative(root, absolute).split(sep).join('/');
-        if (stat.value.isDirectory) {
-          files.push(`${path}/`);
-          await visit(absolute, depth + 1);
-        } else if (stat.value.isFile) files.push(path);
-      }
-    };
-    await visit(root, 0);
-    const tree = files.join('\n');
+    const tree = await this.buildTree(root, 4, MAX_FILES);
     const conventionsPath = join(root, 'CONVENTIONS.md');
     const conventions = await this.fs.readFile(conventionsPath);
     const conventionsSummary = conventions.ok ? new TextDecoder().decode(conventions.value).slice(0, 2000) : '';
@@ -61,5 +43,31 @@ export class ProjectContextService {
       file.content === undefined ? [] : [{ path: file.path, content: file.content }],
     );
     return { tree, conventionsSummary, filesWithHashes: JSON.stringify(contents), currentFiles };
+  }
+
+  async buildWebChatTree(root: string): Promise<string> {
+    return await this.buildTree(root, 3, 150);
+  }
+
+  private async buildTree(root: string, maxDepth: number, maxFiles: number): Promise<string> {
+    const files: string[] = [];
+    const visit = async (directory: string, depth: number): Promise<void> => {
+      if (depth >= maxDepth || files.length >= maxFiles) return;
+      const entries = await this.fs.readdir(directory);
+      if (!entries.ok) return;
+      for (const name of [...entries.value].sort()) {
+        if (IGNORED.has(name) || files.length >= maxFiles) continue;
+        const absolute = join(directory, name);
+        const stat = await this.fs.stat(absolute);
+        if (!stat.ok || stat.value.isSymbolicLink) continue;
+        const path = relative(root, absolute).split(sep).join('/');
+        if (stat.value.isDirectory) {
+          files.push(`${path}/`);
+          await visit(absolute, depth + 1);
+        } else if (stat.value.isFile) files.push(path);
+      }
+    };
+    await visit(root, 0);
+    return files.join('\n');
   }
 }
