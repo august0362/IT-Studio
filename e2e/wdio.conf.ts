@@ -27,6 +27,7 @@ function startDriver(
     readonly llmScript?: string;
     readonly llmText?: string;
     readonly imageScript?: string;
+    readonly imagePriceMicroUsd?: number;
     readonly llmScriptText?: string;
   } = {},
 ): void {
@@ -70,6 +71,9 @@ function startDriver(
             : { ITSTUDIO_E2E_LLM_SCRIPT: resolve(root, options.llmScript) }
           : { ITSTUDIO_E2E_LLM_SCRIPT: llmScriptPath }),
         ...(imageScriptPath === undefined ? {} : { ITSTUDIO_E2E_IMAGE_SCRIPT: imageScriptPath }),
+        ...(options.imagePriceMicroUsd === undefined
+          ? {}
+          : { ITSTUDIO_E2E_IMAGE_PRICE_MICRO_USD: String(options.imagePriceMicroUsd) }),
         ...(options.llmText === undefined ? {} : { ITSTUDIO_E2E_LLM_TEXT: options.llmText }),
         ...(options.crashOnStart === true ? { ITSTUDIO_E2E_CRASH_ON_START: '1' } : {}),
       },
@@ -181,6 +185,7 @@ export const config: Options.Testrunner & { capabilities: Capabilities.Requested
         },
       }),
       imageScript: JSON.stringify({ openai_dalle3: ['success'] }),
+      imagePriceMicroUsd: 1_000_000,
     });
     await new Promise((resolveReady) => setTimeout(resolveReady, 1200));
   },

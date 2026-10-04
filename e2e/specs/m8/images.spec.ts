@@ -22,12 +22,15 @@ async function openImageSession(): Promise<Session> {
     capabilities: { browserName: 'wry', 'tauri:options': { application: appPath } } as TauriCapabilities,
   });
   session = active;
-  await active.waitUntil(async () => (await active.$('footer[role="status"]').getText()).includes('Ready v0.1.0'));
+  await active.waitUntil(async () => (await active.$('footer[role="status"]').getText()).includes('Ready v0.1.0'), {
+    timeout: 30_000,
+    timeoutMsg: 'The M8 app did not become ready within 30 seconds',
+  });
   await active.$('nav[aria-label="Main navigation"] a[href="#settings-images"]').click();
   const toggle = active.$('aria/Enable image generation');
   await active.waitUntil(async () => toggle.isExisting());
   originalEnabled = await toggle.isSelected();
-  originalOrder = await active.$$('ol li span').map((entry) => entry.getText());
+  originalOrder = await active.$$('ol li > span:first-of-type').map((entry) => entry.getText());
   return active;
 }
 
@@ -60,7 +63,7 @@ async function restoreImageSettings(active: Session): Promise<void> {
   if ((await toggle.isSelected()) !== originalEnabled) await toggle.click();
   await active.waitUntil(async () => (await toggle.isSelected()) === originalEnabled);
   for (let targetIndex = 0; targetIndex < originalOrder.length; targetIndex += 1) {
-    const current = await active.$$('ol li span').map((entry) => entry.getText());
+    const current = await active.$$('ol li > span:first-of-type').map((entry) => entry.getText());
     const targetName = originalOrder[targetIndex];
     if (targetName === undefined) continue;
     const currentIndex = current.indexOf(targetName);
@@ -82,11 +85,22 @@ describe('M8 image generation', () => {
     if (active === undefined) return;
     try {
       await active.keys('ESC');
-      await active.waitUntil(async () => {
-        for (const dialog of active.$$('[role="dialog"], [role="alertdialog"]'))
-          if (await dialog.isDisplayed()) return false;
-        return true;
-      });
+      const dialogs = active.$$('[role="dialog"], [role="alertdialog"]');
+      for (const dialog of dialogs) {
+        if (!(await dialog.isDisplayed())) continue;
+        const cancel = dialog.$('button=Cancel');
+        const close = dialog.$('button=Close');
+        if (await cancel.isExisting()) await cancel.click();
+        else if (await close.isExisting()) await close.click();
+      }
+      await active.waitUntil(
+        async () => {
+          const dialogs = active.$$('[role="dialog"], [role="alertdialog"]');
+          for (const dialog of dialogs) if (await dialog.isDisplayed()) return false;
+          return true;
+        },
+        { timeout: 10_000, timeoutMsg: 'M8 dialogs did not close during cleanup' },
+      );
       await restoreImageSettings(active);
     } finally {
       await active.deleteSession();
@@ -100,7 +114,12 @@ describe('M8 image generation', () => {
     await enableImages(active);
     await sendScriptedImageRequest(active);
     const image = active.$('img[alt*="blue bird"]');
-    await active.waitUntil(async () => image.isDisplayed(), { timeout: 30_000 });
+    try {
+      await active.waitUntil(async () => image.isDisplayed(), { timeout: 30_000 });
+    } catch (error) {
+      const body = await active.$('body').getText();
+      throw new Error(`TC-M8-010 did not render the image; chat body: ${body.slice(-1500)}`, { cause: error });
+    }
     await image.click();
     await active.waitUntil(async () => active.$('[role="dialog"]').isDisplayed());
     expect(await active.$('[role="dialog"]').getText()).to.contain('Close');
@@ -133,7 +152,7 @@ describe('M8 image generation', () => {
     const initial = await toggle.isSelected();
     await toggle.click();
     await active.waitUntil(async () => (await toggle.isSelected()) !== initial);
-    const providers = await active.$$('ol li span').map((entry) => entry.getText());
+    const providers = await active.$$('ol li > span:first-of-type').map((entry) => entry.getText());
     const reorder = active.$$('ol li button[aria-label^="Reorder"]')[0];
     if (providers.length < 2 || reorder === undefined) throw new Error('Image provider order is too short to reorder');
     await reorder.click();
@@ -143,7 +162,7 @@ describe('M8 image generation', () => {
     await active.refresh();
     await active.$('nav[aria-label="Main navigation"] a[href="#settings-images"]').click();
     await active.waitUntil(async () => (await active.$('aria/Enable image generation').isSelected()) !== initial);
-    const reordered = await active.$$('ol li span').map((entry) => entry.getText());
+    const reordered = await active.$$('ol li > span:first-of-type').map((entry) => entry.getText());
     expect(reordered[0]).to.equal(providers[1]);
     expect(reordered[1]).to.equal(providers[0]);
   });

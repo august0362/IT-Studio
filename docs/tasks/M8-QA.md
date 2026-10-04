@@ -44,3 +44,26 @@ Append `## Result` per AGENTS.md §3 with a case → file → status table.
 - typecheck ✔, lint ✔, unit 860 ✔, integration **111/111 ✔** (TC-M8-001…006).
 - E2E `e2e/specs/m8/images.spec.ts` **FAIL** (1 run, 43 s): `✖ TC-M8-010` — `waitUntil condition timed out after 5000ms` in `openImageSession` (`images.spec.ts:25`, called from line 97); reason `Cannot read properties of undefined (reading 'isDisplayed')`. The spec opens its own `remote({ port: 4449 })` session instead of the wdio `browser` session; not yet diagnosed.
 - Next (fix round 1): use the standard `browser` session and pass `ITSTUDIO_E2E_IMAGE_SCRIPT` the way the m4 specs pass `ITSTUDIO_E2E_LLM_SCRIPT`, or fix the remote-session element handling and use a 30 s start-up timeout. Then rerun only this spec, write `docs/qa/M8-report.md`, land. See `docs/HANDOFF.md` §4.1.
+
+## Result (QA continuation)
+- Summary: Fixed the M8-010 Ready wait and dialog teardown; invalidated the image-list cache after chat completion so generated images render; added deterministic per-image pricing gated to E2E mode so TC-M8-011 can verify Gallery cost without changing real pricing seeds. The focused M8 spec passes all three cases.
+- Files changed: `apps/desktop/src/features/chat/ChatPage.tsx`, `apps/sidecar/src/container.ts`, `e2e/specs/m8/images.spec.ts`, `e2e/wdio.conf.ts`, `docs/qa/M8-report.md`, `docs/tasks/M8-QA.md`.
+- Dependencies added (with reason): None.
+- Decisions taken within scope: Synthetic $1/image pricing is supplied only to the E2E sidecar through `ITSTUDIO_E2E_IMAGE_PRICE_MICRO_USD`; product seed data is unchanged. No commit, push, reset, merge, or worktree removal was performed.
+- Case -> file -> status:
+
+  | Case | File | Status |
+  |---|---|---|
+  | TC-M8-010 | `e2e/specs/m8/images.spec.ts` | Pass: image render, lightbox, and teardown |
+  | TC-M8-011 | `e2e/specs/m8/images.spec.ts` | Pass: prompt, deterministic cost, and confirmed deletion |
+  | TC-M8-012 | `e2e/specs/m8/images.spec.ts` | Pass: toggle persistence and provider reorder |
+
+- Verification: `npx wdio run e2e/wdio.conf.ts --spec e2e/specs/m8/images.spec.ts --logLevel warn` — 3 passing; `npm run typecheck` passed; `npm test` passed (860 tests passed, 1 skipped, plus 6 script tests). The prior QA handoff records integration 111/111 passing; integration was not rerun in this continuation. See `docs/qa/M8-report.md`.
+- Open issues / follow-ups: The complete E2E suite and integration suite were not run in this continuation. The QA handoff's 111/111 integration result remains the available evidence for TC-M8-001…006. The diagnostic directory `C:\Users\admin\AppData\Local\Temp\itstudio-e2e-zVHkUU` remains outside the worktree because the tool policy rejected recursive cleanup.
+
+## Result (QA continuation 2)
+- Summary: Re-ran the M8 image integration suite after the focused E2E fixes; all image integration cases passed.
+- Files changed: `docs/tasks/M8-QA.md`.
+- Dependencies added (with reason): None.
+- Decisions taken within scope: Ran only the affected image integration file, not the full integration suite.
+- Open issues / follow-ups: `npx vitest run --config vitest.integration.config.ts apps/sidecar/test/integration/images.test.ts` passed (1 file, 5 tests). The E2E report records 3/3 cases passing; main branch integration still requires merging/reconciling the task worktree.

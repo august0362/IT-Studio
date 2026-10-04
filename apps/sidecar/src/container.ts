@@ -4,6 +4,7 @@ import {
   ImageProviderId,
   ProviderId,
   PipelineStage,
+  type PriceEntry,
   type ProjectId,
   type RpcNotificationMap,
   type VSCodeStatus,
@@ -100,7 +101,7 @@ import { FluxReplicateProvider } from './providers/image/flux-replicate.js';
 import { FakeImageProvider } from './infra/fake-image-provider.js';
 import { isoDateTimeSchema } from './validation/brand.js';
 import { toolCallSchema } from './validation/chat.js';
-import { jsonObjectSchema } from './validation/common.js';
+import { jsonObjectSchema, modelKeySchema } from './validation/common.js';
 
 class MemorySecretStore implements ISecretStore {
   private readonly values = new Map<ProviderId, string>();
@@ -445,6 +446,21 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     clock,
   });
   pricingService.initialize();
+  if (e2e && env.ITSTUDIO_E2E_IMAGE_PRICE_MICRO_USD !== undefined) {
+    const perImageMicroUsd = Number(env.ITSTUDIO_E2E_IMAGE_PRICE_MICRO_USD);
+    if (!Number.isSafeInteger(perImageMicroUsd) || perImageMicroUsd < 0)
+      throw new Error('ITSTUDIO_E2E_IMAGE_PRICE_MICRO_USD must be a non-negative safe integer.');
+    const imagePrice: PriceEntry = {
+      modelKey: modelKeySchema.parse('openai/image-generation'),
+      inputPerMTokMicroUsd: microUsd(0),
+      outputPerMTokMicroUsd: microUsd(0),
+      cachedInputPerMTokMicroUsd: microUsd(0),
+      perImageMicroUsd: microUsd(perImageMicroUsd),
+      freeTier: false,
+      sourceUrl: 'https://example.invalid/e2e-image-price',
+    };
+    pricingService.applyExtracted([imagePrice]);
+  }
   const pricingHttpClient: IHttpClient =
     dependencies.pricingHttpClient ??
     (e2e
