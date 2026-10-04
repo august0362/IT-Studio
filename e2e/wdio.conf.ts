@@ -95,6 +95,7 @@ export const config: Options.Testrunner & { capabilities: Capabilities.Requested
     './specs/m4/cost.spec.ts',
     './specs/m6/code.spec.ts',
     './specs/m8/images.spec.ts',
+    './specs/mw/workflow.spec.ts',
     // shutdown must stay last: it closes the app window
     './specs/m1/shutdown.spec.ts',
   ],

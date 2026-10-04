@@ -23,9 +23,11 @@ import {
 } from '../validation/brand.js';
 import { chatMessageSchema } from '../validation/chat.js';
 import { ledgerEntrySchema, moneyDisplaySchema } from '../validation/cost.js';
-import { workspaceRelativePathSchema } from '../validation/common.js';
+import { modelKeySchema, workspaceRelativePathSchema } from '../validation/common.js';
 import { mapWorkflowEvent } from './activity-recorder.js';
 import { ActivityRecorder } from './activity-recorder.js';
+import { ActivityRepository } from '../infra/sqlite/activity-repository.js';
+import { openDatabase } from '../infra/sqlite/database.js';
 import { EventBus } from '../rpc/event-bus.js';
 import { createFakeClock } from '../infra/clock.js';
 import type { SettingsService } from './settings-service.js';
@@ -46,6 +48,48 @@ const settingsFailure: Result<AppSettings> = {
 afterEach(() => vi.useRealTimers());
 
 describe('ActivityRecorder correlations', () => {
+  it('TC-MW-003 counts completed scripted chat calls for a project and the all-project aggregate', async () => {
+    const database = openDatabase(':memory:');
+    const repository = new ActivityRepository(database.db);
+    const events = new EventBus<RpcNotificationMap>();
+    let generated = 0;
+    const recorder = new ActivityRecorder({
+      events,
+      repository,
+      ids: { uuid: () => `00000000-0000-4000-8000-${String(++generated).padStart(12, '0')}` },
+      clock: createFakeClock(new Date(fxAsOf)),
+      settings: { get: (): Promise<Result<AppSettings>> => Promise.resolve(settingsFailure) } satisfies Pick<
+        SettingsService,
+        'get'
+      >,
+      aggregateCost: (amount): MoneyDisplay =>
+        moneyDisplaySchema.parse({ microUsd: amount, vnd: amount, usdText: '$0', vndText: '0 ₫', fxAsOf }),
+      vscodeBridgeAvailable: false,
+    });
+    const otherProjectId = projectIdSchema.parse('00000000-0000-4000-8000-000000000009');
+    const otherRequestId = llmRequestIdSchema.parse('00000000-0000-4000-8000-000000000010');
+    recorder.correlateRequest(requestId, { projectId, conversationId });
+    recorder.correlateRequest(otherRequestId, { projectId: otherProjectId, conversationId });
+    const modelKey = modelKeySchema.parse('openai/scripted-model');
+    events.publish('router.event', { type: 'state', requestId, state: 'dispatching' });
+    events.publish('router.event', { type: 'state', requestId, state: 'streaming', modelKey });
+    events.publish('router.event', { type: 'state', requestId, state: 'succeeded' });
+    events.publish('router.event', { type: 'state', requestId: otherRequestId, state: 'dispatching' });
+    events.publish('router.event', { type: 'state', requestId: otherRequestId, state: 'succeeded' });
+
+    const projectGraph = await recorder.graph(projectId);
+    const aggregateGraph = await recorder.graph(null);
+    expect(projectGraph.nodes.find((node) => node.id === WorkflowModuleId.ROUTER)?.calls24h).toBe(1);
+    expect(aggregateGraph.nodes.find((node) => node.id === WorkflowModuleId.ROUTER)?.calls24h).toBe(2);
+    expect(
+      recorder
+        .activity(projectId, 20, undefined, WorkflowModuleId.ROUTER)
+        .some((event) => event.summary === `Router completed on ${modelKey}`),
+    ).toBe(true);
+    recorder.stop();
+    database.client.close();
+  });
+
   it.each(['before', 'after'] as const)(
     'assigns request and pipeline activity when mappings are known %s events',
     async (order) => {

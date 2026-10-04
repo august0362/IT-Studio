@@ -79,7 +79,7 @@ export function mapWorkflowEvent(
         kind,
         summary:
           event.type === 'state'
-            ? `Router ${event.state}${event.modelKey === undefined ? '' : ` on ${event.modelKey}`}`
+            ? `Router ${event.state === 'succeeded' ? 'completed' : event.state}${event.modelKey === undefined ? '' : ` on ${event.modelKey}`}`
             : event.type === 'fallback'
               ? `Fallback ${event.from} → ${event.to}`
               : event.type === 'attempt_failed'
@@ -257,10 +257,12 @@ export class ActivityRecorder {
   private readonly rings = new Map<string, ActivityEvent[]>();
   private readonly inFlight = new Map<string, Map<ModuleId, Set<string>>>();
   private readonly requestCorrelations = new Map<string, RequestCorrelation>();
+  private readonly requestModels = new Map<string, string>();
   private readonly runCorrelations = new Map<string, ProjectId>();
   private readonly uncorrelatedEvents = new Map<string, SourceEvent[]>();
   private readonly unsubscribers: (() => void)[] = [];
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly recording = new Set<Promise<void>>();
   private pruneTimer: ReturnType<typeof setInterval> | undefined;
 
   constructor(input: {
@@ -295,7 +297,7 @@ export class ActivityRecorder {
     ] as const) {
       this.unsubscribers.push(
         this.events.subscribe(name, (payload) => {
-          void this.record({ name, payload } as SourceEvent);
+          this.trackRecord({ name, payload } as SourceEvent);
         }),
       );
     }
@@ -317,6 +319,7 @@ export class ActivityRecorder {
     for (const timer of this.timers.values()) clearTimeout(timer);
     this.timers.clear();
     this.requestCorrelations.clear();
+    this.requestModels.clear();
     this.runCorrelations.clear();
     this.uncorrelatedEvents.clear();
     if (this.pruneTimer !== undefined) clearInterval(this.pruneTimer);
@@ -333,6 +336,7 @@ export class ActivityRecorder {
   }
 
   async graph(projectId: ProjectId | null): Promise<WorkflowGraph> {
+    await this.flushPendingRecords();
     const configured = await this.settings.get();
     const vscodeBridgeEnabled =
       this.vscodeBridgeAvailable && (configured.ok ? configured.value.vscode.autoLaunch : true);
@@ -391,6 +395,17 @@ export class ActivityRecorder {
   }
 
   private async record(source: SourceEvent): Promise<void> {
+    if (
+      source.name === 'router.event' &&
+      source.payload.type === 'state' &&
+      (source.payload.state === 'dispatching' || source.payload.state === 'streaming') &&
+      source.payload.modelKey !== undefined
+    )
+      this.remember(this.requestModels, source.payload.requestId, source.payload.modelKey);
+    const succeededModel =
+      source.name === 'router.event' && source.payload.type === 'state' && source.payload.state === 'succeeded'
+        ? (source.payload.modelKey ?? this.requestModels.get(source.payload.requestId))
+        : undefined;
     const correlationId = sourceCorrelationId(source);
     const requestCorrelation = correlationId === undefined ? undefined : this.requestCorrelations.get(correlationId);
     const runProjectId = correlationId === undefined ? undefined : this.runCorrelations.get(correlationId);
@@ -426,16 +441,20 @@ export class ActivityRecorder {
     const refs = requestCorrelation === undefined ? {} : { conversationId: requestCorrelation.conversationId };
     const mapped = mapWorkflowEvent(source, selectedProject, refs);
     const event: ActivityEvent = { id, ts: now, ...mapped, summary: redactLogLine(mapped.summary).slice(0, 500) };
-    await this.repository.insert(event);
+    const storedEvent: ActivityEvent =
+      succeededModel === undefined
+        ? event
+        : { ...event, summary: redactLogLine(`Router completed on ${succeededModel}`).slice(0, 500) };
+    await this.repository.insert(storedEvent);
     const projectKey = selectedProject ?? '*';
     const ring = this.rings.get(projectKey) ?? [];
-    ring.push(event);
+    ring.push(storedEvent);
     this.rings.set(projectKey, ring.slice(-500));
     const key = projectKey;
     const pending = this.pending.get(key) ?? [];
-    pending.push(event);
+    pending.push(storedEvent);
     this.pending.set(key, pending);
-    this.updateFlight(selectedProject, event);
+    this.updateFlight(selectedProject, storedEvent);
     if (!this.timers.has(key))
       this.timers.set(
         key,
@@ -450,6 +469,7 @@ export class ActivityRecorder {
         (source.name === 'pipeline.event' && source.payload.type === 'finished'))
     ) {
       this.requestCorrelations.delete(correlationId);
+      this.requestModels.delete(correlationId);
       this.runCorrelations.delete(correlationId);
     }
   }
@@ -458,7 +478,20 @@ export class ActivityRecorder {
     const queued = this.uncorrelatedEvents.get(id);
     if (queued === undefined) return;
     this.uncorrelatedEvents.delete(id);
-    for (const source of queued) void this.record(source);
+    for (const source of queued) this.trackRecord(source);
+  }
+
+  private trackRecord(source: SourceEvent): void {
+    const pending = this.record(source);
+    this.recording.add(pending);
+    void pending.then(
+      () => this.recording.delete(pending),
+      () => this.recording.delete(pending),
+    );
+  }
+
+  private async flushPendingRecords(): Promise<void> {
+    while (this.recording.size > 0) await Promise.allSettled([...this.recording]);
   }
 
   private remember<T>(map: Map<string, T>, id: string, value: T): void {
