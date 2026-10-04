@@ -104,7 +104,7 @@ describe('ChatPage', () => {
     cleanup();
     useNavigationIntent.getState().clearIntent();
   });
-  it('opens a conversation selected by a workflow deep link', async () => {
+  it('TC-MW-009 opens a conversation selected by a workflow deep link', async () => {
     useNavigationIntent.getState().setIntent({ kind: 'conversation', id: '00000000-0000-4000-8000-000000000002' });
     renderChat(true);
     expect(await screen.findByRole('heading', { name: 'Selected workflow conversation' })).toBeVisible();

@@ -81,7 +81,7 @@ function setup(stage: PipelineRun['stage'], withRun = false) {
 }
 
 describe('CodePage', () => {
-  it('selects the pipeline run referenced by a workflow deep link', async () => {
+  it('TC-MW-009 selects the pipeline run referenced by a workflow deep link', async () => {
     useNavigationIntent.getState().setIntent({ kind: 'pipelineRun', id: 'run-1' });
     setup(PipelineStage.COMPLETED, true);
     const run = await screen.findByRole('button', { name: /Build a sample/ });

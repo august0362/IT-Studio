@@ -1,7 +1,7 @@
 import type { ActivityEvent, ActivityEventId, IsoDateTime, WorkflowGraph } from '@itstudio/schemas';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import '../../i18n';
 import { RpcClient } from '../../rpc/rpc-client';
 import { RpcClientProvider } from '../../rpc/rpc-context';
@@ -64,12 +64,18 @@ const activity: ActivityEvent = {
   moduleId: 'chat',
   kind: 'completed',
   summary: '1 response completed',
-  refs: {},
+  refs: {
+    conversationId: '00000000-0000-4000-8000-000000000002' as NonNullable<ActivityEvent['refs']['conversationId']>,
+  },
   durationMs: 20,
   ts: '2026-10-04T00:00:00.000Z' as IsoDateTime,
 };
 
-function renderPage(): { readonly transport: FakeTransport; readonly routes: string[] } {
+function renderPage(): {
+  readonly transport: FakeTransport;
+  readonly routes: string[];
+  readonly navigations: { readonly route: string; readonly event?: ActivityEvent }[];
+} {
   const transport = new FakeTransport();
   transport.setStatus({ running: true, ready: true, restarts: 0 });
   const requests: { readonly id: number; readonly method: string; readonly params: unknown }[] = [];
@@ -82,15 +88,23 @@ function renderPage(): { readonly transport: FakeTransport; readonly routes: str
     return Promise.resolve();
   };
   const routes: string[] = [];
+  const navigations: { readonly route: string; readonly event?: ActivityEvent }[] = [];
   const client = new RpcClient(transport);
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <RpcClientProvider client={client}>
-        <WorkflowPage projectId={null} projects={[]} onNavigate={(route) => routes.push(route)} />
+        <WorkflowPage
+          projectId={null}
+          projects={[]}
+          onNavigate={(route, event) => {
+            routes.push(route);
+            navigations.push({ route, ...(event === undefined ? {} : { event }) });
+          }}
+        />
       </RpcClientProvider>
     </QueryClientProvider>,
   );
-  return { transport, routes };
+  return { transport, routes, navigations };
 }
 
 describe('WorkflowPage', () => {
@@ -117,5 +131,58 @@ describe('WorkflowPage', () => {
     node.focus();
     fireEvent.keyDown(node, { key: 'Enter' });
     expect(await screen.findByRole('tab', { name: 'Now' })).toBeVisible();
+  });
+
+  it('TC-MW-008 coalesces a 100-event notification burst into one animation-frame update', async () => {
+    const { transport } = renderPage();
+    await screen.findByLabelText('Chat · Idle');
+    const callbacks: FrameRequestCallback[] = [];
+    const requestFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callbacks.push(callback);
+      return callbacks.length;
+    });
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined);
+    const scheduledBefore = callbacks.length;
+    const callsBefore = requestFrame.mock.calls.length;
+    const burst = Array.from({ length: 100 }, (_, index): ActivityEvent => ({
+      ...activity,
+      id: `burst-${String(index)}` as ActivityEventId,
+      kind: 'started',
+      summary: `Burst event ${String(index)}`,
+      refs: {},
+    }));
+
+    act(() => {
+      transport.receive(JSON.stringify({ jsonrpc: '2.0', method: 'workflow.activity', params: burst }));
+    });
+
+    expect(requestFrame).toHaveBeenCalledTimes(callsBefore + 1);
+    expect(callbacks).toHaveLength(scheduledBefore + 1);
+    const flushFrame = callbacks[scheduledBefore];
+    if (flushFrame === undefined) throw new Error('The activity burst did not schedule a frame callback');
+    act(() => {
+      flushFrame(performance.now());
+    });
+
+    const activeNode = await screen.findByLabelText('Chat · Active');
+    const counts = activeNode.querySelectorAll('dd');
+    expect(counts[0]?.textContent).toBe('100');
+    expect(counts[1]?.textContent).toBe('101');
+    fireEvent.click(activeNode);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Recent' }));
+    expect(screen.getAllByText(/^Burst event \d+$/)).toHaveLength(100);
+  });
+
+  it('TC-MW-009 forwards the selected activity references through its deep link', async () => {
+    const { navigations } = renderPage();
+    fireEvent.click(await screen.findByLabelText('Chat · Idle'));
+    fireEvent.click(await screen.findByRole('tab', { name: 'Recent' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Open related area' }));
+
+    expect(navigations).toHaveLength(1);
+    expect(navigations[0]).toMatchObject({
+      route: 'chat',
+      event: { refs: { conversationId: activity.refs.conversationId } },
+    });
   });
 });

@@ -166,7 +166,7 @@ describe('knowledge components', () => {
     });
   });
 
-  it('highlights the ingest job selected by a workflow deep link', () => {
+  it('TC-MW-009 highlights the ingest job selected by a workflow deep link', () => {
     render(<IngestProgress jobs={[]} selectedJobId="job-from-workflow" skippedUnchanged={0} />);
     expect(screen.getByText('Selected ingest job: job-from-workflow').parentElement).toHaveAttribute(
       'aria-current',

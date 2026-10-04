@@ -6,12 +6,13 @@ import { ActivityRepository } from './activity-repository.js';
 import { activityEvents } from './schema.js';
 
 const projectId = projectIdSchema.parse('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+const otherProjectId = projectIdSchema.parse('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
 const now = new Date('2026-10-03T12:00:00.000Z');
 
-function event(index: number, ts: string): ActivityEvent {
+function event(index: number, ts: string, scope: typeof projectId = projectId): ActivityEvent {
   return {
     id: activityEventIdSchema.parse(`10000000-0000-4000-8000-${String(index).padStart(12, '0')}`),
-    projectId,
+    projectId: scope,
     moduleId: WorkflowModuleId.CHAT,
     kind: 'info',
     summary: 'test event',
@@ -21,7 +22,7 @@ function event(index: number, ts: string): ActivityEvent {
 }
 
 describe('ActivityRepository', () => {
-  it('prunes a project to 20,000 recent rows in real SQLite', () => {
+  it('TC-MW-007 retains at most 20,000 recent rows independently for each project', () => {
     const database = openDatabase(':memory:');
     const repository = new ActivityRepository(database.db);
     const rows = Array.from({ length: 20_005 }, (_, index) => {
@@ -41,11 +42,24 @@ describe('ActivityRepository', () => {
         .values(rows.slice(offset, offset + 500))
         .run();
     }
+    const otherProjectRows = Array.from({ length: 3 }, (_, index) => {
+      const item = event(40_000 + index, now.toISOString(), otherProjectId);
+      return {
+        id: item.id,
+        projectId: item.projectId,
+        moduleId: item.moduleId,
+        occurredAt: item.ts,
+        eventJson: JSON.stringify(item),
+      };
+    });
+    database.db.insert(activityEvents).values(otherProjectRows).run();
 
     repository.prune(now);
 
     const remaining = database.db.select().from(activityEvents).all();
-    expect(remaining).toHaveLength(20_000);
+    expect(remaining).toHaveLength(20_003);
+    expect(remaining.filter((row) => row.projectId === projectId)).toHaveLength(20_000);
+    expect(remaining.filter((row) => row.projectId === otherProjectId)).toHaveLength(3);
     expect(remaining.some((row) => row.id === event(20_004, now.toISOString()).id)).toBe(true);
     expect(remaining.some((row) => row.id === event(0, new Date(now.getTime() - 20_004_000).toISOString()).id)).toBe(
       false,
@@ -53,7 +67,7 @@ describe('ActivityRepository', () => {
     database.client.close();
   });
 
-  it('deletes rows older than seven days and retains the exact cutoff in real SQLite', () => {
+  it('TC-MW-007 deletes rows before seven days and retains the exact cutoff in real SQLite', () => {
     const database = openDatabase(':memory:');
     const repository = new ActivityRepository(database.db);
     const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);

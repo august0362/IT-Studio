@@ -11,7 +11,7 @@ import { LedgerTable } from './LedgerTable';
 afterEach(cleanup);
 
 describe('LedgerTable deep links', () => {
-  it('filters the ledger to the request referenced by a workflow event', () => {
+  it('TC-MW-009 filters the ledger to the request referenced by a workflow event', () => {
     const projectId = '00000000-0000-4000-8000-000000000001' as ProjectId;
     const requestId = '00000000-0000-4000-8000-000000000002';
     const entry: LedgerEntry = {
