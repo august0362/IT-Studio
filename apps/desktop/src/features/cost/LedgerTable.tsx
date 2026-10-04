@@ -1,6 +1,6 @@
 import type { CostPurpose, IsoDateTime, LedgerRow, ModelKey, Page, ProjectId } from '@itstudio/schemas';
 import type { JSX } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRpcQuery } from '../../hooks/use-rpc-query';
 import { useRpcClient } from '../../rpc/rpc-context';
@@ -12,15 +12,29 @@ export function LedgerTable({
   from,
   to,
   initial,
+  selectedEntryId,
+  selectedField,
+  onSelectionApplied,
 }: {
   readonly projectId: ProjectId;
   readonly from: IsoDateTime;
   readonly to: IsoDateTime;
   readonly initial: Page<LedgerRow>;
+  readonly selectedEntryId?: string;
+  readonly selectedField?: 'requestId' | 'pipelineRunId';
+  readonly onSelectionApplied?: () => void;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
   const rpc = useRpcClient();
   const [page, setPage] = useState(initial);
+  const [selection] = useState<{
+    readonly id: string;
+    readonly field?: 'requestId' | 'pipelineRunId';
+  } | null>(
+    selectedEntryId === undefined
+      ? null
+      : { id: selectedEntryId, ...(selectedField === undefined ? {} : { field: selectedField }) },
+  );
   const [model, setModel] = useState('');
   const [purpose, setPurpose] = useState('');
   const models = useRpcQuery('models.list', {});
@@ -42,6 +56,33 @@ export function LedgerTable({
       setLoading(false);
     }
   }
+  const selectedRow = page.items.find(({ entry }) =>
+    selection?.field === 'requestId'
+      ? entry.llmRequestId === selection.id
+      : selection?.field === 'pipelineRunId'
+        ? entry.pipelineRunId === selection.id
+        : entry.id === selection?.id,
+  );
+  useEffect(() => {
+    if (selectedRow !== undefined) onSelectionApplied?.();
+  }, [onSelectionApplied, selectedRow]);
+  useEffect(() => {
+    if (selection === null || selectedRow !== undefined || page.nextCursor === null) return;
+    let active = true;
+    void rpc
+      .call('ledger.queryRows', { projectId, from, to, limit: 50, cursor: page.nextCursor })
+      .then((next) => {
+        if (active)
+          setPage((current) => ({
+            items: [...current.items, ...next.items],
+            nextCursor: next.nextCursor,
+          }));
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [from, page.nextCursor, projectId, rpc, selectedRow, selection, to]);
   return (
     <section className="space-y-3 rounded border border-border bg-surface p-4">
       <h2 className="font-semibold">{t('cost.ledger')}</h2>
@@ -104,19 +145,25 @@ export function LedgerTable({
             </tr>
           </thead>
           <tbody>
-            {page.items.map(({ entry, cost }) => (
-              <tr className="border-t border-border" key={entry.id}>
-                <td className="p-2">{formatDateTime(entry.occurredAt, i18n.language)}</td>
-                <td className="p-2">{entry.modelKey}</td>
-                <td className="p-2">{t(`cost.purpose.${entry.purpose}`)}</td>
-                <td className="p-2">{entry.usage.inputTokens}</td>
-                <td className="p-2">{entry.usage.outputTokens}</td>
-                <td className="p-2">
-                  <Money compact value={cost} />
-                </td>
-                <td className="p-2">{t(entry.billedFailure ? 'cost.yes' : 'cost.no')}</td>
-              </tr>
-            ))}
+            {(selection === null ? page.items : selectedRow === undefined ? [] : [selectedRow]).map(
+              ({ entry, cost }) => (
+                <tr
+                  aria-current={selectedRow?.entry.id === entry.id ? 'true' : undefined}
+                  className={`border-t border-border ${selectedRow?.entry.id === entry.id ? 'bg-surface-alt ring-2 ring-primary' : ''}`}
+                  key={entry.id}
+                >
+                  <td className="p-2">{formatDateTime(entry.occurredAt, i18n.language)}</td>
+                  <td className="p-2">{entry.modelKey}</td>
+                  <td className="p-2">{t(`cost.purpose.${entry.purpose}`)}</td>
+                  <td className="p-2">{entry.usage.inputTokens}</td>
+                  <td className="p-2">{entry.usage.outputTokens}</td>
+                  <td className="p-2">
+                    <Money compact value={cost} />
+                  </td>
+                  <td className="p-2">{t(entry.billedFailure ? 'cost.yes' : 'cost.no')}</td>
+                </tr>
+              ),
+            )}
           </tbody>
         </table>
       </div>

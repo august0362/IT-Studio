@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { mkdir, cp } from 'node:fs/promises';
+import { mkdir, cp, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
@@ -35,6 +35,92 @@ function notifications(method: string): unknown[] {
 }
 
 describe('workflow RPC integration', () => {
+  it('TC-MW-004 records retriever, validation command, and embedding activity for RAG chat and a pipeline', async () => {
+    const responseTexts = {
+      'gemini-3.8-flash': 'Scripted RAG answer [1].',
+      'claude-opus-5-5': JSON.stringify({
+        title: 'Create note',
+        userStory: 'Create a note',
+        acceptanceCriteria: [],
+        allowedPaths: ['note.txt'],
+        contracts: '',
+        constraints: [],
+        testPlan: [],
+        outOfScope: [],
+      }),
+      'gpt-5.3-codex': JSON.stringify({
+        summary: 'Create note',
+        operations: [{ kind: 'create', path: 'note.txt', content: 'note' }],
+        assumptions: [],
+      }),
+      'claude-sonnet-5-5': JSON.stringify({ approved: true, findings: [], summary: 'Approved' }),
+    };
+    sidecar = await startSidecar(
+      { ITSTUDIO_E2E_LLM_TEXT: JSON.stringify(responseTexts) },
+      {
+        'anthropic/claude-opus-5-5': ['ok'],
+        'openai/gpt-5.3-codex': ['ok'],
+        'anthropic/claude-sonnet-5-5': ['ok'],
+        'google/gemini-3.8-flash': ['ok'],
+      },
+    );
+    const workspace = resolve(sidecar.dataDir, 'workflow-mw-004');
+    await mkdir(workspace);
+    await writeFile(resolve(workspace, 'guide.md'), '# Guide\n\nA fixture fact for the workflow.', 'utf8');
+    const projectId = projectSchema.parse(
+      (await sidecar.call('project.create', { name: 'Workflow instrumentation', workspaceRoot: workspace })).result,
+    ).id;
+    const settings = appSettingsSchema.parse((await sidecar.call('settings.get')).result);
+    const providers = new Set(
+      [
+        ...settings.pipeline.roleAssignment.pm,
+        ...settings.pipeline.roleAssignment.coder,
+        ...settings.pipeline.roleAssignment.reviewer,
+        settings.rag.embedding.modelKey,
+        settings.router.ladder[0]?.modelKey ?? '',
+      ].map((key) => providerIdSchema.parse(key.split('/')[0])),
+    );
+    for (const provider of providers)
+      await sidecar.call('secrets.set', { provider, apiKey: `integration-only-${provider}-key` });
+    await sidecar.call('settings.update', {
+      patch: {
+        rag: { minScore: 0 },
+        pipeline: {
+          validationCommands: [
+            {
+              kind: 'build',
+              executable: 'node',
+              args: ['-e', 'process.exit(0)', '--token=private-mw-secret'],
+              timeoutMs: 5000,
+            },
+          ],
+        },
+      },
+    });
+    await sidecar.call('rag.ingest', { projectId, paths: ['guide.md'] });
+    await waitFor(() => notifications('rag.progress').some((value) => JSON.stringify(value).includes('indexed')));
+    const conversationId = conversationSchema.parse(
+      (await sidecar.call('chat.createConversation', { projectId })).result,
+    ).id;
+    await sidecar.call('chat.setRagEnabled', { conversationId, enabled: true });
+    await sidecar.call('chat.send', { conversationId, text: 'MW private query phrase' });
+    const runId = pipelineRunSchema.parse(
+      (await sidecar.call('pipeline.start', { projectId, prompt: 'Create a note' })).result,
+    ).id;
+    await waitFor(() => notifications('chat.completed').length === 1);
+    await waitFor(() => notifications('pipeline.event').some((value) => JSON.stringify(value).includes('completed')));
+    const history = z
+      .array(activityEventSchema)
+      .parse((await sidecar.call('workflow.activity', { projectId, limit: 200 })).result);
+    expect(history.some((event) => event.moduleId === 'retriever')).toBe(true);
+    expect(history.some((event) => event.moduleId === 'embeddings')).toBe(true);
+    expect(history.some((event) => event.moduleId === 'command_runner' && event.refs.pipelineRunId === runId)).toBe(
+      true,
+    );
+    expect(history.every((event) => !event.summary.includes('MW private query phrase'))).toBe(true);
+    expect(history.every((event) => !event.summary.includes('--token=private-mw-secret'))).toBe(true);
+  }, 60_000);
+
   it('TC-MW-001 shows chat, router, provider, and ledger activity in the graph and history', async () => {
     sidecar = await startSidecar(
       { ITSTUDIO_E2E_LLM_TEXT: 'Scripted assistant reply.' },

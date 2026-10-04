@@ -166,6 +166,14 @@ describe('knowledge components', () => {
     });
   });
 
+  it('highlights the ingest job selected by a workflow deep link', () => {
+    render(<IngestProgress jobs={[]} selectedJobId="job-from-workflow" skippedUnchanged={0} />);
+    expect(screen.getByText('Selected ingest job: job-from-workflow').parentElement).toHaveAttribute(
+      'aria-current',
+      'true',
+    );
+  });
+
   it('re-indexes a document using its workspace-relative source path', async () => {
     const transport = new FakeTransport();
     transport.setStatus({ running: true, ready: true, restarts: 0 });

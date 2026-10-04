@@ -12,6 +12,7 @@ import { BudgetBars } from './BudgetBars';
 import { RevenueForm } from './RevenueForm';
 import { LedgerTable } from './LedgerTable';
 import { PortfolioPage } from './PortfolioPage';
+import { useNavigationIntent } from '../../state/navigation-intent';
 
 const EMPTY_LEDGER_PAGE = { items: [], nextCursor: null } as const;
 
@@ -21,6 +22,9 @@ export function CostPage({ projectId }: { readonly projectId: ProjectId | null }
   const [preset, setPreset] = useState<DatePreset>('thisMonth');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
+  const navigationIntent = useNavigationIntent((state) => state.intent);
+  const clearNavigationIntent = useNavigationIntent((state) => state.clearIntent);
+  const ledgerSelection = navigationIntent?.kind === 'ledger' ? navigationIntent : null;
   const range = useMemo<DateRange>(
     () =>
       preset === 'custom' && customFrom !== '' && customTo !== ''
@@ -89,7 +93,13 @@ export function CostPage({ projectId }: { readonly projectId: ProjectId | null }
       <h1 className="text-2xl font-semibold">{t('cost.heading')}</h1>
       {rangeControls}
       {projectId !== null ? (
-        <ProjectCostView key={`${projectId}:${range.from}:${range.to}`} projectId={projectId} range={range} />
+        <ProjectCostView
+          key={`${projectId}:${range.from}:${range.to}`}
+          projectId={projectId}
+          range={range}
+          ledgerSelection={ledgerSelection}
+          onLedgerSelectionApplied={clearNavigationIntent}
+        />
       ) : portfolio.isLoading ? (
         <p>{t('cost.loading')}</p>
       ) : portfolio.error ? (
@@ -106,9 +116,17 @@ export function CostPage({ projectId }: { readonly projectId: ProjectId | null }
 function ProjectCostView({
   projectId,
   range,
+  ledgerSelection,
+  onLedgerSelectionApplied,
 }: {
   readonly projectId: ProjectId;
   readonly range: DateRange;
+  readonly ledgerSelection: {
+    readonly kind: 'ledger';
+    readonly id: string;
+    readonly field: 'requestId' | 'pipelineRunId';
+  } | null;
+  readonly onLedgerSelectionApplied: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const client = useQueryClient();
@@ -172,6 +190,10 @@ function ProjectCostView({
         from={range.from}
         initial={ledger.data ?? EMPTY_LEDGER_PAGE}
         projectId={projectId}
+        {...(ledgerSelection === null
+          ? {}
+          : { selectedEntryId: ledgerSelection.id, selectedField: ledgerSelection.field })}
+        onSelectionApplied={onLedgerSelectionApplied}
         to={range.to}
       />
     </div>

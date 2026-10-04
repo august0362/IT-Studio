@@ -21,6 +21,7 @@ import { FallbackModal } from './FallbackModal';
 import { MessageList } from './MessageList';
 import { ModelPicker } from './ModelPicker';
 import { chatReducer, initialChatState } from './chat-store';
+import { useNavigationIntent } from '../../state/navigation-intent';
 
 export function ChatPage({ projectId }: { readonly projectId: ProjectId | null }): JSX.Element {
   const { t } = useTranslation();
@@ -49,10 +50,25 @@ export function ChatPage({ projectId }: { readonly projectId: ProjectId | null }
     () => [...(conversationsQuery.data ?? [])].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)),
     [conversationsQuery.data],
   );
+  const navigationIntent = useNavigationIntent((state) => state.intent);
+  const clearNavigationIntent = useNavigationIntent((state) => state.clearIntent);
   const names = useMemo(
     () => Object.fromEntries((modelsQuery.data ?? []).map((model) => [model.key, model.displayName])),
     [modelsQuery.data],
   );
+
+  useEffect(() => {
+    if (navigationIntent?.kind !== 'conversation') return;
+    const selected = conversations.find((conversation) => conversation.id === navigationIntent.id);
+    if (selected === undefined) return;
+    const timer = window.setTimeout(() => {
+      setConversationId(selected.id);
+      clearNavigationIntent();
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [clearNavigationIntent, conversations, navigationIntent]);
 
   useNotification('chat.delta', (event) => {
     dispatch({ type: 'delta', requestId: event.requestId, text: event.textDelta });

@@ -15,6 +15,7 @@ import {
 } from '../../validation/brand.js';
 import { modelKeySchema } from '../../validation/common.js';
 import { Retriever } from './retriever.js';
+import type { WorkflowInternalEvent } from '../workflow-internal-events.js';
 
 const projectId = projectIdSchema.parse('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
 const modelKey = modelKeySchema.parse('openai/text-embedding-3-small');
@@ -86,6 +87,7 @@ describe('Retriever', () => {
     expect(rows.ok).toBe(true);
     const settings = baseSettings();
     let embeddingCalls = 0;
+    const activity: WorkflowInternalEvent[] = [];
     const retriever = new Retriever({
       documents: repository,
       vectors,
@@ -95,6 +97,10 @@ describe('Retriever', () => {
           embeddingCalls += 1;
           return Promise.resolve({ ok: true, value: texts.map(() => [1, 0]) });
         },
+      },
+      internalEvents: {
+        publish: (event) => activity.push(event),
+        subscribe: () => () => undefined,
       },
     });
     const result = await retriever.query({
@@ -106,6 +112,11 @@ describe('Retriever', () => {
     });
     expect(result).toMatchObject({ ok: true, value: [{ documentTitle: 'Guide', sectionPath: ['Basics'], score: 1 }] });
     expect(embeddingCalls).toBe(1);
+    expect(activity).toMatchObject([
+      { type: 'retriever', phase: 'started', projectId },
+      { type: 'retriever', phase: 'completed', projectId, hitCount: 1, topScore: 1 },
+    ]);
+    expect(JSON.stringify(activity)).not.toContain('where?');
   });
 
   it('rejects a mismatched index model and returns an empty index without embedding', async () => {

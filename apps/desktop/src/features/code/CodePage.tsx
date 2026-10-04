@@ -2,7 +2,7 @@ import { PipelineStage, type PipelineRun, type ProjectId } from '@itstudio/schem
 import { Editor } from '@monaco-editor/react';
 import { useQuery } from '@tanstack/react-query';
 import type { JSX } from 'react';
-import { useEffect, useMemo, useReducer, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Money } from '../../components/Money';
@@ -18,6 +18,7 @@ import { SpecView } from './SpecView';
 import { StageTimeline } from './StageTimeline';
 import { initialPipelineState, pipelineReducer } from './pipeline-store';
 import './monaco-setup';
+import { useNavigationIntent } from '../../state/navigation-intent';
 
 const busyStages: readonly string[] = [
   PipelineStage.SPECIFYING,
@@ -48,7 +49,23 @@ export function CodePage({ projectId }: { readonly projectId: ProjectId | null }
     () => [...(history.data ?? [])].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt)),
     [history.data],
   );
+  const navigationIntent = useNavigationIntent((value) => value.intent);
+  const clearNavigationIntent = useNavigationIntent((value) => value.clearIntent);
   const active = selected !== undefined && !selected.finished && busyStages.includes(selected.run.stage);
+
+  const selectRun = useCallback(
+    (run: PipelineRun): void => {
+      void rpc
+        .call('pipeline.get', { runId: run.id })
+        .then((loaded) => {
+          dispatch({ type: 'loaded', run: loaded });
+        })
+        .catch((error: unknown) => {
+          setActionError(error instanceof Error ? error.message : t('code.actionError'));
+        });
+    },
+    [rpc, t],
+  );
 
   useNotification('pipeline.event', (event) => {
     dispatch({ type: 'event', event });
@@ -75,6 +92,14 @@ export function CodePage({ projectId }: { readonly projectId: ProjectId | null }
     for (const run of runs) if (state.entries[run.id] === undefined) dispatch({ type: 'started', run });
   }, [runs, state.entries]);
 
+  useEffect(() => {
+    if (navigationIntent?.kind !== 'pipelineRun') return;
+    const run = runs.find((item) => item.id === navigationIntent.id);
+    if (run === undefined) return;
+    selectRun(run);
+    clearNavigationIntent();
+  }, [clearNavigationIntent, navigationIntent, runs, selectRun]);
+
   async function start(prompt: string): Promise<void> {
     if (projectId === null) return;
     setStarting(true);
@@ -99,17 +124,6 @@ export function CodePage({ projectId }: { readonly projectId: ProjectId | null }
     } catch (error: unknown) {
       setActionError(error instanceof Error ? error.message : t('code.actionError'));
     }
-  }
-
-  function selectRun(run: PipelineRun): void {
-    void rpc
-      .call('pipeline.get', { runId: run.id })
-      .then((loaded) => {
-        dispatch({ type: 'loaded', run: loaded });
-      })
-      .catch((error: unknown) => {
-        setActionError(error instanceof Error ? error.message : t('code.actionError'));
-      });
   }
 
   const requiresConfirm =

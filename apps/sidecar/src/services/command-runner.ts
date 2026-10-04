@@ -6,12 +6,16 @@ import type { IIdGenerator } from '../infra/id.js';
 import { parseEslintOutput } from '../domain/parsers/eslint.js';
 import { parseFailureDiagnostic, parseTscOutput } from '../domain/parsers/tsc.js';
 import { parseVitestOutput } from '../domain/parsers/vitest.js';
+import { basename } from 'node:path';
+import type { PipelineRunId, ProjectId } from '@itstudio/schemas';
+import type { WorkflowInternalEventBus } from './workflow-internal-events.js';
 
 export interface CommandRunnerDependencies {
   readonly processRunner: IProcessRunner;
   readonly fileSystem: IFileSystem;
   readonly ids: IIdGenerator;
   readonly env?: NodeJS.ProcessEnv;
+  readonly internalEvents?: WorkflowInternalEventBus;
 }
 
 export class CommandRunner {
@@ -19,15 +23,22 @@ export class CommandRunner {
   private readonly fileSystem: IFileSystem;
   private readonly ids: IIdGenerator;
   private readonly env: NodeJS.ProcessEnv;
+  private readonly internalEvents: WorkflowInternalEventBus | undefined;
 
   constructor(dependencies: CommandRunnerDependencies) {
     this.processRunner = dependencies.processRunner;
     this.fileSystem = dependencies.fileSystem;
     this.ids = dependencies.ids;
     this.env = dependencies.env ?? process.env;
+    this.internalEvents = dependencies.internalEvents;
   }
 
-  async run(projectRoot: string, spec: CommandSpec, signal?: AbortSignal): Promise<Result<CommandRun>> {
+  async run(
+    projectRoot: string,
+    spec: CommandSpec,
+    signal?: AbortSignal,
+    context?: { readonly projectId: ProjectId; readonly pipelineRunId: PipelineRunId },
+  ): Promise<Result<CommandRun>> {
     const root = await this.fileSystem.realpath(projectRoot);
     if (!root.ok) return root;
     const stat = await this.fileSystem.stat(root.value);
@@ -43,6 +54,16 @@ export class CommandRunner {
         },
       };
 
+    const commandRunId = commandRunIdSchema.parse(this.ids.uuid());
+    const executable = basename(spec.executable);
+    this.internalEvents?.publish({
+      type: 'command',
+      phase: 'started',
+      ...(context ?? {}),
+      commandRunId,
+      executable,
+      argCount: spec.args.length,
+    });
     const run = await this.processRunner.run({
       executable: spec.executable,
       args: spec.args,
@@ -51,7 +72,30 @@ export class CommandRunner {
       timeoutMs: spec.timeoutMs,
       ...(signal === undefined ? {} : { signal }),
     });
-    if (!run.ok) return run;
+    if (!run.ok) {
+      this.internalEvents?.publish({
+        type: 'command',
+        phase: 'finished',
+        ...(context ?? {}),
+        commandRunId,
+        executable,
+        argCount: spec.args.length,
+        exitCode: null,
+        timedOut: false,
+      });
+      return run;
+    }
+    this.internalEvents?.publish({
+      type: 'command',
+      phase: 'finished',
+      ...(context ?? {}),
+      commandRunId,
+      executable,
+      argCount: spec.args.length,
+      exitCode: run.value.exitCode,
+      durationMs: run.value.durationMs,
+      timedOut: run.value.timedOut,
+    });
 
     let diagnostics;
     let tests: CommandRun['tests'];
@@ -72,7 +116,7 @@ export class CommandRunner {
     return {
       ok: true,
       value: {
-        id: commandRunIdSchema.parse(this.ids.uuid()),
+        id: commandRunId,
         spec,
         exitCode: run.value.exitCode,
         timedOut: run.value.timedOut,
