@@ -20,6 +20,7 @@
 | M6 Agent pipeline & Worker | **Done** (conditional — QA-E2E-FIX4) | 9 / 9 |
 | M7 VS Code companion extension | **Done** (QA signed off) | 6 / 6 |
 | MW Workflow map (v1 addendum) | In progress | 4 / 6 |
+| WC Quick web chat (v1 addendum) | In progress | 0 / 1 |
 | M8 Image generation | In progress (QA) | 5 / 6 |
 | M9 Packaging & release | In progress (QA) | 6 / 7 |
 | **v2** M10 Agent Orchestrator | Specified — waits for owner go-ahead | 0 / 11 |
@@ -153,6 +154,11 @@ Ref: ARCHITECTURE §13.1, schemas §12b. Per-project graph of modules, links and
 - [x] **MW-03** (C) Module side panel: Now (in-flight with progress), Recent (filters, load-more from history), Metrics 24 h (calls, errors, p50 / p95, cost via `<Money>`), Links in / out with contract + last payload summary, deep links to Chat / Code / Knowledge / Cost.
 - [~] **MW-04** (C) *(implemented on branch `task/MW-04`, unit green; integration + E2E pending — see `docs/HANDOFF.md` §4.2)* Missing events: add only the events the recorder cannot derive today (e.g. retriever query / hits count, command start / end, VS Code action acks) as in-process events — no polling.
 - [ ] **MW-QA** (A+C) QA gate (TESTING.md §7): topology completeness vs ARCH §13.1, event → module mapping table, redaction corpus (no prompt text / keys in any summary), retention boundaries, UI live update under load (100 events/s burst), E2E: run a chat + an ingest + a pipeline and see the right nodes / edges light up and the panel history match.
+
+## WC — Quick web chat *(v1 addendum, D34)*
+Open ChatGPT / Gemini / Grok / … in the owner's browser (default Cốc Cốc) from IT Studio; copy a project brief to paste. No scraping, no metering.
+
+- [ ] **WC-01** (C) Web chat links + browser locator + `webchat.*` RPC + Chat header menu + Settings → Web chat; upgrade-safe settings defaults.
 
 ## M8 — Image generation *(deferred — do not start without user go-ahead)*
 
