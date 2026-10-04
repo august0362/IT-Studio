@@ -7,6 +7,7 @@ import { chatMessageSchema, conversationSchema } from '../../src/validation/chat
 import { modelKeySchema } from '../../src/validation/common.js';
 import { projectSchema } from '../../src/validation/projects.js';
 import { microUsd } from '../../src/domain/money.js';
+import { imageAssetIdSchema } from '../../src/validation/brand.js';
 import { startSidecar, waitFor, type SidecarHarness } from './harness.js';
 
 let sidecar: SidecarHarness | undefined;
@@ -17,8 +18,11 @@ afterEach(async () => {
 
 const notificationSchema = z.object({ method: z.string(), params: z.unknown() });
 
-async function setup(script: Readonly<Record<string, readonly string[]>>) {
-  sidecar = await startSidecar({}, script);
+async function setup(
+  script: Readonly<Record<string, readonly string[]>>,
+  imageScript?: Readonly<Record<string, readonly string[]>>,
+) {
+  sidecar = await startSidecar({}, script, undefined, imageScript);
   const workspace = resolve(sidecar.dataDir, 'image-workspace');
   await mkdir(workspace);
   const projectId = projectSchema.parse(
@@ -63,6 +67,8 @@ describe('image generation integration', () => {
     const asset = assets[0];
     if (asset === undefined) throw new Error('Generated image asset was missing.');
     expect(asset.localPath).toContain(resolve(h.sidecar.dataDir, 'images', h.projectId));
+    expect(asset.localPath).toMatch(/images[\\/]([0-9a-f-]+)[\\/]([0-9a-f-]+)\.png$/u);
+    expect(asset.localPath).not.toContain('blue bird');
     const ledger = z
       .object({ items: z.array(z.object({ purpose: z.string(), imageCount: z.number().optional() })) })
       .parse((await h.sidecar.call('ledger.query', { projectId: h.projectId, limit: 50 })).result);
@@ -75,6 +81,63 @@ describe('image generation integration', () => {
       assetId: asset.id,
       mimeType: asset.mimeType,
     });
+  });
+
+  it('TC-M8-003 falls back from a scripted HTTP 503 and records the fallback provider', async () => {
+    const key = 'google/gemini-3.8-flash';
+    const h = await setup(
+      { [key]: ['tool:{"name":"generate_image","arguments":{"prompt":"fallback bird"}}', 'ok'] },
+      { openai_dalle3: ['http:503'], flux_together: ['success'] },
+    );
+    await h.sidecar.call('chat.send', { conversationId: h.conversationId, text: 'Generate a fallback bird image' });
+    await waitFor(() => observed(h, 'chat.completed').length === 1);
+    const assets = z
+      .array(z.object({ provider: z.string(), prompt: z.string() }))
+      .parse((await h.sidecar.call('images.list', { projectId: h.projectId })).result);
+    expect(assets).toEqual([expect.objectContaining({ provider: 'flux_together', prompt: 'fallback bird' })]);
+    const ledger = z
+      .object({ items: z.array(z.object({ purpose: z.string(), modelKey: z.string() })) })
+      .parse((await h.sidecar.call('ledger.query', { projectId: h.projectId, limit: 50 })).result);
+    expect(ledger.items).toContainEqual(
+      expect.objectContaining({ purpose: 'image', modelKey: 'together/image-generation' }),
+    );
+  });
+
+  it('TC-M8-004 rejects a forged generate_image call while image generation is disabled', async () => {
+    const key = 'google/gemini-3.8-flash';
+    const h = await setup({ [key]: ['tool:{"name":"generate_image","arguments":{"prompt":"forged"}}'] });
+    const settings = appSettingsSchema.parse((await h.sidecar.call('settings.get')).result);
+    expect(
+      (await h.sidecar.call('settings.update', { patch: { image: { ...settings.image, enabled: false } } })).error,
+    ).toBeUndefined();
+    await h.sidecar.call('chat.send', { conversationId: h.conversationId, text: 'Generate an image' });
+    await waitFor(() => observed(h, 'chat.completed').length === 1);
+    expect((await h.sidecar.call('images.list', { projectId: h.projectId })).result).toEqual([]);
+    const messages = chatMessageSchema
+      .array()
+      .parse((await h.sidecar.call('chat.getMessages', { conversationId: h.conversationId })).result);
+    const toolResult = messages.find((message) => message.role === 'tool');
+    expect(JSON.stringify(toolResult)).toContain('VALIDATION');
+  });
+
+  it('TC-M8-006 deletes the image file and row without changing the append-only ledger', async () => {
+    const key = 'google/gemini-3.8-flash';
+    const h = await setup({ [key]: ['tool:{"name":"generate_image","arguments":{"prompt":"delete me"}}', 'ok'] });
+    await h.sidecar.call('chat.send', { conversationId: h.conversationId, text: 'Generate an image' });
+    await waitFor(() => observed(h, 'chat.completed').length === 1);
+    const assets = z
+      .array(z.object({ id: z.string(), localPath: z.string() }))
+      .parse((await h.sidecar.call('images.list', { projectId: h.projectId })).result);
+    const asset = assets[0];
+    if (asset === undefined) throw new Error('Generated image asset was missing.');
+    const before = (await h.sidecar.call('ledger.query', { projectId: h.projectId, limit: 50 })).result;
+    expect(
+      (await h.sidecar.call('images.delete', { assetId: imageAssetIdSchema.parse(asset.id) })).error,
+    ).toBeUndefined();
+    expect((await h.sidecar.call('images.list', { projectId: h.projectId })).result).toEqual([]);
+    const after = (await h.sidecar.call('ledger.query', { projectId: h.projectId, limit: 50 })).result;
+    expect(after).toEqual(before);
+    await expect(import('node:fs/promises').then(({ access }) => access(asset.localPath))).rejects.toThrow();
   });
 
   it('TC-M8-002 blocks a Hard Stop before calling the fake image provider or writing a file', async () => {

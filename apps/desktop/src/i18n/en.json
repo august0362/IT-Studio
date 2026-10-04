@@ -14,6 +14,7 @@
     "settings": "Settings",
     "apiKeys": "API Keys",
     "theme": "Theme",
+    "webChat": "Web chat",
     "empty": "This area is ready for a future task."
   },
   "projects": {
@@ -63,6 +64,23 @@
     },
     "useKnowledge": "Use knowledge",
     "citation": "Citation {{number}}",
+    "webChat": {
+      "label": "Web chat",
+      "copyBrief": "Copy project brief",
+      "editLinks": "Edit links…",
+      "opened": "Opened in {{browser}}",
+      "copied": "Copied",
+      "openError": "Could not open web chat.",
+      "copyError": "Could not copy the project brief.",
+      "browser": {
+        "default": "your default browser",
+        "coccoc": "Cốc Cốc",
+        "chrome": "Chrome",
+        "edge": "Edge",
+        "firefox": "Firefox",
+        "custom": "custom browser"
+      }
+    },
     "openImage": "Open image: {{alt}}"
   },
   "code": {
@@ -136,7 +154,8 @@
       "fx": "FX rate",
       "vscode": "VS Code",
       "pipeline": "Pipeline roles",
-      "images": "Images"
+      "images": "Images",
+      "web-chat": "Web chat"
     },
     "saved": "Settings saved.",
     "save": "Save",
@@ -144,6 +163,29 @@
     "loading": "Loading settings…",
     "saveError": "Settings could not be saved.",
     "retry": "Check the sidecar connection and try again.",
+    "webChat": {
+      "browser": "Browser",
+      "browserName": {
+        "default": "System default",
+        "coccoc": "Cốc Cốc",
+        "chrome": "Chrome",
+        "edge": "Microsoft Edge",
+        "firefox": "Firefox",
+        "custom": "Custom executable"
+      },
+      "notInstalled": "(not installed)",
+      "customPath": "Browser .exe path",
+      "name": "Name",
+      "url": "URL",
+      "enabled": "Enabled",
+      "actions": "Actions",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "delete": "Delete",
+      "add": "Add link",
+      "reset": "Reset to defaults",
+      "save": "Save web chat settings"
+    },
     "router": {
       "description": "Choose model order and fallback behaviour.",
       "autoFallback": "Auto Fallback",
@@ -478,7 +520,12 @@
     "openLink": "Open related area",
     "noSummary": "No recent summary.",
     "noLinks": "No links for this module.",
-    "status": { "idle": "Idle", "active": "Active", "error": "Error", "disabled": "Disabled" },
+    "status": {
+      "idle": "Idle",
+      "active": "Active",
+      "error": "Error",
+      "disabled": "Disabled"
+    },
     "kinds": {
       "started": "Started",
       "progress": "Progress",
@@ -493,7 +540,12 @@
       "links": "Links in / out",
       "deepLinks": "Deep links"
     },
-    "open": { "chat": "Open Chat", "code": "Open Code", "knowledge": "Open Knowledge", "cost": "Open Cost" },
+    "open": {
+      "chat": "Open Chat",
+      "code": "Open Code",
+      "knowledge": "Open Knowledge",
+      "cost": "Open Cost"
+    },
     "module": {
       "chat": "Chat",
       "code": "Code",

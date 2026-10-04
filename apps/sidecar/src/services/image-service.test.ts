@@ -376,7 +376,7 @@ describe('ImageService', () => {
     });
   });
 
-  it('falls back in configured order and stores image bytes under generated ids', async () => {
+  it('TC-M8-005 keeps generated asset paths independent of model prompt input', async () => {
     const unavailable = new FakeProvider('openai_dalle3');
     unavailable.generate.mockResolvedValue({
       ok: false,
@@ -396,6 +396,7 @@ describe('ImageService', () => {
     expect(h.inserted[0]?.localPath).toMatch(
       /images[\\/]00000000-0000-4000-8000-000000000001[\\/]00000000-0000-4000-8000-000000000010\.png$/u,
     );
+    expect(h.inserted[0]?.localPath).not.toContain('a fox');
     expect(h.ledgerRows).toMatchObject([{ purpose: 'image', imageCount: 1, costMicroUsd: 7 }]);
   });
 

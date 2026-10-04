@@ -1,5 +1,5 @@
 import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,8 +22,27 @@ const tauriCapabilities: TauriCapabilities[] = [{ browserName: 'wry', 'tauri:opt
 function startDriver(
   port: number,
   nativePort: number,
-  options: { readonly crashOnStart?: boolean; readonly llmScript?: string; readonly llmText?: string } = {},
+  options: {
+    readonly crashOnStart?: boolean;
+    readonly llmScript?: string;
+    readonly llmText?: string;
+    readonly imageScript?: string;
+    readonly imagePriceMicroUsd?: number;
+    readonly llmScriptText?: string;
+  } = {},
 ): void {
+  const imageScriptPath =
+    options.imageScript === undefined || e2eTempRoot === undefined
+      ? undefined
+      : join(e2eTempRoot, `image-script-${String(port)}.json`);
+  if (imageScriptPath !== undefined && options.imageScript !== undefined)
+    writeFileSync(imageScriptPath, options.imageScript, 'utf8');
+  const llmScriptPath =
+    options.llmScriptText === undefined || e2eTempRoot === undefined
+      ? undefined
+      : join(e2eTempRoot, `llm-script-${String(port)}.json`);
+  if (llmScriptPath !== undefined && options.llmScriptText !== undefined)
+    writeFileSync(llmScriptPath, options.llmScriptText, 'utf8');
   const driver = spawn(
     'tauri-driver',
     [
@@ -46,8 +65,16 @@ function startDriver(
             }),
         ITSTUDIO_E2E: '1',
         ITSTUDIO_E2E_VERIFIER_OUTCOME: 'timeout',
+        ...(llmScriptPath === undefined
+          ? options.llmScript === undefined
+            ? {}
+            : { ITSTUDIO_E2E_LLM_SCRIPT: resolve(root, options.llmScript) }
+          : { ITSTUDIO_E2E_LLM_SCRIPT: llmScriptPath }),
+        ...(imageScriptPath === undefined ? {} : { ITSTUDIO_E2E_IMAGE_SCRIPT: imageScriptPath }),
+        ...(options.imagePriceMicroUsd === undefined
+          ? {}
+          : { ITSTUDIO_E2E_IMAGE_PRICE_MICRO_USD: String(options.imagePriceMicroUsd) }),
         ...(options.llmText === undefined ? {} : { ITSTUDIO_E2E_LLM_TEXT: options.llmText }),
-        ...(options.llmScript === undefined ? {} : { ITSTUDIO_E2E_LLM_SCRIPT: resolve(root, options.llmScript) }),
         ...(options.crashOnStart === true ? { ITSTUDIO_E2E_CRASH_ON_START: '1' } : {}),
       },
       stdio: 'ignore',
@@ -71,6 +98,7 @@ export const config: Options.Testrunner & { capabilities: Capabilities.Requested
     './specs/m5/knowledge.spec.ts',
     './specs/m4/cost.spec.ts',
     './specs/m6/code.spec.ts',
+    './specs/m8/images.spec.ts',
     './specs/mw/workflow.spec.ts',
     // shutdown must stay last: it closes the app window
     './specs/m1/shutdown.spec.ts',
@@ -149,6 +177,15 @@ export const config: Options.Testrunner & { capabilities: Capabilities.Requested
         }),
         'claude-sonnet-5-5': JSON.stringify({ approved: true, findings: [], summary: 'Approved' }),
       }),
+    });
+    startDriver(4449, 4459, {
+      llmScriptText: JSON.stringify({
+        models: {
+          'gpt-5.4-mini': ['tool:{"name":"generate_image","arguments":{"prompt":"A blue bird on a branch"}}', 'ok'],
+        },
+      }),
+      imageScript: JSON.stringify({ openai_dalle3: ['success'] }),
+      imagePriceMicroUsd: 1_000_000,
     });
     await new Promise((resolveReady) => setTimeout(resolveReady, 1200));
   },

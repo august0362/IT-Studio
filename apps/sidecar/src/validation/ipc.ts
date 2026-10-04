@@ -1,4 +1,11 @@
-import type { RpcError, RpcMethod, RpcMethodMap, RpcNotificationMap, RpcNotificationName } from '@itstudio/schemas';
+import type {
+  RpcError,
+  RpcMethod,
+  RpcMethodMap,
+  RpcNotificationMap,
+  RpcNotificationName,
+  WebChatLinkId,
+} from '@itstudio/schemas';
 import { z } from './common.js';
 import { projectSchema } from './projects.js';
 import { appSettingsSchema, settingsPatchSchema } from './settings.js';
@@ -59,6 +66,13 @@ export const rpcParamsSchemas = {
   'project.setActive': z.object({ projectId: projectIdSchema }).readonly(),
   'settings.get': empty,
   'settings.update': z.object({ patch: settingsPatchSchema }).readonly(),
+  'webchat.browsers': empty,
+  'webchat.open': z
+    .object({
+      linkId: z.custom<WebChatLinkId>((value) => typeof value === 'string' && value.length > 0),
+    })
+    .readonly(),
+  'webchat.projectBrief': z.object({ projectId: projectIdSchema }).readonly(),
   'secrets.set': z.object({ provider: providerIdSchema, apiKey: z.string() }).readonly(),
   'secrets.delete': z.object({ provider: providerIdSchema }).readonly(),
   'secrets.status': empty,
@@ -192,6 +206,21 @@ export const rpcResultSchemas = {
   'project.setActive': projectSchema,
   'settings.get': appSettingsSchema,
   'settings.update': appSettingsSchema,
+  'webchat.browsers': z
+    .array(
+      z
+        .object({
+          browser: z.enum(['default', 'coccoc', 'chrome', 'edge', 'firefox', 'custom']),
+          installed: z.boolean(),
+          path: z.string().nullable(),
+        })
+        .readonly(),
+    )
+    .readonly(),
+  'webchat.open': z
+    .object({ opened: z.literal(true), browser: z.enum(['default', 'coccoc', 'chrome', 'edge', 'firefox', 'custom']) })
+    .readonly(),
+  'webchat.projectBrief': z.object({ text: z.string().max(4000) }).readonly(),
   'secrets.set': secretStatusSchema,
   'secrets.delete': secretStatusSchema,
   'secrets.status': z.array(secretStatusSchema).readonly(),
