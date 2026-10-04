@@ -7,8 +7,8 @@
 |---|---|
 | Product | **IT Studio** — Desktop Multi-Agent Command Center |
 | Doc owner | Architect role (Claude) |
-| Last updated | 2026-10-01 |
-| Status | Specification complete · Implementation not started (see `ROADMAP.md`) |
+| Last updated | 2026-10-04 |
+| Status | v1 delivered (M0–M7, M9 packaging, M8 images, MW workflow map); continuation guide: `docs/HANDOFF.md`; task status: `ROADMAP.md` |
 
 ---
 
