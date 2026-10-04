@@ -21,6 +21,7 @@ import { VSCodeSettingsPage } from '../features/settings/vscode/VSCodeSettingsPa
 import { PipelineSettingsPage } from '../features/settings/pipeline/PipelineSettingsPage';
 import { KnowledgePage } from '../features/knowledge/KnowledgePage';
 import { ImagesSettingsPage } from '../features/settings/images/ImagesSettingsPage';
+import { WebChatSettingsPage } from '../features/settings/web-chat/WebChatSettingsPage';
 
 const CodePage = lazy(() => import('../features/code/CodePage').then(({ CodePage: page }) => ({ default: page })));
 const CostPage = lazy(() => import('../features/cost/CostPage').then(({ CostPage: page }) => ({ default: page })));
@@ -55,6 +56,7 @@ function initialRoute(): ShellRoute {
       'settings-vscode',
       'settings-pipeline',
       'settings-images',
+      'settings-web-chat',
     ].includes(hash)
   )
     return hash as ShellRoute;
@@ -153,7 +155,9 @@ export function AppShell(): JSX.Element {
 
   let content: JSX.Element;
   if (route === 'chat')
-    content = <ChatPage projectId={projects.find((project) => project.id === activeId)?.id ?? null} />;
+    content = (
+      <ChatPage onNavigate={navigate} projectId={projects.find((project) => project.id === activeId)?.id ?? null} />
+    );
   else if (route === 'knowledge')
     content = (
       <KnowledgePage
@@ -204,6 +208,7 @@ export function AppShell(): JSX.Element {
   else if (route === 'settings-fx') content = <FxSettingsPage />;
   else if (route === 'settings-vscode') content = <VSCodeSettingsPage />;
   else if (route === 'settings-images') content = <ImagesSettingsPage />;
+  else if (route === 'settings-web-chat') content = <WebChatSettingsPage />;
   else content = <PipelineSettingsPage />;
 
   return (

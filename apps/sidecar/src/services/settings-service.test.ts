@@ -63,4 +63,28 @@ describe('SettingsService', () => {
     expect(saved?.json).toContain('activeProjectId');
     opened.client.close();
   });
+
+  it('upgrades v1 settings without resetting stored router, budget, or UI values', async () => {
+    const { opened, service, loaded } = createService();
+    const defaults = buildDefaultSettings(loaded.value);
+    const legacy = {
+      ...defaults,
+      router: { ...defaults.router, autoFallback: false },
+      budget: { hardStop: true },
+      ui: { ...defaults.ui, locale: 'vi' as const },
+    };
+    const v1Settings = Object.fromEntries(Object.entries(legacy).filter(([key]) => key !== 'webChat'));
+    await new SettingsRepository(opened.db).save(JSON.stringify(v1Settings), '2026-01-01T00:00:00.000Z');
+    const result = await service.get();
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        router: { autoFallback: false },
+        budget: { hardStop: true },
+        ui: { locale: 'vi' },
+        webChat: defaults.webChat,
+      },
+    });
+    opened.client.close();
+  });
 });

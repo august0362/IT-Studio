@@ -8,6 +8,7 @@ import type {
   RoleAssignment,
   ThemeCatalog,
 } from '@itstudio/schemas';
+import { DEFAULT_WEB_CHAT_SETTINGS } from './web-chat.js';
 
 export interface Seeds {
   readonly defaultLadder: readonly LadderEntry[];
@@ -57,5 +58,6 @@ export function buildDefaultSettings(seeds: Seeds): AppSettings {
     },
     image: { enabled: false, providerOrder: IMAGE_PROVIDER_ORDER },
     ui: { themeId: seeds.themes.defaultLight, mode: 'system', locale: 'en' },
+    webChat: DEFAULT_WEB_CHAT_SETTINGS,
   };
 }

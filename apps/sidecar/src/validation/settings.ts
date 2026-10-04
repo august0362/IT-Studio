@@ -9,6 +9,8 @@ import type {
   SettingsPatch,
   UiSettings,
   VSCodeSettings,
+  WebChatSettings,
+  WebChatLinkId,
 } from '@itstudio/schemas';
 import { projectIdSchema, modelKeySchema, themeIdSchema, z } from './common.js';
 import { routerConfigSchema, ladderEntrySchema, circuitBreakerConfigSchema } from './router.js';
@@ -16,6 +18,42 @@ import { commandSpecSchema } from './worker.js';
 import { embeddingConfigSchema, chunkingConfigSchema } from './rag.js';
 import { imageProviderIdSchema } from './image.js';
 import { roleAssignmentSchema } from './pipeline.js';
+import { WebChatBrowser } from '@itstudio/schemas';
+import { validateWebChatSettings } from '../domain/web-chat.js';
+const webChatBrowserSchema = z.enum([
+  WebChatBrowser.DEFAULT,
+  WebChatBrowser.COCCOC,
+  WebChatBrowser.CHROME,
+  WebChatBrowser.EDGE,
+  WebChatBrowser.FIREFOX,
+  WebChatBrowser.CUSTOM,
+]);
+export const webChatSettingsSchema = z
+  .object({
+    browser: webChatBrowserSchema,
+    customBrowserPath: z.string().nullable(),
+    links: z
+      .array(
+        z
+          .object({
+            id: z.custom<WebChatLinkId>((value) => typeof value === 'string' && value.length > 0),
+            name: z.string(),
+            url: z.string(),
+            enabled: z.boolean(),
+          })
+          .readonly(),
+      )
+      .readonly(),
+  })
+  .readonly()
+  .superRefine((settings, context) => {
+    for (const issue of validateWebChatSettings(settings))
+      context.addIssue({
+        code: 'custom',
+        path: issue.path.replace(/^webChat\./u, '').split('.'),
+        message: issue.message,
+      });
+  }) satisfies z.ZodType<WebChatSettings>;
 export const budgetSettingsSchema = z.object({ hardStop: z.boolean() }).readonly() satisfies z.ZodType<BudgetSettings>;
 export const pricingSettingsSchema = z
   .object({
@@ -69,6 +107,7 @@ export const appSettingsSchema = z
     rag: ragSettingsSchema,
     image: imageSettingsSchema,
     ui: uiSettingsSchema,
+    webChat: webChatSettingsSchema,
   })
   .readonly() satisfies z.ZodType<AppSettings>;
 export const settingsPatchSchema = z
@@ -136,6 +175,26 @@ export const settingsPatchSchema = z
         themeId: themeIdSchema.exactOptional(),
         mode: z.enum(['system', 'light', 'dark']).exactOptional(),
         locale: z.enum(['en', 'vi']).exactOptional(),
+      })
+      .readonly()
+      .exactOptional(),
+    webChat: z
+      .object({
+        browser: webChatBrowserSchema.exactOptional(),
+        customBrowserPath: z.string().nullable().exactOptional(),
+        links: z
+          .array(
+            z
+              .object({
+                id: z.custom<WebChatLinkId>((value) => typeof value === 'string' && value.length > 0),
+                name: z.string(),
+                url: z.string(),
+                enabled: z.boolean(),
+              })
+              .readonly(),
+          )
+          .readonly()
+          .exactOptional(),
       })
       .readonly()
       .exactOptional(),
