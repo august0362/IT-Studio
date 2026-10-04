@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Open web chats (ChatGPT, Gemini, Grok, Claude, AI Studio, Perplexity) in the user's browser, default Cốc Cốc, and copy a project brief ([WC-01](docs/tasks/WC-01.md))
 - Add "Clear override" for manual prices ([M4-FIX3](docs/tasks/M4-FIX3.md))
 - Add Settings: router ladder (drag & keyboard), Auto Fallback, lock model, Hard Stop, pricing table with refresh and USD override, FX override, VS Code, pipeline roles ([M4-03](docs/tasks/M4-03.md))
 - Add Knowledge tab, chat "Use knowledge" toggle and citation chips ([M5-07](docs/tasks/M5-07.md))
@@ -73,9 +74,6 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 - Add Tauri sidecar supervisor: NDJSON relay, ready gate, restart backoff with fatal limit, graceful shutdown, locked-down capabilities ([M1-03](docs/tasks/M1-03.md))
 - Add strict lint gate: typescript-eslint strict-type-checked, layer boundaries, Prettier, secret scanner with self-test ([M0-05](docs/tasks/M0-05.md))
 - Add npm-workspaces monorepo scaffold: sidecar, desktop (Tauri v2 + React 19 + Vite 8 + Tailwind 4), VS Code extension skeleton ([M0-04](docs/tasks/M0-04.md))
-
-### Added
-- Open web chats (ChatGPT, Gemini, Grok, Claude, AI Studio, Perplexity) in the user's browser, default Cốc Cốc, and copy a project brief ([WC-01](docs/tasks/WC-01.md))
 
 ### Docs
 - Add v2/v3 planning baseline: requirements specifications (docs/specs/v2-requirements.md, docs/specs/v3-requirements.md), delivery plan (docs/plans/v2-v3-delivery-plan.md), re-planned ROADMAP M10–M19 + REL-V2/REL-V3 and 83 task work orders; open questions Q-06…Q-11
