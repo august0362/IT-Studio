@@ -90,7 +90,7 @@ describe('workflow RPC integration', () => {
             {
               kind: 'build',
               executable: 'node',
-              args: ['-e', 'process.exit(0)', '--token=private-mw-secret'],
+              args: ['-e', 'process.exit(0)', '--', '--token=private-mw-secret'],
               timeoutMs: 5000,
             },
           ],
@@ -108,7 +108,16 @@ describe('workflow RPC integration', () => {
       (await sidecar.call('pipeline.start', { projectId, prompt: 'Create a note' })).result,
     ).id;
     await waitFor(() => notifications('chat.completed').length === 1);
-    await waitFor(() => notifications('pipeline.event').some((value) => JSON.stringify(value).includes('completed')));
+    await waitFor(
+      () =>
+        notifications('pipeline.event').some((value) => {
+          const event = JSON.stringify(value);
+          return event.includes(runId) && event.includes('"type":"finished"');
+        }),
+      30_000,
+    );
+    const pipelineRun = pipelineRunSchema.parse((await sidecar.call('pipeline.get', { runId })).result);
+    expect(pipelineRun.stage, JSON.stringify(pipelineRun.failureReport)).toBe('completed');
     const history = z
       .array(activityEventSchema)
       .parse((await sidecar.call('workflow.activity', { projectId, limit: 200 })).result);
