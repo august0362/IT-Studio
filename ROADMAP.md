@@ -20,7 +20,7 @@
 | M6 Agent pipeline & Worker | **Done** (conditional — QA-E2E-FIX4) | 9 / 9 |
 | M7 VS Code companion extension | **Done** (QA signed off) | 6 / 6 |
 | MW Workflow map (v1 addendum) | In progress | 4 / 6 |
-| WC Quick web chat (v1 addendum) | In progress | 0 / 1 |
+| WC Quick web chat (v1 addendum) | **Done** | 1 / 1 |
 | M8 Image generation | In progress (QA) | 5 / 6 |
 | M9 Packaging & release | In progress (QA) | 6 / 7 |
 | **v2** M10 Agent Orchestrator | Specified — waits for owner go-ahead | 0 / 11 |
@@ -158,7 +158,7 @@ Ref: ARCHITECTURE §13.1, schemas §12b. Per-project graph of modules, links and
 ## WC — Quick web chat *(v1 addendum, D34)*
 Open ChatGPT / Gemini / Grok / … in the owner's browser (default Cốc Cốc) from IT Studio; copy a project brief to paste. No scraping, no metering.
 
-- [ ] **WC-01** (C) Web chat links + browser locator + `webchat.*` RPC + Chat header menu + Settings → Web chat; upgrade-safe settings defaults.
+- [x] **WC-01** (C) Web chat links + browser locator + `webchat.*` RPC + Chat header menu + Settings → Web chat; upgrade-safe settings defaults.
 
 ## M8 — Image generation *(deferred — do not start without user go-ahead)*
 

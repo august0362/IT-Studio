@@ -74,6 +74,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 - Add strict lint gate: typescript-eslint strict-type-checked, layer boundaries, Prettier, secret scanner with self-test ([M0-05](docs/tasks/M0-05.md))
 - Add npm-workspaces monorepo scaffold: sidecar, desktop (Tauri v2 + React 19 + Vite 8 + Tailwind 4), VS Code extension skeleton ([M0-04](docs/tasks/M0-04.md))
 
+### Added
+- Open web chats (ChatGPT, Gemini, Grok, Claude, AI Studio, Perplexity) in the user's browser, default Cốc Cốc, and copy a project brief ([WC-01](docs/tasks/WC-01.md))
+
 ### Docs
 - Add v2/v3 planning baseline: requirements specifications (docs/specs/v2-requirements.md, docs/specs/v3-requirements.md), delivery plan (docs/plans/v2-v3-delivery-plan.md), re-planned ROADMAP M10–M19 + REL-V2/REL-V3 and 83 task work orders; open questions Q-06…Q-11
 - Add continuation guide for another agent (docs/HANDOFF.md)
