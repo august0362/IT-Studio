@@ -7,7 +7,7 @@
     },
     "windows": {
       "wix": {
-        "template": "wix/main.wxs"
+        "template": "target/itstudio-wix/main.generated.wxs"
       }
     }
   }

@@ -171,7 +171,15 @@
         {{/each~}}
       </Component>
       <Component Id="Path" Guid="{{path_component_guid}}" Win64="$(var.Win64)">
-        <File Id="Path" Source="{{main_binary_path}}" KeyPath="yes" Checksum="yes" />
+        <File Id="Path" Source="{{main_binary_path}}" Checksum="yes" />
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\\{{manufacturer}}\\{{product_name}}\Components"
+          Name="Path"
+          Type="string"
+          Value="[INSTALLDIR]"
+          KeyPath="yes"
+        />
         {{#each file_associations as |association| ~}} {{#each association.ext as |ext| ~}}
         <ProgId Id="{{../../product_name}}.{{ext}}" Advertise="yes" Description="{{association.description}}">
           <Extension Id="{{ext}}" Advertise="yes">
@@ -182,19 +190,52 @@
       </Component>
       {{#each binaries as |bin| ~}}
       <Component Id="{{ bin.id }}" Guid="{{bin.guid}}" Win64="$(var.Win64)">
-        <File Id="Bin_{{ bin.id }}" Source="{{bin.path}}" KeyPath="yes" />
+        <File Id="Bin_{{ bin.id }}" Source="{{bin.path}}" />
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\\{{../manufacturer}}\\{{../product_name}}\Components"
+          Name="{{bin.id}}"
+          Type="string"
+          Value="[INSTALLDIR]"
+          KeyPath="yes"
+        />
       </Component>
       {{/each~}} {{#if enable_elevated_update_task}}
       <Component Id="UpdateTask" Guid="C492327D-9720-4CD5-8DB8-F09082AF44BE" Win64="$(var.Win64)">
-        <File Id="UpdateTask" Source="update.xml" KeyPath="yes" Checksum="yes" />
+        <File Id="UpdateTask" Source="update.xml" Checksum="yes" />
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\\{{manufacturer}}\\{{product_name}}\Components"
+          Name="UpdateTask"
+          Type="string"
+          Value="[INSTALLDIR]"
+          KeyPath="yes"
+        />
       </Component>
       <Component Id="UpdateTaskInstaller" Guid="011F25ED-9BE3-50A7-9E9B-3519ED2B9932" Win64="$(var.Win64)">
-        <File Id="UpdateTaskInstaller" Source="install-task.ps1" KeyPath="yes" Checksum="yes" />
+        <File Id="UpdateTaskInstaller" Source="install-task.ps1" Checksum="yes" />
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\\{{manufacturer}}\\{{product_name}}\Components"
+          Name="UpdateTaskInstaller"
+          Type="string"
+          Value="[INSTALLDIR]"
+          KeyPath="yes"
+        />
       </Component>
       <Component Id="UpdateTaskUninstaller" Guid="D4F6CC3F-32DC-5FD0-95E8-782FFD7BBCE1" Win64="$(var.Win64)">
-        <File Id="UpdateTaskUninstaller" Source="uninstall-task.ps1" KeyPath="yes" Checksum="yes" />
+        <File Id="UpdateTaskUninstaller" Source="uninstall-task.ps1" Checksum="yes" />
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\\{{manufacturer}}\\{{product_name}}\Components"
+          Name="UpdateTaskUninstaller"
+          Type="string"
+          Value="[INSTALLDIR]"
+          KeyPath="yes"
+        />
       </Component>
-      {{/if}} {{resources}}
+      {{/if}}
+      <!-- ITSTUDIO_RESOURCE_TREE -->
       <Component Id="CMP_UninstallShortcut" Guid="*">
         <Shortcut
           Id="UninstallShortcut"
@@ -263,9 +304,8 @@
     >
       <ComponentRef Id="RegistryEntries" />
 
-      {{#each resource_file_ids as |resource_file_id| ~}}
-      <ComponentRef Id="{{ resource_file_id }}" />
-      {{/each~}} {{#if enable_elevated_update_task}}
+      <!-- ITSTUDIO_RESOURCE_COMPONENT_REFS -->
+      {{#if enable_elevated_update_task}}
       <ComponentRef Id="UpdateTask" />
       <ComponentRef Id="UpdateTaskInstaller" />
       <ComponentRef Id="UpdateTaskUninstaller" />
