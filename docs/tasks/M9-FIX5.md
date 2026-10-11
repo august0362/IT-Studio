@@ -46,3 +46,11 @@ No package manifest, lockfile, product file, or generated sandbox contents are i
 - Architect: writes this work order with the observed failure.
 - Implementer: edits only the three ignore files in a dedicated `M9-FIX5` worktree; scope is disjoint from M9-QA's tests/report.
 - QA/Reviewer: checks the exact ignores against CONVENTIONS.md §10 and verifies the full source gates in M9-QA.
+
+## Result
+
+- Summary: Added root-only `.stryker-tmp/` exclusions to Git, Prettier, and ESLint. The M9-QA mutation run exited 0 and left three generated sandboxes; its following lint run exited 1 when Node exhausted its heap while scanning those copies. The sandboxes were left untouched.
+- Files changed: `.gitignore`, `.prettierignore`, `eslint.config.js`, and this task result.
+- Dependencies added (with reason): None.
+- Decisions taken within scope: Used a leading root slash in the Git and Prettier ignore files and a root-relative ESLint glob. `git check-ignore -v` excludes `.stryker-tmp/synthetic/file.ts` and does not exclude `apps/sidecar/.stryker-tmp/synthetic/file.ts`. Prettier `--file-info` reports the same root-only behavior; formatting `eslint.config.js` was unchanged. `git diff --check` passes.
+- Open issues / follow-ups: QA must merge this branch into M9-QA and run scoped Prettier, `npm run typecheck`, `npm run lint`, and `npm test` there with the generated sandbox still present. This worktree has no `node_modules`, so those gates were not run here.

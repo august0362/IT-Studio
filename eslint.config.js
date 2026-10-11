@@ -100,6 +100,7 @@ export default [
       '**/target/**',
       '**/node_modules/**',
       '.npm-cache/**',
+      '.stryker-tmp/**',
       'apps/desktop/src-tauri/**',
       'scripts/lint-fixtures/**',
       'scripts/design/**',
