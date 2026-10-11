@@ -47,6 +47,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 - Add L3 sidecar integration harness and M1 integration suite ([M1-QA](docs/tasks/M1-QA.md))
 
 ### Fixed
+- Isolate GUI test sessions and capture failure evidence; restore 15 M4–M6 L4 cases and the sidecar startup measurement ([QA-E2E-FIX4](docs/tasks/QA-E2E-FIX4.md))
 - Build the per-user MSI under Local AppData with HKCU component KeyPaths and embedded WebView2 ([M9-FIX2](docs/tasks/M9-FIX2.md))
 - Restore meaningful Stryker mutation results with the pinned Vitest 5 runner ([QA-TOOL-01](docs/tasks/QA-TOOL-01.md))
 - Worker creates missing parent directories and rolls them back (BUG-M6-002, S1, [M6-FIX2](docs/tasks/M6-FIX2.md))
