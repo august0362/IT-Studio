@@ -72,11 +72,9 @@
     <Property Id="ARPURLUPDATEINFO" Value="{{homepage}}" />
     {{/if}}
 
-    <!-- NOTE: The order of RegistrySearch elements below matters. In WIX, when multiple
-             RegistrySearch elements are listed under a single Property, the LAST successful
-             match wins. We list the NSIS default-key search first and the MSI InstallDir
-             search second so that the MSI-specific path takes priority when both keys exist. -->
-    <Property Id="INSTALLDIR">
+    <!-- Registry searches must not overwrite an explicit INSTALLDIR. Within one Property,
+         the last successful search wins, so the MSI InstallDir value follows the NSIS default. -->
+    <Property Id="PREVIOUS_INSTALLDIR">
       <!-- First attempt: Search for the default key value (this is how the nsis installer stores the path) -->
       <RegistrySearch
         Id="PrevInstallDirNoName"
@@ -94,6 +92,12 @@
         Type="raw"
       />
     </Property>
+
+    <!-- Use a previous path only when the caller has not supplied an install directory.
+         Sequence="first" also preserves a directory selected later in the installer UI. -->
+    <SetDirectory Id="INSTALLDIR" Sequence="first" Value="[PREVIOUS_INSTALLDIR]"
+      >NOT INSTALLDIR AND PREVIOUS_INSTALLDIR</SetDirectory
+    >
 
     <!-- launch app checkbox -->
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="!(loc.LaunchApp)" />

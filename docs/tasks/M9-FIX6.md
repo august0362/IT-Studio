@@ -47,3 +47,11 @@ No package manifest, lockfile, schema, NSIS template, or generated bundle is in 
 - Architect: writes this work order and documents the observed installer log/property transition.
 - Implementer: edits only the WiX template and focused test in `C:/Users/admin/itstudio-wt/M9-FIX6`; its scope is disjoint from the M9-QA report and exploratory evidence.
 - QA/Reviewer: validates against CONVENTIONS.md §10, builds the final installers, then checks the explicit-path MSI install/Ready/uninstall and the M9-QA source gates.
+
+## Result
+
+- Summary: Moved both HKCU path searches to `PREVIOUS_INSTALLDIR` and conditionally assign that path to `INSTALLDIR` only when no explicit install directory exists. `Sequence="first"` applies the default once for UI or silent execute. This addresses the M9-QA finding where a stale NSIS registry path overrode an explicit MSI install location.
+- Files changed: `apps/desktop/src-tauri/wix/main.wxs`, `scripts/build/wix-template.test.mjs`, and this task file.
+- Dependencies added (with reason): None.
+- Decisions taken within scope: Kept the NSIS default-value search before the MSI `InstallDir` search so the MSI-specific value wins when both exist; retained the Local AppData directory fallback and all other installer elements.
+- Open issues / follow-ups: Scoped Prettier, `npm run typecheck`, `npm run lint`, and the WiX template test (4/4) passed. The first full `npm test` run under concurrent QA load had three unrelated sidecar test timeouts or output timing failures and one LanceDB setup timeout; all four affected files passed on a serial rerun (33/33 tests). QA will rerun the full suite after landing, then build the final MSI and verify an explicit Local AppData `INSTALLDIR` against the stale HKCU path, Ready startup, and isolated uninstall. No installer was built or installed in this implementer worktree.
