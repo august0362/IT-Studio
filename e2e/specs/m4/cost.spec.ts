@@ -116,11 +116,11 @@ describe('M4 cost and P&L', () => {
     const from = browser.$('aria/From');
     const to = browser.$('aria/To');
     await from.setValue('2026-10-12');
-    expect(await browser.$('h1').getText()).to.equal('Cost & P&L');
+    expect(await browser.$('main h1').getText()).to.equal('Cost & P&L');
     expect(await browser.$('#root').getText()).to.include('Cost & P&L');
     await waitForReady();
     await to.setValue('2026-10-10');
-    expect(await browser.$('h1').getText()).to.equal('Cost & P&L');
+    expect(await browser.$('main h1').getText()).to.equal('Cost & P&L');
     expect(await browser.$('#root').getText()).to.include('Cost & P&L');
     await waitForReady();
   });
