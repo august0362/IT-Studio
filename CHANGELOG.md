@@ -47,6 +47,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 - Add L3 sidecar integration harness and M1 integration suite ([M1-QA](docs/tasks/M1-QA.md))
 
 ### Fixed
+- Keep the chunker speed check out of mutation instrumentation while retaining its normal assertion ([M9-FIX4](docs/tasks/M9-FIX4.md))
+- Exclude generated Stryker sandboxes from Git, Prettier, ESLint, and the secret scan ([M9-FIX5](docs/tasks/M9-FIX5.md))
 - Keep the Windows lint secret scan below the process argument limit ([M9-FIX3](docs/tasks/M9-FIX3.md))
 - Isolate GUI test sessions and capture failure evidence; restore 15 M4–M6 L4 cases and the sidecar startup measurement ([QA-E2E-FIX4](docs/tasks/QA-E2E-FIX4.md))
 - Build the per-user MSI under Local AppData with HKCU component KeyPaths and embedded WebView2 ([M9-FIX2](docs/tasks/M9-FIX2.md))
