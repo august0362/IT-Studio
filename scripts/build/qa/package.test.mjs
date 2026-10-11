@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, resolve, sep, win32 } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep, win32 } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -30,6 +30,19 @@ async function digest(path) {
   const hash = createHash('sha256');
   for await (const chunk of createReadStream(path)) hash.update(chunk);
   return hash.digest('hex');
+}
+
+async function stagedFiles(base, current = base) {
+  const files = [];
+  for (const entry of await readdir(current, { withFileTypes: true })) {
+    const path = join(current, entry.name);
+    if (entry.isDirectory()) files.push(...(await stagedFiles(base, path)));
+    else {
+      const resource = relative(base, path).replaceAll('\\', '/');
+      if (resource !== 'manifest.json') files.push(resource);
+    }
+  }
+  return files;
 }
 
 function resourceFile(base, path) {
@@ -58,6 +71,11 @@ async function manifestFiles(base) {
     assert.equal((await stat(file)).isFile(), true, `Missing resource file: ${path}`);
     assert.equal(await digest(file), entry.sha256, `Resource hash mismatch: ${path}`);
   }
+  assert.deepEqual(
+    (await stagedFiles(base)).sort(),
+    [...found].sort(),
+    'Resource manifest does not match staged files',
+  );
   return found;
 }
 
@@ -83,6 +101,11 @@ test('TC-M9-001 missing, changed, and traversal resources are rejected in isolat
     const entry = { path, sha256: createHash('sha256').update(original).digest('hex') };
     await writeFile(join(fixture, 'manifest.json'), JSON.stringify({ files: [entry] }));
     assert.deepEqual([...(await manifestFiles(fixture))], [path]);
+
+    const unlisted = join(fixture, 'unlisted.json');
+    await writeFile(unlisted, '{}');
+    await assert.rejects(() => manifestFiles(fixture), /Resource manifest does not match staged files/);
+    await rm(unlisted);
 
     await writeFile(target, Buffer.concat([original, Buffer.from('tampered')]));
     await assert.rejects(() => manifestFiles(fixture), /Resource hash mismatch/);
