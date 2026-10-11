@@ -110,10 +110,15 @@ describe('chunkDocument', () => {
       cursor += word.length;
     }
   });
-  it('chunks a generated 5 MB markdown document within one second', () => {
-    const source = `# Bulk\n\n${'A generated paragraph with enough words to create predictable chunks.\n\n'.repeat(75000)}`;
-    const start = performance.now();
-    expect(chunk(source).length).toBeGreaterThan(1000);
-    expect(performance.now() - start).toBeLessThan(1000);
-  }, 5000);
+  // Mutation instrumentation invalidates wall-clock timing; normal runs still enforce the speed target.
+  it.skipIf(process.env.ITSTUDIO_MUTATION === '1')(
+    'chunks a generated 5 MB markdown document within one second',
+    () => {
+      const source = `# Bulk\n\n${'A generated paragraph with enough words to create predictable chunks.\n\n'.repeat(75000)}`;
+      const start = performance.now();
+      expect(chunk(source).length).toBeGreaterThan(1000);
+      expect(performance.now() - start).toBeLessThan(1000);
+    },
+    5000,
+  );
 });
