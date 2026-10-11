@@ -33,9 +33,9 @@ No package manifest, lockfile, product file, or generated sandbox contents are i
 
 ## Acceptance criteria
 
-- [ ] Git, Prettier, and ESLint exclude `.stryker-tmp/`; existing tracked source remains checked.
-- [ ] Scoped Prettier, `npm run typecheck`, `npm run lint`, and `npm test` pass after merge into M9-QA with the generated sandbox present.
-- [ ] No sandbox files are deleted or moved and no dependency/toolchain version changes occur.
+- [x] Git, Prettier, and ESLint exclude `.stryker-tmp/`; existing tracked source remains checked.
+- [x] Scoped Prettier, `npm run typecheck`, `npm run lint`, and `npm test` pass after merge into M9-QA with the generated sandbox present.
+- [x] No sandbox files are deleted or moved and no dependency/toolchain version changes occur.
 
 ## Out of scope
 
@@ -53,4 +53,4 @@ No package manifest, lockfile, product file, or generated sandbox contents are i
 - Files changed: `.gitignore`, `.prettierignore`, `eslint.config.js`, and this task result.
 - Dependencies added (with reason): None.
 - Decisions taken within scope: Used a leading root slash in the Git and Prettier ignore files and a root-relative ESLint glob. `git check-ignore -v` excludes `.stryker-tmp/synthetic/file.ts` and does not exclude `apps/sidecar/.stryker-tmp/synthetic/file.ts`. Prettier `--file-info` reports the same root-only behavior; formatting `eslint.config.js` was unchanged. `git diff --check` passes.
-- Open issues / follow-ups: QA must merge this branch into M9-QA and run scoped Prettier, `npm run typecheck`, `npm run lint`, and `npm test` there with the generated sandbox still present. This worktree has no `node_modules`, so those gates were not run here.
+- Open issues / follow-ups: None for this fix. QA verified scoped Prettier, typecheck, lint, and 923 Vitest plus 14 Node tests in M9-QA with the generated sandboxes still present. An initial full test run had four load-related timeouts; the four files passed 22/22 when isolated and the full rerun passed.

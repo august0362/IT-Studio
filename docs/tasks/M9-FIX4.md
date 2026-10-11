@@ -31,9 +31,9 @@ No application code, mutation configuration, package manifest, or lockfile is in
 
 ## Acceptance criteria
 
-- [ ] Normal `npm test` runs the timing case and passes; a focused `ITSTUDIO_MUTATION=1` run reports that one case skipped while the other chunker cases pass.
-- [ ] Full-domain mutation dry-run proceeds past the initial tests and the final mutation score is recorded by M9-QA.
-- [ ] Scoped Prettier, typecheck, lint, and tests pass after merge; no dependency or schema change occurs.
+- [x] Normal `npm test` runs the timing case and passes; a focused `ITSTUDIO_MUTATION=1` run reports that one case skipped while the other chunker cases pass.
+- [x] Full-domain mutation dry-run proceeds past the initial tests and the final mutation score is recorded by M9-QA.
+- [x] Scoped Prettier, typecheck, lint, and tests pass after merge; no dependency or schema change occurs.
 
 ## Out of scope
 
@@ -51,4 +51,4 @@ No application code, mutation configuration, package manifest, or lockfile is in
 - Files changed: `apps/sidecar/src/domain/chunker.test.ts`; this task file.
 - Dependencies added (with reason): None.
 - Decisions taken within scope: Keep all other chunker cases active in both modes. The two full-domain Stryker dry runs before this fix failed before mutants ran: 1,437.7 ms with another QA step active and 1,479.0 ms alone, each above the 1,000 ms limit. The normal unit suite and coverage had passed.
-- Open issues / follow-ups: This worktree has no `node_modules`; M9-QA must verify normal and marked Vitest runs, the full-domain mutation score, and the post-merge typecheck, lint, and test gates. Scoped Prettier check and `git diff --check` passed.
+- Open issues / follow-ups: None for this fix. M9-QA verified normal chunker tests (13/13), marked tests (12 passed, one timing case skipped), and the full production-domain Stryker run: 1,703 killed, 12 timed out, 477 survived, 20 uncovered, score 77.53%. Post-merge typecheck, lint, and full source tests passed.
