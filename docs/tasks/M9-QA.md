@@ -16,6 +16,7 @@ Verify that the Windows x64 package contains a working SEA sidecar and its runti
 
 - `docs/qa/M9-test-cases.md` (Architect/QA case design and traceability).
 - `docs/qa/M9-report.md` (QA execution results, defects, and sign-off).
+- `docs/RUNNING.md` (remove stale M8/MW known-limitations statements during the manual release-path review).
 - `scripts/build/qa/package.test.mjs` (new artifact-dependent assertions, run explicitly after `build:sidecar`; outside the default `npm test` glob).
 - `scripts/build/tauri-debug-config.test.mjs`, `scripts/release/bump-version.test.mjs`, `apps/sidecar/src/infra/native-modules.test.ts`, and tests inside `apps/desktop/src-tauri/src/sidecar/spawn.rs` (case-ID names and missing L1/L2 coverage only).
 - This task file, for `## Result` or `## Blocked`.
@@ -35,6 +36,7 @@ The existing `build:sidecar`, `smoke:sidecar`, `build:app`, and `smoke:install` 
 3. Run the package command gate and full regression in the sequence listed in the test-case document. Run the NSIS install smoke without deleting or replacing the owner's `%APPDATA%\com.itstudio.app` data. Record that its installed Ready evidence uses the real app-data location and does not establish fresh-profile state.
 4. Verify MSI per-user configuration, final QA build output, and an isolated per-user installation that preserves existing app data. `M9-FIX2` has built a per-user MSI successfully after fixing WiX ICE38/ICE64 errors. Rebuild it with the final M9 source and keep installation and Ready verdicts pending until M9-QA executes them. Do not infer compliance from the older MSI that was built before the fix.
 5. Execute a 20-minute exploratory session and write `docs/qa/M9-report.md` with per-case verdicts, command output summaries, coverage/mutation results, defects, artifact provenance, and sign-off against TESTING.md §7.
+6. Keep the release guide's known-limitations list aligned with the completed M8 image generation and MW Workflow milestones; do not change release policy or product behavior.
 
 ## Acceptance criteria (verifiable)
 
