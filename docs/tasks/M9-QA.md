@@ -53,3 +53,12 @@ The existing `build:sidecar`, `smoke:sidecar`, `build:app`, and `smoke:install` 
 ## Hand-back
 
 Append `## Result` per AGENTS.md §3 with case verdicts, artifact provenance, verification commands, and open issues. If a required package or test gate remains blocked, append `## Blocked` with the exact failing command, evidence, and the decision or environment change required.
+
+## Result (automated test implementation)
+
+- Summary: Added executable TC-M9-001 and TC-M9-002 post-build checks for SEA resource integrity and missing-native-module startup failure. Added TC-M9-002 native development resolution/error checks, TC-M9-004 debug-config guard names and negative fixtures, and TC-M9-011 version dry-run/no-write and rejection fixtures.
+- Files changed: `scripts/build/qa/package.test.mjs` (new), `scripts/build/tauri-debug-config.test.mjs`, `scripts/release/bump-version.test.mjs`, `apps/sidecar/src/infra/native-modules.test.ts`, and this task file.
+- Dependencies added (with reason): None.
+- Decisions taken within scope: The package test stays outside the default `npm test` glob and uses an isolated copied executable and copied fixture resource for destructive negative checks. It requires a final `dist-sidecar` build before explicit execution with `node --test scripts/build/qa/package.test.mjs`.
+- Verification: `npx prettier --write` on the four test files passed; `npm run typecheck` and `npm run lint` passed. Focused `node --test scripts/release/bump-version.test.mjs scripts/build/tauri-debug-config.test.mjs` passed (9/9); `node --check scripts/build/qa/package.test.mjs` passed. In the full `npm test` run, 920 tests passed and one skipped; three unrelated existing tests failed while the concurrent MSI build was active: `TC-MW-009` ChatPage and CodePage deep-link tests, and the PDF parser's 5-second timeout. The new native-module tests passed.
+- Open issues / follow-ups: Run the package test after the final sidecar build, then execute the full M9 package/install and regression gate and record verdicts in `docs/qa/M9-report.md`. The full `npm test` gate needs a rerun after parallel build load settles; no package artifact exists in this worktree yet. The MSI WiX regression test belongs to M9-FIX2 and is supplied by that separate task.
