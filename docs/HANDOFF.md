@@ -1,6 +1,6 @@
 # HANDOFF — read this first if you are a new AI / engineer continuing IT Studio
 
-> Last updated: **2026-10-04** by the Architect / QA agent (Claude), at a deliberate stop requested by the owner.
+> Last updated: **2026-10-11** by the IT Studio lead engineer during M9-QA.
 > Keep this file current whenever you stop. It complements — does not replace — the binding documents:
 >
 > | Document | What it is |
@@ -24,13 +24,13 @@
 ## 0. TL;DR for the next agent
 
 1. Read §3 (owner rules) and §2 (how work is done) — they are not written anywhere else.
-2. Finish the four **in-flight items in §4** in the order given (each has exact resume steps).
+2. Resume the M9-QA gate in §4. Source gates and the Cost date regression pass; the final MSI rebuild timed out while downloading the WebView2 bootstrapper.
 3. Then ask the owner before starting v2 (M10). The owner wanted to stop after v1 to try the app themselves.
 4. Talk to the owner in **Vietnamese**; write every repo file in **English**.
 
 ---
 
-## 1. Status per milestone (2026-10-04)
+## 1. Status per milestone (2026-10-11)
 
 | Milestone | Tasks done | Status | Notes |
 |---|---|---|---|
@@ -38,31 +38,28 @@
 | M1 sidecar + JSON-RPC | 8/8 | ✅ | report `docs/qa/M1-report.md` |
 | M2 router + fallback | 11/11 | ✅ | |
 | M3 ledger / pricing / P&L | 8/8 | ✅ signed off | |
-| M4 chat UI | 8/8 | ✅ conditional | some E2E cases → `QA-E2E-FIX4` |
-| M5 RAG | 8/8 | ✅ conditional | some E2E cases → `QA-E2E-FIX4` |
-| M6 pipeline + worker writes | 9/9 | ✅ conditional | some E2E cases → `QA-E2E-FIX4` |
+| M4 chat UI | 8/8 | ✅ | L4 regression reverified in `QA-E2E-FIX4` |
+| M5 RAG | 8/8 | ✅ | L4 regression reverified in `QA-E2E-FIX4` |
+| M6 pipeline + worker writes | 9/9 | ✅ | L4 regression reverified in `QA-E2E-FIX4` |
 | M7 VS Code companion | 6/6 | ✅ signed off | |
 | SEC-01 dependency audit | 1/1 | ✅ | `npm run audit:prod` = 0 high vulnerabilities |
 | PERF-01 startup | 1/1 | ✅ | dev sidecar 2.8 s (was 4.0 s); packaged sidecar ~0.6 s warm |
-| **MW** Workflow map (D32) | 4/6 | 🟡 | MW-04 implemented, **not landed**; MW-QA not started |
-| **M8** image generation | 5/6 | 🟡 | M8-QA automated, **E2E failing**, not landed |
-| **M9** packaging | 6/7 | 🟡 | M9-04 (signing / clean VM) marked not needed by D33; M9-QA not started |
-| QA tooling | 1/3 | backlog | `QA-E2E-FIX4`, `QA-TOOL-01` |
+| **MW** Workflow map (D32) | 6/6 | ✅ | `MW-QA` complete |
+| **M8** image generation | 6/6 | ✅ | `M8-QA` complete |
+| **M9** packaging | 6/7 | 🟡 | M9-QA in progress; final MSI build and installer verification remain |
+| QA tooling | 3/3 | ✅ | `QA-E2E-FIX4` and `QA-TOOL-01` complete |
 | **v2** M10–M14 (+ REL-V2) | 0/46 | ⏸ not started | SRS, plan and all 46 task files written (see §7) |
 | **v3** M15–M19 (+ REL-V3) | 0/37 | ⏸ not started | SRS, plan and all 37 task files written (see §7) |
 
-Delivered numbers: about 875 unit tests (1 skipped) and about 111 integration tests. Packaging: SEA sidecar 96 MB, NSIS installer 93 MB, MSI 147 MB (LanceDB native binary is ~317 MB unpacked). Install smoke 7/7.
+Current M9-QA branch evidence: 933 Vitest tests passed (one intentional skip), 15 Node tests passed, 114 integration tests passed, and 45 L4 E2E tests passed across 14 specs. Coverage is 85.55% overall statements and 97.01% domain branches; the full production-domain mutation score remains 77.53%. Final SEA package checks passed 3/3; three warm sidecar smokes passed at 452/427/528 ms after a 2,104 ms cold outlier. The final `build:app` attempt on `9dfada7b2cdfc5f7e5dffb2d00c3568772a852d3` built the release executable and ran NSIS, but MSI bundling failed downloading the WebView2 bootstrapper (`timeout: global`). The prior NSIS/MSI hashes are historical only; final install checks have not run.
 
 ---
 
 ## 2. How work is done (process)
 
 ### 2.1 Roles
-- **Architect / PM / QA** (an AI like Claude):
-  - writes specs (`docs/tasks/<ID>.md`), contracts (`src/types/schemas.ts`, additive only), docs and decisions;
-  - pre-installs dependencies; runs QA; resolves merge conflicts; lands work.
-  - Does **not** write feature or test code — delegates it (owner's explicit instruction).
-- **Implementer**: Codex CLI (`codex-cli 0.159.x`, ChatGPT login), following `AGENTS.md`.
+- **Lead engineer:** The owner authorized the active lead to act as Architect/PM, QA/Reviewer, and Implementer for this repository, overriding the Implementer-only restriction in `AGENTS.md` §2. The lead writes scoped tasks, tracks disjoint worktrees, reviews and tests the results, and lands them. Product decisions not settled by `CONTEXT.md`, `ARCHITECTURE.md`, or an ADR still go to admin.
+- **Implementer agents:** Follow the assigned task's exact Scope and the remaining hard rules in `AGENTS.md`. Do not edit another task's files or the owner's uncommitted work.
 
 ### 2.2 Task lifecycle
 
@@ -74,13 +71,14 @@ Delivered numbers: about 875 unit tests (1 skipped) and about 111 integration te
    CODEX_EFFORT=medium scripts/dev/run-task.sh <ID>     # cheaper; for test-only or small tasks
    ```
    - Logs go to `$TEMP/itstudio-codex/<ID>.log` and `<ID>.last.txt`.
-   - Run up to about 4 jobs in parallel, but only on **disjoint scopes**: never two tasks touching the same `package.json` or lockfile.
+   - Run at most 2 Implementer jobs in parallel, with **disjoint scopes**: never two tasks touching the same `package.json` or lockfile.
 4. **QA in the worktree.** Commit the Codex changes on the task branch, then `git merge main` to resolve conflicts early. After that, run the lean QA routine (§2.3).
 5. **Fix round.** If a check fails, append `## QA (Claude) — round N` to the task file with the **exact error** and the expected fix, then:
    ```bash
    scripts/dev/run-task.sh <ID> "This is FIX ROUND N: read the QA section at the end of docs/tasks/<ID>.md …"
    ```
 6. **Land the task:**
+   Inspect the script and the worktree first. The current `land-task.sh` stages all worktree changes and force-removes the worktree, so do not use it while unrelated owner files or uncommitted QA evidence could be included. In that situation, stage only the task's scoped paths, commit on its branch, merge without rewriting history, and preserve the worktree until QA evidence is secured.
    ```bash
    scripts/dev/land-task.sh <ID> "type(scope): subject [<ID>]"
    ```
@@ -147,98 +145,30 @@ npx wdio run e2e/wdio.conf.ts --spec e2e/specs/<area>/<file>.spec.ts   # only th
 
 ---
 
-## 4. In-flight work at the stop (do these first, in this order)
+## 4. Current M9-QA work
 
-Two worktrees exist (`git worktree list`). Both branches have **all work committed**; nothing is lost if the folders are deleted, as long as the branches are kept.
+M8 and MW have passed their milestone gates. `QA-E2E-FIX4` reran the historical M4–M6 GUI cases in isolated app/data sessions. The current M9-QA full L4 run passed all 45 tests in 14 specs, including `TC-M9-015`.
 
-### 4.1 M8-QA — branch `task/M8-QA`, worktree `C:/Users/admin/itstudio-wt/M8-QA`
+The active gate is `M9-QA` in `C:/Users/admin/itstudio-wt/M9-QA`. Its test-case document and report are `docs/qa/M9-test-cases.md` and `docs/qa/M9-report.md`. The 20-minute exploratory session completed on 2026-10-11 and found a Cost custom-date crash. The scoped fix worktrees are:
 
-**Done:**
-- Test cases are in `docs/qa/M8-test-cases.md`.
-- Codex automated them: case → file table in the branch's `docs/tasks/M8-QA.md` `## Result`.
-- Codex also added the `ITSTUDIO_E2E_IMAGE_SCRIPT` fake (JSON keyed by provider id → `success` | `http:<status>`), active only with `ITSTUDIO_E2E=1`.
-- QA merged `main` (resolved `e2e/wdio.conf.ts`: keep both `./specs/m8/images.spec.ts` and `./specs/mw/workflow.spec.ts`, then `shutdown.spec.ts` last).
-- QA checks passed: typecheck ✔, lint ✔, unit 860 ✔, integration **111/111 ✔** (TC-M8-001…006).
+- `M9-FIX6`: make an explicit per-user MSI `INSTALLDIR` override a stale HKCU path left by NSIS.
+- `M9-FIX7`: keep Cost & P&L mounted while editing incomplete or reversed custom dates; add GUI regression `TC-M9-015`.
 
-**Open:** E2E `e2e/specs/m8/images.spec.ts` **fails** (run 2026-10-04, 1 spec, 43 s). Failure detail:
-- Failing test: `✖ TC-M8-010 renders the generated image in chat and opens its lightbox`.
-- Error: `waitUntil condition timed out after 5000ms`, raised in `openImageSession` at `images.spec.ts:25` (called from line 97).
-- Reason: `Cannot read properties of undefined (reading 'isDisplayed')`.
-- Line 25 waits for `footer[role="status"]` to contain `Ready v0.1.0`.
+Latest source gates pass: 933 Vitest + 15 Node tests, 114 integration tests, 45 L4 tests, typecheck, lint, 16 Rust tests, and coverage. The focused MSI path fix and Cost date fix both pass their regression checks. The latest `npm run build:app` failed in the MSI phase while downloading the WebView2 bootstrapper (`timeout: global`) after compiling the app and running NSIS. Do not use any artifact from that failed run as final evidence; retry the build, then capture final hashes and run the NSIS smoke plus isolated explicit-path MSI install/Ready/uninstall. Full details are in `docs/qa/M9-report.md` and `.npm-cache/m9-build-app-final.log`.
 
-**Root cause:** not investigated yet. Hypotheses:
-- The spec opens its **own** WebDriver session with `remote({ port: 4449 … })` instead of the session that `wdio.conf.ts` provides. It depends on the extra tauri-driver that the branch's `wdio.conf.ts` starts on port 4449, and the element API behaves differently on that remote session.
-- The extra session needs the image fake env vars, which is presumably why Codex added it.
+On resume, retry `npm run build:app` first. If it succeeds, record exact artifact sizes/hashes; run the NSIS smoke and an isolated explicit-path MSI install/Ready/uninstall; then merge the completed QA work and run `npm run test:all` on main. Preserve the owner's uncommitted files and `%APPDATA%\com.itstudio.app` data. Mark M9 done only after `TESTING.md` §7 has 100% P1, at least 95% P2, no open S1/S2, coverage, traceability, and a committed report.
 
-**Resume steps:**
-1. Append a `## QA (Claude) — round 1` section to `docs/tasks/M8-QA.md` with the error above.
-2. Run `scripts/dev/run-task.sh M8-QA "FIX ROUND 1 …"`. Ask Codex to either:
-   - use the standard `browser` session and pass `ITSTUDIO_E2E_IMAGE_SCRIPT` the way other specs pass `ITSTUDIO_E2E_LLM_SCRIPT` (see `e2e/specs/m4/*`); or
-   - fix the remote-session usage. Use `await $(...)` element handles, and give `waitUntil` a longer timeout (30 s) for app start.
-3. Rerun only that spec. If it passes, write `docs/qa/M8-report.md`, land with `scripts/dev/land-task.sh M8-QA "test(images): M8 QA gate [M8-QA]"`, and tick M8-QA in ROADMAP.
+The owner asked to try v1 before v2. Obtain admin's go-ahead before starting M10. V3 Doc Debt `DD-V3-01` / question `Q-09` remains undecided.
 
-### 4.2 MW-04 — branch `task/MW-04`, worktree `C:/Users/admin/itstudio-wt/MW-04`
-
-**Done:**
-- Codex implemented the task (spec `docs/tasks/MW-04.md`, `## Result` on the branch):
-  - New typed in-process bus `apps/sidecar/src/services/workflow-internal-events.ts`.
-  - Events from:
-    - the retriever (hit count, top score, duration; never the query text);
-    - the command runner (executable + arg count only, exit code, duration, timed-out);
-    - the VS Code bridge (action sent / acked);
-    - the image service (started / completed / failed, provider, count, cost);
-    - the embedding dispatcher (batch, model, chunks, cost).
-  - These are mapped in `activity-recorder.ts`.
-  - Desktop: new `apps/desktop/src/state/navigation-intent.ts` store. Deep links from the Workflow panel select the conversation (Chat), the pipeline run (Code), the ingest job (Knowledge) and the ledger row (Cost).
-- QA committed the work and merged `main`. Checks passed: typecheck ✔, lint ✔, unit **875 passed / 1 skipped ✔**.
-- Design note: image activity is mapped to the **Chat** node because `WorkflowModuleId` has no image node. Accept it, or add an `images` module in a follow-up (an additive schema change plus a topology entry).
-
-**Not yet run:** integration (`npm run test:integration`, including new `TC-MW-004` in `apps/sidecar/test/integration/workflow.test.ts`) and E2E `e2e/specs/mw/workflow.spec.ts` (TC-MW-010, which passed before MW-04).
-
-**Resume steps:**
-1. Run those two checks in the worktree.
-2. If both are green: `scripts/dev/land-task.sh MW-04 "feat(workflow): internal events + selecting deep links [MW-04]"`. Expect the nothing-to-commit caveat in §2.2, step 6.
-3. Tick MW-04 in ROADMAP.
-
-### 4.3 MW-QA — not started
-1. Write `docs/qa/MW-test-cases.md`. Scope is in ROADMAP MW-QA:
-   - topology completeness vs ARCH §13.1;
-   - an event → module mapping table;
-   - a redaction corpus (no prompt text or keys in any summary);
-   - retention boundaries (7 days / 20 000 rows per project);
-   - a live update burst (100 events/s);
-   - E2E: chat + ingest + pipeline light up the right nodes and edges.
-
-   Existing IDs: TC-MW-003, TC-MW-004 (L3), TC-MW-010 (L4).
-2. Create `docs/tasks/MW-QA.md` → Codex automates it → QA executes it → `docs/qa/MW-report.md`.
-
-### 4.4 M9-QA — not started
-1. Write `docs/qa/M9-test-cases.md`. Most cases are re-running existing scripts:
-
-   | Command | What it checks |
-   |---|---|
-   | `npm run build:sidecar` | builds the SEA sidecar |
-   | `npm run smoke:sidecar` | sidecar starts; native modules (better-sqlite3, LanceDB) load; ready under 1.5 s |
-   | `npm run build:app` | builds the NSIS + MSI installers |
-   | `npm run smoke:install` | silent install into a temp dir; runs with no Node on PATH; clean exit; uninstall |
-   | `npm run release:bump -- --dry-run` | version bump |
-   | `npm run audit:prod` | dependency audit |
-   | `node --test scripts/build/*.test.mjs` | debug-config regression (`tauri-debug-config.test.mjs`) |
-
-   The clean-VM case is replaced by the install smoke (D33). Auto-update is out of scope unless the owner wants it.
-2. **Rebuild the installers after M8-QA and MW-04 land** (both change the app), rerun the install smoke, then write `docs/qa/M9-report.md`.
-
----
-
-## 5. Backlog / known issues (not blocking v1)
+## 5. Follow-ups and resolved QA tooling
 
 | ID / item | Details |
 |---|---|
-| `QA-E2E-FIX4` | 13 E2E cases skipped after 6 attempts: TC-M4-022/023/031/033/041–046, TC-M5-020/022/023, TC-M6-071/072. Proposed approach: a fresh app + data dir per spec (restart tauri-driver per spec), and a DOM snapshot + screenshot on failure so fixes are not blind. Each case passes at L3; only the GUI automation is flaky or state-dependent. |
-| `QA-TOOL-01` | StrykerJS 10 × Vitest 5 workspace reports 0 % kills (tool incompatibility). A manual mutation proved the tests are effective. Fix the configuration or pin a compatible Stryker. |
+| `QA-E2E-FIX4` | Closed: per-spec isolated app/data sessions and DOM/screenshot diagnostics restored all historical M4–M6 L4 cases; full GUI suite 44/44. |
+| `QA-TOOL-01` | Closed: Stryker/Vitest integration fixed; full M9 production-domain mutation score measured at 77.53%. |
 | Pricing override after restart | Clearing a manual price override after an app restart falls back to the **seed** price, not the last fetched price, because the repository keeps only the latest table (found in M4-FIX3). |
-| `scripts/dev/measure-startup.mjs` | Exits early (no stdin pipe, so the sidecar sees EOF and exits by design, BUG-M7-001). Use `npm run smoke:sidecar` for timing. |
-| Image node in the workflow map | See §4.2 design note. |
+| `scripts/dev/measure-startup.mjs` | Closed by `QA-E2E-FIX4`: all five real Ready measurements completed and the focused regression passed. |
+| Image node in the workflow map | Image activity is mapped to Chat under the MW v1 topology; a separate image node would require an additive contract/topology follow-up. |
 | Dry-run diff cosmetics | Minor display issues in the Code tab dry-run diff (from the M6 exploratory session). |
 | Auto-update | The M9-04 updater key pair was not created (D33). Only do it if the owner wants auto-update. |
 
@@ -278,7 +208,7 @@ apps/
   vscode-ext/  companion extension (WebSocket to the sidecar, token auth)
 src/types/schemas.ts   shared contracts (@itstudio/schemas)
 config/                seed data (pricing seed, defaults)
-e2e/                   WebdriverIO + tauri-driver specs (m1, m4, m5, m6, mw; m8 on branch task/M8-QA), wdio.conf.ts, run-e2e.mjs
+e2e/                   WebdriverIO + tauri-driver specs (m1, m4, m5, m6, m8, mw), wdio.conf.ts, run-e2e.mjs
 scripts/dev/           run-task.sh, land-task.sh, measure-startup.mjs
 scripts/build/         build-sidecar.mjs (esbuild + Node SEA + postject), smoke-sidecar.mjs, build-app.mjs, install-smoke.ps1, make-icon.mjs
 scripts/release/       bump-version.mjs (+ node tests)
@@ -291,7 +221,7 @@ E2E fakes (only active when `ITSTUDIO_E2E=1`):
 | `ITSTUDIO_E2E_LLM_SCRIPT` / `ITSTUDIO_E2E_LLM_TEXT` | scripted LLM replies and tool calls |
 | `ITSTUDIO_E2E_EMBEDDING_SCRIPT` | scripted embedding results |
 | `ITSTUDIO_E2E_PRICING_HTTP=fail` | pricing fetch fails |
-| `ITSTUDIO_E2E_IMAGE_SCRIPT` | scripted image provider outcomes (branch `task/M8-QA`) |
+| `ITSTUDIO_E2E_IMAGE_SCRIPT` | scripted image provider outcomes |
 | `ITSTUDIO_E2E_CRASH_AT` | crash at a given point, to test journal recovery |
 
 ---

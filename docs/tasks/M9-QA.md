@@ -1,6 +1,6 @@
 # M9-QA — Packaging and release milestone gate
 
-Milestone: M9 · Depends on: M9-01, M9-02, M9-05, M9-06, M9-FIX1, M9-FIX2 · Roles: Architect/QA and Implementer (ROLES §1.1–§1.3)
+Milestone: M9 · Depends on: M9-01, M9-02, M9-05, M9-06, M9-FIX1, M9-FIX2, M9-FIX6, M9-FIX7 · Roles: Architect/QA and Implementer (ROLES §1.1–§1.3)
 
 ## Goal
 
@@ -17,6 +17,7 @@ Verify that the Windows x64 package contains a working SEA sidecar and its runti
 - `docs/qa/M9-test-cases.md` (Architect/QA case design and traceability).
 - `docs/qa/M9-report.md` (QA execution results, defects, and sign-off).
 - `docs/RUNNING.md` (remove stale M8/MW known-limitations statements during the manual release-path review).
+- `docs/HANDOFF.md` (update the stale M9-QA and v1 status after the gate, while preserving the owner stop before v2).
 - `scripts/build/qa/package.test.mjs` (new artifact-dependent assertions, run explicitly after `build:sidecar`; outside the default `npm test` glob).
 - `scripts/build/tauri-debug-config.test.mjs`, `scripts/release/bump-version.test.mjs`, `apps/sidecar/src/infra/native-modules.test.ts`, and tests inside `apps/desktop/src-tauri/src/sidecar/spawn.rs` (case-ID names and missing L1/L2 coverage only).
 - This task file, for `## Result` or `## Blocked`.
@@ -37,6 +38,7 @@ The existing `build:sidecar`, `smoke:sidecar`, `build:app`, and `smoke:install` 
 4. Verify MSI per-user configuration, final QA build output, and an isolated per-user installation that preserves existing app data. `M9-FIX2` has built a per-user MSI successfully after fixing WiX ICE38/ICE64 errors. Rebuild it with the final M9 source and keep installation and Ready verdicts pending until M9-QA executes them. Do not infer compliance from the older MSI that was built before the fix.
 5. Execute a 20-minute exploratory session and write `docs/qa/M9-report.md` with per-case verdicts, command output summaries, coverage/mutation results, defects, artifact provenance, and sign-off against TESTING.md §7.
 6. Keep the release guide's known-limitations list aligned with the completed M8 image generation and MW Workflow milestones; do not change release policy or product behavior.
+7. After the gate, align `docs/HANDOFF.md` with the actual M9 result and remaining owner decision; remove the claim that M9-QA has not started.
 
 ## Acceptance criteria (verifiable)
 
@@ -45,6 +47,7 @@ The existing `build:sidecar`, `smoke:sidecar`, `build:app`, and `smoke:install` 
 - [ ] `npm run build:sidecar`, `npm run smoke:sidecar`, `npm run build:app`, `npm run smoke:install`, `npm run release:bump -- patch --dry-run`, and `npm run audit:prod` pass on the final source tree. The dry-run leaves manifests and `CHANGELOG.md` unchanged.
 - [ ] Both final installers are per-user; the MSI has a verified final bundle and isolated installation. The installed app reaches Ready with its bundled sidecar, with no claim about fresh-profile state.
 - [ ] TESTING.md §7 exit criteria hold: 100% P1 pass, at least 95% P2 pass, no open S1/S2 defects, coverage gates met, complete traceability, and a committed QA report. Otherwise leave M9 open and record the exact blocker.
+- [ ] `docs/HANDOFF.md` reflects the executed M9-QA status and the owner's required go-ahead before v2.
 
 ## Out of scope
 
@@ -64,3 +67,10 @@ Append `## Result` per AGENTS.md §3 with case verdicts, artifact provenance, ve
 - Decisions taken within scope: The package test stays outside the default `npm test` glob and uses an isolated copied executable and copied fixture resource for destructive negative checks. It requires a final `dist-sidecar` build before explicit execution with `node --test scripts/build/qa/package.test.mjs`.
 - Verification: `npx prettier --write` on the four test files passed; `npm run typecheck` and `npm run lint` passed. Focused `node --test scripts/release/bump-version.test.mjs scripts/build/tauri-debug-config.test.mjs` passed (9/9); `node --check scripts/build/qa/package.test.mjs` passed. In the full `npm test` run, 920 tests passed and one skipped; three unrelated existing tests failed while the concurrent MSI build was active: `TC-MW-009` ChatPage and CodePage deep-link tests, and the PDF parser's 5-second timeout. The new native-module tests passed.
 - Open issues / follow-ups: Run the package test after the final sidecar build, then execute the full M9 package/install and regression gate and record verdicts in `docs/qa/M9-report.md`. The full `npm test` gate needs a rerun after parallel build load settles; no package artifact exists in this worktree yet. The MSI WiX regression test belongs to M9-FIX2 and is supplied by that separate task.
+
+## Blocked — final installer rebuild (2026-10-11)
+
+- Blocker: The final-source `npm run build:app` on revision `9dfada7b2cdfc5f7e5dffb2d00c3568772a852d3` exited 1 at the MSI bundling step. After compiling the release app and running NSIS packaging, Tauri attempted to download the Microsoft WebView2 bootstrapper and reported `failed to bundle project: timeout: global`.
+- Tried: Completed one full final-source build attempt (16:06:18–16:14:05 UTC+07:00). No final installer pair or hashes are accepted from this failed attempt. Do not use stale pre-fix artifacts as final evidence.
+- Passed since the earlier automated-test implementation result: typecheck, lint, 933 Vitest + 15 Node tests (one intentional skip), Cargo formatting and 16 Rust tests, 114 integration tests, full L4 E2E (14 specs/45 tests), overall statement coverage 85.55%, domain branch coverage 97.01%, package tests 3/3, and three warm sidecar smoke runs (452/427/528 ms). `TC-M9-015` passes in focused component and GUI checks.
+- Resume: Retry `npm run build:app`; if it succeeds, record final artifact sizes and SHA-256, run NSIS install smoke and isolated MSI explicit-path install/Ready/uninstall, then complete the main-branch `npm run test:all` gate and M9 sign-off. Full build log: `.npm-cache/m9-build-app-final.log` in the M9-QA worktree.

@@ -27,6 +27,7 @@
 | TC-M9-012 | Production dependency audit passes | L2 | Security negative | RUNNING §6 release checklist; CONVENTIONS §10 | P1 | Registry audit access available | Run `npm run audit:prod`; retain date and output | Production lockfile dependency graph | Exit 0; no high/critical production advisories | Automated npm audit command |
 | TC-M9-013 | Manual release path is documented; updater remains deferred | L5 | Use-case/document review | D33; ROADMAP M9-04; RUNNING §6 | P2 | Current release docs/config | Review version bump, audit, build, smoke and tag checklist; inspect updater configuration | Final docs and Tauri config | Manual release path is complete; no claim of enabled auto-update, signing or updater keys | Manual, because D33 defers automatic update flow |
 | TC-M9-014 | Full regression and QA exit gate | L1–L5 | Regression; coverage | TESTING §§4, 7–8; ROADMAP M9-QA | P1 | Functional M9 tasks checked; final source | Run package gate below, prior milestone L4 suites, 20-minute exploratory session; map verdicts to requirements | Final source/artifact hashes | 100% P1 and ≥95% P2 pass; no open S1/S2; coverage gates and traceability pass; report committed | Automated test commands plus manual QA report |
+| TC-M9-015 | Custom Cost date editing keeps the GUI mounted | L1/L4 | Boundary and invalid interval | M9-FIX7; M9-QA exploratory finding | P1 | Debug app Ready; Cost & P&L visible | Select Custom; enter From `2026-10-12` and To `2026-10-10`; check incomplete/impossible input and a valid same-day range in focused tests | Reversed dates, partial date, impossible calendar day, same day | Invalid input uses the established date-range fallback without throwing; the Cost page and Ready shell stay visible; valid same-day range includes the full UTC day | Automated focused unit/component test and GUI regression in `e2e/specs/m4/cost.spec.ts` |
 
 ## White-box targets
 
@@ -45,6 +46,8 @@
 | M9-06 and D33: isolated installed package without system Node or repo modules | TC-M9-007–008 | — |
 | M9-FIX1: fresh debug checkout | TC-M9-004 | — |
 | M9-FIX2: MSI per-user requirement and WiX regression | TC-M9-005, TC-M9-009–010 | — |
+| M9-FIX6: explicit MSI install path wins over stale HKCU discovery | TC-M9-009–010 | — |
+| M9-FIX7: invalid custom Cost dates cannot unmount the app | TC-M9-015 | — |
 | ROADMAP M9-QA / TESTING §7: packaging release gate | TC-M9-014 and all above | TC-M9-013 |
 | ROADMAP M9-04 / D33: signing and auto-update deferred | — | TC-M9-013 records the manual release path; no automatic updater test |
 
