@@ -8,18 +8,9 @@ describe('M4 cost and P&L', () => {
     await ensureProviderKeys();
   });
 
-  afterEach(async () => {
+  beforeEach(async () => {
+    await browser.refresh();
     await waitForReady();
-    await browser.keys('ESC');
-    await browser.waitUntil(async () => {
-      const dialogs = browser.$$('[role="dialog"], [role="alertdialog"]');
-      for (const dialog of dialogs) if (await dialog.isDisplayed()) return false;
-      return true;
-    });
-    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
-    const autoFallback = browser.$('aria/Auto Fallback');
-    if (!(await autoFallback.isSelected())) await autoFallback.click();
-    await browser.waitUntil(async () => autoFallback.isSelected());
   });
 
   it('TC-M4-030 adds revenue and shows project revenue and margin', async () => {

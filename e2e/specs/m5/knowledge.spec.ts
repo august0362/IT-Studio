@@ -10,13 +10,9 @@ describe('M5 knowledge', () => {
     await ensureProviderKeys();
   });
 
-  afterEach(async () => {
-    await browser.keys('ESC');
-    await browser.waitUntil(async () => {
-      const dialogs = browser.$$('[role="dialog"], [role="alertdialog"]');
-      for (const dialog of dialogs) if (await dialog.isDisplayed()) return false;
-      return true;
-    });
+  beforeEach(async () => {
+    await browser.refresh();
+    await waitForReady();
   });
 
   it('TC-M5-020 adds a markdown source and retrieves a matching chunk', async () => {
@@ -30,7 +26,12 @@ describe('M5 knowledge', () => {
     await browser.$('nav[aria-label="Main navigation"] a[href="#knowledge"]').click();
     await browser.$('aria/Workspace-relative file or folder paths (one per line)').setValue('guide.md');
     await browser.$('button=Add sources').click();
-    await browser.waitUntil(async () => (await browser.$('body').getText()).includes('guide.md'));
+    const progress = browser.$('section[aria-label="Ingestion progress"] article');
+    await browser.waitUntil(
+      async () => (await progress.isExisting()) && (await progress.getText()).includes('Indexed'),
+    );
+    const row = browser.$('table tbody tr');
+    await browser.waitUntil(async () => (await row.isExisting()) && (await row.getText()).includes('Lantern guide'));
     await browser.$('aria/Query').setValue('Where is the blue lantern stored?');
     await browser.$('aria/Minimum score').setValue('0');
     await browser.$('button=Search knowledge').click();
@@ -59,13 +60,14 @@ describe('M5 knowledge', () => {
     await browser.$('nav[aria-label="Main navigation"] a[href="#knowledge"]').click();
     await browser.$('aria/Workspace-relative file or folder paths (one per line)').setValue('delete-me.md');
     await browser.$('button=Add sources').click();
-    await browser.waitUntil(async () => (await browser.$('body').getText()).includes('Delete me'));
-    await browser.$('button=Delete').click();
-    await browser.$('button=Cancel').click();
-    expect(await browser.$('body').getText()).to.include('Delete me');
-    await browser.$('button=Delete').click();
-    await browser.$('[role="alertdialog"] button=Delete').click();
-    await browser.waitUntil(async () => !(await browser.$('body').getText()).includes('Delete me'));
+    const row = browser.$('table tbody tr');
+    await browser.waitUntil(async () => (await row.isExisting()) && (await row.getText()).includes('Delete me'));
+    await row.$('button=Delete').click();
+    await browser.$('[role="alertdialog"]').$('button=Cancel').click();
+    expect(await row.getText()).to.include('Delete me');
+    await row.$('button=Delete').click();
+    await browser.$('[role="alertdialog"]').$('button=Delete').click();
+    await browser.waitUntil(async () => !(await row.isExisting()));
   });
 
   it('TC-M5-023 toggles knowledge on and opens a plain-text citation popover', async () => {
@@ -76,13 +78,18 @@ describe('M5 knowledge', () => {
     await browser.$('nav[aria-label="Main navigation"] a[href="#knowledge"]').click();
     await browser.$('aria/Workspace-relative file or folder paths (one per line)').setValue('lantern.md');
     await browser.$('button=Add sources').click();
-    await browser.waitUntil(async () => (await browser.$('body').getText()).includes('Lantern'));
+    const progress = browser.$('section[aria-label="Ingestion progress"] article');
+    await browser.waitUntil(
+      async () => (await progress.isExisting()) && (await progress.getText()).includes('Indexed'),
+    );
+    const row = browser.$('table tbody tr');
+    await browser.waitUntil(async () => (await row.isExisting()) && (await row.getText()).includes('Lantern'));
     await browser.$('nav[aria-label="Main navigation"] a[href="#chat"]').click();
     await browser.$('button=New chat').click();
     await browser.$('aria/Use knowledge').click();
-    await browser.$('aria/Message').setValue('Where is the blue lantern?');
+    await browser.$('aria/Message').setValue('The blue lantern is in the north archive room.');
     await browser.$('button=Send').click();
-    await browser.waitUntil(async () => (await browser.$('body').getText()).includes('[1]'));
+    await browser.waitUntil(async () => browser.$('aria/Citation 1').isDisplayed());
     await browser.$('aria/Citation 1').click();
     const body = await browser.$('body').getText();
     expect(body).to.include('north archive room');
