@@ -46,3 +46,12 @@ The package lockfile, scanner implementation, and all product code are out of sc
 - Architect: writes this work order and records the observed failure.
 - Implementer: edits only the `lint` script and its focused self-test in a dedicated `M9-FIX3` worktree. This scope is disjoint from M9-QA's tests and report.
 - QA/Reviewer: checks CONVENTIONS.md §10, reruns the gates, then merges the fix before resuming M9-QA.
+
+## Result
+
+- Summary: Changed the lint secret-scan step to call the scanner's existing no-argument repository mode. The self-test now checks that this mode succeeds with the bad-secret fixture excluded, while the explicit fixture scan still rejects the fixture without printing its value.
+- Files changed: `package.json` (`lint` script only), `scripts/lint-fixtures/selftest.mjs`, and this task file.
+- Dependencies added (with reason): None. The package lockfile and version/dependency fields were not changed.
+- Decisions taken within scope: Reused the scanner's own Git file enumeration and fixture exclusion, so lint no longer passes repository paths as child-process arguments. On the M9-QA branch, the former wrapper passed 833 paths totaling 32,708 characters; `spawnSync` returned `ENAMETOOLONG`, and lint exited 1 without diagnostic output. Direct no-argument scanning exited 0.
+- Verification: The pinned Prettier from the M9-QA worktree ran `--write` on both changed code files with no formatting changes. `node --check scripts/lint-fixtures/selftest.mjs` passed. `node scripts/scan-secrets.mjs` exited 0. `node scripts/scan-secrets.mjs scripts/lint-fixtures/bad-secret.txt` exited 1 and printed only `scripts/lint-fixtures/bad-secret.txt:1: openai-api-key`. `git diff --check` passed.
+- Open issues / follow-ups: This dedicated worktree has no `node_modules`; per the hand-back instruction, npm dependency installation and the `lint:selftest`, typecheck, lint, and test gates are deferred to QA on the M9-QA final source after merge.
