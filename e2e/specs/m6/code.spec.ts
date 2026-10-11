@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect } from 'chai';
 import { remote } from 'webdriverio';
+import { setDiagnosticSession } from '../../helpers/diagnostics.js';
 import { ensureProviderKeys } from '../../helpers/keys.js';
 import { createTemporaryProjectFolder } from '../../helpers/ui.js';
 
@@ -27,6 +28,7 @@ async function openScriptedSession(): Promise<Session> {
     capabilities,
   });
   activeSession = session;
+  setDiagnosticSession(session);
   await session.waitUntil(async () => (await session.$('footer[role="status"]').getText()).includes('Ready v0.1.0'), {
     timeout: 20_000,
     timeoutMsg: 'Scripted M6 app did not become ready',
@@ -85,7 +87,13 @@ describe('M6 Code pipeline', () => {
   afterEach(async () => {
     const session = activeSession;
     activeSession = undefined;
-    if (session !== undefined) await session.deleteSession();
+    if (session !== undefined) {
+      try {
+        await session.deleteSession();
+      } finally {
+        setDiagnosticSession(undefined);
+      }
+    }
   });
 
   it('TC-M6-070 creates a project and observes the scripted pipeline complete', async () => {
@@ -106,10 +114,11 @@ describe('M6 Code pipeline', () => {
     await createProject(session, 'Code Failure E2E Project', folder);
     await session.$('#pipeline-prompt').setValue('Create a sample file that fails validation');
     await session.$('button=Run pipeline').click();
-    await session.waitUntil(async () => (await session.$('body').getText()).includes('Failure report'), {
+    await session.waitUntil(async () => (await session.$('body').getText()).includes('Pipeline failure report'), {
       timeout: 70_000,
     });
-    expect(await session.$('body').getText()).to.include('next steps');
+    expect(await session.$('body').getText()).to.include('Validation command typecheck failed.');
+    expect(await session.$('body').getText()).to.include('Workspace changes were rolled back.');
   });
 
   it('TC-M6-072 asks for confirmation when cancelling validation', async () => {
@@ -119,8 +128,10 @@ describe('M6 Code pipeline', () => {
     await createProject(session, 'Code Cancel E2E Project', folder);
     await session.$('#pipeline-prompt').setValue('Create a slow validation sample');
     await session.$('button=Run pipeline').click();
-    await session.waitUntil(async () =>
-      (await session.$('[aria-label="Pipeline stages"]').getText()).includes('Validating'),
+    await session.waitUntil(
+      async () =>
+        (await session.$('[aria-label="Pipeline stages"] li[aria-current="step"]').getText()).includes('Validate'),
+      { timeout: 20_000 },
     );
     await session.$('button=Cancel run').click();
     expect(await session.$('[role="alertdialog"]').getText()).to.include('roll back');

@@ -1,9 +1,11 @@
 import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { createConnection } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Capabilities, Options } from '@wdio/types';
+import { captureFailureEvidence } from './helpers/diagnostics.js';
 
 interface TauriCapabilities extends WebdriverIO.Capabilities {
   browserName: 'wry';
@@ -13,15 +15,15 @@ interface TauriCapabilities extends WebdriverIO.Capabilities {
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const appPath = resolve(root, 'apps/desktop/src-tauri/target/debug/itstudio-desktop.exe');
 const npmCliPath = process.env.npm_execpath;
-const drivers: ChildProcess[] = [];
+const driversByWorker = new Map<string, ChildProcess[]>();
 let e2eTempRoot: string | undefined;
-let desktopPidsBeforeE2e: ReadonlySet<number> = new Set();
 const tauriCapabilities: TauriCapabilities[] = [{ browserName: 'wry', 'tauri:options': { application: appPath } }];
 
 // Each tauri-driver needs its own native (msedgedriver) port; the default 4445 collides with a second driver on 4445.
 function startDriver(
   port: number,
   nativePort: number,
+  workerRoot: string,
   options: {
     readonly crashOnStart?: boolean;
     readonly llmScript?: string;
@@ -30,17 +32,13 @@ function startDriver(
     readonly imagePriceMicroUsd?: number;
     readonly llmScriptText?: string;
   } = {},
-): void {
+): ChildProcess {
   const imageScriptPath =
-    options.imageScript === undefined || e2eTempRoot === undefined
-      ? undefined
-      : join(e2eTempRoot, `image-script-${String(port)}.json`);
+    options.imageScript === undefined ? undefined : join(workerRoot, `image-script-${String(port)}.json`);
   if (imageScriptPath !== undefined && options.imageScript !== undefined)
     writeFileSync(imageScriptPath, options.imageScript, 'utf8');
   const llmScriptPath =
-    options.llmScriptText === undefined || e2eTempRoot === undefined
-      ? undefined
-      : join(e2eTempRoot, `llm-script-${String(port)}.json`);
+    options.llmScriptText === undefined ? undefined : join(workerRoot, `llm-script-${String(port)}.json`);
   if (llmScriptPath !== undefined && options.llmScriptText !== undefined)
     writeFileSync(llmScriptPath, options.llmScriptText, 'utf8');
   const driver = spawn(
@@ -57,12 +55,8 @@ function startDriver(
       cwd: root,
       env: {
         ...process.env,
-        ...(e2eTempRoot === undefined
-          ? {}
-          : {
-              ITSTUDIO_DATA_DIR: join(e2eTempRoot, `data-${String(port)}`),
-              WEBVIEW2_USER_DATA_FOLDER: join(e2eTempRoot, `webview-${String(port)}`),
-            }),
+        ITSTUDIO_DATA_DIR: join(workerRoot, `data-${String(port)}`),
+        WEBVIEW2_USER_DATA_FOLDER: join(workerRoot, `webview-${String(port)}`),
         ITSTUDIO_E2E: '1',
         ITSTUDIO_E2E_VERIFIER_OUTCOME: 'timeout',
         ...(llmScriptPath === undefined
@@ -81,7 +75,51 @@ function startDriver(
       windowsHide: true,
     },
   );
-  drivers.push(driver);
+  return driver;
+}
+
+async function waitForDriver(port: number, driver: ChildProcess): Promise<void> {
+  const deadline = Date.now() + 20_000;
+  while (Date.now() < deadline) {
+    if (driver.exitCode !== null)
+      throw new Error(`tauri-driver on port ${String(port)} exited with ${String(driver.exitCode)}`);
+    const listening = await new Promise<boolean>((resolveReady) => {
+      const socket = createConnection({ host: '127.0.0.1', port });
+      socket.once('connect', () => {
+        socket.destroy();
+        resolveReady(true);
+      });
+      socket.once('error', () => {
+        resolveReady(false);
+      });
+      socket.setTimeout(500, () => {
+        socket.destroy();
+        resolveReady(false);
+      });
+    });
+    if (listening) return;
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 200));
+  }
+  throw new Error(`tauri-driver on port ${String(port)} did not listen within 20 seconds`);
+}
+
+function stopDriver(driver: ChildProcess): void {
+  if (driver.pid === undefined || driver.exitCode !== null) return;
+  try {
+    execFileSync('taskkill.exe', ['/PID', String(driver.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+  } catch {
+    driver.kill();
+  }
+}
+
+function removeE2eTempRoot(): void {
+  if (e2eTempRoot === undefined) return;
+  const target = resolve(e2eTempRoot);
+  const tempPrefix = `${resolve(tmpdir())}${sep}`.toLowerCase();
+  if (!target.toLowerCase().startsWith(tempPrefix) || !basename(target).startsWith('itstudio-e2e-')) {
+    throw new Error(`Refusing to remove an unexpected E2E temporary path: ${target}`);
+  }
+  rmSync(target, { recursive: true, force: true });
 }
 
 export const config: Options.Testrunner & { capabilities: Capabilities.RequestedStandaloneCapabilities[] } = {
@@ -113,23 +151,10 @@ export const config: Options.Testrunner & { capabilities: Capabilities.Requested
   connectionRetryTimeout: 90_000,
   mochaOpts: { timeout: 200_000 },
   waitforTimeout: 70_000,
-  async onPrepare() {
+  onPrepare() {
     e2eTempRoot = mkdtempSync(join(tmpdir(), 'itstudio-e2e-'));
-    const desktopOutput = execFileSync(
-      'powershell.exe',
-      [
-        '-NoProfile',
-        '-Command',
-        "Get-Process -Name 'itstudio-desktop' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id; exit 0",
-      ],
-      { encoding: 'utf8', windowsHide: true },
-    );
-    desktopPidsBeforeE2e = new Set(
-      desktopOutput
-        .split(/\r?\n/u)
-        .map((line) => Number(line.trim()))
-        .filter((pid) => Number.isInteger(pid) && pid > 0),
-    );
+    process.env.ITSTUDIO_E2E_EVIDENCE_DIR = mkdtempSync(join(tmpdir(), 'itstudio-e2e-evidence-'));
+    console.log(`E2E failure evidence: ${process.env.ITSTUDIO_E2E_EVIDENCE_DIR}`);
     if (!existsSync(appPath)) {
       if (npmCliPath === undefined) throw new Error('npm_execpath is unavailable; run E2E through npm run test:e2e.');
       execFileSync(
@@ -154,68 +179,83 @@ export const config: Options.Testrunner & { capabilities: Capabilities.Requested
         },
       );
     }
-    startDriver(4444, 4454);
-    startDriver(4445, 4455, { crashOnStart: true });
-    startDriver(4446, 4456, { llmScript: 'e2e/fixtures/m4-slow-chat.json' });
-    startDriver(4447, 4457, { llmScript: 'e2e/fixtures/m4-fallback.json' });
-    startDriver(4448, 4458, {
-      llmText: JSON.stringify({
-        'claude-opus-5-5': JSON.stringify({
-          title: 'Add greeting',
-          userStory: 'Write a greeting file',
-          acceptanceCriteria: ['The greeting file exists'],
-          allowedPaths: ['src/greeting.ts'],
-          contracts: '',
-          constraints: [],
-          testPlan: ['Check the file exists'],
-          outOfScope: [],
+  },
+  async onWorkerStart(cid, _caps, specs) {
+    if (e2eTempRoot === undefined) throw new Error('E2E temporary root is unavailable');
+    const workerRoot = mkdtempSync(join(e2eTempRoot, 'spec-'));
+    console.log(`E2E worker ${cid}: ${specs.join(', ')}; isolated data root: ${workerRoot}`);
+    const workerDrivers: ChildProcess[] = [];
+    const launch = (port: number, nativePort: number, options?: Parameters<typeof startDriver>[3]) => {
+      const driver = startDriver(port, nativePort, workerRoot, options);
+      workerDrivers.push(driver);
+      return waitForDriver(port, driver);
+    };
+    driversByWorker.set(cid, workerDrivers);
+    const needs = (file: string) => specs.some((spec) => spec.replaceAll('\\', '/').endsWith(file));
+    await launch(
+      4444,
+      4454,
+      needs('/m5/knowledge.spec.ts') ? { llmText: 'The blue lantern is in the north archive room [1].' } : {},
+    );
+    if (needs('/m1/fatal.spec.ts')) await launch(4445, 4455, { crashOnStart: true });
+    if (needs('/m4/scripted-llm.spec.ts')) {
+      await launch(4446, 4456, { llmScript: 'e2e/fixtures/m4-slow-chat.json' });
+      await launch(4447, 4457, { llmScript: 'e2e/fixtures/m4-fallback.json' });
+      await launch(4450, 4460, {
+        llmScriptText: JSON.stringify({
+          models: {
+            'gpt-5.4-mini': Array.from({ length: 9 }, () => 'http:503'),
+            'gemini-3.8-flash': ['ok'],
+          },
         }),
-        'gpt-5.3-codex': JSON.stringify({
-          summary: 'Create a greeting file',
-          operations: [{ kind: 'create', path: 'src/greeting.ts', content: 'export const greeting = "hello";' }],
-          assumptions: [],
+      });
+      await launch(4451, 4461, { llmScript: 'e2e/fixtures/m4-fallback.json' });
+    }
+    if (needs('/m6/code.spec.ts') || needs('/mw/workflow.spec.ts')) {
+      await launch(4448, 4458, {
+        llmText: JSON.stringify({
+          'claude-opus-5-5': JSON.stringify({
+            title: 'Add greeting',
+            userStory: 'Write a greeting file',
+            acceptanceCriteria: ['The greeting file exists'],
+            allowedPaths: ['src/greeting.ts'],
+            contracts: '',
+            constraints: [],
+            testPlan: ['Check the file exists'],
+            outOfScope: [],
+          }),
+          'gpt-5.3-codex': JSON.stringify({
+            summary: 'Create a greeting file',
+            operations: [{ kind: 'create', path: 'src/greeting.ts', content: 'export const greeting = "hello";' }],
+            assumptions: [],
+          }),
+          'claude-sonnet-5-5': JSON.stringify({ approved: true, findings: [], summary: 'Approved' }),
         }),
-        'claude-sonnet-5-5': JSON.stringify({ approved: true, findings: [], summary: 'Approved' }),
-      }),
-    });
-    startDriver(4449, 4459, {
-      llmScriptText: JSON.stringify({
-        models: {
-          'gpt-5.4-mini': ['tool:{"name":"generate_image","arguments":{"prompt":"A blue bird on a branch"}}', 'ok'],
-        },
-      }),
-      imageScript: JSON.stringify({ openai_dalle3: ['success'] }),
-      imagePriceMicroUsd: 1_000_000,
-    });
-    await new Promise((resolveReady) => setTimeout(resolveReady, 1200));
+      });
+    }
+    if (needs('/m8/images.spec.ts')) {
+      await launch(4449, 4459, {
+        llmScriptText: JSON.stringify({
+          models: {
+            'gpt-5.4-mini': ['tool:{"name":"generate_image","arguments":{"prompt":"A blue bird on a branch"}}', 'ok'],
+          },
+        }),
+        imageScript: JSON.stringify({ openai_dalle3: ['success'] }),
+        imagePriceMicroUsd: 1_000_000,
+      });
+    }
+  },
+  onWorkerEnd(cid) {
+    for (const driver of driversByWorker.get(cid) ?? []) stopDriver(driver);
+    driversByWorker.delete(cid);
+  },
+  async afterTest(test, _context, result) {
+    if (result.passed) return;
+    await captureFailureEvidence(test.title);
   },
   onComplete() {
-    for (const driver of drivers) {
-      if (driver.pid === undefined) continue;
-      try {
-        execFileSync('taskkill.exe', ['/PID', String(driver.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
-      } catch {
-        driver.kill();
-      }
-    }
-    const desktopOutput = execFileSync(
-      'powershell.exe',
-      [
-        '-NoProfile',
-        '-Command',
-        "Get-Process -Name 'itstudio-desktop' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id; exit 0",
-      ],
-      { encoding: 'utf8', windowsHide: true },
-    );
-    for (const line of desktopOutput.split(/\r?\n/u)) {
-      const pid = Number(line.trim());
-      if (!Number.isInteger(pid) || pid <= 0 || desktopPidsBeforeE2e.has(pid)) continue;
-      try {
-        execFileSync('taskkill.exe', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
-      } catch {
-        // The session may already have closed the process.
-      }
-    }
-    if (e2eTempRoot !== undefined) rmSync(e2eTempRoot, { recursive: true, force: true });
+    for (const workerDrivers of driversByWorker.values()) for (const driver of workerDrivers) stopDriver(driver);
+    driversByWorker.clear();
+    removeE2eTempRoot();
   },
 };
