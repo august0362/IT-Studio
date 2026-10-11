@@ -109,4 +109,18 @@ describe('M4 cost and P&L', () => {
     await browser.waitUntil(async () => (await browser.$('body').getText()).includes('Tokens in'), { timeout: 15_000 });
     expect(await browser.$('body').getText()).to.include('GPT-5.4 mini');
   });
+
+  it('TC-M9-015 keeps Cost and the Ready shell visible while custom dates are reversed', async () => {
+    await browser.$('nav[aria-label="Main navigation"] a[href="#cost"]').click();
+    await browser.$('aria/Date range').selectByVisibleText('Custom');
+    const from = browser.$('aria/From');
+    const to = browser.$('aria/To');
+    await from.setValue('2026-10-12');
+    await to.setValue('2026-10-10');
+    expect(await from.getValue()).to.equal('2026-10-12');
+    expect(await to.getValue()).to.equal('2026-10-10');
+    expect(await browser.$('h1').getText()).to.equal('Cost & P&L');
+    expect(await browser.$('#root').getText()).to.include('Cost & P&L');
+    await waitForReady();
+  });
 });

@@ -17,6 +17,28 @@ test('TC-M9-009 release MSI uses a per-user WiX template under Local AppData', a
   assert.match(template, /<RegistryKey Root="HKCU" Key="Software\\Classes\\\\\{\{protocol\}\}"/);
 });
 
+test('TC-M9-009 explicit INSTALLDIR takes precedence over prior HKCU install paths', async () => {
+  const template = await readFile(templateUrl, 'utf8');
+  const previousPathProperty = template.match(/<Property Id="PREVIOUS_INSTALLDIR">([\s\S]*?)<\/Property>/);
+
+  assert.ok(previousPathProperty, 'registry discovery must use a separate previous-path property');
+  assert.ok(previousPathProperty[1].includes('Id="PrevInstallDirNoName"'));
+  assert.ok(previousPathProperty[1].includes('Id="PrevInstallDirWithName"'));
+  assert.ok(
+    previousPathProperty[1].indexOf('Id="PrevInstallDirNoName"') <
+      previousPathProperty[1].indexOf('Id="PrevInstallDirWithName"'),
+    'the MSI InstallDir registry value must take priority over the NSIS default value',
+  );
+  assert.doesNotMatch(template, /<Property Id="INSTALLDIR">/, 'AppSearch must not overwrite an explicit INSTALLDIR');
+
+  const previousPathAssignment = template.match(
+    /<SetDirectory Id="INSTALLDIR" Sequence="first" Value="\[PREVIOUS_INSTALLDIR\]"\s*>([\s\S]*?)<\/SetDirectory\s*>/,
+  );
+  assert.ok(previousPathAssignment, 'the previous path must be assigned once across UI/execute sequences');
+  assert.equal(previousPathAssignment[1].trim(), 'NOT INSTALLDIR AND PREVIOUS_INSTALLDIR');
+  assert.equal((template.match(/<SetDirectory Id="INSTALLDIR"/g) ?? []).length, 1);
+});
+
 test('TC-M9-009 custom WiX template retains Tauri installer metadata and resources', async () => {
   const template = await readFile(templateUrl, 'utf8');
 
