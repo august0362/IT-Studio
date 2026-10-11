@@ -44,3 +44,11 @@ No application code, mutation configuration, package manifest, or lockfile is in
 - Architect: writes this scoped work order and records the observed dry-run failures.
 - Implementer: edits only the chunker test in a dedicated `M9-FIX4` worktree. This scope is disjoint from M9-QA's test/report files.
 - QA/Reviewer: verifies the normal and marked runs, then executes Stryker over `domain/**` and the full M9 regression gate.
+
+## Result
+
+- Summary: Guarded only the generated 5 MB, one-second chunker timing case with Vitest `it.skipIf(process.env.ITSTUDIO_MUTATION === '1')`. Mutation instrumentation invalidates wall-clock timing; normal runs retain the original input and 1,000 ms assertion.
+- Files changed: `apps/sidecar/src/domain/chunker.test.ts`; this task file.
+- Dependencies added (with reason): None.
+- Decisions taken within scope: Keep all other chunker cases active in both modes. The two full-domain Stryker dry runs before this fix failed before mutants ran: 1,437.7 ms with another QA step active and 1,479.0 ms alone, each above the 1,000 ms limit. The normal unit suite and coverage had passed.
+- Open issues / follow-ups: This worktree has no `node_modules`; M9-QA must verify normal and marked Vitest runs, the full-domain mutation score, and the post-merge typecheck, lint, and test gates. Scoped Prettier check and `git diff --check` passed.
