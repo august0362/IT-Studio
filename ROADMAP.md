@@ -184,6 +184,7 @@ Spec: ARCH §14.2.
 - [x] **M9-02** (C) Tauri `externalBin` + resources (vsix, seeds); production sidecar spawn path.
 - [x] **M9-03** (C) NSIS + MSI bundles; WebView2 bootstrapper.
 - [x] **M9-FIX2** (C) Make the MSI per-user under Local AppData and repair WiX resource KeyPaths; production NSIS and MSI builds pass. Installation smoke remains in M9-QA.
+- [x] **M9-FIX3** (C) Restore the Windows lint gate by invoking the repository secret scanner without a 32,708-character argument list; retain the negative secret fixture test.
 - [x] **M9-04** (A) *(not needed — D33 single user; updater key pair deferred until auto-update is wanted)* Code-signing setup (user supplies certificate) + updater key pair (private key outside repo).
 - [x] **M9-05** (C) Version bump script (4 manifests) + release CHANGELOG automation.
 - [x] **M9-06** (C) *(D33: replaced by an isolated install smoke — no system Node on PATH, no repo node_modules reachable)* Clean-VM smoke test checklist and execution.
