@@ -36,12 +36,31 @@ for (const fixture of eslintFixtures) {
 }
 
 const secretFixture = `${fixtureDirectory}bad-secret.txt`;
+const repositoryResult = run(process.execPath, [secretScanner]);
+if (
+  repositoryResult.error !== undefined ||
+  repositoryResult.status !== 0 ||
+  repositoryResult.stdout.includes('bad-secret.txt') ||
+  repositoryResult.stderr.includes('bad-secret.txt') ||
+  repositoryResult.stdout.includes('FAKEKEY') ||
+  repositoryResult.stderr.includes('FAKEKEY')
+) {
+  process.stderr.write('Expected the repository secret scan to pass with bad-secret.txt excluded.\n');
+  if (repositoryResult.stderr.length > 0) {
+    process.stderr.write(repositoryResult.stderr);
+  }
+  failed = true;
+} else {
+  process.stdout.write('Scanned the repository with bad-secret.txt excluded.\n');
+}
+
 const secretResult = run(process.execPath, [secretScanner, secretFixture]);
 if (
   secretResult.error !== undefined ||
   secretResult.status !== 1 ||
   !secretResult.stdout.includes('bad-secret.txt:1: openai-api-key') ||
-  secretResult.stdout.includes('FAKEKEY')
+  secretResult.stdout.includes('FAKEKEY') ||
+  secretResult.stderr.includes('FAKEKEY')
 ) {
   process.stderr.write('Expected the secret scanner to reject bad-secret.txt without printing its value.\n');
   if (secretResult.stderr.length > 0) {

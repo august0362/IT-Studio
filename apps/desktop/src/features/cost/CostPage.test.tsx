@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, describe, expect, it } from 'vitest';
 import '../../i18n';
@@ -7,12 +7,20 @@ import { RpcClient } from '../../rpc/rpc-client';
 import { RpcClientProvider } from '../../rpc/rpc-context';
 import { FakeTransport } from '../../rpc/transport';
 import type { ProjectId } from '@itstudio/schemas';
+import { getDateRange, parseCustomDateRange } from './date-range';
 
-function renderCostPage(withCost: boolean): void {
+interface CostRequest {
+  readonly method: string;
+  readonly params: unknown;
+}
+
+function renderCostPage(withCost: boolean): CostRequest[] {
   const transport = new FakeTransport();
+  const requests: CostRequest[] = [];
   transport.setStatus({ running: true, ready: true, restarts: 0 });
   transport.send = (line) => {
-    const request = JSON.parse(line) as { readonly id: number; readonly method: string };
+    const request = JSON.parse(line) as { readonly id: number; readonly method: string; readonly params: unknown };
+    requests.push({ method: request.method, params: request.params });
     const display = { microUsd: 0, vnd: 0, usdText: '$0.00', vndText: '0 ₫', fxAsOf: '2026-10-02T00:00:00.000Z' };
     const result: unknown =
       request.method === 'pnl.get'
@@ -47,6 +55,7 @@ function renderCostPage(withCost: boolean): void {
       </RpcClientProvider>
     </QueryClientProvider>,
   );
+  return requests;
 }
 
 describe('CostPage', () => {
@@ -59,5 +68,61 @@ describe('CostPage', () => {
   it('shows the empty activity state when the project has no revenue or cost', async () => {
     renderCostPage(false);
     expect(await screen.findByText('No cost activity in this range.')).toBeInTheDocument();
+  });
+
+  it('TC-M9-015 keeps Cost mounted through incomplete and reversed dates, then queries a valid same-day range', async () => {
+    const requests = renderCostPage(false);
+    expect(await screen.findByText('No cost activity in this range.')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Date range'), { target: { value: 'custom' } });
+    const from = screen.getByLabelText('From');
+    const to = screen.getByLabelText('To');
+    fireEvent.change(from, { target: { value: '2026-10-12' } });
+    expect(screen.getByRole('heading', { name: 'Cost & P&L' })).toBeInTheDocument();
+    fireEvent.change(to, { target: { value: '2026-10-10' } });
+    expect(screen.getByRole('heading', { name: 'Cost & P&L' })).toBeInTheDocument();
+    fireEvent.change(from, { target: { value: '2026-10-10' } });
+    await waitFor(() => {
+      expect(requests.filter((request) => request.method === 'pnl.get').at(-1)?.params).toEqual({
+        projectId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        from: '2026-10-10T00:00:00.000Z',
+        to: '2026-10-11T00:00:00.000Z',
+      });
+    });
+    fireEvent.change(from, { target: { value: '2026-10-12' } });
+    await waitFor(() => {
+      expect(requests.filter((request) => request.method === 'pnl.get').at(-1)?.params).toEqual({
+        projectId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        ...getDateRange('today'),
+      });
+    });
+    fireEvent.change(to, { target: { value: '' } });
+    expect(screen.getByRole('heading', { name: 'Cost & P&L' })).toBeInTheDocument();
+  });
+});
+
+describe('parseCustomDateRange', () => {
+  it('TC-M9-015 includes a valid same-day selection as a full UTC day', () => {
+    expect(parseCustomDateRange('2026-10-10', '2026-10-10')).toEqual({
+      from: '2026-10-10T00:00:00.000Z',
+      to: '2026-10-11T00:00:00.000Z',
+    });
+  });
+
+  it.each([
+    ['', '2026-10-10'],
+    ['2026-10-', '2026-10-10'],
+    ['2026-10-10', ''],
+    ['2026-10-10', '2026-10-'],
+    ['2026-02-30', '2026-10-10'],
+    ['2026-10-10', '2026-13-01'],
+    ['2026-10-10', '9999-12-31'],
+  ])('TC-M9-015 returns no range for incomplete or impossible dates %s to %s', (from, to) => {
+    expect(parseCustomDateRange(from, to)).toBeUndefined();
+  });
+
+  it('TC-M9-015 hands reversed input to the existing custom fallback', () => {
+    const now = new Date('2026-10-11T12:00:00.000Z');
+    const reversed = parseCustomDateRange('2026-10-12', '2026-10-10');
+    expect(getDateRange('custom', now, reversed)).toEqual(getDateRange('today', now));
   });
 });

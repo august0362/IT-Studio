@@ -15,9 +15,9 @@
 | M1 Sidecar core & IPC | **Done** (QA signed off) | 8 / 8 |
 | M2 LLM router & providers | **Done** (QA signed off) | 11 / 11 |
 | M3 Cost, pricing, FX, budget, P&L | **Done** (QA signed off) | 8 / 8 |
-| M4 UI shell, Settings, Chat, P&L | **Done** (conditional — QA-E2E-FIX4) | 8 / 8 |
-| M5 RAG | **Done** (conditional — QA-E2E-FIX4) | 8 / 8 |
-| M6 Agent pipeline & Worker | **Done** (conditional — QA-E2E-FIX4) | 9 / 9 |
+| M4 UI shell, Settings, Chat, P&L | **Done** (L4 regression reverified in QA-E2E-FIX4) | 8 / 8 |
+| M5 RAG | **Done** (L4 regression reverified in QA-E2E-FIX4) | 8 / 8 |
+| M6 Agent pipeline & Worker | **Done** (L4 regression reverified in QA-E2E-FIX4) | 9 / 9 |
 | M7 VS Code companion extension | **Done** (QA signed off) | 6 / 6 |
 | MW Workflow map (v1 addendum) | **Done** (conditional QA sign-off; exploratory follow-up) | 6 / 6 |
 | WC Quick web chat (v1 addendum) | **Done** | 1 / 1 |
@@ -189,11 +189,17 @@ Spec: ARCH §14.2.
 - [x] **SEC-01** (A+C) Dependency audit hardening before release: production audit (2026-10-02) = 3 high, all from @lancedb/lancedb → @huggingface/transformers → sharp (libvips CVE-2026-33327/33328/35590/35591). Options: npm `overrides` to a patched sharp, or exclude the optional transformers dependency; add `npm audit --omit=dev --audit-level=high` to the release checklist. Also (2026-10-02): low — dompurify (IN_PLACE hook XSS) via monaco-editor 0.57; upgrade when monaco ships a patched dompurify.
 - [x] **PERF-01** (C) Sidecar cold start: dev start ≈ 4 s before `main` runs (html-to-text ≈ 1.7 s, LanceDB, parsers). Lazy-load heavy modules on first use; run the E2E crash hook before importing the container; target < 1.5 s in dev, measure the M9 bundle. UI: lazy-load the Cost tab (Recharts) — main chunk 1.13 MB after M4-03. Integration TC-M1-033 (4 sequential sidecar starts) hit its 30 s timeout once. *(dev: 3.97 s → 2.82 s, main chunk 684 kB; < 1.5 s target moves to the M9 bundle)*
 - [x] **QA-E2E-FIX2** (C) Finish the remaining E2E cases (TC-M4-023/031/043-046, TC-M5-022/023, TC-M6-070-072): give the Code E2E project a passing validation command, isolate each spec session (fresh data dir per spec or full settings reset), fix the fallback-modal and budget assertions. Product behaviour for all of them passes at L2/L3.
-- [ ] **QA-E2E-FIX4** (C) *(backlog — skipped after 6 attempts, 2026-10-03)* Remaining E2E: TC-M4-022/023/031/033/041-046, TC-M5-020/022/023, TC-M6-071/072. Needs a different approach: run each spec in a fresh app + data dir (per-spec tauri-driver restart) and capture a DOM snapshot + screenshot on failure so fixes are not blind. Also fix `scripts/dev/measure-startup.mjs` (no stdin pipe → sidecar exits before ready).
-- [ ] **QA-TOOL-01** (C) Make StrykerJS mutation testing work with the Vitest 5 workspace (currently reports 0 % kills; manual mutation proves the tests are effective).
+- [x] **QA-E2E-FIX4** (C) Isolated each E2E spec in a fresh app/data session, captured DOM and screenshots on failures, and repaired startup measurement. All 15 historical M4–M6 cases and the 44-case full E2E regression pass; see `docs/reports/QA-E2E-FIX4-blocked.md`.
+- [x] **QA-TOOL-01** (C) Make StrykerJS mutation testing work with the Vitest 5 workspace (584 killed, 110 survived, 3 timed out, 2 uncovered; 83.98 % on the four configured targets).
 - [x] **M9-01** (C) esbuild sidecar bundle + Node SEA build script; native module loading from resources.
 - [x] **M9-02** (C) Tauri `externalBin` + resources (vsix, seeds); production sidecar spawn path.
 - [x] **M9-03** (C) NSIS + MSI bundles; WebView2 bootstrapper.
+- [x] **M9-FIX2** (C) Make the MSI per-user under Local AppData and repair WiX resource KeyPaths; production NSIS and MSI builds pass. Installation smoke remains in M9-QA.
+- [x] **M9-FIX3** (C) Restore the Windows lint gate by invoking the repository secret scanner without a 32,708-character argument list; retain the negative secret fixture test.
+- [x] **M9-FIX4** (C) Keep the 5 MB chunker speed assertion in normal tests while excluding that timing assertion from instrumented mutation runs; full domain mutation score 77.53%.
+- [x] **M9-FIX5** (C) Exclude generated root `.stryker-tmp/` sandboxes from source checks; typecheck, lint, and tests pass with the sandboxes present.
+- [ ] **M9-FIX6** (C) Preserve an explicit per-user MSI `INSTALLDIR` over stale HKCU install-path discovery; rebuild and verify isolated MSI install, Ready, and uninstall.
+- [ ] **M9-FIX7** (C) Keep Cost & P&L mounted while custom dates are incomplete or reversed; add `TC-M9-015` GUI regression for the S1 blank-window defect.
 - [x] **M9-04** (A) *(not needed — D33 single user; updater key pair deferred until auto-update is wanted)* Code-signing setup (user supplies certificate) + updater key pair (private key outside repo).
 - [x] **M9-05** (C) Version bump script (4 manifests) + release CHANGELOG automation.
 - [x] **M9-06** (C) *(D33: replaced by temp-directory install smoke — no system Node on PATH, no repo node_modules reachable; prior-build evidence retained. Runtime-data/keychain isolation and a new-build rerun remain in M9-QA.)* Clean-VM smoke test checklist and execution.

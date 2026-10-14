@@ -1,11 +1,11 @@
-import type { IsoDateTime, ProjectId } from '@itstudio/schemas';
+import type { ProjectId } from '@itstudio/schemas';
 import { useQueryClient } from '@tanstack/react-query';
 import type { JSX } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNotification } from '../../hooks/use-notification';
 import { useRpcQuery } from '../../hooks/use-rpc-query';
-import { getDateRange, type DatePreset, type DateRange } from './date-range';
+import { getDateRange, parseCustomDateRange, type DatePreset, type DateRange } from './date-range';
 import { KpiCards } from './KpiCards';
 import { BreakdownCharts } from './BreakdownCharts';
 import { BudgetBars } from './BudgetBars';
@@ -26,13 +26,7 @@ export function CostPage({ projectId }: { readonly projectId: ProjectId | null }
   const clearNavigationIntent = useNavigationIntent((state) => state.clearIntent);
   const ledgerSelection = navigationIntent?.kind === 'ledger' ? navigationIntent : null;
   const range = useMemo<DateRange>(
-    () =>
-      preset === 'custom' && customFrom !== '' && customTo !== ''
-        ? {
-            from: new Date(`${customFrom}T00:00:00.000Z`).toISOString() as IsoDateTime,
-            to: new Date(new Date(`${customTo}T00:00:00.000Z`).getTime() + 86_400_000).toISOString() as IsoDateTime,
-          }
-        : getDateRange(preset),
+    () => getDateRange(preset, new Date(), parseCustomDateRange(customFrom, customTo)),
     [preset, customFrom, customTo],
   );
   const portfolio = useRpcQuery('pnl.getAll', range, { enabled: projectId === null });

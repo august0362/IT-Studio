@@ -22,7 +22,7 @@ describe('M1 startup and supervision', () => {
     };
     const timeoutBrowser = await remote({
       hostname: '127.0.0.1',
-      port: 4450,
+      port: 4452,
       path: '/',
       capabilities,
     });

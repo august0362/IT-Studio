@@ -66,10 +66,10 @@ This override applies to developer/debug builds and does not isolate Windows Cre
 
 - The installer is unsigned (D33); SmartScreen requires **More info → Run anyway**.
 - Image generation requires enabling it and configuring a supported provider/key; the Midjourney proxy remains disabled.
-- Price updates are manual and require an active project plus an eligible keyed extractor. Unconfirmed seed prices and represented context/rate-period caveats are documented in the OWNER-FB1 Result; seed warnings remain visible until an app refresh verifies those rows.
+- Price updates are manual (**Settings → Pricing → Update prices**) and need an active project (its cost is booked to that project, D31) plus an eligible keyed extractor model. Seed rows stay marked unverified until an app refresh confirms them; unconfirmed seed prices are listed in the OWNER-FB1 Result.
 - Pipeline validation commands are shown but not yet editable per project.
-- Developer startup transpiles TypeScript at runtime. Packaged SEA startup has been checked; current timing and artifact evidence are in the OWNER-FB1 Result.
-- Embedded provider sign-in/popups/pane placement and full-page/dialog/backdrop theme review remain native follow-ups. M8/MW exploratory QA follow-ups and M9 release checks are tracked in ROADMAP/HANDOFF.
+- Sidecar cold start: about 2.8 s in dev (`tsx` transpiles at runtime); the packaged SEA sidecar starts in about 0.5 s warm (first cold start measured 2.1 s, M9-OBS-04).
+- Embedded web chat: some providers block sign-in inside an embedded pane; use **Open in browser** instead.
 
 ## 6. Running the tests
 
@@ -79,9 +79,10 @@ Before shipping a release, run `npm run audit:prod` to check production dependen
 
 1. `npm run release:bump -- <major|minor|patch|x.y.z>` updates the app and extension versions and moves the current `Unreleased` changelog entries into the release section. Review the printed changes first with `--dry-run`.
 2. `npm run audit:prod` checks production dependencies.
-3. `npm run build:app` builds NSIS/MSI installers; `npm run smoke:sidecar` checks the packaged sidecar with temporary data, scripted providers and fake key storage.
-4. **Provide runtime isolation before executing `npm run smoke:install` for new release QA.** The current script installs binaries into a temporary directory but starts the release app using real `%APPDATA%\com.itstudio.app` and its normal credential environment. Release builds ignore the debug `ITSTUDIO_DATA_DIR` override. The script does not provide isolation of runtime storage/keychain or select fake providers/key storage; a temporary install directory alone does not provide that isolation. Arrange an isolated QA runtime first. Automated tests must use fakes with no real provider network or keychain access; do not run the current script as an isolated automated test.
-5. Complete M9-QA and record native provider/theme follow-ups before release approval. After approval, create the matching tag with `git tag v<version>`.
+3. `npm run build:app` builds the Windows NSIS and MSI installers with the bundled sidecar and WebView2 bootstrapper.
+4. Run `npm run smoke:install` to verify the installed app starts without system Node.js or repository dependencies. It opens the app window, uses the real `%APPDATA%\\com.itstudio.app` data directory, and is QA-only; do not run during E2E tests.
+5. For the same release build, install the MSI for the current user into a temporary folder under `%LOCALAPPDATA%`, verify the app reaches Ready with its bundled sidecar, then uninstall that test installation. Preserve the existing `%APPDATA%\\com.itstudio.app` data directory. Record the exact MSI hash and installation path in the QA report.
+6. After the release is approved, create the matching tag with `git tag v<version>`. D33 defers code signing and automatic updates; this checklist does not enable an updater.
 
 ```bash
 npm run typecheck && npm run lint && npm test     # unit (fast)

@@ -6,7 +6,7 @@
 | Field | Value |
 |---|---|
 | Product | **IT Studio** — Desktop Multi-Agent Command Center |
-| Doc owner | Project maintainers; Codex executes under owner delegation (2026-10-04) |
+| Doc owner | Architect role (Claude) |
 | Last updated | 2026-10-04 |
 | Status | v1 implementation delivered (M0–M8, MW/WC, OWNER-FB1 and M9 installer builds); v1 release sign-off remains pending M9-QA/runtime-isolated install smoke and the recorded native provider/theme follow-ups. v2 (M10–M14) and v3 (M15–M19) are fully specified, not started. Continuation guide: `docs/HANDOFF.md`; task status: `ROADMAP.md` |
 
@@ -20,13 +20,13 @@ A Windows-first desktop app (Tauri + React) through which **one user** chats wit
 
 | | **Development pipeline** (how IT Studio itself is built) | **Runtime pipeline** (a feature inside IT Studio) |
 |---|---|---|
-| Who | Codex agents under owner delegation; Claude originally coordinated architecture/QA | Models called via API from the app |
-| Spec / Plan / QA | Project maintainers; Codex coordinates docs, work orders, reviews and verification under current owner instructions | PM role (default Claude API) |
-| Code | Codex agents with explicit file ownership | Coder role (default Codex-class model via OpenAI API) |
-| Review | Maintainers and independent agent review | Reviewer role (default Claude API) |
+| Who | Claude (Claude Code CLI) + Codex (Codex CLI) | Models called via API from the app |
+| Spec / Plan / QA | Claude — writes docs, task files, reviews, runs tests | PM role (default Claude API) |
+| Code | Codex, driven by Claude via `codex exec` | Coder role (default Codex-class model via OpenAI API) |
+| Review | Claude | Reviewer role (default Claude API) |
 | Writes files | Codex (in this repo) | Node Worker (atomic, journaled) into the user's project |
-| Validate | Codex/maintainers run typecheck, lint and the authorized tests/builds | Worker runs allow-listed commands; VS Code ext shows diagnostics |
-| Failure | Preserve unrelated changes, fix the failure or record the actual blocker, and report in Vietnamese | Journal rollback + `FailureReport` shown in UI |
+| Validate | Claude runs tsc / lint / tests | Worker runs allow-listed commands; VS Code ext shows diagnostics |
+| Failure | git reset to checkpoint + report to user (Vietnamese) | Journal rollback + `FailureReport` shown in UI |
 | Defined in | `ROLES.md` §1, `AGENTS.md` | `ROLES.md` §2, `ARCHITECTURE.md` §8 |
 
 **DeepSeek is not used anywhere.**

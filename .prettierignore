@@ -15,4 +15,5 @@ src/types/schemas.ts
 apps/desktop/src/index.css
 **/node_modules/**
 .npm-cache/**
+/.stryker-tmp/
 apps/sidecar/src/infra/sqlite/migrations/**

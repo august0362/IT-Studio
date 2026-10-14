@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect } from 'chai';
 import { remote } from 'webdriverio';
+import { setDiagnosticSession } from '../../helpers/diagnostics.js';
 import { ensureProviderKeys } from '../../helpers/keys.js';
 import { createTemporaryProjectFolder, waitForReady } from '../../helpers/ui.js';
 
@@ -22,6 +23,7 @@ async function openScriptedSession(): Promise<Session> {
   };
   const session = await remote({ hostname: '127.0.0.1', port: 4448, path: '/', capabilities });
   activeSession = session;
+  setDiagnosticSession(session);
   await session.waitUntil(async () => (await session.$('footer[role="status"]').getText()).includes('Ready v0.1.0'), {
     timeout: 20_000,
     timeoutMsg: 'Scripted MW app did not become ready',
@@ -113,7 +115,13 @@ describe('MW workflow map', () => {
   afterEach(async () => {
     const session = activeSession;
     activeSession = undefined;
-    if (session !== undefined) await session.deleteSession();
+    if (session !== undefined) {
+      try {
+        await session.deleteSession();
+      } finally {
+        setDiagnosticSession(undefined);
+      }
+    }
   });
 
   it('TC-MW-010 displays live chat routing activity in the workflow graph', async () => {
