@@ -148,29 +148,28 @@ describe('MW workflow map', () => {
     }
     await browser.$('nav a[href="#workflow"]').click();
     await browser.waitUntil(async () => (await browser.$('body').getText()).includes('Router'));
-    const routerText = () =>
-      browser.execute(
-        (selector: string) => document.querySelector(selector)?.textContent ?? '',
-        '[data-id="router"].react-flow__node',
-      );
+    // OWNER-FB1 P2: nodes show name and status only; the 24 h counters live in the module panel.
+    await browser.waitUntil(
+      () =>
+        browser.execute((selector: string) => {
+          const node = document.querySelector<HTMLElement>(selector);
+          node?.focus();
+          return node !== null && document.activeElement === node;
+        }, '[data-id="router"].react-flow__node'),
+      { timeout: 20_000, timeoutMsg: 'Could not focus the Router workflow node' },
+    );
+    await browser.keys('Enter');
+    const panel = browser.$('aside[aria-label="Router"]');
+    await panel.waitForDisplayed();
+    await panel.$('button=Metrics 24 h').click();
     try {
-      await browser.waitUntil(async () => /Calls \(24 h\)\s*[1-9]\d*/.test(await routerText()), {
+      await browser.waitUntil(async () => /Calls \(24 h\):\s*[1-9]\d*/.test(await panel.getText()), {
         timeout: 20_000,
       });
     } catch (error) {
-      const nodeText = await routerText();
-      const body = await browser.$('body').getText();
-      throw new Error(`TC-MW-010 router activity missing; node: ${nodeText}; body: ${body.slice(-1_500)}`, {
-        cause: error,
-      });
+      const panelText = await panel.getText();
+      throw new Error(`TC-MW-010 router activity missing; panel: ${panelText.slice(-1_500)}`, { cause: error });
     }
-    const focused = await browser.execute((selector: string) => {
-      const node = document.querySelector<HTMLElement>(selector);
-      node?.focus();
-      return node !== null && document.activeElement === node;
-    }, '[data-id="router"].react-flow__node');
-    if (!focused) throw new Error('Could not focus the Router workflow node');
-    await browser.keys('Enter');
     await browser.$('button=Recent').click();
     const body = await browser.$('body').getText();
     expect(body).to.match(/Router completed on [a-z0-9_-]+\/[a-z0-9._-]+/i);

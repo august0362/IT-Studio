@@ -156,3 +156,12 @@ The final integration audit also updates E2E key selectors/verifier sessions and
 - Historical scope/migration/unstable blockers are resolved. Remaining release checks concern real embedded-provider sign-in/pane visuals and isolated installer smoke/M9-QA, not permission to implement the batch.
 - Installer smoke was not run on this batch. The existing `smoke:install` script isolates installation/Node lookup but still launches release against the user's actual appdata/keychain. Runtime-data/keychain isolation must be arranged before using it for the next automated release gate.
 
+
+## QA (Claude) — final, 2026-10-14
+
+- Merged current `main` (M9 sign-off, M9-FIX2…7, QA-E2E-FIX4) into the branch. Conflicts resolved: `e2e/wdio.conf.ts` (kept the per-worker drivers from QA-E2E-FIX4; the verifier-timeout session for `m1/startup.spec.ts` moved to port 4452 because 4450 is used by `m4/scripted-llm.spec.ts`), `CHANGELOG.md`, `docs/RUNNING.md`, `docs/HANDOFF.md`.
+- Governance: the edits to `AGENTS.md` and to the development-pipeline rows of `CONTEXT.md` were reverted. The Architect/QA (Claude) and Implementer (Codex) split of `ROLES.md` stays in force. Product decision updates (D12, D17, D34) and ADR-0005 are kept.
+- Stale E2E assertions after intended UI changes: TC-M4-044 (the user-facing text no longer carries the internal "D31:" prefix) and TC-MW-010 (24 h counters moved from the node to the module panel's Metrics tab, P2). Both specs were updated; no product change.
+- Gates: typecheck ✔, lint ✔, unit 1 041 passed + 1 skipped ✔, Rust 28/28 ✔, integration 115/115 ✔, full E2E 14 specs: 11 passed on the first run, TC-M1-041 was a WebDriver session flake (passes alone), TC-M4-044 and TC-MW-010 pass after the assertion updates.
+- Remaining native follow-ups (not blocking): embedded provider sign-in/popups in real accounts and a full-page visual review of the three Neon themes; owner hands-on check.
+- Verdict: **accepted and landed**.
