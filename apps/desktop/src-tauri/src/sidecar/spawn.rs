@@ -117,8 +117,9 @@ mod tests {
         assert_eq!(resolve_data_dir(default_dir.clone(), None), default_dir);
     }
 
+    // TC-M9-004: packaged sidecar resolution uses the installed resource directory.
     #[test]
-    fn resolves_sidecar_in_installed_resource_directory() {
+    fn tc_m9_004_resolves_sidecar_in_installed_resource_directory() {
         let resource_dir =
             std::env::temp_dir().join(format!("itstudio-sidecar-layout-{}", std::process::id()));
         std::fs::create_dir_all(&resource_dir).expect("create resource fixture");
@@ -133,8 +134,9 @@ mod tests {
         std::fs::remove_dir_all(resource_dir).expect("remove resource fixture");
     }
 
+    // TC-M9-004: a missing bundled executable reports the packaged path clearly.
     #[test]
-    fn missing_packaged_sidecar_returns_clear_error() {
+    fn tc_m9_004_missing_packaged_sidecar_returns_clear_error() {
         let resource_dir =
             std::env::temp_dir().join(format!("itstudio-sidecar-missing-{}", std::process::id()));
         let error = resolve_packaged_sidecar(&resource_dir).expect_err("sidecar is absent");

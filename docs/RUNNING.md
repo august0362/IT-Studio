@@ -57,11 +57,9 @@ ITSTUDIO_DATA_DIR="$TEMP/itstudio-try" npm run dev
 ## 5. Known limitations in v1
 
 - The installer is unsigned (D33); SmartScreen requires **More info â†’ Run anyway**.
-- Image generation / Gallery is disabled (**M8**).
 - Price updates are manual (**Settings → Pricing → Update prices**, needs an active project — its cost is booked to that project, D31).
 - Pipeline validation commands are shown but not yet editable per project.
 - Sidecar cold start in dev is ~2.8 s (`tsx` transpiles at runtime; the M9 bundle will be faster).
-- Workflow map (module graph with live activity) is specified (D32, milestone **MW**) and comes after this hand-over.
 
 ## 6. Running the tests
 
@@ -71,9 +69,10 @@ Before shipping a release, run `npm run audit:prod` to check production dependen
 
 1. `npm run release:bump -- <major|minor|patch|x.y.z>` updates the app and extension versions and moves the current `Unreleased` changelog entries into the release section. Review the printed changes first with `--dry-run`.
 2. `npm run audit:prod` checks production dependencies.
-3. `npm run build:app` builds the desktop installer.
+3. `npm run build:app` builds the Windows NSIS and MSI installers with the bundled sidecar and WebView2 bootstrapper.
 4. Run `npm run smoke:install` to verify the installed app starts without system Node.js or repository dependencies. It opens the app window, uses the real `%APPDATA%\\com.itstudio.app` data directory, and is QA-only; do not run during E2E tests.
-5. After the release is approved, create the matching tag with `git tag v<version>`.
+5. For the same release build, install the MSI for the current user into a temporary folder under `%LOCALAPPDATA%`, verify the app reaches Ready with its bundled sidecar, then uninstall that test installation. Preserve the existing `%APPDATA%\\com.itstudio.app` data directory. Record the exact MSI hash and installation path in the QA report.
+6. After the release is approved, create the matching tag with `git tag v<version>`. D33 defers code signing and automatic updates; this checklist does not enable an updater.
 
 ```bash
 npm run typecheck && npm run lint && npm test     # unit (fast)
