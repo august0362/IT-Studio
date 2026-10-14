@@ -36,6 +36,7 @@ export type TransactionId = Brand<string, 'TransactionId'>;
 export type CommandRunId = Brand<string, 'CommandRunId'>;
 export type ToolCallId = Brand<string, 'ToolCallId'>;
 export type ImageAssetId = Brand<string, 'ImageAssetId'>;
+export type SecretHistoryId = Brand<string, 'SecretHistoryId'>;
 export type PriceTableVersion = Brand<string, 'PriceTableVersion'>;
 
 /** ISO-8601 UTC timestamp, e.g. "2026-10-01T08:00:00.000Z". */
@@ -159,6 +160,23 @@ export interface SecretStatus {
   /** Last 4 chars only, for UI confirmation. */
   readonly hint?: string;
   readonly lastVerifiedAt?: IsoDateTime;
+}
+
+export const SecretHistoryAction = {
+  SAVED: 'saved',
+  DELETED: 'deleted',
+  VERIFY_FAILED: 'verify_failed',
+} as const;
+export type SecretHistoryAction = (typeof SecretHistoryAction)[keyof typeof SecretHistoryAction];
+
+export interface SecretHistoryEntry {
+  readonly id: SecretHistoryId;
+  readonly provider: ProviderId;
+  /** Last four characters of the candidate key, or an empty string if unavailable. */
+  readonly hint: string;
+  readonly action: SecretHistoryAction;
+  readonly resultCode: ErrorCode | null;
+  readonly at: IsoDateTime;
 }
 
 /* ============================================================================
@@ -427,6 +445,8 @@ export interface PriceEntry {
   /** Free-tier models record 0 but are still metered. */
   readonly freeTier: boolean;
   readonly sourceUrl: string;
+  /** Per-row provenance; absent legacy values are treated conservatively as seed. */
+  readonly origin?: PriceTable['origin'];
 }
 
 export interface PriceRow {
@@ -437,6 +457,7 @@ export interface PriceRow {
   readonly perImage?: MoneyDisplay;
   /** True when a manual override is active for this model. */
   readonly overridden: boolean;
+  readonly origin?: PriceTable['origin'];
 }
 
 export interface PriceTable {
@@ -444,6 +465,36 @@ export interface PriceTable {
   readonly effectiveFrom: IsoDateTime;
   readonly entries: readonly PriceEntry[];
   readonly origin: 'seed' | 'auto_extracted' | 'manual_override';
+}
+
+export const PriceProviderOutcomeStatus = {
+  APPLIED: 'applied',
+  NO_CHANGE: 'no_change',
+  REJECTED_VALIDATION: 'rejected_validation',
+  FETCH_FAILED: 'fetch_failed',
+  EXTRACTION_FAILED: 'extraction_failed',
+} as const;
+export type PriceProviderOutcomeStatus = (typeof PriceProviderOutcomeStatus)[keyof typeof PriceProviderOutcomeStatus];
+
+export interface PriceUpdateOutcome {
+  readonly provider: ProviderId;
+  readonly status: PriceProviderOutcomeStatus;
+  readonly reason: string;
+}
+
+export interface PricingExtractionOption {
+  readonly modelKey: ModelKey;
+  readonly displayName: string;
+  readonly estimatedCost: MoneyDisplay;
+}
+
+export interface PricingExtractionOptions {
+  readonly options: readonly PricingExtractionOption[];
+  readonly selectedModelKey: ModelKey | null;
+  readonly inputTokensPerCall: number;
+  readonly outputTokensPerCall: number;
+  /** Maximum planned calls, including one retry per provider. */
+  readonly calls: number;
 }
 
 export interface PriceUpdateRun {
@@ -454,6 +505,7 @@ export interface PriceUpdateRun {
   readonly deltas: readonly { readonly modelKey: ModelKey; readonly field: keyof PriceEntry; readonly percent: number }[];
   readonly newVersion?: PriceTableVersion;
   readonly error?: AppError;
+  readonly providerOutcomes?: readonly PriceUpdateOutcome[];
 }
 
 export interface FxRate {
@@ -936,12 +988,23 @@ export interface RpcMethodMap {
 
   'settings.get': { params: Empty; result: AppSettings };
   'settings.update': { params: { readonly patch: SettingsPatch }; result: AppSettings };
+  'webchat.browsers': { params: Empty; result: readonly { readonly browser: WebChatBrowser; readonly installed: boolean; readonly path: string | null }[] };
+  'webchat.open': { params: { readonly linkId: WebChatLinkId }; result: { readonly opened: true; readonly browser: WebChatBrowser } };
+  'webchat.projectBrief': { params: { readonly projectId: ProjectId }; result: { readonly text: string } };
 
   /** Write-only: the key is stored in the OS keychain and never returned. */
   'secrets.set': { params: { readonly provider: ProviderId; readonly apiKey: string }; result: SecretStatus };
   'secrets.delete': { params: { readonly provider: ProviderId }; result: SecretStatus };
   'secrets.status': { params: Empty; result: readonly SecretStatus[] };
   'secrets.verify': { params: { readonly provider: ProviderId }; result: SecretStatus };
+  'secrets.verifyAndSave': {
+    params: { readonly provider: ProviderId; readonly apiKey: string };
+    result: SecretStatus;
+  };
+  'secrets.history': {
+    params: { readonly provider?: ProviderId; readonly limit?: number };
+    result: readonly SecretHistoryEntry[];
+  };
 
   'models.list': { params: Empty; result: readonly ModelDescriptor[] };
 
@@ -978,7 +1041,7 @@ export interface RpcMethodMap {
   'budget.status': { params: { readonly projectId: ProjectId }; result: readonly BudgetStatus[] };
 
   'pricing.get': { params: Empty; result: PriceTable };
-  'pricing.getRows': { params: Empty; result: { readonly table: PriceTable; readonly rows: readonly PriceRow[]; readonly stale: boolean } };
+  'pricing.getRows': { params: Empty; result: { readonly table: PriceTable; readonly rows: readonly PriceRow[]; readonly stale: boolean; readonly extraction?: PricingExtractionOptions } };
   'pricing.refresh': { params: Empty; result: PriceUpdateRun };
   'pricing.override': { params: { readonly entry: PriceEntry }; result: PriceTable };
   'pricing.clearOverride': { params: { readonly modelKey: ModelKey }; result: PriceTable };
@@ -1142,6 +1205,46 @@ export interface AppSettings {
   readonly rag: RagSettings;
   readonly image: ImageSettings;
   readonly ui: UiSettings;
+  readonly webChat: WebChatSettings;
+}
+
+export type WebChatLinkId = Brand<string, 'WebChatLinkId'>;
+export interface WebChatLink {
+  readonly id: WebChatLinkId;
+  readonly name: string;
+  readonly url: string;
+  readonly enabled: boolean;
+}
+export const WebChatBrowser = {
+  DEFAULT: 'default',
+  COCCOC: 'coccoc',
+  CHROME: 'chrome',
+  EDGE: 'edge',
+  FIREFOX: 'firefox',
+  CUSTOM: 'custom',
+} as const;
+export type WebChatBrowser = (typeof WebChatBrowser)[keyof typeof WebChatBrowser];
+export interface WebChatLayout {
+  readonly panes: readonly WebChatLinkId[];
+  /** Pane width fractions, one per pane, totaling 1; each pane is at least 10%. */
+  readonly sizes: readonly number[];
+}
+export interface WebChatPaneBounds {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+export interface WebChatPaneRequest {
+  readonly slot: number;
+  readonly linkId: WebChatLinkId;
+  readonly bounds: WebChatPaneBounds;
+}
+export interface WebChatSettings {
+  readonly browser: WebChatBrowser;
+  readonly customBrowserPath: string | null;
+  readonly links: readonly WebChatLink[];
+  readonly layout?: WebChatLayout;
 }
 
 /** Deep-partial patch accepted by `settings.update`. */
@@ -1186,6 +1289,11 @@ export interface ThemeTokens {
   readonly warning: HexColor;
   readonly danger: HexColor;
   readonly info: HexColor;
+  readonly glow?: HexColor;
+  readonly surfaceGlass?: HexColor;
+  readonly borderGlow?: HexColor;
+  readonly gradientStart?: HexColor;
+  readonly gradientEnd?: HexColor;
   /** Up to 6 categorical chart colors, each ≥ 3:1 against `surface`. */
   readonly chart: readonly HexColor[];
   /** Measured WCAG contrast ratios, recorded by the derivation tool for audit. */

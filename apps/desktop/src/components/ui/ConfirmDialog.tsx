@@ -1,4 +1,5 @@
 import { useEffect, useRef, type JSX, type KeyboardEvent } from 'react';
+import { Button, Card } from './primitives';
 
 export interface ConfirmDialogProps {
   readonly open: boolean;
@@ -58,17 +59,17 @@ export function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="studio-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
       data-testid="confirm-dialog-backdrop"
       onClick={(event) => {
         if (event.target === event.currentTarget) onCancel();
       }}
     >
-      <div
+      <Card
         aria-describedby="confirm-dialog-message"
         aria-labelledby="confirm-dialog-title"
         aria-modal="true"
-        className="w-full max-w-md rounded-lg border border-border bg-surface p-6 text-text shadow-xl"
+        className="w-full max-w-md p-6 text-text"
         onKeyDown={handleKeyDown}
         ref={dialogRef}
         role="alertdialog"
@@ -80,24 +81,14 @@ export function ConfirmDialog({
           {message}
         </p>
         <div className="flex justify-end gap-2">
-          <button
-            className="rounded border border-border px-3 py-2 hover:bg-surface-alt"
-            onClick={onCancel}
-            ref={cancelRef}
-            type="button"
-          >
+          <Button onClick={onCancel} ref={cancelRef} type="button">
             {cancelLabel}
-          </button>
-          <button
-            className="rounded border border-danger bg-danger px-3 py-2 text-primary-fg"
-            data-tone={tone}
-            onClick={onConfirm}
-            type="button"
-          >
+          </Button>
+          <Button data-tone={tone} onClick={onConfirm} type="button" tone="danger">
             {confirmLabel}
-          </button>
+          </Button>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

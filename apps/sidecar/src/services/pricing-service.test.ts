@@ -30,8 +30,8 @@ const initial: PriceTable = {
   ],
 };
 
-function harness() {
-  let current: StoredPriceTable | null = null;
+function harness(stored: StoredPriceTable | null = null) {
+  let current: StoredPriceTable | null = stored;
   let inserts = 0;
   const repository: IPriceRepository = {
     current: () => current,
@@ -146,7 +146,7 @@ describe('PricingService', () => {
     if (!result.ok) return;
     expect(result.value.version).not.toBe(initial.version);
     expect(result.value.entries).toEqual([
-      changed,
+      { ...changed, origin: 'manual_override' },
       initial.entries.find((entry) => entry.modelKey === 'google/test-model'),
     ]);
     expect(testHarness.current?.manualOverrides).toEqual(['openai/test-model']);
@@ -206,6 +206,29 @@ describe('PricingService', () => {
     expect(cleared.ok && cleared.value.entries.find((entry) => entry.modelKey === 'openai/test-model')).toMatchObject({
       inputPerMTokMicroUsd: 100,
     });
+  });
+
+  it('reports mixed seed, automatic and manual row provenance accurately after a restart', () => {
+    const first = harness();
+    first.service.initialize();
+    first.service.applyExtracted([{ ...openAiEntry(), origin: 'manual_override' }]);
+    const google = initial.entries.find((entry) => entry.modelKey === 'google/test-model');
+    if (google === undefined) throw new Error('Google fixture is missing');
+    const fx = { usdToVnd: 25_000, asOf: initial.effectiveFrom, source: 'auto' as const };
+    expect(first.service.getRows(fx).rows.map((row) => row.origin)).toEqual(['auto_extracted', 'seed']);
+    first.service.override({ ...google, origin: 'auto_extracted' });
+    const second = harness(first.current);
+    second.service.initialize();
+    expect(second.service.getRows(fx).rows.map((row) => row.origin)).toEqual(['auto_extracted', 'manual_override']);
+    second.service.clearOverride('google/test-model');
+    expect(second.service.getRows(fx).rows.map((row) => row.origin)).toEqual(['auto_extracted', 'seed']);
+  });
+
+  it('keeps legacy entries conservatively seed-origin when old table metadata cannot prove individual verification', () => {
+    const h = harness({ ...initial, origin: 'auto_extracted', manualOverrides: [] });
+    h.service.initialize();
+    const fx = { usdToVnd: 25_000, asOf: initial.effectiveFrom, source: 'auto' as const };
+    expect(h.service.getRows(fx).rows.map((row) => row.origin)).toEqual(['seed', 'seed']);
   });
 
   it.each([

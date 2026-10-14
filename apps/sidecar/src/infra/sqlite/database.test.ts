@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyMigrations, openDatabase } from './database.js';
-import { projects, settings } from './schema.js';
+import { projects, settings, secretHistory } from './schema.js';
 
 describe('SQLite database', () => {
   it('applies migrations on a fresh in-memory database and is idempotent', () => {
@@ -10,6 +10,7 @@ describe('SQLite database', () => {
     applyMigrations(opened.db);
     expect(opened.db.select().from(projects).all()).toEqual([]);
     expect(opened.db.select().from(settings).all()).toEqual([]);
+    expect(opened.db.select().from(secretHistory).all()).toEqual([]);
     opened.client.close();
   });
 });

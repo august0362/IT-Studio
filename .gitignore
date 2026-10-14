@@ -2,6 +2,7 @@
 node_modules/
 
 .npm-cache/
+/.stryker-tmp/
 docs/tasks/*.last.txt
 
 # build outputs

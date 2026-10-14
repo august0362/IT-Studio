@@ -1,20 +1,38 @@
 import { describe, expect, it } from 'vitest';
-import { isSea, loadBetterSqlite3, loadExternal, loadKeyring, loadLanceDb, resourcePath } from './native-modules.js';
+import { join } from 'node:path';
+import {
+  isSea,
+  loadBetterSqlite3,
+  loadExternal,
+  loadKeyring,
+  loadLanceDb,
+  resourcePath,
+  verifyNativeModules,
+} from './native-modules.js';
 
 describe('native module loading', () => {
-  it('uses normal package resolution in development', () => {
+  it('TC-M9-002 resolves native packages in development and verifies startup dependencies', () => {
     expect(isSea()).toBe(false);
     expect(typeof loadBetterSqlite3()).toBe('function');
     expect(typeof loadKeyring().AsyncEntry).toBe('function');
     expect(typeof loadLanceDb().connect).toBe('function');
+    expect(() => {
+      verifyNativeModules();
+    }).not.toThrow();
   });
 
-  it('loads external runtime packages through the development package resolver', () => {
+  it('TC-M9-002 resolves external runtime packages through the development resolver', () => {
     expect(loadExternal('better-sqlite3')).toBe(loadBetterSqlite3());
     expect(loadExternal('apache-arrow')).toHaveProperty('Schema');
   });
 
-  it('resolves development resources from the repository root', () => {
-    expect(resourcePath('config', 'models.seed.json')).toContain('config');
+  it('TC-M9-002 reports the missing external package name', () => {
+    expect(() => loadExternal('itstudio-missing-native-module')).toThrow(
+      /Failed to load external module itstudio-missing-native-module/,
+    );
+  });
+
+  it('TC-M9-002 resolves development resources from the repository root', () => {
+    expect(resourcePath('config', 'models.seed.json')).toBe(join(process.cwd(), 'config', 'models.seed.json'));
   });
 });

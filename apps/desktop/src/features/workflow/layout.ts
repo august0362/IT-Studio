@@ -41,6 +41,7 @@ export function layoutWorkflow(
   });
   const flowEdges = edges.map((edge) => ({
     id: edge.id,
+    type: 'activity',
     source: edge.from,
     target: edge.to,
     label: edge.contract,

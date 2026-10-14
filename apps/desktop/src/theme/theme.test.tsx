@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { Script } from 'node:vm';
 import { ESLint } from 'eslint';
 import { readFileSync as readFile } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -12,6 +13,7 @@ afterEach(() => {
   document.documentElement.removeAttribute('style');
   delete document.documentElement.dataset.theme;
   delete document.documentElement.dataset.mode;
+  localStorage.clear();
 });
 
 function luminance(hex: string): number {
@@ -23,6 +25,20 @@ function luminance(hex: string): number {
 function contrast(foreground: string, background: string): number {
   const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
   return ((values[0] ?? 0) + 0.05) / ((values[1] ?? 0) + 0.05);
+}
+
+function glassSurface(foreground: string, background: string): string {
+  return (
+    '#' +
+    [1, 3, 5]
+      .map((start) => {
+        const channel =
+          Number.parseInt(foreground.slice(start, start + 2), 16) * 0.96 +
+          Number.parseInt(background.slice(start, start + 2), 16) * 0.04;
+        return Math.round(channel).toString(16).padStart(2, '0');
+      })
+      .join('')
+  );
 }
 
 function findTsxFiles(directory: string): string[] {
@@ -58,8 +74,8 @@ describe('theme catalog', () => {
     ).toBe(true);
   });
 
-  it('recomputes WCAG thresholds for all 36 theme and mode pairs', () => {
-    expect(themeCatalog.themes).toHaveLength(18);
+  it('TC-M4-002 recomputes WCAG thresholds for all 42 theme and mode pairs, including glow surfaces', () => {
+    expect(themeCatalog.themes).toHaveLength(21);
     for (const theme of themeCatalog.themes) {
       for (const tokens of [theme.light, theme.dark]) {
         expect(contrast(tokens.text, tokens.bg)).toBeGreaterThanOrEqual(7);
@@ -72,6 +88,25 @@ describe('theme catalog', () => {
         for (const color of [tokens.success, tokens.warning, tokens.danger, tokens.info]) {
           expect(contrast(color, tokens.surface)).toBeGreaterThanOrEqual(4.5);
         }
+        const glass = tokens.surfaceGlass ?? tokens.surface;
+        for (const background of [
+          glass,
+          glassSurface(glass, tokens.bg),
+          glassSurface(glass, tokens.surfaceAlt),
+          tokens.gradientStart ?? tokens.bg,
+          tokens.gradientEnd ?? tokens.surfaceAlt,
+        ]) {
+          expect(contrast(tokens.text, background)).toBeGreaterThanOrEqual(7);
+          expect(contrast(tokens.textMuted, background)).toBeGreaterThanOrEqual(4.5);
+        }
+        if (tokens.borderGlow !== undefined) {
+          expect(contrast(tokens.borderGlow, tokens.surfaceAlt)).toBeGreaterThanOrEqual(3);
+          expect(contrast(tokens.focusRing, tokens.surfaceAlt)).toBeGreaterThanOrEqual(3);
+          for (const color of [tokens.success, tokens.warning, tokens.danger, tokens.info]) {
+            expect(contrast(color, tokens.surfaceAlt)).toBeGreaterThanOrEqual(4.5);
+          }
+        }
+        expect(contrast(tokens.primaryFg, tokens.primaryHover)).toBeGreaterThanOrEqual(4.5);
       }
     }
   });
@@ -90,6 +125,57 @@ describe('theme catalog', () => {
     expect(document.documentElement.style.getPropertyValue('--color-chart-1')).toBe(tokens.chart[0]);
     expect(document.documentElement.dataset.theme).toBe('midnight-focus');
     expect(document.documentElement.dataset.mode).toBe('dark');
+  });
+
+  it('resets optional effect colors to safe fallbacks when switching to a legacy theme', () => {
+    const neon = resolveTheme('neon-gold', 'dark', false).tokens;
+    const legacy = resolveTheme('arctic-focus', 'light', false).tokens;
+    applyTheme('neon-gold', 'dark', neon);
+    expect(document.documentElement.style.getPropertyValue('--color-glow')).toBe(neon.glow);
+    applyTheme('arctic-focus', 'light', legacy);
+    expect(document.documentElement.style.getPropertyValue('--color-glow')).toBe(legacy.primary);
+    expect(document.documentElement.style.getPropertyValue('--color-surface-glass')).toBe(legacy.surface);
+    expect(document.documentElement.style.getPropertyValue('--color-border-glow')).toBe(legacy.border);
+    expect(document.documentElement.style.getPropertyValue('--color-gradient-start')).toBe(legacy.bg);
+    expect(document.documentElement.style.getPropertyValue('--color-gradient-end')).toBe(legacy.surfaceAlt);
+  });
+
+  it('ships three dark-native glow palettes with usable light counterparts', () => {
+    expect(themeCatalog.defaultDark).toBe('neon-gold');
+    expect(themeCatalog.defaultLight).toBe('arctic-focus');
+    for (const id of ['neon-gold', 'neon-cyan', 'neon-violet']) {
+      const theme = themeCatalog.themes.find((entry) => entry.id === id);
+      if (theme === undefined) throw new Error(`Missing theme ${id}`);
+      expect(theme.nativeMode).toBe('dark');
+      expect(theme.light.glow).toBeDefined();
+      expect(theme.dark.glow).toBeDefined();
+      const palette = readFileSync(resolve(import.meta.dirname, '../../../../', theme.source));
+      expect(Array.from(palette.subarray(0, 8))).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+      expect(palette.readUInt32BE(16)).toBe(128);
+      expect(palette.readUInt32BE(20)).toBe(64);
+    }
+  });
+
+  it('applies the same default and cached tokens before React starts', () => {
+    const html = readFileSync(resolve(import.meta.dirname, '../../index.html'), 'utf8');
+    const inline = /<script>([\s\S]*?)<\/script>/u.exec(html)?.[1];
+    if (inline === undefined) throw new Error('Missing startup theme script');
+    const run = (): void => {
+      new Script(inline).runInNewContext({ document, localStorage, matchMedia: () => ({ matches: true }) });
+    };
+    run();
+    expect(document.documentElement.dataset.theme).toBe('neon-gold');
+    const neon = resolveTheme('neon-gold', 'dark', false).tokens;
+    expect(document.documentElement.style.getPropertyValue('--color-border-glow')).toBe(neon.borderGlow);
+    localStorage.setItem('itstudio.theme', JSON.stringify({ themeId: 'midnight-focus', mode: 'dark' }));
+    run();
+    const cached = resolveTheme('midnight-focus', 'dark', false).tokens;
+    expect(document.documentElement.dataset.theme).toBe('midnight-focus');
+    expect(document.documentElement.style.getPropertyValue('--color-glow')).toBe(cached.primary);
+    expect(document.documentElement.style.getPropertyValue('--color-surface-glass')).toBe(cached.surface);
+    localStorage.setItem('itstudio.theme', 'invalid json');
+    run();
+    expect(document.documentElement.dataset.theme).toBe('neon-gold');
   });
 
   it('contains no raw hex literals in desktop TSX files', () => {

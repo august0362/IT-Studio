@@ -1,4 +1,11 @@
-import type { ActivityEvent, ActivityKind, ProjectId, WorkflowEdge, WorkflowNode } from '@itstudio/schemas';
+import {
+  WorkflowModuleId,
+  type ActivityEvent,
+  type ActivityKind,
+  type ProjectId,
+  type WorkflowEdge,
+  type WorkflowNode,
+} from '@itstudio/schemas';
 import type { JSX } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -84,15 +91,18 @@ export function ModulePanel({
   const linksIn = edges.filter((edge) => edge.to === node.id);
   const linksOut = edges.filter((edge) => edge.from === node.id);
   const navTarget = (event: ActivityEvent): 'chat' | 'code' | 'knowledge' | 'cost' | undefined =>
-    event.refs.conversationId !== undefined || event.refs.requestId !== undefined
-      ? 'chat'
-      : event.refs.pipelineRunId !== undefined
-        ? 'code'
-        : event.refs.ingestJobId !== undefined
-          ? 'knowledge'
-          : event.refs.ledgerEntryId !== undefined
-            ? 'cost'
-            : undefined;
+    event.moduleId === WorkflowModuleId.LEDGER &&
+    (event.refs.requestId !== undefined || event.refs.pipelineRunId !== undefined)
+      ? 'cost'
+      : event.refs.conversationId !== undefined || event.refs.requestId !== undefined
+        ? 'chat'
+        : event.refs.pipelineRunId !== undefined
+          ? 'code'
+          : event.refs.ingestJobId !== undefined
+            ? 'knowledge'
+            : event.refs.ledgerEntryId !== undefined
+              ? 'cost'
+              : undefined;
   const open = (event: ActivityEvent): void => {
     const target = navTarget(event);
     if (target !== undefined) onNavigate(target, event);

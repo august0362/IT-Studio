@@ -5,9 +5,11 @@ import { ErrorPanel } from '../../components/ErrorPanel';
 
 export function IngestProgress({
   jobs,
+  selectedJobId,
   skippedUnchanged,
 }: {
   readonly jobs: readonly IngestJob[];
+  readonly selectedJobId?: string | null;
   readonly skippedUnchanged: number;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -22,7 +24,11 @@ export function IngestProgress({
           job.status === IngestStatus.FAILED ||
           job.status === IngestStatus.SKIPPED_UNCHANGED;
         return (
-          <article className="rounded border border-border p-3" key={job.id}>
+          <article
+            aria-current={job.id === selectedJobId ? 'true' : undefined}
+            className={`rounded border border-border p-3 ${job.id === selectedJobId ? 'ring-2 ring-primary' : ''}`}
+            key={job.id}
+          >
             <p>
               {job.paths.join(', ')} · {t(`knowledge.status.${job.status}`)}
             </p>
@@ -50,6 +56,11 @@ export function IngestProgress({
           </article>
         );
       })}
+      {selectedJobId !== undefined && selectedJobId !== null && !jobs.some((job) => job.id === selectedJobId) ? (
+        <article aria-current="true" className="rounded border border-border p-3 ring-2 ring-primary">
+          <p>Selected ingest job: {selectedJobId}</p>
+        </article>
+      ) : null}
       <p role="status">{t('knowledge.skipped', { count: skippedUnchanged })}</p>
     </section>
   );

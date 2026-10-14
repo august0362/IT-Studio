@@ -1,5 +1,6 @@
-﻿import { expect } from 'chai';
-import { remote } from 'webdriverio';
+import { expect } from 'chai';
+import { Key, remote } from 'webdriverio';
+import { setDiagnosticSession } from '../../helpers/diagnostics.js';
 import { ensureProviderKeys } from '../../helpers/keys.js';
 import { createTemporaryProjectFolder } from '../../helpers/ui.js';
 
@@ -10,6 +11,17 @@ interface TauriCapabilities extends WebdriverIO.Capabilities {
 
 type Session = Awaited<ReturnType<typeof remote>>;
 let activeSession: Session | undefined;
+
+async function closeScriptedSession(): Promise<void> {
+  const session = activeSession;
+  activeSession = undefined;
+  if (session === undefined) return;
+  try {
+    await session.deleteSession();
+  } finally {
+    setDiagnosticSession(undefined);
+  }
+}
 
 async function openScriptedSession(port: number): Promise<Session> {
   const capabilities: TauriCapabilities = {
@@ -25,6 +37,7 @@ async function openScriptedSession(port: number): Promise<Session> {
     capabilities,
   });
   activeSession = session;
+  setDiagnosticSession(session);
   await session.waitUntil(async () => (await session.$('footer[role="status"]').getText()).includes('Ready v0.1.0'), {
     timeout: 20_000,
     timeoutMsg: 'Scripted M4 app did not become ready',
@@ -45,31 +58,8 @@ async function selectOpenAiModel(session: Session): Promise<void> {
   await session.$('#chat-model').selectByAttribute('value', 'openai/gpt-5.4-mini');
 }
 
-async function enableAutoFallback(session: Session): Promise<void> {
-  await session.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
-  const autoFallback = session.$('aria/Auto Fallback');
-  if (!(await autoFallback.isSelected())) await autoFallback.click();
-  await session.waitUntil(async () => autoFallback.isSelected());
-}
-
 describe('M4 scripted LLM cases', () => {
-  afterEach(async () => {
-    const session = activeSession;
-    activeSession = undefined;
-    if (session !== undefined) {
-      try {
-        await session.keys('ESC');
-        await session.waitUntil(async () => {
-          const dialogs = session.$$('[role="dialog"], [role="alertdialog"]');
-          for (const dialog of dialogs) if (await dialog.isDisplayed()) return false;
-          return true;
-        });
-        await enableAutoFallback(session);
-      } finally {
-        await session.deleteSession();
-      }
-    }
-  });
+  afterEach(closeScriptedSession);
 
   it('TC-M4-021 cancels a slow scripted response without an assistant message', async () => {
     const session = await openScriptedSession(4446);
@@ -86,15 +76,16 @@ describe('M4 scripted LLM cases', () => {
   });
 
   it('TC-M4-022 shows a fallback badge when model B answers', async () => {
-    const session = await openScriptedSession(4447);
-    await ensureProviderKeys(['openai', 'anthropic', 'google', 'groq'], session);
+    const session = await openScriptedSession(4450);
+    await ensureProviderKeys(['openai', 'google'], session);
     await createProject(session, 'Fallback Badge Project');
     await session.$('button=New chat').click();
     await selectOpenAiModel(session);
     await session.$('aria/Message').setValue('fallback badge');
     await session.$('button=Send').click();
-    await session.waitUntil(async () => (await session.$('body').getText()).includes('Answered by'));
-    expect(await session.$('body').getText()).to.include('Llama 3.3 70B (Groq)');
+    const badge = session.$('ol[aria-label="Messages"] p[role="status"]');
+    await badge.waitForDisplayed();
+    expect(await badge.getText()).to.equal('Answered by Gemini 3.8 Flash (fallback from GPT-5.4 mini: server error)');
   });
 
   it('TC-M4-023 lists a priced fallback candidate and handles Use and Escape', async () => {
@@ -122,17 +113,29 @@ describe('M4 scripted LLM cases', () => {
     expect(dialogText).to.include('Cancel');
     await session.$('button=Use').click();
     await session.waitUntil(async () => (await session.$('body').getText()).includes('Scripted assistant reply.'));
-    await session.$('button=New chat').click();
-    await session.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
-    const cancelFallbackToggle = session.$('aria/Auto Fallback');
+    await closeScriptedSession();
+
+    const cancelSession = await openScriptedSession(4451);
+    await ensureProviderKeys(['openai', 'anthropic', 'google', 'groq'], cancelSession);
+    await cancelSession.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
+    const cancelFallbackToggle = cancelSession.$('aria/Auto Fallback');
     if (await cancelFallbackToggle.isSelected()) await cancelFallbackToggle.click();
-    await session.waitUntil(async () => !(await cancelFallbackToggle.isSelected()));
-    await session.$('nav[aria-label="Main navigation"] a[href="#chat"]').click();
-    await selectOpenAiModel(session);
-    await session.$('aria/Message').setValue('cancel fallback');
-    await session.$('button=Send').click();
-    await session.waitUntil(async () => dialog.isDisplayed());
-    await session.keys('ESC');
-    await session.waitUntil(async () => !(await dialog.isDisplayed()));
+    await cancelSession.waitUntil(async () => !(await cancelFallbackToggle.isSelected()));
+    await createProject(cancelSession, 'Fallback Cancel Project');
+    await cancelSession.$('button=New chat').click();
+    await selectOpenAiModel(cancelSession);
+    await cancelSession.$('aria/Message').setValue('cancel fallback');
+    await cancelSession.$('button=Send').click();
+    const cancelDialog = cancelSession.$('[role="dialog"]');
+    await cancelSession.waitUntil(async () => cancelDialog.isDisplayed(), { timeout: 20_000 });
+    await cancelSession.keys(Key.Escape);
+    await cancelSession.waitUntil(async () => !(await cancelDialog.isDisplayed()), { timeout: 10_000 });
+    await cancelSession.waitUntil(async () => !(await cancelSession.$('button=Stop').isDisplayed()), {
+      timeout: 10_000,
+    });
+    expect(await cancelSession.$('ol[aria-label="Messages"] [role="alert"]').getText()).to.include(
+      'Model fallback was declined.',
+    );
+    expect(await cancelSession.$('ol[aria-label="Messages"]').getText()).not.to.include('Scripted assistant reply.');
   });
 });

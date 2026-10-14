@@ -83,6 +83,20 @@ const models = [
   },
 ];
 
+const pricingTable = {
+  version: 'seed-2026-10-02',
+  effectiveFrom: '2026-10-02T00:00:00.000Z',
+  origin: 'seed',
+  entries: [],
+};
+const extraction = {
+  selectedModelKey: 'openai/first',
+  options: [{ modelKey: 'openai/first', displayName: 'First', estimatedCost: display }],
+  inputTokensPerCall: 1_000,
+  outputTokensPerCall: 100,
+  calls: 2,
+};
+
 function renderRpc(element: ReactNode, respond: (method: string, params: unknown) => unknown): FakeTransport {
   const transport = new FakeTransport();
   transport.setStatus({ running: true, ready: true, restarts: 0 });
@@ -111,7 +125,7 @@ function settingsResponder(method: string): unknown {
   if (method === 'settings.get' || method === 'settings.update') return settings;
   if (method === 'models.list') return models;
   if (method === 'fx.get') return { usdToVnd: 25_000, source: 'manual_override', asOf: '2026-10-02T00:00:00.000Z' };
-  if (method === 'pricing.getRows') return { stale: true, table: { origin: 'Seed table' }, rows: [] };
+  if (method === 'pricing.getRows') return { stale: true, table: pricingTable, rows: [], extraction };
   if (method === 'pricing.overrideUsd') return {};
   return {};
 }
@@ -188,9 +202,11 @@ describe('M4 round 1 settings coverage', () => {
 
   it('TC-M4-R1-005 validates pricing overrides and writes valid USD values', async () => {
     const transport = renderRpc(<PricingSettingsPage projectActive />, (method) =>
-      method === 'pricing.refresh' ? { status: 'unchanged', deltas: [] } : settingsResponder(method),
+      method === 'pricing.refresh' ? { status: 'no_change', deltas: [] } : settingsResponder(method),
     );
-    fireEvent.click(await screen.findByRole('button', { name: 'Update prices' }));
+    const updatePrices = await screen.findByRole('button', { name: 'Update prices' });
+    await waitFor(() => expect(updatePrices).toBeEnabled());
+    fireEvent.click(updatePrices);
     await waitFor(() => {
       expect(transport.sent.some((line) => line.includes('pricing.refresh'))).toBe(true);
     });
@@ -200,15 +216,17 @@ describe('M4 round 1 settings coverage', () => {
       method === 'pricing.getRows'
         ? {
             stale: false,
-            table: { origin: 'Seed table' },
+            table: pricingTable,
+            extraction,
             rows: [
               {
                 entry: {
                   modelKey: 'openai/first',
                   sourceUrl: 'https://example.test',
-                  inputPerMTokUsd: '1',
-                  outputPerMTokUsd: '2',
-                  cachedInputPerMTokUsd: '0.5',
+                  inputPerMTokMicroUsd: 1_000_000,
+                  outputPerMTokMicroUsd: 2_000_000,
+                  cachedInputPerMTokMicroUsd: 500_000,
+                  freeTier: false,
                 },
                 input: display,
                 output: display,

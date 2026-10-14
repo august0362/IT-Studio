@@ -1,5 +1,6 @@
 mod commands;
 mod sidecar;
+mod webchat;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -7,6 +8,7 @@ use tauri::{Manager, RunEvent};
 
 pub fn run() {
     let builder = tauri::Builder::default()
+        .manage(webchat::WebChatState::default())
         .plugin(tauri_plugin_log::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
@@ -24,7 +26,11 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::sidecar_send,
-            commands::sidecar_status
+            commands::sidecar_status,
+            webchat::webchat_sync,
+            webchat::webchat_reload,
+            webchat::webchat_set_visible,
+            webchat::webchat_close_all
         ]);
 
     match builder.build(tauri::generate_context!()) {

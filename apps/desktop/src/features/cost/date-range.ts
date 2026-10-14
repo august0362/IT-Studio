@@ -14,6 +14,22 @@ function startOfUtcDay(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
 
+function parseUtcDay(value: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) return null;
+  return date;
+}
+
+export function parseCustomDateRange(fromInput: string, toInput: string): DateRange | undefined {
+  const from = parseUtcDay(fromInput);
+  const to = parseUtcDay(toInput);
+  if (from === null || to === null) return undefined;
+  const exclusiveTo = new Date(to.getTime() + 86_400_000);
+  if (exclusiveTo.getUTCFullYear() > 9999) return undefined;
+  return { from: iso(from), to: iso(exclusiveTo) };
+}
+
 export function getDateRange(preset: DatePreset, now = new Date(), custom?: DateRange): DateRange {
   const today = startOfUtcDay(now);
   const tomorrow = new Date(today.getTime() + 86_400_000);

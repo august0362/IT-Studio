@@ -57,6 +57,7 @@ async function setup(options: { readonly useDefaultTimers?: boolean; readonly fa
   const statuses: unknown[] = [];
   const diagnostics: unknown[] = [];
   const savedFiles: unknown[] = [];
+  const activities: unknown[] = [];
   const timer = manualTimers();
   const bridge = new VSCodeBridge({
     ids: createFakeIdGenerator(['a1111111-1111-4111-8111-111111111111']),
@@ -67,6 +68,7 @@ async function setup(options: { readonly useDefaultTimers?: boolean; readonly fa
       publishStatus: (value) => statuses.push(value),
       publishDiagnostics: (value) => diagnostics.push(value),
       publishInternal: (value) => savedFiles.push(value),
+      publishActivity: (value) => activities.push(value),
     },
     realpath: (path) =>
       options.failRealpath ? Promise.reject(new Error('workspace unavailable')) : Promise.resolve(path),
@@ -75,7 +77,7 @@ async function setup(options: { readonly useDefaultTimers?: boolean; readonly fa
   await bridge.activate(projectIdSchema.parse('b1111111-1111-4111-8111-111111111111'), root);
   const sessionJson: unknown = JSON.parse(readFileSync(join(root, '.itstudio', 'session.json'), 'utf8'));
   const session = sessionSchema.parse(sessionJson);
-  return { bridge, root, session, statuses, diagnostics, savedFiles, timer };
+  return { bridge, root, session, statuses, diagnostics, savedFiles, activities, timer };
 }
 
 function connect(port: number, options: { readonly origin?: string } = {}): WebSocket {
@@ -159,6 +161,24 @@ describe('VSCodeBridge', () => {
       });
       state.bridge.send({ type: 'reveal', ref: 0, path: workspaceRelativePathSchema.parse('src/a.ts'), line: 1 });
       expect(JSON.parse(await outbound)).toMatchObject({ type: 'reveal', ref: 1, path: 'src/a.ts', line: 1 });
+      socket.send(JSON.stringify({ type: 'ack', ref: 1 }));
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 10));
+      expect(state.activities).toEqual([
+        {
+          type: 'vscode',
+          phase: 'sent',
+          projectId: 'b1111111-1111-4111-8111-111111111111',
+          action: 'reveal',
+          path: 'src/a.ts',
+        },
+        {
+          type: 'vscode',
+          phase: 'acked',
+          projectId: 'b1111111-1111-4111-8111-111111111111',
+          action: 'reveal',
+          path: 'src/a.ts',
+        },
+      ]);
       expect(state.statuses).toHaveLength(1);
       socket.send(JSON.stringify({ type: 'diagnostics', diagnostics: [] }));
       socket.send(JSON.stringify({ type: 'file_saved_by_user', path: 'src/a.ts', hash: 'a'.repeat(64) }));

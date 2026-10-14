@@ -33,6 +33,11 @@ const tokens = z
     warning: color,
     danger: color,
     info: color,
+    glow: color.exactOptional(),
+    surfaceGlass: color.exactOptional(),
+    borderGlow: color.exactOptional(),
+    gradientStart: color.exactOptional(),
+    gradientEnd: color.exactOptional(),
     chart: z.array(color).max(6),
     contrast: z.record(z.string(), z.number()),
   })
@@ -57,7 +62,7 @@ const catalogSchema = z
     generatedBy: z.string(),
     defaultLight: themeId,
     defaultDark: themeId,
-    themes: z.array(theme).length(18),
+    themes: z.array(theme).min(1),
   })
   .readonly() satisfies z.ZodType<ThemeCatalog>;
 

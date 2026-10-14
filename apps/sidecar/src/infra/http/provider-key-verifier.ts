@@ -5,7 +5,7 @@ export interface IProviderKeyVerifier {
   verify(provider: ProviderId, key: string): Promise<Result<void>>;
 }
 
-const TIMEOUT_MS = 10_000;
+const TIMEOUT_MS = 25_000;
 const OPENAI_COMPATIBLE_BASES: Partial<Record<ProviderId, string>> = {
   openai: 'https://api.openai.com/v1',
   xai: 'https://api.x.ai/v1',
@@ -26,7 +26,10 @@ function providerRequest(
         headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
       };
     case 'google':
-      return { url: 'https://generativelanguage.googleapis.com/v1beta/models', headers: { 'x-goog-api-key': key } };
+      return {
+        url: 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1',
+        headers: { 'x-goog-api-key': key },
+      };
     case 'replicate':
       return { url: 'https://api.replicate.com/v1/account', headers: { authorization: `Bearer ${key}` } };
     case 'openai':
@@ -76,7 +79,7 @@ export class ProviderKeyVerifier implements IProviderKeyVerifier {
         return {
           ok: false,
           error: failure(ErrorCode.PROVIDER_AUTH, `The API key for ${provider} was rejected.`, false, [
-            `Re-enter the API key for ${provider}.`,
+            'The provider rejected this key.',
           ]),
         };
       }
@@ -99,7 +102,7 @@ export class ProviderKeyVerifier implements IProviderKeyVerifier {
         return {
           ok: false,
           error: failure(ErrorCode.PROVIDER_TIMEOUT, `The ${provider} verification request timed out.`, true, [
-            'Try verifying the API key again.',
+            'The provider did not answer in time — check your network and try again; the key was not saved.',
           ]),
         };
       }

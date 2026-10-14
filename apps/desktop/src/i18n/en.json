@@ -14,6 +14,7 @@
     "settings": "Settings",
     "apiKeys": "API Keys",
     "theme": "Theme",
+    "webChat": "Web chat",
     "empty": "This area is ready for a future task."
   },
   "projects": {
@@ -63,6 +64,23 @@
     },
     "useKnowledge": "Use knowledge",
     "citation": "Citation {{number}}",
+    "webChat": {
+      "label": "Web chat",
+      "copyBrief": "Copy project brief",
+      "editLinks": "Edit links…",
+      "opened": "Opened in {{browser}}",
+      "copied": "Copied",
+      "openError": "Could not open web chat.",
+      "copyError": "Could not copy the project brief.",
+      "browser": {
+        "default": "your default browser",
+        "coccoc": "Cốc Cốc",
+        "chrome": "Chrome",
+        "edge": "Edge",
+        "firefox": "Firefox",
+        "custom": "custom browser"
+      }
+    },
     "openImage": "Open image: {{alt}}"
   },
   "code": {
@@ -136,7 +154,8 @@
       "fx": "FX rate",
       "vscode": "VS Code",
       "pipeline": "Pipeline roles",
-      "images": "Images"
+      "images": "Images",
+      "web-chat": "Web chat settings"
     },
     "saved": "Settings saved.",
     "save": "Save",
@@ -144,6 +163,31 @@
     "loading": "Loading settings…",
     "saveError": "Settings could not be saved.",
     "retry": "Check the sidecar connection and try again.",
+    "webChat": {
+      "browser": "Browser",
+      "resolveError": "Cốc Cốc could not be selected automatically.",
+      "retryResolution": "Retry",
+      "browserName": {
+        "default": "System default",
+        "coccoc": "Cốc Cốc",
+        "chrome": "Chrome",
+        "edge": "Microsoft Edge",
+        "firefox": "Firefox",
+        "custom": "Custom executable"
+      },
+      "notInstalled": "(not installed)",
+      "customPath": "Browser .exe path",
+      "name": "Name",
+      "url": "URL",
+      "enabled": "Enabled",
+      "actions": "Actions",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "delete": "Delete",
+      "add": "Add link",
+      "reset": "Reset to defaults",
+      "save": "Save web chat settings"
+    },
     "router": {
       "description": "Choose model order and fallback behaviour.",
       "autoFallback": "Auto Fallback",
@@ -168,7 +212,7 @@
       "limits": "Configure budget limits in Cost & P&L."
     },
     "pricing": {
-      "noProject": "D31: Select a project before updating prices.",
+      "noProject": "Select a project before updating prices.",
       "stale": "Price data is more than 30 days old. Update prices to review current rates.",
       "update": "Update prices",
       "updating": "Updating…",
@@ -178,6 +222,30 @@
       "output": "Output per 1M tokens",
       "cached": "Cached input per 1M tokens",
       "origin": "Origin",
+      "lastUpdated": "Last updated",
+      "origins": {
+        "seed": "seed (not verified)",
+        "auto_extracted": "auto",
+        "manual_override": "manual"
+      },
+      "seedWarning": "Some prices still come from the shipped seed and have not been verified by a price update. Review them before relying on cost estimates.",
+      "extractionModel": "Model for price extraction",
+      "noExtractionModel": "No available model",
+      "addKey": "Add an API key first — price extraction needs AI calls. Only enabled chat models with JSON mode and a stored key are available here.",
+      "estimate": "Planning estimate for up to {{calls}} calls, including one extraction retry per provider:",
+      "estimateHelp": "Based on current prices and conservative token allowances. Additional provider retries and actual billed usage can change the charge; seed prices may be unverified.",
+      "estimateUnavailable": "The extraction model and cost estimate are unavailable. Refresh this page before updating prices.",
+      "resultTitle": "Price update results",
+      "toastSummary": "Price update finished: {{applied}} applied, {{unchanged}} unchanged, {{rejected}} rejected, {{fetchFailed}} fetch failures, {{extractionFailed}} extraction failures.",
+      "providers": {
+        "anthropic": "Anthropic",
+        "openai": "OpenAI",
+        "google": "Google",
+        "xai": "xAI",
+        "groq": "Groq",
+        "together": "Together",
+        "replicate": "Replicate"
+      },
       "override": "Override",
       "overridden": "Overridden",
       "clearOverride": "Clear override",
@@ -188,7 +256,8 @@
         "applied": "Prices updated",
         "no_change": "No price changes",
         "rejected_validation": "Price update rejected",
-        "fetch_failed": "Price update failed"
+        "fetch_failed": "Price page fetch failed",
+        "extraction_failed": "Price extraction failed"
       },
       "change": "Change",
       "overrideTitle": "Override prices for {{model}}",
@@ -240,16 +309,44 @@
       }
     }
   },
+  "webChat": {
+    "pane": "Web chat pane {{number}}",
+    "site": "Site for pane {{number}}",
+    "panes": "Web chat panes",
+    "paneCount": "Panes",
+    "reload": "Reload",
+    "openInBrowser": "Open in browser",
+    "resize": "Resize panes {{left}} and {{right}}",
+    "desktopOnly": "Embedded web chat is available in the desktop app. Use Open in browser to open this site from the preview.",
+    "noSites": "Enable a saved web chat link in Settings to open a pane.",
+    "nativeError": "The embedded web chat could not be opened or updated.",
+    "useBrowser": "Try Open in browser. You can also return to this page to reload the panes.",
+    "saveError": "The web chat layout could not be saved. The previous layout has been restored.",
+    "signInWarning": "Some providers (especially Google accounts) may block sign-in inside embedded browsers. If sign-in fails, use 'Open in browser' (Cốc Cốc).",
+    "dismiss": "Dismiss"
+  },
   "api": {
     "heading": "API keys",
     "description": "Keys are stored securely and never displayed in full.",
     "invalid": "Invalid",
-    "verified": "Verified at {{date}}",
+    "verified": "Verified · …{{hint}}",
     "configured": "Set ••••{{hint}}",
     "notSet": "Not set",
     "enter": "Enter API key",
-    "save": "Save",
-    "verify": "Verify",
+    "verifyAndSave": "Verify & save",
+    "verifying": "Verifying…",
+    "emptyHint": "Enter an API key before verifying.",
+    "keySaved": "{{provider}} key saved ✓",
+    "history": "Key history",
+    "historyEmpty": "No API key activity yet.",
+    "historyError": "API key history could not be loaded.",
+    "historyTime": "Time",
+    "historyProvider": "Provider",
+    "historyKey": "Key",
+    "historyResult": "Result",
+    "historySaved": "Saved",
+    "historyDeleted": "Deleted",
+    "historyFailed": "Verification failed ({{code}})",
     "delete": "Delete",
     "cancel": "Cancel",
     "deletePrompt": "Delete the {{provider}} API key?",
@@ -455,6 +552,8 @@
   },
   "workflow": {
     "heading": "Workflow",
+    "graphLabel": "Workflow graph",
+    "minimapLabel": "Workflow minimap",
     "loading": "Loading workflow…",
     "loadError": "Workflow data could not be loaded.",
     "refresh": "Refresh",
@@ -478,7 +577,12 @@
     "openLink": "Open related area",
     "noSummary": "No recent summary.",
     "noLinks": "No links for this module.",
-    "status": { "idle": "Idle", "active": "Active", "error": "Error", "disabled": "Disabled" },
+    "status": {
+      "idle": "Idle",
+      "active": "Active",
+      "error": "Error",
+      "disabled": "Disabled"
+    },
     "kinds": {
       "started": "Started",
       "progress": "Progress",
@@ -493,7 +597,12 @@
       "links": "Links in / out",
       "deepLinks": "Deep links"
     },
-    "open": { "chat": "Open Chat", "code": "Open Code", "knowledge": "Open Knowledge", "cost": "Open Cost" },
+    "open": {
+      "chat": "Open Chat",
+      "code": "Open Code",
+      "knowledge": "Open Knowledge",
+      "cost": "Open Cost"
+    },
     "module": {
       "chat": "Chat",
       "code": "Code",

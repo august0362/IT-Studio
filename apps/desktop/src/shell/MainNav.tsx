@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 export type ShellRoute =
   | 'chat'
+  | 'webchat'
   | 'code'
   | 'knowledge'
   | 'workflow'
@@ -16,7 +17,8 @@ export type ShellRoute =
   | 'settings-fx'
   | 'settings-vscode'
   | 'settings-pipeline'
-  | 'settings-images';
+  | 'settings-images'
+  | 'settings-web-chat';
 
 export function MainNav({
   route,
@@ -34,7 +36,7 @@ export function MainNav({
     { route: 'workflow', label: t('nav.workflow') },
   ];
   return (
-    <nav aria-label="Main navigation" className="w-56 shrink-0 border-r border-border bg-surface p-4">
+    <nav aria-label={t('nav.main')} className="w-56 shrink-0 border-r border-border bg-surface p-4">
       <h1 className="mb-6 text-lg font-semibold">{t('app.name')}</h1>
       <div className="space-y-1">
         {links.slice(0, 3).map(({ route: target, label }) => (
@@ -51,6 +53,17 @@ export function MainNav({
             {label}
           </a>
         ))}
+        <a
+          aria-current={route === 'webchat' ? 'page' : undefined}
+          className="block rounded px-3 py-2 hover:bg-surface-alt focus-visible:outline-2 focus-visible:outline-focus-ring"
+          href="#webchat"
+          onClick={(event) => {
+            event.preventDefault();
+            navigate('webchat');
+          }}
+        >
+          {t('nav.webChat')}
+        </a>
         <a
           aria-current={route === 'gallery' ? 'page' : undefined}
           className="block rounded px-3 py-2 hover:bg-surface-alt focus-visible:outline-2 focus-visible:outline-focus-ring"
@@ -107,6 +120,7 @@ export function MainNav({
             'settings-vscode',
             'settings-pipeline',
             'settings-images',
+            'settings-web-chat',
           ] as const
         ).map((target) => (
           <a

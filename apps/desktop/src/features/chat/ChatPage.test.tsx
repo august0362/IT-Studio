@@ -8,8 +8,9 @@ import { ChatPage } from './ChatPage';
 import { RpcClient } from '../../rpc/rpc-client';
 import { RpcClientProvider } from '../../rpc/rpc-context';
 import { FakeTransport } from '../../rpc/transport';
+import { useNavigationIntent } from '../../state/navigation-intent';
 
-function renderChat() {
+function renderChat(withConversation = false) {
   const transport = new FakeTransport();
   transport.setStatus({ running: true, ready: true, restarts: 0 });
   transport.send = (line) => {
@@ -28,7 +29,18 @@ function renderChat() {
     };
     const result: unknown =
       call.method === 'chat.listConversations'
-        ? []
+        ? withConversation
+          ? [
+              {
+                id: '00000000-0000-4000-8000-000000000002',
+                projectId: '00000000-0000-4000-8000-000000000001',
+                title: 'Selected workflow conversation',
+                ragEnabled: false,
+                createdAt: '2026-10-02T00:00:00.000Z',
+                updatedAt: '2026-10-02T00:00:00.000Z',
+              },
+            ]
+          : []
         : call.method === 'chat.createConversation'
           ? {
               id: '00000000-0000-4000-8000-000000000002',
@@ -88,7 +100,16 @@ function renderChat() {
 }
 
 describe('ChatPage', () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    useNavigationIntent.getState().clearIntent();
+  });
+  it('TC-MW-009 opens a conversation selected by a workflow deep link', async () => {
+    useNavigationIntent.getState().setIntent({ kind: 'conversation', id: '00000000-0000-4000-8000-000000000002' });
+    renderChat(true);
+    expect(await screen.findByRole('heading', { name: 'Selected workflow conversation' })).toBeVisible();
+    expect(useNavigationIntent.getState().intent).toBeNull();
+  });
   it('sends and cancels with the active request id', async () => {
     const transport = renderChat();
     fireEvent.click(await screen.findByRole('button', { name: 'New chat' }));

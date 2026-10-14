@@ -86,6 +86,10 @@ describe('pricing updater integration', () => {
   });
 
   it('TC-M3-023 reports fetch_failed and preserves prices when all pricing pages fail', async () => {
+    const seeds = loadSeeds('config');
+    if (!seeds.ok) throw new Error(seeds.error.message);
+    const extractionModel = seeds.value.models.find((item) => item.key === seeds.value.defaultPricingExtractionModel);
+    if (extractionModel === undefined) throw new Error('Extraction model is missing');
     sidecar = await startSidecar({ ITSTUDIO_E2E_PRICING_HTTP: 'fail' });
     const workspace = resolve(sidecar.dataDir, 'pricing-fetch-failure-workspace');
     await mkdir(workspace);
@@ -93,6 +97,11 @@ describe('pricing updater integration', () => {
       (await sidecar.call('project.create', { name: 'Pricing fetch failure', workspaceRoot: workspace })).result,
     ).id;
     await sidecar.call('project.setActive', { projectId });
+    const savedKey = await sidecar.call('secrets.set', {
+      provider: extractionModel.provider,
+      apiKey: 'integration-only-scripted-key',
+    });
+    expect(savedKey.error).toBeUndefined();
     const before = priceTableSchema.parse((await sidecar.call('pricing.get')).result);
     const notifications: string[] = [];
     sidecar.notifications.on('notification', (value: unknown) => {
@@ -105,6 +114,22 @@ describe('pricing updater integration', () => {
     expect(priceTableSchema.parse((await sidecar.call('pricing.get')).result)).toEqual(before);
     await waitFor(() => notifications.includes('pricing.updated'));
   }, 30_000);
+
+  it('TC-OWNER-FB1-P5-001 rejects missing extraction keys before a fetch-failure result', async () => {
+    sidecar = await startSidecar({ ITSTUDIO_E2E_PRICING_HTTP: 'fail' });
+    const workspace = resolve(sidecar.dataDir, 'pricing-missing-key-workspace');
+    await mkdir(workspace);
+    const projectId = projectSchema.parse(
+      (await sidecar.call('project.create', { name: 'Pricing missing key', workspaceRoot: workspace })).result,
+    ).id;
+    await sidecar.call('project.setActive', { projectId });
+    const before = priceTableSchema.parse((await sidecar.call('pricing.get')).result);
+    const response = await sidecar.call('pricing.refresh');
+    expect(response.result).toBeUndefined();
+    expect(response.error).toMatchObject({ data: { code: 'VALIDATION', retryable: false } });
+    expect(response.error?.message).toContain('Add an API key first');
+    expect(priceTableSchema.parse((await sidecar.call('pricing.get')).result)).toEqual(before);
+  });
 
   it('TC-M3-011 accepts decimal USD overrides and rejects unsupported decimal forms', async () => {
     const seeds = loadSeeds('config');

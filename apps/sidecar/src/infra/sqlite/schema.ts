@@ -19,6 +19,19 @@ export const settings = sqliteTable(
   (table) => [check('settings_singleton_id', sql`${table.id} = 1`)],
 );
 
+export const secretHistory = sqliteTable(
+  'secret_history',
+  {
+    id: text('id').primaryKey(),
+    provider: text('provider').notNull(),
+    hint: text('hint').notNull(),
+    action: text('action').notNull(),
+    resultCode: text('result_code'),
+    at: text('at').notNull(),
+  },
+  (table) => [index('secret_history_at_idx').on(table.at, table.id)],
+);
+
 export const conversations = sqliteTable('conversations', {
   id: text('id').primaryKey(),
   projectId: text('project_id')

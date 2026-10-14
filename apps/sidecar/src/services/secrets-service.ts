@@ -5,16 +5,22 @@ import {
   type IsoDateTime,
   type ProviderId as ProviderIdType,
   type Result,
+  SecretHistoryAction,
+  type SecretHistoryEntry,
   type SecretStatus,
 } from '@itstudio/schemas';
 import type { IClock } from '../infra/clock.js';
 import type { IProviderKeyVerifier } from '../infra/http/provider-key-verifier.js';
+import type { IIdGenerator } from '../infra/id.js';
+import type { ISecretHistoryRepository } from '../infra/sqlite/secret-history-repository.js';
 import type { ISecretStore } from '../ports/secret-store.js';
-import { isoDateTimeSchema } from '../validation/brand.js';
+import { isoDateTimeSchema, secretHistoryIdSchema } from '../validation/brand.js';
 
 export interface SecretsServiceDependencies {
   readonly store: ISecretStore;
   readonly verifier: IProviderKeyVerifier;
+  readonly history: ISecretHistoryRepository;
+  readonly ids: IIdGenerator;
   readonly clock: IClock;
 }
 
@@ -39,15 +45,29 @@ function internalError(): AppError {
   };
 }
 
+function recoveryError(): AppError {
+  return {
+    code: ErrorCode.INTERNAL,
+    message: 'API key history could not be written and the previous key state could not be restored.',
+    remediation: ['Reload API key status before retrying.'],
+    retryable: true,
+    details: { keyStateMayHaveChanged: true },
+  };
+}
+
 export class SecretsService {
   private readonly store: ISecretStore;
   private readonly verifier: IProviderKeyVerifier;
+  private readonly historyRepository: ISecretHistoryRepository;
+  private readonly ids: IIdGenerator;
   private readonly clock: IClock;
   private readonly lastVerifiedAt = new Map<ProviderIdType, string>();
 
   constructor(dependencies: SecretsServiceDependencies) {
     this.store = dependencies.store;
     this.verifier = dependencies.verifier;
+    this.historyRepository = dependencies.history;
+    this.ids = dependencies.ids;
     this.clock = dependencies.clock;
   }
 
@@ -62,10 +82,67 @@ export class SecretsService {
   }
 
   async delete(provider: ProviderIdType): Promise<Result<SecretStatus>> {
+    const existing = await this.store.get(provider);
+    if (!existing.ok) return { ok: false, error: internalError() };
     const deleted = await this.store.delete(provider);
     if (!deleted.ok) return { ok: false, error: internalError() };
+    try {
+      this.historyRepository.append(
+        this.historyEntry(provider, existing.value?.slice(-4) ?? '', SecretHistoryAction.DELETED, null),
+      );
+    } catch {
+      if (existing.value !== null && !(await this.restoreKeyState(provider, existing.value))) {
+        this.lastVerifiedAt.delete(provider);
+        return { ok: false, error: recoveryError() };
+      }
+      return { ok: false, error: internalError() };
+    }
     this.lastVerifiedAt.delete(provider);
     return { ok: true, value: { provider, configured: false } };
+  }
+
+  async verifyAndSave(provider: ProviderIdType, apiKey: string): Promise<Result<SecretStatus>> {
+    const key = this.validatedKey(apiKey);
+    if (!key.ok) return key;
+    const previous = await this.store.get(provider);
+    if (!previous.ok) return { ok: false, error: internalError() };
+    const verified = await this.verifier.verify(provider, key.value);
+    if (!verified.ok) {
+      try {
+        this.historyRepository.append(
+          this.historyEntry(provider, key.value.slice(-4), SecretHistoryAction.VERIFY_FAILED, verified.error.code),
+        );
+      } catch {
+        // Keep the provider verification error as the useful result for the caller.
+      }
+      return { ok: false, error: this.verificationError(provider, verified.error) };
+    }
+    const stored = await this.store.set(provider, key.value);
+    if (!stored.ok) return { ok: false, error: internalError() };
+    const timestamp = isoDateTimeSchema.parse(this.clock.now().toISOString());
+    try {
+      this.historyRepository.append(this.historyEntry(provider, key.value.slice(-4), SecretHistoryAction.SAVED, null));
+    } catch {
+      if (!(await this.restoreKeyState(provider, previous.value))) {
+        this.lastVerifiedAt.delete(provider);
+        return { ok: false, error: recoveryError() };
+      }
+      return { ok: false, error: internalError() };
+    }
+    this.lastVerifiedAt.set(provider, timestamp);
+    return {
+      ok: true,
+      value: { provider, configured: true, hint: key.value.slice(-4), ...this.verified(provider) },
+    };
+  }
+
+  history(provider?: ProviderIdType, limit = 50): Result<readonly SecretHistoryEntry[]> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 50) return validationError('History limit must be 1–50.');
+    try {
+      return { ok: true, value: this.historyRepository.list(provider, limit) };
+    } catch {
+      return { ok: false, error: internalError() };
+    }
   }
 
   async status(): Promise<Result<readonly SecretStatus[]>> {
@@ -98,14 +175,16 @@ export class SecretsService {
     }
     const verified = await this.verifier.verify(provider, stored.value);
     if (!verified.ok) {
+      try {
+        this.historyRepository.append(
+          this.historyEntry(provider, stored.value.slice(-4), SecretHistoryAction.VERIFY_FAILED, verified.error.code),
+        );
+      } catch {
+        // Keep the provider verification error as the useful result for the caller.
+      }
       return {
         ok: false,
-        error: {
-          code: verified.error.code,
-          message: `Could not verify the API key for ${provider}.`,
-          remediation: ['Check the key and provider service, then try again.'],
-          retryable: verified.error.retryable,
-        },
+        error: this.verificationError(provider, verified.error),
       };
     }
     const timestamp = isoDateTimeSchema.parse(this.clock.now().toISOString());
@@ -116,8 +195,56 @@ export class SecretsService {
     };
   }
 
+  private async restoreKeyState(provider: ProviderIdType, previous: string | null): Promise<boolean> {
+    try {
+      const restored = previous === null ? await this.store.delete(provider) : await this.store.set(provider, previous);
+      return restored.ok;
+    } catch {
+      return false;
+    }
+  }
+
   private verified(provider: ProviderIdType): { readonly lastVerifiedAt: IsoDateTime } | Record<string, never> {
     const timestamp = this.lastVerifiedAt.get(provider);
     return timestamp === undefined ? {} : { lastVerifiedAt: isoDateTimeSchema.parse(timestamp) };
+  }
+
+  private validatedKey(apiKey: string): Result<string> {
+    const key = apiKey.trim();
+    if (key.length === 0) return validationError('API key must not be empty.');
+    if (key.length > 512) return validationError('API key must be 512 characters or fewer.');
+    if (/\s|\p{Cc}/u.test(key)) return validationError('API key must not contain whitespace or control characters.');
+    return { ok: true, value: key };
+  }
+
+  private historyEntry(
+    provider: ProviderIdType,
+    hint: string,
+    action: SecretHistoryEntry['action'],
+    resultCode: SecretHistoryEntry['resultCode'],
+  ): SecretHistoryEntry {
+    return {
+      id: secretHistoryIdSchema.parse(this.ids.uuid()),
+      provider,
+      hint,
+      action,
+      resultCode,
+      at: isoDateTimeSchema.parse(this.clock.now().toISOString()),
+    };
+  }
+
+  private verificationError(provider: ProviderIdType, error: AppError): AppError {
+    const remediation =
+      error.code === ErrorCode.PROVIDER_AUTH
+        ? ['The provider rejected this key.']
+        : error.code === ErrorCode.PROVIDER_TIMEOUT
+          ? ['The provider did not answer in time — check your network and try again; the key was not saved.']
+          : ['Check the key and provider service, then try again.'];
+    return {
+      code: error.code,
+      message: `Could not verify the API key for ${provider}.`,
+      remediation,
+      retryable: error.retryable,
+    };
   }
 }

@@ -8,7 +8,7 @@
 | Product | **IT Studio** — Desktop Multi-Agent Command Center |
 | Doc owner | Architect role (Claude) |
 | Last updated | 2026-10-04 |
-| Status | v1 delivered (M0–M7, M9 packaging, M8 images, MW workflow map); continuation guide: `docs/HANDOFF.md`; task status: `ROADMAP.md` |
+| Status | v1 implementation delivered (M0–M8, MW/WC, OWNER-FB1 and M9 installer builds); v1 release sign-off remains pending M9-QA/runtime-isolated install smoke and the recorded native provider/theme follow-ups. v2 (M10–M14) and v3 (M15–M19) are fully specified, not started. Continuation guide: `docs/HANDOFF.md`; task status: `ROADMAP.md` |
 
 ---
 
@@ -48,12 +48,12 @@ Changing any row requires an ADR in `docs/decisions/` and user approval.
 | D9 | Price tables update **only when the user clicks "Update prices"** (Q-05, 2026-10-02): fetch provider pricing pages → LLM extracts into `PriceTable` → validate (schema + bounds + max % change) → apply, else keep last-known-good and warn. The app reminds the user when the table is older than 30 days. Seed table shipped in repo. Ledger rows freeze cost at write time. | Prices change; history must stay correct; no token spend without user action. |
 | D10 | Router fallback is mandatory. Settings toggle **Auto Fallback**: ON → automatic switch down the ladder; OFF → UI modal asks which model to use. Drag-and-drop ladder ordering; optional lock-to-model. | User requirement. |
 | D11 | Failure policy everywhere: **snapshot before write → rollback on failure → report with next steps.** Runtime uses a per-transaction file journal; dev loop uses git checkpoints. | Never leave a half-written workspace. |
-| D12 | **Image generation** (DALL·E 3, FLUX via Together/Replicate; Midjourney adapter disabled — no official API) and **packaging/installer** are **specified now, implemented later** (M8, M9). Contracts already exist in `schemas.ts` §13. | Scope control without future breaking changes. |
+| D12 | **Image generation** (DALL·E 3, FLUX via Together/Replicate; Midjourney adapter disabled — no official API) and **packaging/installer** were originally specified for later milestones M8/M9. M8 generation/Gallery and M9 SEA/NSIS/MSI builds are now implemented; M9-QA and runtime-isolated installer verification remain pending before v1 release sign-off. Contracts are in `schemas.ts` §13. | Original scope control without future breaking changes; implementation status updated 2026-10-04. |
 | D13 | **Multiple projects (Q-01, 2026-10-02):** several projects can be open at once (project tabs) and run pipelines in parallel (one run per project at a time); the user can switch freely; every project has its own P&L **and** an aggregate P&L dashboard covers all projects. Every persisted entity carries `projectId`. | User decision |
 | D14 | Single user, local only, no auth/multi-tenant. Windows first; macOS/Linux not tested in v1. | Scope. |
 | D15 | Provider adapters: **Anthropic SDK**, **OpenAI SDK** (also used for xAI, Groq, Together via `baseURL` — OpenAI-compatible), **Google GenAI SDK**. Exact model ids live in `config/models.seed.json`, never hard-coded in logic. | Few adapters; model churn is config, not code. |
 | D16 | Runtime write safety: the Worker only writes paths inside the project root **and** inside `TaskSpec.allowedPaths`; runs only allow-listed commands from Settings, never commands proposed by a model. | Prevent model-driven path traversal / RCE. |
-| D17 | **Themes:** Settings → Theme offers 18 themes derived from the palettes in `src/image/theme/`, each with light + dark variants and a follow-system mode, designed with color psychology (mood, rationale, recommended activities per theme) and WCAG AA/AAA contrast enforced by tooling. Defaults: Arctic Focus (light) / Midnight Focus (dark). Spec: `docs/design/THEMES.md`. | User requirement (2026-10-02). |
+| D17 | **Themes:** Settings → Theme offers 21 themes derived from the palettes in `src/image/theme/`, each with light + dark variants and a follow-system mode, designed with color psychology and WCAG AA/AAA contrast enforced by tooling. Defaults: Arctic Focus (light) / Neon Gold (dark). Saved selections remain authoritative. Spec: `docs/design/THEMES.md`, `docs/design/DARK-GLOW.md`. | Original user requirement (2026-10-02); owner feedback and authorization 2026-10-04, ADR-0005. |
 | D18 | **v2 Agent Orchestrator** (after v1, M10): built-in agent templates (PM, Architect, Coder, QA, Email Assistant, Page Support) + user-created agents (Agent Builder); each agent = persona + model ladder + tools + channels + memory policy; rule-based routing + user choice (no supervisor agent). The v1 pipeline becomes an agent team. | User decision 2026-10-02, ADR-0003 |
 | D19 | **Agent Memory** (M11): auto-extracted facts/preferences/instructions per agent + project (optional global), LanceDB vectors + SQLite metadata, dedupe, importance + recency scoring; user can view/edit/pin/delete/forget; extraction from external channels off by default. | ADR-0003 |
 | D20 | **Channels** (M12–M14) via `IChannelAdapter`: app, VS Code chat panel, Gmail (triage, draft replies, email commands, email reports), Facebook **Page** Messenger only (no personal accounts). | ADR-0003 |
@@ -70,12 +70,21 @@ Changing any row requires an ADR in `docs/decisions/` and user approval.
 | D31 | **App-overhead LLM costs** (pricing extraction) are attributed to the **active project**; `pricing.refresh` without an active project fails `VALIDATION` ("Open or create a project first"). No separate system project. | Architect decision (M3-04) |
 | D32 | **Workflow map (v1 addendum, milestone MW):** a per-project Workflow tab shows modules, links and the data contract on each link; clicking a module shows **realtime** in-flight work and **history** (7 days / 20 000 events), metrics and deep links. Passive observer — no LLM tokens, no polling; summaries never contain prompt/document text or keys. Scheduled **after** the v1 hand-over. | User decision 2026-10-03 |
 | D33 | **Single-user distribution (2026-10-04):** only the owner installs IT Studio. No Authenticode code-signing for now (SmartScreen "Run anyway" accepted); no clean-VM test — replaced by an install smoke on this machine that proves the packaged app does not depend on the system Node / repo `node_modules`. Revisit before any wider distribution. | User decision |
+| D34 | **Web chat (v1 addendum, WC / OWNER-FB1, 2026-10-04):** IT Studio opens consumer web chats (ChatGPT, Gemini, Grok, Claude, AI Studio, Perplexity; user-editable list) in the owner's browser — default Cốc Cốc when installed — and offers 1–4 native embedded panes for saved HTTPS sites, with persisted layout and separate web-chat profiles. Children have no Tauri capability or sidecar access; navigation stays within the saved origins and safe popups open externally. Embedded sign-in may be blocked; Open in browser remains available. IT Studio never reads, scrapes or automates page content and does not meter consumer chats; Copy project brief remains available. Using consumer subscriptions as model providers (official CLIs) needs its own ADR (changes D15). | User decision and owner feedback authorization; ADR-0005. |
 
 ## 4. Open questions (ask the user before the milestone that needs them)
 
 | ID | Question | Needed by | Default if unanswered |
 |---|---|---|---|
 | Q-02 | Exact default Coder model id (Codex-class) and PM/Reviewer Claude model id. | M2 | Verified from provider `/models` endpoints during M2; written to seed config. |
+| Q-06 | Which Gmail account, and which project does it belong to? | M13 | One account, active project |
+| Q-07 | Which Facebook Page; Meta app stays in development mode? | M14 | Development-mode app, owner is Page admin |
+| Q-08 | Email reports: include an "overnight summary" (runs + spend of the last 24 h)? | M13-06 | Yes, plain text, no LLM |
+| Q-09 | Servers are app-global, not per project (clarifies D13 — see ROADMAP *Doc Debt*)? | M15-00 | Global |
+| Q-10 | Real hosts available for live v3 QA (Dell via Tailscale, VPS, macOS, Windows Server)? | M15-QA / M16-00 | Fake SSH host + any real Linux host the owner provides |
+| Q-11 | Background monitoring on by default for the home-lab only? | M16 | Off for all (D25) |
+
+v2/v3 open questions are also listed with context in `docs/specs/v2-requirements.md` §11 and `docs/specs/v3-requirements.md` §11.
 
 **Resolved 2026-10-02:** Q-01 → D13 (multi-project + aggregate P&L) · Q-03 → generic open FX API (`open.er-api.com`, no key, daily fetch — no LLM tokens) · Q-05 → D9 (manual price updates) · Sandbox/worktree workflow kept (AGENTS.md §5).
 
@@ -101,6 +110,14 @@ Changing any row requires an ADR in `docs/decisions/` and user approval.
 | **Server** (v3) | A managed SSH host (`ServerConfig`): Linux, macOS or Windows; no agent installed. |
 | **Background monitoring** | Opt-in setting: poll server metrics continuously and raise alerts (D25). |
 | **Outbox** | Approval queue of drafted outbound messages; nothing external is sent without approval. |
+| **Agent run** (v2) | One agent turn (`AgentRun`), always started by a user action; may wait in `awaiting_approval` for a pipeline confirmation. |
+| **External trigger** (v2) | A run whose input came from Gmail / Facebook; gets the restricted tool set (search, recall, draft only). |
+| **Triage** (v2) | User-started batch classification of inbound messages (urgent / action / fyi / spam / command); applied only after the user confirms. |
+| **Routing rule** (v2) | Ordered rule mapping an inbound message to an agent (`RoutingRule`). |
+| **Key vault** (v3) | AES-256-GCM encrypted SSH private keys on disk; data keys and passphrases in the OS keychain. |
+| **TOFU** (v3) | Trust on first use: the host-key fingerprint is pinned after the user confirms it; a later mismatch blocks the connection. |
+| **Collector** (v3) | Per-OS strategy that produces one metrics sample from one remote command. |
+| **Watch** (v3) | UI-declared interest in a server's metrics; without background monitoring only watched servers are polled. |
 
 > **v2 (after v1):** the sidecar also hosts the Agent Orchestrator, Agent Memory and Channel Adapters — see ARCHITECTURE Part II (§15–§17).
 > **v3 (after v2):** agentless server management (SSH metrics, Docker, SFTP, system actions) — see ARCHITECTURE Part III (§18–§24).
@@ -187,3 +204,6 @@ IT Studio/
 | How to write code / commit / log changes | `CONVENTIONS.md` |
 | How we test, QA gates, test cases & reports | `TESTING.md`, `docs/qa/` |
 | Why something was decided | §3 above, then `docs/decisions/` |
+| v2 / v3 requirements (numbered FR/NFR, contracts, data model) | `docs/specs/v2-requirements.md`, `docs/specs/v3-requirements.md` |
+| v2 / v3 plan (WBS, dependencies, estimates, risks) | `docs/plans/v2-v3-delivery-plan.md` |
+| Current status and how to continue after a stop | `docs/HANDOFF.md` |

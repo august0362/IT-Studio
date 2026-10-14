@@ -21,8 +21,17 @@ import { FallbackModal } from './FallbackModal';
 import { MessageList } from './MessageList';
 import { ModelPicker } from './ModelPicker';
 import { chatReducer, initialChatState } from './chat-store';
+import { useNavigationIntent } from '../../state/navigation-intent';
+import { WebChatMenu } from './WebChatMenu';
+import type { ShellRoute } from '../../shell/MainNav';
 
-export function ChatPage({ projectId }: { readonly projectId: ProjectId | null }): JSX.Element {
+export function ChatPage({
+  projectId,
+  onNavigate = () => undefined,
+}: {
+  readonly projectId: ProjectId | null;
+  readonly onNavigate?: (route: ShellRoute) => void;
+}): JSX.Element {
   const { t } = useTranslation();
   const rpc = useRpcClient();
   const queryClient = useQueryClient();
@@ -49,10 +58,25 @@ export function ChatPage({ projectId }: { readonly projectId: ProjectId | null }
     () => [...(conversationsQuery.data ?? [])].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)),
     [conversationsQuery.data],
   );
+  const navigationIntent = useNavigationIntent((state) => state.intent);
+  const clearNavigationIntent = useNavigationIntent((state) => state.clearIntent);
   const names = useMemo(
     () => Object.fromEntries((modelsQuery.data ?? []).map((model) => [model.key, model.displayName])),
     [modelsQuery.data],
   );
+
+  useEffect(() => {
+    if (navigationIntent?.kind !== 'conversation') return;
+    const selected = conversations.find((conversation) => conversation.id === navigationIntent.id);
+    if (selected === undefined) return;
+    const timer = window.setTimeout(() => {
+      setConversationId(selected.id);
+      clearNavigationIntent();
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [clearNavigationIntent, conversations, navigationIntent]);
 
   useNotification('chat.delta', (event) => {
     dispatch({ type: 'delta', requestId: event.requestId, text: event.textDelta });
@@ -61,6 +85,7 @@ export function ChatPage({ projectId }: { readonly projectId: ProjectId | null }
     dispatch({ type: 'completed', requestId: event.requestId, message: event.message, cost: event.cost });
     setActiveRequest((current) => (current === event.requestId ? null : current));
     void queryClient.invalidateQueries({ queryKey: ['chat.listConversations', { projectId }] });
+    void queryClient.invalidateQueries({ queryKey: ['images.list', { projectId }] });
   });
   useNotification('chat.failed', (event) => {
     dispatch({ type: 'failed', requestId: event.requestId, error: event.error });
@@ -182,6 +207,12 @@ export function ChatPage({ projectId }: { readonly projectId: ProjectId | null }
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between gap-4 border-b border-border p-3">
           <h1 className="truncate font-semibold">{active?.title ?? t('chat.heading')}</h1>
+          <WebChatMenu
+            onEdit={() => {
+              onNavigate('settings-web-chat');
+            }}
+            projectId={projectId}
+          />
           {active !== undefined ? (
             <label className="flex items-center gap-2 text-sm">
               <input

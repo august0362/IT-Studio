@@ -35,6 +35,48 @@ afterEach(() => {
 });
 
 describe('SettingsService', () => {
+  it('persists web-chat layout and reconciles panes when saved sites are disabled', async () => {
+    const { opened, service, loaded } = createService();
+    try {
+      const links = buildDefaultSettings(loaded.value).webChat.links;
+      const first = links[0];
+      const second = links[1];
+      if (first === undefined || second === undefined) throw new Error('Missing default web-chat links');
+      const saved = await service.update({ webChat: { layout: { panes: [first.id, second.id], sizes: [0.4, 0.6] } } });
+      expect(saved).toMatchObject({
+        ok: true,
+        value: { webChat: { layout: { panes: [first.id, second.id], sizes: [0.4, 0.6] } } },
+      });
+      expect((await new SettingsRepository(opened.db).load())?.json).toContain('"sizes":[0.4,0.6]');
+      const reduced = await service.update({
+        webChat: { links: links.map((link) => (link.id === first.id ? { ...link, enabled: false } : link)) },
+      });
+      expect(reduced).toMatchObject({ ok: true, value: { webChat: { layout: { panes: [second.id], sizes: [1] } } } });
+      const cleared = await service.update({ webChat: { links: [] } });
+      expect(cleared.ok && cleared.value.webChat.layout).toBeUndefined();
+    } finally {
+      opened.client.close();
+    }
+  });
+
+  it('rejects an explicit pane layout selecting a disabled saved site', async () => {
+    const { opened, service, loaded } = createService();
+    try {
+      const links = buildDefaultSettings(loaded.value).webChat.links;
+      const first = links[0];
+      if (first === undefined) throw new Error('Missing default web-chat link');
+      const result = await service.update({
+        webChat: {
+          links: links.map((link) => ({ ...link, enabled: false })),
+          layout: { panes: [first.id], sizes: [1] },
+        },
+      });
+      expect(result).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
+    } finally {
+      opened.client.close();
+    }
+  });
+
   it('creates defaults and deep-merges nested patches', async () => {
     const { opened, service } = createService();
     const initial = await service.get();
@@ -61,6 +103,30 @@ describe('SettingsService', () => {
     expect(readdirSync(directories.at(-1) ?? '').some((name) => name.startsWith('settings_backup_'))).toBe(true);
     const saved = await new SettingsRepository(opened.db).load();
     expect(saved?.json).toContain('activeProjectId');
+    opened.client.close();
+  });
+
+  it('upgrades v1 settings without resetting stored router, budget, or UI values', async () => {
+    const { opened, service, loaded } = createService();
+    const defaults = buildDefaultSettings(loaded.value);
+    const legacy = {
+      ...defaults,
+      router: { ...defaults.router, autoFallback: false },
+      budget: { hardStop: true },
+      ui: { ...defaults.ui, locale: 'vi' as const },
+    };
+    const v1Settings = Object.fromEntries(Object.entries(legacy).filter(([key]) => key !== 'webChat'));
+    await new SettingsRepository(opened.db).save(JSON.stringify(v1Settings), '2026-01-01T00:00:00.000Z');
+    const result = await service.get();
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        router: { autoFallback: false },
+        budget: { hardStop: true },
+        ui: { locale: 'vi' },
+        webChat: defaults.webChat,
+      },
+    });
     opened.client.close();
   });
 });

@@ -6,6 +6,7 @@ import type { ProcessRunInput, IProcessRunner } from '../ports/process-runner.js
 import { NodeFileSystem } from '../infra/node-file-system.js';
 import { NodeProcessRunner } from '../infra/node-process-runner.js';
 import { CommandRunner } from './command-runner.js';
+import type { WorkflowInternalEvent } from './workflow-internal-events.js';
 
 describe('CommandRunner', () => {
   let directory: string | undefined;
@@ -17,6 +18,7 @@ describe('CommandRunner', () => {
   it('uses the real project root and maps command output into CommandRun', async () => {
     directory = await mkdtemp(join(tmpdir(), 'itstudio-command-'));
     let received: ProcessRunInput | undefined;
+    const activity: WorkflowInternalEvent[] = [];
     const processRunner: IProcessRunner = {
       run: (input) => {
         received = input;
@@ -37,11 +39,12 @@ describe('CommandRunner', () => {
       fileSystem: new NodeFileSystem(),
       ids: { uuid: () => 'e6ad8da0-08f8-4a8d-88a0-4199cdbddfe1' },
       env: { PATH: 'safe' },
+      internalEvents: { publish: (event) => activity.push(event), subscribe: () => () => undefined },
     });
     const result = await commandRunner.run(directory, {
       kind: 'typecheck',
       executable: 'node',
-      args: ['node_modules/typescript/bin/tsc'],
+      args: ['node_modules/typescript/bin/tsc', '--token=private-test-secret'],
       timeoutMs: 1000,
     });
     expect(result).toMatchObject({
@@ -51,6 +54,19 @@ describe('CommandRunner', () => {
     expect(received?.cwd).toBe(
       await new NodeFileSystem().realpath(directory).then((real) => (real.ok ? real.value : '')),
     );
+    expect(activity).toMatchObject([
+      { type: 'command', phase: 'started', executable: 'node', argCount: 2 },
+      {
+        type: 'command',
+        phase: 'finished',
+        executable: 'node',
+        argCount: 2,
+        exitCode: 1,
+        timedOut: false,
+        durationMs: 12,
+      },
+    ]);
+    expect(JSON.stringify(activity)).not.toContain('--token=private-test-secret');
   });
 
   it('rejects a project root that is a file', async () => {

@@ -1,9 +1,14 @@
 {
   "anthropic": ["https://claude.com/pricing"],
-  "openai": ["https://openai.com/api/pricing/", "https://platform.openai.com/docs/pricing"],
+  "openai": [
+    "https://developers.openai.com/api/docs/models/gpt-5.5",
+    "https://developers.openai.com/api/docs/models/gpt-5.3-codex",
+    "https://developers.openai.com/api/docs/models/gpt-5.4-mini",
+    "https://developers.openai.com/api/docs/models/text-embedding-3-small"
+  ],
   "google": ["https://ai.google.dev/gemini-api/docs/pricing"],
-  "xai": ["https://docs.x.ai/docs/models"],
-  "groq": ["https://groq.com/pricing"],
+  "xai": ["https://docs.x.ai/developers/pricing"],
+  "groq": ["https://console.groq.com/docs/models"],
   "together": ["https://www.together.ai/pricing"],
   "replicate": ["https://replicate.com/pricing"]
 }

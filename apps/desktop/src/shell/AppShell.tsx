@@ -1,6 +1,6 @@
 import type { AppError, ProjectId } from '@itstudio/schemas';
 import { useQueryClient } from '@tanstack/react-query';
-import { lazy, Suspense, useEffect, useMemo, useState, type JSX } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiKeysPage } from '../features/settings/api-keys/ApiKeysPage';
 import { ThemePage } from '../features/settings/theme/ThemePage';
@@ -21,6 +21,10 @@ import { VSCodeSettingsPage } from '../features/settings/vscode/VSCodeSettingsPa
 import { PipelineSettingsPage } from '../features/settings/pipeline/PipelineSettingsPage';
 import { KnowledgePage } from '../features/knowledge/KnowledgePage';
 import { ImagesSettingsPage } from '../features/settings/images/ImagesSettingsPage';
+import { useNavigationIntent } from '../state/navigation-intent';
+import { ResolvedWebChatSettingsPage } from '../features/webchat/ResolvedWebChatSettingsPage';
+import { WebChatPage } from '../features/webchat/WebChatPage';
+import { createWebChatHost } from '../features/webchat/webchat-host';
 
 const CodePage = lazy(() => import('../features/code/CodePage').then(({ CodePage: page }) => ({ default: page })));
 const CostPage = lazy(() => import('../features/cost/CostPage').then(({ CostPage: page }) => ({ default: page })));
@@ -41,6 +45,7 @@ function initialRoute(): ShellRoute {
   if (
     [
       'chat',
+      'webchat',
       'code',
       'knowledge',
       'workflow',
@@ -55,6 +60,7 @@ function initialRoute(): ShellRoute {
       'settings-vscode',
       'settings-pipeline',
       'settings-images',
+      'settings-web-chat',
     ].includes(hash)
   )
     return hash as ShellRoute;
@@ -65,6 +71,7 @@ export function AppShell(): JSX.Element {
   const { t } = useTranslation();
   const rpc = useRpcClient();
   const queryClient = useQueryClient();
+  const webChatHost = useMemo(() => createWebChatHost(), []);
   const projectsQuery = useRpcQuery('project.list', {});
   const settingsQuery = useRpcQuery('settings.get', {});
   const [route, setRoute] = useState<ShellRoute>(initialRoute);
@@ -73,7 +80,9 @@ export function AppShell(): JSX.Element {
     { readonly kind: 'project'; readonly id: string } | { readonly kind: 'all' } | undefined
   >(undefined);
   const [showNewProject, setShowNewProject] = useState(false);
+  const [webChatSuspended, setWebChatSuspended] = useState(false);
   const [projectError, setProjectError] = useState<AppError | null>(null);
+  const navigationRevision = useRef(0);
   const projects = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data]);
   const validOpenIds = useMemo(
     () => openIds.filter((id) => projects.some((project) => project.id === id)),
@@ -98,19 +107,54 @@ export function AppShell(): JSX.Element {
   useEffect(() => {
     writeOpenProjects(visibleOpenIds);
   }, [visibleOpenIds]);
+  const navigate = useCallback(
+    (next: ShellRoute): void => {
+      const revision = ++navigationRevision.current;
+      const apply = (): void => {
+        if (revision !== navigationRevision.current) return;
+        setRoute(next);
+        setWebChatSuspended(false);
+        window.history.replaceState(null, '', `#${next}`);
+      };
+      if (route === 'webchat' && next !== 'webchat') {
+        setWebChatSuspended(true);
+        void webChatHost
+          .closeAll()
+          .then(apply)
+          .catch((cause: unknown) => {
+            if (revision !== navigationRevision.current) return;
+            setProjectError(asAppError(cause));
+            setWebChatSuspended(false);
+            window.history.replaceState(null, '', `#${route}`);
+          });
+      } else apply();
+    },
+    [route, webChatHost],
+  );
+
   useEffect(() => {
-    const listener = () => {
-      setRoute(initialRoute());
+    const listener = (): void => {
+      navigate(initialRoute());
     };
     window.addEventListener('hashchange', listener);
     return () => {
       window.removeEventListener('hashchange', listener);
     };
-  }, []);
+  }, [navigate]);
 
-  function navigate(next: ShellRoute): void {
-    setRoute(next);
-    window.history.replaceState(null, '', `#${next}`);
+  async function openNewProjectDialog(): Promise<void> {
+    setProjectError(null);
+    if (route === 'webchat') {
+      setWebChatSuspended(true);
+      try {
+        await webChatHost.setVisible(false);
+      } catch (cause: unknown) {
+        setProjectError(asAppError(cause));
+        setWebChatSuspended(false);
+        return;
+      }
+    }
+    setShowNewProject(true);
   }
 
   async function activate(id: string | null): Promise<void> {
@@ -140,6 +184,7 @@ export function AppShell(): JSX.Element {
       await queryClient.invalidateQueries({ queryKey: ['settings.get', {}] });
       setActiveSelection({ kind: 'project', id: project.id });
       setShowNewProject(false);
+      setWebChatSuspended(false);
     } catch (cause: unknown) {
       setProjectError(asAppError(cause));
     }
@@ -153,7 +198,20 @@ export function AppShell(): JSX.Element {
 
   let content: JSX.Element;
   if (route === 'chat')
-    content = <ChatPage projectId={projects.find((project) => project.id === activeId)?.id ?? null} />;
+    content = (
+      <ChatPage onNavigate={navigate} projectId={projects.find((project) => project.id === activeId)?.id ?? null} />
+    );
+  else if (route === 'webchat')
+    content = (
+      <WebChatPage
+        host={webChatHost}
+        layoutRevision={`${String(projectsQuery.isError)}:${projectError?.message ?? ''}:${String(showNewProject)}`}
+        onSettings={() => {
+          navigate('settings-web-chat');
+        }}
+        suspended={webChatSuspended}
+      />
+    );
   else if (route === 'knowledge')
     content = (
       <KnowledgePage
@@ -165,7 +223,19 @@ export function AppShell(): JSX.Element {
     content = (
       <Suspense fallback={<p role="status">{t('workflow.loading')}</p>}>
         <WorkflowPage
-          onNavigate={(target) => {
+          onNavigate={(target, event) => {
+            const refs = event?.refs;
+            if (target === 'chat' && refs?.conversationId !== undefined)
+              useNavigationIntent.getState().setIntent({ kind: 'conversation', id: refs.conversationId });
+            else if (target === 'code' && refs?.pipelineRunId !== undefined)
+              useNavigationIntent.getState().setIntent({ kind: 'pipelineRun', id: refs.pipelineRunId });
+            else if (target === 'knowledge' && refs?.ingestJobId !== undefined)
+              useNavigationIntent.getState().setIntent({ kind: 'ingestJob', id: refs.ingestJobId });
+            else if (target === 'cost') {
+              const field = refs?.requestId !== undefined ? 'requestId' : 'pipelineRunId';
+              const id = refs?.[field];
+              if (id !== undefined) useNavigationIntent.getState().setIntent({ kind: 'ledger', id, field });
+            }
             navigate(target);
           }}
           projectId={activeId === null ? null : (projects.find((project) => project.id === activeId)?.id ?? null)}
@@ -204,6 +274,7 @@ export function AppShell(): JSX.Element {
   else if (route === 'settings-fx') content = <FxSettingsPage />;
   else if (route === 'settings-vscode') content = <VSCodeSettingsPage />;
   else if (route === 'settings-images') content = <ImagesSettingsPage />;
+  else if (route === 'settings-web-chat') content = <ResolvedWebChatSettingsPage />;
   else content = <PipelineSettingsPage />;
 
   return (
@@ -218,8 +289,7 @@ export function AppShell(): JSX.Element {
               void activate(id);
             }}
             onAdd={() => {
-              setProjectError(null);
-              setShowNewProject(true);
+              void openNewProjectDialog();
             }}
             onClose={(id) => {
               closeProject(id);
@@ -248,6 +318,7 @@ export function AppShell(): JSX.Element {
           error={projectError}
           onCancel={() => {
             setShowNewProject(false);
+            setWebChatSuspended(false);
           }}
           onCreate={createProject}
         />

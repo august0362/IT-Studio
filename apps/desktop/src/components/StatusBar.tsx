@@ -21,7 +21,7 @@ export function StatusBar(): JSX.Element {
   return (
     <footer
       aria-live="polite"
-      className="border-t border-border bg-surface px-4 py-2 text-sm"
+      className="studio-bar border-t border-border bg-surface px-4 py-2 text-sm"
       title={`Theme: ${activeTheme?.name ?? 'Default'} · ${settings.data?.ui.mode ?? 'system'} mode`}
       role={fatal === null ? 'status' : 'alert'}
     >

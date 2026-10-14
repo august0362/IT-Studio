@@ -1,8 +1,15 @@
-import type { RpcError, RpcMethod, RpcMethodMap, RpcNotificationMap, RpcNotificationName } from '@itstudio/schemas';
+import type {
+  RpcError,
+  RpcMethod,
+  RpcMethodMap,
+  RpcNotificationMap,
+  RpcNotificationName,
+  WebChatLinkId,
+} from '@itstudio/schemas';
 import { z } from './common.js';
 import { projectSchema } from './projects.js';
 import { appSettingsSchema, settingsPatchSchema } from './settings.js';
-import { secretStatusSchema, modelDescriptorSchema } from './models.js';
+import { secretStatusSchema, secretHistoryEntrySchema, modelDescriptorSchema } from './models.js';
 import { conversationSchema, chatMessageSchema } from './chat.js';
 import {
   routerConfigSchema,
@@ -22,6 +29,7 @@ import {
   priceUpdateRunSchema,
   priceEntrySchema,
   priceRowSchema,
+  pricingExtractionOptionsSchema,
   fxRateSchema,
   moneyDisplaySchema,
   pageSchema,
@@ -59,10 +67,24 @@ export const rpcParamsSchemas = {
   'project.setActive': z.object({ projectId: projectIdSchema }).readonly(),
   'settings.get': empty,
   'settings.update': z.object({ patch: settingsPatchSchema }).readonly(),
+  'webchat.browsers': empty,
+  'webchat.open': z
+    .object({
+      linkId: z.custom<WebChatLinkId>((value) => typeof value === 'string' && value.length > 0),
+    })
+    .readonly(),
+  'webchat.projectBrief': z.object({ projectId: projectIdSchema }).readonly(),
   'secrets.set': z.object({ provider: providerIdSchema, apiKey: z.string() }).readonly(),
   'secrets.delete': z.object({ provider: providerIdSchema }).readonly(),
   'secrets.status': empty,
   'secrets.verify': z.object({ provider: providerIdSchema }).readonly(),
+  'secrets.verifyAndSave': z.object({ provider: providerIdSchema, apiKey: z.string() }).readonly(),
+  'secrets.history': z
+    .object({
+      provider: providerIdSchema.exactOptional(),
+      limit: z.number().int().min(1).max(50).exactOptional(),
+    })
+    .readonly(),
   'models.list': empty,
   'chat.listConversations': z.object({ projectId: projectIdSchema }).readonly(),
   'chat.createConversation': z.object({ projectId: projectIdSchema, title: z.string().exactOptional() }).readonly(),
@@ -192,10 +214,27 @@ export const rpcResultSchemas = {
   'project.setActive': projectSchema,
   'settings.get': appSettingsSchema,
   'settings.update': appSettingsSchema,
+  'webchat.browsers': z
+    .array(
+      z
+        .object({
+          browser: z.enum(['default', 'coccoc', 'chrome', 'edge', 'firefox', 'custom']),
+          installed: z.boolean(),
+          path: z.string().nullable(),
+        })
+        .readonly(),
+    )
+    .readonly(),
+  'webchat.open': z
+    .object({ opened: z.literal(true), browser: z.enum(['default', 'coccoc', 'chrome', 'edge', 'firefox', 'custom']) })
+    .readonly(),
+  'webchat.projectBrief': z.object({ text: z.string().max(4000) }).readonly(),
   'secrets.set': secretStatusSchema,
   'secrets.delete': secretStatusSchema,
   'secrets.status': z.array(secretStatusSchema).readonly(),
   'secrets.verify': secretStatusSchema,
+  'secrets.verifyAndSave': secretStatusSchema,
+  'secrets.history': z.array(secretHistoryEntrySchema).readonly(),
   'models.list': z.array(modelDescriptorSchema).readonly(),
   'chat.listConversations': z.array(conversationSchema).readonly(),
   'chat.createConversation': conversationSchema,
@@ -220,7 +259,12 @@ export const rpcResultSchemas = {
   'budget.status': z.array(budgetStatusSchema).readonly(),
   'pricing.get': priceTableSchema,
   'pricing.getRows': z
-    .object({ table: priceTableSchema, rows: z.array(priceRowSchema).readonly(), stale: z.boolean() })
+    .object({
+      table: priceTableSchema,
+      rows: z.array(priceRowSchema).readonly(),
+      stale: z.boolean(),
+      extraction: pricingExtractionOptionsSchema.exactOptional(),
+    })
     .readonly(),
   'pricing.refresh': priceUpdateRunSchema,
   'pricing.override': priceTableSchema,

@@ -14,6 +14,7 @@ import type { Logger } from 'pino';
 import type { IIdGenerator } from '../infra/id.js';
 import { extToSidecarSchema } from '../validation/vscode.js';
 import { writeVscodeSessionFile } from './vscode-session-file.js';
+import type { WorkflowInternalEvent } from './workflow-internal-events.js';
 
 export interface VscodeBridgeEvents {
   publishStatus(status: VSCodeStatus): void;
@@ -23,6 +24,7 @@ export interface VscodeBridgeEvents {
     readonly path: WorkspaceRelativePath;
     readonly hash: string;
   }): void;
+  publishActivity?(value: WorkflowInternalEvent): void;
 }
 
 export interface VscodeBridgeTimers {
@@ -64,6 +66,10 @@ export class VSCodeBridge {
   private heartbeat: unknown;
   private missedPongs = 0;
   private ref = 0;
+  private readonly pendingActions = new Map<
+    number,
+    { readonly action: 'reveal' | 'show_diff' | 'transaction' | 'notify'; readonly path?: WorkspaceRelativePath }
+  >();
   private port: number | undefined;
 
   constructor(dependencies: VscodeBridgeDependencies) {
@@ -119,6 +125,23 @@ export class VSCodeBridge {
     const socket = this.socket;
     if (socket?.readyState !== WebSocket.OPEN) return;
     const outbound = 'ref' in message ? { ...message, ref: ++this.ref } : message;
+    if ('ref' in outbound && outbound.type !== 'request_diagnostics' && this.activeProject !== undefined) {
+      const path =
+        outbound.type === 'reveal' || outbound.type === 'show_diff'
+          ? outbound.path
+          : outbound.type === 'transaction'
+            ? outbound.paths[0]
+            : undefined;
+      const action = outbound.type;
+      this.pendingActions.set(outbound.ref, { action, ...(path === undefined ? {} : { path }) });
+      this.dependencies.events.publishActivity?.({
+        type: 'vscode',
+        phase: 'sent',
+        projectId: this.activeProject.id,
+        action,
+        ...(path === undefined ? {} : { path }),
+      });
+    }
     socket.send(JSON.stringify(outbound));
   }
 
@@ -127,6 +150,7 @@ export class VSCodeBridge {
     this.socket?.close(1001, 'Sidecar stopping');
     this.socket = undefined;
     this.activeProject = undefined;
+    this.pendingActions.clear();
     const server = this.server;
     this.server = undefined;
     this.startPromise = undefined;
@@ -187,6 +211,18 @@ export class VSCodeBridge {
       }
       if (parsed.data.type === 'pong' || parsed.data.type === 'ack') {
         if (parsed.data.type === 'pong') this.missedPongs = 0;
+        else {
+          const action = this.pendingActions.get(parsed.data.ref);
+          this.pendingActions.delete(parsed.data.ref);
+          if (action !== undefined)
+            this.dependencies.events.publishActivity?.({
+              type: 'vscode',
+              phase: 'acked',
+              projectId: project.id,
+              action: action.action,
+              ...(action.path === undefined ? {} : { path: action.path }),
+            });
+        }
         return;
       }
       if (parsed.data.type === 'diagnostics') {

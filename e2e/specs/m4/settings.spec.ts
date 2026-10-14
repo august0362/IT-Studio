@@ -4,74 +4,20 @@ import { ensureProviderKeys } from '../../helpers/keys.js';
 import { createTemporaryProjectFolder, waitForReady } from '../../helpers/ui.js';
 
 async function findPricingRow(name: string): Promise<WebdriverIO.Element> {
-  const rows = browser.$$('tr');
-  for (const row of rows) {
-    if ((await row.getText()).includes(name)) return row;
-  }
-  throw new Error(`Pricing row ${name} was not found`);
+  const row = browser.$(`//tbody/tr[td[1][starts-with(normalize-space(.), "${name}")]]`);
+  await row.waitForExist({ timeoutMsg: `Pricing row ${name} was not found` });
+  return row.getElement();
 }
 
 describe('M4 Settings', () => {
-  let originalLadder: string[] = [];
-
   before(async () => {
     await waitForReady();
     await ensureProviderKeys();
-    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
-    originalLadder = await browser.$$('ol li span').map((entry) => entry.getText());
   });
 
-  afterEach(async () => {
+  beforeEach(async () => {
+    await browser.refresh();
     await waitForReady();
-    await browser.keys('ESC');
-    await browser.waitUntil(async () => {
-      const dialogs = browser.$$('[role="dialog"], [role="alertdialog"]');
-      for (const dialog of dialogs) if (await dialog.isDisplayed()) return false;
-      return true;
-    });
-    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
-    const autoFallback = browser.$('aria/Auto Fallback');
-    if (!(await autoFallback.isSelected())) await autoFallback.click();
-    await browser.waitUntil(async () => autoFallback.isSelected());
-
-    for (let targetIndex = 0; targetIndex < originalLadder.length; targetIndex += 1) {
-      const current = await browser.$$('ol li span').map((entry) => entry.getText());
-      const targetName = originalLadder[targetIndex];
-      if (targetName === undefined) continue;
-      const currentIndex = current.indexOf(targetName);
-      if (currentIndex < 0) throw new Error(`Router model ${targetName} is missing during cleanup`);
-      if (currentIndex === targetIndex) continue;
-      const row = browser.$$('ol li')[currentIndex];
-      const dragButton = row?.$('button[aria-label^="Reorder"]');
-      if (dragButton === undefined) throw new Error(`Router model ${targetName} cannot be reordered`);
-      await dragButton.click();
-      await browser.keys(Key.Space);
-      await browser.pause(300);
-      for (let step = currentIndex; step > targetIndex; step -= 1) {
-        await browser.keys(Key.ArrowUp);
-        await browser.pause(300);
-      }
-      await browser.keys(Key.Space);
-      await browser.pause(300);
-    }
-
-    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-budget"]').click();
-    const hardStop = browser.$('aria/Hard Stop');
-    if (await hardStop.isSelected()) await hardStop.click();
-    await browser.waitUntil(async () => !(await hardStop.isSelected()));
-
-    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-fx"]').click();
-    const clearFxOverride = browser.$('button=Clear override');
-    if (await clearFxOverride.isEnabled()) await clearFxOverride.click();
-    await browser.waitUntil(async () => !(await clearFxOverride.isEnabled()));
-
-    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-pricing"]').click();
-    const gpt55Row = await findPricingRow('GPT-5.5');
-    if ((await gpt55Row.isExisting()) && (await gpt55Row.getText()).includes('Overridden')) {
-      await gpt55Row.$('button=Clear override').click();
-      await browser.$('[role="alertdialog"] button=Clear override').click();
-      await browser.waitUntil(async () => !(await gpt55Row.getText()).includes('Overridden'));
-    }
   });
 
   it('TC-M4-040 persists Auto Fallback after reload', async () => {
@@ -161,14 +107,14 @@ describe('M4 Settings', () => {
     await inputs[0]?.setValue('0.15');
     await inputs[1]?.setValue('0.30');
     await inputs[2]?.setValue('0.05');
-    await browser.$('form[aria-labelledby="override-heading"] button=Save').click();
+    await browser.$('form[aria-labelledby="override-heading"] button[type="submit"]').click();
     await browser.waitUntil(async () => (await browser.$('body').getText()).includes('Overridden'));
     await row.$('button=Override').click();
     const invalidInputs = browser.$$('form[aria-labelledby="override-heading"] input');
     await invalidInputs[0]?.setValue('-1');
     await invalidInputs[1]?.setValue('0.3');
     await invalidInputs[2]?.setValue('0.1');
-    await browser.$('form[aria-labelledby="override-heading"] button=Save').click();
+    await browser.$('form[aria-labelledby="override-heading"] button[type="submit"]').click();
     await browser.waitUntil(async () => await browser.$('[role="alert"]').isDisplayed());
     expect(await browser.$('[role="alert"]').getText()).to.include('valid non-negative');
   });
@@ -186,7 +132,7 @@ describe('M4 Settings', () => {
     await browser.$('button=All projects').click();
     await browser.$('nav[aria-label="Main navigation"] a[href="#settings-pricing"]').click();
     expect(await browser.$('button=Update prices').isEnabled()).to.equal(false);
-    expect(await browser.$('body').getText()).to.include('D31: Select a project before updating prices.');
+    expect(await browser.$('body').getText()).to.include('Select a project before updating prices.');
   });
 
   it('TC-M4-045 applies and clears an FX override reflected in VND Money lines', async () => {
@@ -233,14 +179,16 @@ describe('M4 Settings', () => {
     );
     await browser.$('nav[aria-label="Main navigation"] a[href="#settings-pricing"]').click();
     const row = await findPricingRow('GPT-5.5');
+    expect(await row.$('td').getText()).to.include('GPT-5.5');
     await row.$('button=Override').click();
     const inputs = browser.$$('form[aria-labelledby="override-heading"] input');
     await inputs[0]?.setValue('0.15');
     await inputs[1]?.setValue('0.30');
     await inputs[2]?.setValue('0.05');
-    await browser.$('form[aria-labelledby="override-heading"] button=Save').click();
+    await browser.$('form[aria-labelledby="override-heading"] button[type="submit"]').click();
     await browser.waitUntil(async () => (await row.getText()).includes('Overridden'));
 
+    expect(await row.$('td').getText()).to.include('GPT-5.5');
     await row.$('button=Clear override').click();
     const dialog = browser.$('[role="alertdialog"]');
     await browser.waitUntil(async () => dialog.isDisplayed());

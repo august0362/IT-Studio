@@ -1,8 +1,10 @@
 import {
   FailureKind,
   CostPurpose,
+  ImageProviderId,
   ProviderId,
   PipelineStage,
+  type PriceEntry,
   type ProjectId,
   type RpcNotificationMap,
   type VSCodeStatus,
@@ -82,6 +84,10 @@ import { CommandRunner } from './services/command-runner.js';
 import { FailureReportBuilder } from './services/failure-report-builder.js';
 import { JournalRecoveryService } from './services/journal-recovery.js';
 import { ProjectContextService } from './services/project-context.js';
+import { BrowserLocator } from './infra/browser-locator.js';
+import { NodeBrowserLauncher } from './infra/node-browser-launcher.js';
+import { WebChatService } from './services/web-chat-service.js';
+import type { IBrowserLauncher } from './ports/browser-launcher.js';
 import { PipelineOrchestrator } from './services/pipeline-orchestrator.js';
 import { microUsd, toMoneyDisplay } from './domain/money.js';
 import { OpenAiEmbeddingProvider } from './providers/embedding/openai.js';
@@ -90,6 +96,7 @@ import { FakeEmbeddingProvider } from './infra/fake-embedding-provider.js';
 import { EmbeddingDispatcher } from './services/embedding-dispatcher.js';
 import { LanceDbVectorStore } from './infra/lancedb/vector-store.js';
 import { DocumentRepository } from './infra/sqlite/document-repository.js';
+import { SecretHistoryRepository, type ISecretHistoryRepository } from './infra/sqlite/secret-history-repository.js';
 import { RagService } from './services/rag/rag-service.js';
 import { Retriever } from './services/rag/retriever.js';
 import { ImageRepository } from './infra/sqlite/image-repository.js';
@@ -100,7 +107,8 @@ import { FluxReplicateProvider } from './providers/image/flux-replicate.js';
 import { FakeImageProvider } from './infra/fake-image-provider.js';
 import { isoDateTimeSchema } from './validation/brand.js';
 import { toolCallSchema } from './validation/chat.js';
-import { jsonObjectSchema } from './validation/common.js';
+import { jsonObjectSchema, modelKeySchema } from './validation/common.js';
+import type { WorkflowInternalEvent } from './services/workflow-internal-events.js';
 
 class MemorySecretStore implements ISecretStore {
   private readonly values = new Map<ProviderId, string>();
@@ -123,6 +131,10 @@ class MemorySecretStore implements ISecretStore {
 type VerifierOutcome = 'success' | 'auth' | 'server' | 'timeout';
 const verifierOutcomeSchema = z.enum(['success', 'auth', 'server', 'timeout']);
 const verifierFixtureSchema = z.record(z.string(), verifierOutcomeSchema);
+const imageScriptSchema = z.partialRecord(
+  z.enum([ImageProviderId.OPENAI_DALLE3, ImageProviderId.FLUX_TOGETHER, ImageProviderId.FLUX_REPLICATE]),
+  z.array(z.string().regex(/^(success|http:\d{3})$/u)),
+);
 
 class ScriptedKeyVerifier implements IProviderKeyVerifier {
   private readonly outcomes: Readonly<Record<string, VerifierOutcome>>;
@@ -311,6 +323,7 @@ export interface ContainerDependencies {
   readonly exit?: (code: number) => void;
   readonly dataDir?: string;
   readonly secretStore?: ISecretStore;
+  readonly secretHistoryRepository?: ISecretHistoryRepository;
   readonly keyVerifier?: IProviderKeyVerifier;
   readonly fxHttpClient?: IHttpClient;
   readonly pricingHttpClient?: IHttpClient;
@@ -337,6 +350,11 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     e2e && env.ITSTUDIO_E2E_EMBEDDING_SCRIPT !== undefined
       ? embeddingScriptSchema.parse(JSON.parse(readFileSync(env.ITSTUDIO_E2E_EMBEDDING_SCRIPT, 'utf8')))
       : {};
+  const imageScripts =
+    e2e && env.ITSTUDIO_E2E_IMAGE_SCRIPT !== undefined
+      ? imageScriptSchema.parse(JSON.parse(readFileSync(env.ITSTUDIO_E2E_IMAGE_SCRIPT, 'utf8')))
+      : {};
+  const imageScriptCursors = new Map<string, number>();
   const embeddingScriptCursors = new Map<string, number>();
   const configuredLlmText = env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.';
   let llmTexts: string | Readonly<Record<string, string>> = configuredLlmText;
@@ -358,6 +376,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     : resolve(dirname(fileURLToPath(import.meta.url)), 'infra/sqlite/migrations');
   const migrationsApplied = readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).length;
   const projectRepository = new ProjectRepository(database.db);
+  const secretHistoryRepository = dependencies.secretHistoryRepository ?? new SecretHistoryRepository(database.db);
   const chatRepository = new ChatRepository(database.db);
   const imageRepository = new ImageRepository(database.db);
   const ledgerRepository = new LedgerRepository(database.db);
@@ -380,6 +399,8 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const secretStore = dependencies.secretStore ?? (e2e ? new MemorySecretStore() : new KeychainSecretStore());
   const secretsService = new SecretsService({
     store: secretStore,
+    history: secretHistoryRepository,
+    ids,
     verifier:
       dependencies.keyVerifier ??
       (e2e
@@ -438,6 +459,21 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     clock,
   });
   pricingService.initialize();
+  if (e2e && env.ITSTUDIO_E2E_IMAGE_PRICE_MICRO_USD !== undefined) {
+    const perImageMicroUsd = Number(env.ITSTUDIO_E2E_IMAGE_PRICE_MICRO_USD);
+    if (!Number.isSafeInteger(perImageMicroUsd) || perImageMicroUsd < 0)
+      throw new Error('ITSTUDIO_E2E_IMAGE_PRICE_MICRO_USD must be a non-negative safe integer.');
+    const imagePrice: PriceEntry = {
+      modelKey: modelKeySchema.parse('openai/image-generation'),
+      inputPerMTokMicroUsd: microUsd(0),
+      outputPerMTokMicroUsd: microUsd(0),
+      cachedInputPerMTokMicroUsd: microUsd(0),
+      perImageMicroUsd: microUsd(perImageMicroUsd),
+      freeTier: false,
+      sourceUrl: 'https://example.invalid/e2e-image-price',
+    };
+    pricingService.applyExtracted([imagePrice]);
+  }
   const pricingHttpClient: IHttpClient =
     dependencies.pricingHttpClient ??
     (e2e
@@ -458,6 +494,13 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
         }
       : new FetchHttpClient());
   const events = new EventBus<RpcNotificationMap>();
+  const workflowInternalBus = new EventBus<{ activity: WorkflowInternalEvent }>();
+  const workflowInternalEvents = {
+    publish: (event: WorkflowInternalEvent) => {
+      workflowInternalBus.publish('activity', event);
+    },
+    subscribe: (handler: (event: WorkflowInternalEvent) => void) => workflowInternalBus.subscribe('activity', handler),
+  };
   const activityRecorder = new ActivityRecorder({
     events,
     repository: activityRepository,
@@ -466,6 +509,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     settings: settingsService,
     aggregateCost: (amount) => toMoneyDisplay(microUsd(amount), fxService.getEffective()),
     vscodeBridgeAvailable: vscodeBridgeEnabled,
+    internalEvents: workflowInternalEvents,
   });
   const fileSystem = new NodeFileSystem();
   let vscodeConnected = false;
@@ -496,6 +540,9 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
       },
       publishInternal: (value) => {
         vscodeInternalEvents.publish('file_saved_by_user', value);
+      },
+      publishActivity: (value) => {
+        workflowInternalEvents.publish(value);
       },
     },
   });
@@ -547,7 +594,11 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     clock,
   });
   const imageProviders = e2e
-    ? [new FakeImageProvider()]
+    ? [
+        new FakeImageProvider(ImageProviderId.OPENAI_DALLE3, imageScripts, imageScriptCursors),
+        new FakeImageProvider(ImageProviderId.FLUX_TOGETHER, imageScripts, imageScriptCursors),
+        new FakeImageProvider(ImageProviderId.FLUX_REPLICATE, imageScripts, imageScriptCursors),
+      ]
     : [
         new OpenAiDalle3Provider(secretStore),
         new FluxTogetherProvider(secretStore, new FetchHttpClient()),
@@ -565,6 +616,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     ids,
     clock,
     logger,
+    internalEvents: workflowInternalEvents,
   });
   const embeddingProviders = {
     [ProviderId.OPENAI]: e2e
@@ -601,6 +653,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
           );
         },
         completed: routerCompleted,
+        internalEvents: workflowInternalEvents,
         ...(e2e ? { sleep: () => Promise.resolve() } : {}),
       });
       return dispatcher.embed(texts, context);
@@ -612,6 +665,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     vectors: vectorStore,
     embeddings: embeddingDispatcher,
     settings: settingsService,
+    internalEvents: workflowInternalEvents,
   });
   const ragService = new RagService({
     projects: projectRepository,
@@ -701,6 +755,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   });
   const pricingUpdater = new PricingUpdater({
     settings: settingsService,
+    secretStore,
     projects: projectRepository,
     pricing: pricingService,
     router: llmRouter,
@@ -715,9 +770,45 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const pipelineRepository = new PipelineRepository(database.db);
   const roleCaller = new RoleCaller({ router: llmRouter, logger, ids, now: () => clock.now() });
   const writeTransaction = new WriteTransactionService({ fileSystem, ids, clock });
-  const commandRunner = new CommandRunner({ processRunner: new NodeProcessRunner(), fileSystem, ids });
+  const commandRunner = new CommandRunner({
+    processRunner: new NodeProcessRunner(),
+    fileSystem,
+    ids,
+    internalEvents: workflowInternalEvents,
+  });
   const journalRecovery = new JournalRecoveryService(fileSystem, clock);
   const projectContext = new ProjectContextService(fileSystem);
+  const browserLocator = new BrowserLocator(fileSystem, env);
+  const browserLaunches: { readonly executable: string; readonly args: readonly string[] }[] = [];
+  const browserLauncher: IBrowserLauncher = e2e
+    ? {
+        launch: (executable, url) => {
+          const record = { executable, args: [url] } as const;
+          browserLaunches.push(record);
+          let safeUrl = url;
+          try {
+            const parsedUrl = new URL(url);
+            parsedUrl.search = '';
+            parsedUrl.hash = '';
+            safeUrl = parsedUrl.toString();
+          } catch {
+            // The launcher validates URLs before the E2E recorder receives them.
+          }
+          logger.info({ svc: 'webchat-e2e', executable, args: [safeUrl] }, 'Recorded browser launch request');
+          return { ok: true, value: undefined };
+        },
+      }
+    : new NodeBrowserLauncher(logger);
+  const webChatService = new WebChatService({
+    settings: settingsService,
+    projects: projectRepository,
+    context: projectContext,
+    launcher: browserLauncher,
+    locator: browserLocator,
+    fileSystem,
+    env,
+    logger,
+  });
   const failureReportBuilder = new FailureReportBuilder();
   const pipelineOrchestrator = new PipelineOrchestrator({
     repository: pipelineRepository,
@@ -778,6 +869,9 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   service.register(server);
   server.register('settings.get', () => settingsService.get());
   server.register('settings.update', ({ patch }) => settingsService.update(patch));
+  server.register('webchat.browsers', () => webChatService.browsers());
+  server.register('webchat.open', ({ linkId }) => webChatService.open(linkId));
+  server.register('webchat.projectBrief', ({ projectId }) => webChatService.projectBrief(projectId));
   server.register('fx.get', () => fxService.get());
   server.register('fx.override', ({ usdToVnd }) => fxService.override(usdToVnd));
   server.register('router.getConfig', () => routerConfigService.getConfig());
@@ -808,6 +902,8 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   server.register('secrets.delete', ({ provider }) => secretsService.delete(provider));
   server.register('secrets.status', () => secretsService.status());
   server.register('secrets.verify', ({ provider }) => secretsService.verify(provider));
+  server.register('secrets.verifyAndSave', ({ provider, apiKey }) => secretsService.verifyAndSave(provider, apiKey));
+  server.register('secrets.history', ({ provider, limit }) => Promise.resolve(secretsService.history(provider, limit)));
   server.register('models.list', () => Promise.resolve({ ok: true, value: modelRegistry.list() }));
   server.register('chat.listConversations', ({ projectId }) => chatService.listConversations(projectId));
   server.register('chat.createConversation', ({ projectId, title }) =>
@@ -886,9 +982,12 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   server.register('budget.setUsd', (input) => budgetGuard.setUsd(input));
   server.register('budget.status', ({ projectId }) => budgetGuard.status(projectId));
   server.register('pricing.get', () => Promise.resolve({ ok: true, value: pricingService.current() }));
-  server.register('pricing.getRows', () =>
-    Promise.resolve({ ok: true, value: pricingService.getRows(fxService.getEffective()) }),
-  );
+  server.register('pricing.getRows', async () => {
+    const fx = fxService.getEffective();
+    const extraction = await pricingUpdater.extractionOptions(fx);
+    if (!extraction.ok) return extraction;
+    return { ok: true, value: { ...pricingService.getRows(fx), extraction: extraction.value } };
+  });
   server.register('pricing.override', ({ entry }) => Promise.resolve(pricingService.override(entry)));
   server.register('pricing.overrideUsd', (input) => Promise.resolve(pricingService.overrideUsd(input)));
   server.register('pricing.clearOverride', ({ modelKey }) => {
@@ -916,6 +1015,8 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     ids,
     database,
     settingsService,
+    browserLaunches,
+    webChatService,
     secretsService,
     providers,
     modelRegistry,

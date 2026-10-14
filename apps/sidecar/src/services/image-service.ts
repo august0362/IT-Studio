@@ -36,6 +36,7 @@ import {
 import { modelKeySchema } from '../validation/common.js';
 import { generateImageArgsSchema } from '../validation/chat.js';
 import { imageGenerationRequestSchema } from '../validation/image.js';
+import type { WorkflowInternalEventBus } from './workflow-internal-events.js';
 
 export interface ImageServiceDependencies {
   readonly repository: IImageRepository;
@@ -49,6 +50,7 @@ export interface ImageServiceDependencies {
   readonly ids: IIdGenerator;
   readonly clock: IClock;
   readonly logger: Logger;
+  readonly internalEvents?: WorkflowInternalEventBus;
 }
 
 export class ImageService {
@@ -108,10 +110,18 @@ export class ImageService {
     let lastError: AppError | undefined;
     for (const provider of candidates) {
       if (signal.aborted) return failure(ErrorCode.CANCELLED, 'Image generation was cancelled.', ['Retry when ready.']);
+      this.deps.internalEvents?.publish({ type: 'image', phase: 'started', projectId, provider: provider.id, count });
       const response = await provider.generate(request.data, signal);
       if (response.ok) {
         lastError = undefined;
         if (response.value.length === 0) {
+          this.deps.internalEvents?.publish({
+            type: 'image',
+            phase: 'failed',
+            projectId,
+            provider: provider.id,
+            count,
+          });
           lastError = providerFailure(provider.id, FailureKind.BAD_REQUEST);
           continue;
         }
@@ -120,7 +130,16 @@ export class ImageService {
         for (const image of response.value) {
           const stored = await this.store(projectId, provider.id, parsedArgs.data, image, price?.perImageMicroUsd ?? 0);
           if (!stored.ok) {
-            if (assets.length === 0) return stored;
+            if (assets.length === 0) {
+              this.deps.internalEvents?.publish({
+                type: 'image',
+                phase: 'failed',
+                projectId,
+                provider: provider.id,
+                count,
+              });
+              return stored;
+            }
             lastError = stored.error;
             break;
           }
@@ -129,6 +148,14 @@ export class ImageService {
         if (assets.length > 0) {
           const totalCost = price?.perImageMicroUsd === undefined ? 0 : price.perImageMicroUsd * assets.length;
           await this.recordLedger(projectId, provider.id, assets.length, totalCost, priceTable.version);
+          this.deps.internalEvents?.publish({
+            type: 'image',
+            phase: 'completed',
+            projectId,
+            provider: provider.id,
+            count: assets.length,
+            cost: totalCost,
+          });
           const incomplete = assets.length < count || assets.length < response.value.length;
           return lastError === undefined && !incomplete
             ? { ok: true, value: { assetIds: assets.map((asset) => asset.id) } }
@@ -144,6 +171,13 @@ export class ImageService {
               };
         }
       } else {
+        this.deps.internalEvents?.publish({
+          type: 'image',
+          phase: 'failed',
+          projectId,
+          provider: provider.id,
+          count,
+        });
         lastError = toAppError(response.error, provider.id);
         const trigger = 'kind' in response.error && FALLBACK_TRIGGERS.includes(response.error.kind);
         if (!trigger) return { ok: false, error: lastError };

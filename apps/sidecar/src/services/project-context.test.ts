@@ -133,4 +133,38 @@ describe('ProjectContextService', () => {
     );
     expect(context.currentFiles).toEqual([]);
   });
+
+  it('builds a tree-only web chat brief at depth two with the shared ignore list', async () => {
+    const fs = new MemoryFileSystem();
+    await fs.mkdir(root, true);
+    await fs.writeFile(`${root}/README.md`, 'private contents');
+    await fs.mkdir(`${root}/src/nested/deeper`, true);
+    await fs.writeFile(`${root}/src/main.ts`, 'private contents');
+    await fs.writeFile(`${root}/src/nested/page.ts`, 'private contents');
+    await fs.writeFile(`${root}/src/nested/deeper/secret.ts`, 'private contents');
+    await fs.mkdir(`${root}/node_modules`, true);
+    await fs.writeFile(`${root}/node_modules/private.js`, 'private contents');
+    fs.readFile = () => {
+      throw new Error('Web chat tree must not read file contents.');
+    };
+
+    const tree = await new ProjectContextService(fs).buildWebChatTree(root);
+
+    expect(tree).toContain('README.md');
+    expect(tree).toContain('src/main.ts');
+    expect(tree).toContain('src/nested/page.ts');
+    expect(tree).not.toContain('src/nested/deeper/secret.ts');
+    expect(tree).not.toContain('node_modules');
+    expect(tree).not.toContain('private contents');
+  });
+
+  it('limits a web chat project tree to 150 entries', async () => {
+    const fs = new MemoryFileSystem();
+    await fs.mkdir(root, true);
+    for (let index = 0; index < 160; index += 1) await fs.writeFile(`${root}/file-${String(index)}.txt`, 'x');
+
+    const tree = await new ProjectContextService(fs).buildWebChatTree(root);
+
+    expect(tree.split('\n')).toHaveLength(150);
+  });
 });

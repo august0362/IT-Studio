@@ -2,6 +2,7 @@ import { cp, mkdir, readdir, rm, stat } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { generatePerUserWixTemplate } from './wix-per-user.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const sidecarOutput = join(root, 'dist-sidecar');
@@ -13,6 +14,12 @@ const npmCli = process.env.npm_execpath ?? join(dirname(process.execPath), 'node
 
 await runNpm(['run', 'build:sidecar']);
 await stageSidecar();
+const wix = await generatePerUserWixTemplate({
+  templatePath: join(tauriRoot, 'wix/main.wxs'),
+  resourcesRoot: stagedResources,
+  outputPath: join(tauriRoot, 'target/itstudio-wix/main.generated.wxs'),
+});
+console.log(`[build:app] Generated per-user WiX template with ${wix.componentCount} resource components`);
 runIconGenerator();
 await runNpm([
   'run',
