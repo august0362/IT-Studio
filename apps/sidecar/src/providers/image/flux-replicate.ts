@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import { FailureKind, ImageProviderId, ProviderId } from '@itstudio/schemas';
-import type { ImageGenerationRequest, ImageMimeType, Result } from '@itstudio/schemas';
+import type { ImageGenerationRequest, Result } from '@itstudio/schemas';
 import type { IHttpClient } from '../../ports/http-client.js';
 import type { ISecretStore } from '../../ports/secret-store.js';
 import type { GeneratedImage, IImageProvider } from '../../ports/image-provider.js';
 import type { ProviderFailure } from '../../ports/llm-provider.js';
+import { classifyStatus, dimensions, failure, parseMime, safeText } from './flux-helpers.js';
 
 const MODEL_ENDPOINT = 'https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions';
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -170,38 +171,8 @@ export class FluxReplicateProvider implements IImageProvider {
 function auth(key: string): Record<string, string> {
   return { authorization: `Bearer ${key}`, 'content-type': 'application/json' };
 }
-function dimensions(size: ImageGenerationRequest['args']['size']): readonly [number, number] {
-  return size === '1792x1024' ? [1792, 1024] : size === '1024x1792' ? [1024, 1792] : [1024, 1024];
-}
 function ratio(width: number, height: number): string {
   return width > height ? '16:9' : width < height ? '9:16' : '1:1';
-}
-function parseMime(value: string | null): ImageMimeType | undefined {
-  const mime = value?.split(';')[0]?.trim().toLowerCase();
-  return mime === 'image/png' || mime === 'image/jpeg' || mime === 'image/webp' ? mime : undefined;
-}
-async function safeText(response: Response): Promise<string> {
-  try {
-    return (await response.text()).slice(0, 300).toLowerCase();
-  } catch {
-    return '';
-  }
-}
-function classifyStatus(status: number, text: string, signal: AbortSignal): ProviderFailure['kind'] {
-  if (signal.aborted) return FailureKind.TIMEOUT;
-  if (status === 429 && /quota|billing|insufficient/.test(text)) return FailureKind.QUOTA_EXHAUSTED;
-  if (status === 429) return FailureKind.RATE_LIMITED;
-  if (status === 401 || status === 403) return FailureKind.AUTH;
-  if (/content.?filter|safety|moderation/.test(text)) return FailureKind.CONTENT_FILTERED;
-  if (status === 400 || status === 404 || status === 422) return FailureKind.BAD_REQUEST;
-  return status >= 500 ? FailureKind.SERVER_ERROR : FailureKind.BAD_REQUEST;
-}
-function failure<T = readonly GeneratedImage[]>(
-  kind: ProviderFailure['kind'],
-  message: string,
-  httpStatus?: number,
-): Result<T, ProviderFailure> {
-  return { ok: false, error: { kind, ...(httpStatus === undefined ? {} : { httpStatus }), billed: false, message } };
 }
 function abortableWait(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {

@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import { FailureKind, ImageProviderId, ProviderId } from '@itstudio/schemas';
-import type { ImageGenerationRequest, ImageMimeType, Result } from '@itstudio/schemas';
+import type { ImageGenerationRequest, Result } from '@itstudio/schemas';
 import type { IHttpClient } from '../../ports/http-client.js';
 import type { ISecretStore } from '../../ports/secret-store.js';
 import type { GeneratedImage, IImageProvider } from '../../ports/image-provider.js';
 import type { ProviderFailure } from '../../ports/llm-provider.js';
+import { classifyStatus, dimensions, failure, parseMime, safeText } from './flux-helpers.js';
 
 const ENDPOINT = 'https://api.together.xyz/v1/images/generations';
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -39,8 +40,8 @@ export class FluxTogetherProvider implements IImageProvider {
           body: JSON.stringify({
             model: 'black-forest-labs/FLUX.1-schnell',
             prompt: req.args.prompt,
-            width: sizeDimension(req.args.size)[0],
-            height: sizeDimension(req.args.size)[1],
+            width: dimensions(req.args.size)[0],
+            height: dimensions(req.args.size)[1],
             steps: 4,
             n: 1,
           }),
@@ -93,36 +94,10 @@ export class FluxTogetherProvider implements IImageProvider {
   }
 }
 
-function sizeDimension(size: ImageGenerationRequest['args']['size']): readonly [number, number] {
-  if (size === '1792x1024') return [1792, 1024];
-  if (size === '1024x1792') return [1024, 1792];
-  return [1024, 1024];
-}
-function parseMime(value: string | null): ImageMimeType | undefined {
-  const mime = value?.split(';')[0]?.trim().toLowerCase();
-  return mime === 'image/png' || mime === 'image/jpeg' || mime === 'image/webp' ? mime : undefined;
-}
 function decodeBase64(value: string): Uint8Array | undefined {
   if (Math.floor((value.length * 3) / 4) > MAX_BYTES) return undefined;
   const bytes = Buffer.from(value, 'base64');
   return bytes.byteLength > MAX_BYTES ? undefined : bytes;
-}
-async function safeText(response: Response): Promise<string> {
-  try {
-    return (await response.text()).slice(0, 300).toLowerCase();
-  } catch {
-    return '';
-  }
-}
-function classifyStatus(status: number, text: string, signal: AbortSignal): ProviderFailure['kind'] {
-  if (signal.aborted) return FailureKind.TIMEOUT;
-  if (status === 429 && /quota|billing|insufficient/.test(text)) return FailureKind.QUOTA_EXHAUSTED;
-  if (status === 429) return FailureKind.RATE_LIMITED;
-  if (status === 401 || status === 403) return FailureKind.AUTH;
-  if (/content.?filter|safety|moderation/.test(text)) return FailureKind.CONTENT_FILTERED;
-  if (status === 400 || status === 404 || status === 422) return FailureKind.BAD_REQUEST;
-  if (status >= 500) return FailureKind.SERVER_ERROR;
-  return FailureKind.BAD_REQUEST;
 }
 function classifyError(error: unknown, signal: AbortSignal): ProviderFailure {
   return {
@@ -136,11 +111,4 @@ function statusMessage(status: number): string {
   if (status === 429) return 'Together image quota or rate limit was reached.';
   if (status >= 500) return 'Together image generation is temporarily unavailable.';
   return 'Together rejected the image request.';
-}
-function failure<T = readonly GeneratedImage[]>(
-  kind: ProviderFailure['kind'],
-  message: string,
-  httpStatus?: number,
-): Result<T, ProviderFailure> {
-  return { ok: false, error: { kind, ...(httpStatus === undefined ? {} : { httpStatus }), billed: false, message } };
 }

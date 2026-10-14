@@ -25,6 +25,7 @@ import { SystemService } from './services/system-service.js';
 import { loadSeeds } from './config/load-seeds.js';
 import { buildDefaultSettings } from './domain/default-settings.js';
 import { openDatabase } from './infra/sqlite/database.js';
+import { isSea, resourcePath } from './infra/native-modules.js';
 import { ProjectRepository } from './infra/sqlite/project-repository.js';
 import { SettingsRepository } from './infra/sqlite/settings-repository.js';
 import { ChatRepository } from './infra/sqlite/chat-repository.js';
@@ -370,7 +371,9 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   for (const warning of loadedSeeds.value.warnings)
     logger.warn({ svc: 'sidecar', warning }, 'Seed configuration warning');
   const database = openDatabase(dataDir);
-  const migrationsDir = resolve(dirname(fileURLToPath(import.meta.url)), 'infra/sqlite/migrations');
+  const migrationsDir = isSea()
+    ? resourcePath('migrations')
+    : resolve(dirname(fileURLToPath(import.meta.url)), 'infra/sqlite/migrations');
   const migrationsApplied = readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).length;
   const projectRepository = new ProjectRepository(database.db);
   const secretHistoryRepository = dependencies.secretHistoryRepository ?? new SecretHistoryRepository(database.db);

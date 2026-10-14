@@ -1,8 +1,16 @@
 import type { Connection } from '@lancedb/lancedb';
 import { z } from 'zod';
-import { ErrorCode, type AppError, type Result } from '@itstudio/schemas';
+import type { Result } from '@itstudio/schemas';
 import type { IVectorStore, VectorChunkRow, VectorSearchHit, VectorSearchOptions } from '../../ports/vector-store.js';
-import { validId } from '../memory-vector-store.js';
+import {
+  dimensionFailure,
+  internalFailure,
+  invalidId,
+  success,
+  validId,
+  validRows,
+  validSearch,
+} from '../vector-store-helpers.js';
 import { loadLanceDb } from '../native-modules.js';
 
 interface LanceRow extends VectorChunkRow, Record<string, unknown> {
@@ -20,8 +28,7 @@ export class LanceDbVectorStore implements IVectorStore {
   }
 
   async upsertChunks(table: string, rows: readonly VectorChunkRow[]): Promise<Result<void>> {
-    const invalid = validateRows(table, rows);
-    if (invalid !== undefined) return invalid;
+    if (!validId(table) || !validRows(table, rows)) return invalidId();
     if (rows.length === 0) return success(undefined);
     try {
       const dimension = await this.dimension(table);
@@ -237,53 +244,4 @@ function escapeSql(value: string): string {
 }
 function tableName(projectId: string): string {
   return `chunks_${projectId}`;
-}
-function validSearch(vector: ArrayLike<number>, options: VectorSearchOptions): boolean {
-  return (
-    vector.length > 0 &&
-    Array.from(vector).every(Number.isFinite) &&
-    Number.isInteger(options.topK) &&
-    options.topK > 0 &&
-    Number.isFinite(options.minScore) &&
-    options.minScore >= 0 &&
-    options.minScore <= 1
-  );
-}
-function validateRows(table: string, rows: readonly VectorChunkRow[]): Result<void> | undefined {
-  if (
-    !validId(table) ||
-    rows.some(
-      (row) =>
-        !validId(row.chunkId) ||
-        !validId(row.documentId) ||
-        row.projectId !== table ||
-        !Number.isInteger(row.ordinal) ||
-        row.ordinal < 0 ||
-        row.vector.length === 0 ||
-        Array.from(row.vector).some((value) => !Number.isFinite(value)),
-    )
-  )
-    return invalidId();
-  return undefined;
-}
-function dimensionFailure<T>(): Result<T> {
-  return failure(ErrorCode.VALIDATION, 'Embedding dimension changed; re-index required.', [
-    'Re-index this project with one embedding dimension.',
-  ]);
-}
-function invalidId<T>(): Result<T> {
-  return failure(ErrorCode.VALIDATION, 'Vector store identifiers must be UUIDs.', [
-    'Use valid project, document, and chunk ids.',
-  ]);
-}
-function internalFailure<T>(error: unknown): Result<T> {
-  return failure(ErrorCode.INTERNAL, error instanceof Error ? error.message : 'Vector database operation failed.', [
-    'Check the vector database files and retry.',
-  ]);
-}
-function failure<T>(code: AppError['code'], message: string, remediation: readonly string[]): Result<T> {
-  return { ok: false, error: { code, message, retryable: false, remediation } };
-}
-function success<T>(value: T): Result<T> {
-  return { ok: true, value };
 }

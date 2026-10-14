@@ -112,12 +112,6 @@ await runStep('stage runtime resources', async () => {
   await cp(join(root, 'apps/sidecar/src/infra/sqlite/migrations'), join(resources, 'migrations'), {
     recursive: true,
   });
-  await mkdir(join(resources, 'apps/sidecar/src/infra/sqlite'), { recursive: true });
-  await cp(
-    join(root, 'apps/sidecar/src/infra/sqlite/migrations'),
-    join(resources, 'apps/sidecar/src/infra/sqlite/migrations'),
-    { recursive: true },
-  );
   await mkdir(join(resources, 'apps/sidecar'), { recursive: true });
   await cp(join(root, 'apps/sidecar/package.json'), join(resources, 'apps/sidecar/package.json'));
   await cp(join(root, 'config'), join(resources, 'config'), {
