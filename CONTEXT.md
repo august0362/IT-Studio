@@ -7,8 +7,8 @@
 |---|---|
 | Product | **IT Studio** — Desktop Multi-Agent Command Center |
 | Doc owner | Architect role (Claude) |
-| Last updated | 2026-10-04 |
-| Status | v1 implementation delivered (M0–M8, MW/WC, OWNER-FB1 and M9 installer builds); v1 release sign-off remains pending M9-QA/runtime-isolated install smoke and the recorded native provider/theme follow-ups. v2 (M10–M14) and v3 (M15–M19) are fully specified, not started. Continuation guide: `docs/HANDOFF.md`; task status: `ROADMAP.md` |
+| Last updated | 2026-10-14 |
+| Status | v1 delivered and signed off (M0–M9, MW, WC, OWNER-FB1; M9 QA gate 2026-10-14); v1 hardening in progress (adversarial QA, UX-02, V1-POLISH-01). v2 (M10–M14) and v3 (M15–M19) fully specified, not started. Continuation guide: `docs/HANDOFF.md`; task status: `ROADMAP.md` |
 
 ---
 
