@@ -95,6 +95,7 @@ import { FakeEmbeddingProvider } from './infra/fake-embedding-provider.js';
 import { EmbeddingDispatcher } from './services/embedding-dispatcher.js';
 import { LanceDbVectorStore } from './infra/lancedb/vector-store.js';
 import { DocumentRepository } from './infra/sqlite/document-repository.js';
+import { SecretHistoryRepository, type ISecretHistoryRepository } from './infra/sqlite/secret-history-repository.js';
 import { RagService } from './services/rag/rag-service.js';
 import { Retriever } from './services/rag/retriever.js';
 import { ImageRepository } from './infra/sqlite/image-repository.js';
@@ -321,6 +322,7 @@ export interface ContainerDependencies {
   readonly exit?: (code: number) => void;
   readonly dataDir?: string;
   readonly secretStore?: ISecretStore;
+  readonly secretHistoryRepository?: ISecretHistoryRepository;
   readonly keyVerifier?: IProviderKeyVerifier;
   readonly fxHttpClient?: IHttpClient;
   readonly pricingHttpClient?: IHttpClient;
@@ -371,6 +373,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const migrationsDir = resolve(dirname(fileURLToPath(import.meta.url)), 'infra/sqlite/migrations');
   const migrationsApplied = readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).length;
   const projectRepository = new ProjectRepository(database.db);
+  const secretHistoryRepository = dependencies.secretHistoryRepository ?? new SecretHistoryRepository(database.db);
   const chatRepository = new ChatRepository(database.db);
   const imageRepository = new ImageRepository(database.db);
   const ledgerRepository = new LedgerRepository(database.db);
@@ -393,6 +396,8 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const secretStore = dependencies.secretStore ?? (e2e ? new MemorySecretStore() : new KeychainSecretStore());
   const secretsService = new SecretsService({
     store: secretStore,
+    history: secretHistoryRepository,
+    ids,
     verifier:
       dependencies.keyVerifier ??
       (e2e
@@ -747,6 +752,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   });
   const pricingUpdater = new PricingUpdater({
     settings: settingsService,
+    secretStore,
     projects: projectRepository,
     pricing: pricingService,
     router: llmRouter,
@@ -893,6 +899,8 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   server.register('secrets.delete', ({ provider }) => secretsService.delete(provider));
   server.register('secrets.status', () => secretsService.status());
   server.register('secrets.verify', ({ provider }) => secretsService.verify(provider));
+  server.register('secrets.verifyAndSave', ({ provider, apiKey }) => secretsService.verifyAndSave(provider, apiKey));
+  server.register('secrets.history', ({ provider, limit }) => Promise.resolve(secretsService.history(provider, limit)));
   server.register('models.list', () => Promise.resolve({ ok: true, value: modelRegistry.list() }));
   server.register('chat.listConversations', ({ projectId }) => chatService.listConversations(projectId));
   server.register('chat.createConversation', ({ projectId, title }) =>
@@ -971,9 +979,12 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   server.register('budget.setUsd', (input) => budgetGuard.setUsd(input));
   server.register('budget.status', ({ projectId }) => budgetGuard.status(projectId));
   server.register('pricing.get', () => Promise.resolve({ ok: true, value: pricingService.current() }));
-  server.register('pricing.getRows', () =>
-    Promise.resolve({ ok: true, value: pricingService.getRows(fxService.getEffective()) }),
-  );
+  server.register('pricing.getRows', async () => {
+    const fx = fxService.getEffective();
+    const extraction = await pricingUpdater.extractionOptions(fx);
+    if (!extraction.ok) return extraction;
+    return { ok: true, value: { ...pricingService.getRows(fx), extraction: extraction.value } };
+  });
   server.register('pricing.override', ({ entry }) => Promise.resolve(pricingService.override(entry)));
   server.register('pricing.overrideUsd', (input) => Promise.resolve(pricingService.overrideUsd(input)));
   server.register('pricing.clearOverride', ({ modelKey }) => {

@@ -28,7 +28,13 @@ describe('layoutWorkflow', () => {
     expect(new Set(result.nodes.map(({ position }) => `${String(position.x)}:${String(position.y)}`)).size).toBe(
       nodes.length,
     );
-    expect(result.edges[0]).toMatchObject({ id: 'chat-router', source: 'chat', target: 'router', label: 'LlmRequest' });
+    expect(result.edges[0]).toMatchObject({
+      id: 'chat-router',
+      type: 'activity',
+      source: 'chat',
+      target: 'router',
+      label: 'LlmRequest',
+    });
   });
 
   it('flags pulsing nodes and keeps contracts attached to edges', () => {

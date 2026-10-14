@@ -2,11 +2,15 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Default capability for the IT Studio main window",
-  "windows": ["main"],
+  "webviews": ["main"],
   "permissions": [
     "core:default",
     "allow-sidecar-send",
     "allow-sidecar-status",
+    "allow-webchat-sync",
+    "allow-webchat-reload",
+    "allow-webchat-set-visible",
+    "allow-webchat-close-all",
     {
       "identifier": "opener:allow-open-path",
       "allow": [{ "path": "$APPDATA/com.itstudio.app/images/**" }]

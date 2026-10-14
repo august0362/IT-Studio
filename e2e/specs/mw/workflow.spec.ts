@@ -125,7 +125,7 @@ describe('MW workflow map', () => {
     await browser.waitUntil(
       async () => (await browser.$('[role="tab"][aria-selected="true"]').getText()) === 'Workflow E2E Project',
     );
-    await browser.$('nav[aria-label="Main navigation"] a[href="#chat"]').click();
+    await browser.$('nav a[href="#chat"]').click();
     await browser.$('button=New chat').click();
     await browser.$('aria/Message').setValue('workflow smoke request');
     await browser.$('button=Send').click();
@@ -138,7 +138,7 @@ describe('MW workflow map', () => {
       const body = await browser.$('body').getText();
       throw new Error(`TC-MW-010 chat failed; body: ${body.slice(-1_500)}`, { cause: error });
     }
-    await browser.$('nav[aria-label="Main navigation"] a[href="#workflow"]').click();
+    await browser.$('nav a[href="#workflow"]').click();
     await browser.waitUntil(async () => (await browser.$('body').getText()).includes('Router'));
     const routerText = () =>
       browser.execute(
@@ -179,7 +179,7 @@ describe('MW workflow map', () => {
     configureValidation(folder);
     await createProject(session, 'Workflow coverage project', folder);
 
-    await session.$('nav[aria-label="Main navigation"] a[href="#knowledge"]').click();
+    await session.$('nav a[href="#knowledge"]').click();
     await session.$('aria/Workspace-relative file or folder paths (one per line)').setValue('guide.md');
     await session.$('button=Add sources').click();
     await session.waitUntil(async () => {
@@ -187,7 +187,7 @@ describe('MW workflow map', () => {
       return body.includes('guide.md') && body.includes('Indexed');
     });
 
-    await session.$('nav[aria-label="Main navigation"] a[href="#chat"]').click();
+    await session.$('nav a[href="#chat"]').click();
     await session.$('button=New chat').click();
     await session.$('aria/Use knowledge').click();
     await session.$('#chat-model').selectByAttribute('value', 'anthropic/claude-opus-5-5');
@@ -197,7 +197,7 @@ describe('MW workflow map', () => {
       timeout: 30_000,
     });
 
-    await session.$('nav[aria-label="Main navigation"] a[href="#code"]').click();
+    await session.$('nav a[href="#code"]').click();
     await session.$('#pipeline-prompt').setValue(`Create a greeting file. ${privateMarker}`);
     await session.$('button=Run pipeline').click();
     await session.waitUntil(
@@ -205,7 +205,7 @@ describe('MW workflow map', () => {
       { timeout: 70_000, timeoutMsg: 'Scripted MW pipeline did not complete validation' },
     );
 
-    await session.$('nav[aria-label="Main navigation"] a[href="#workflow"]').click();
+    await session.$('nav a[href="#workflow"]').click();
     await session.waitUntil(async () => (await session.$('body').getText()).includes('Workflow'));
     const embeddingHistory = await assertRecent(session, 'embeddings', /Embedded \d+ chunks with /);
     expect(embeddingHistory).not.to.include(documentText);

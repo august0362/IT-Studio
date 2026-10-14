@@ -1,12 +1,12 @@
 # HANDOFF — read this first if you are a new AI / engineer continuing IT Studio
 
-> Last updated: **2026-10-04** by the Architect / QA agent (Claude), at a deliberate stop requested by the owner.
+> Last updated: **2026-10-04** by Codex during the owner-authorized OWNER-FB1 continuation. The earlier Claude stop notes are retained as historical evidence in §4.1–4.3.
 > Keep this file current whenever you stop. It complements — does not replace — the binding documents:
 >
 > | Document | What it is |
 > |---|---|
-> | `CONTEXT.md` | Product, glossary, **decisions D1–D33**. Wins over every other document. |
-> | `ARCHITECTURE.md` | Part I (v1), §13.1 Workflow map, Part II (v2 orchestration hub), Part III (v3 servers). |
+> | `CONTEXT.md` | Product, glossary, **decisions D1–D34**, including owner-authorized theme/web-chat extensions in D17/D34. |
+> | `ARCHITECTURE.md` | Part I (v1), §13.1 Workflow map, §13.2 Embedded web chat, Part II (v2 orchestration hub), Part III (v3 servers). |
 > | `src/types/schemas.ts` | All shared contracts (`@itstudio/schemas`). Additive changes only. |
 > | `ROADMAP.md` | Task checklist — **source of truth for status** (`- [x]` = done and QA-passed). |
 > | `ROLES.md`, `AGENTS.md` | Dev roles; rules for the implementer (Codex). |
@@ -14,7 +14,7 @@
 > | `docs/RUNNING.md` | How to run, build, install and release the app (owner-facing). |
 > | `docs/tasks/<ID>.md` | One work order per task, with Codex `## Result` and QA verdict sections. |
 > | `docs/qa/Mx-test-cases.md`, `docs/qa/Mx-report.md` | Milestone QA specs and sign-off reports. |
-> | `docs/decisions/ADR-000x-*.md` | ADR-0001 foundations, 0002 toolchain pins, 0003 v2, 0004 v3. |
+> | `docs/decisions/ADR-000x-*.md` | ADR-0001 foundations, 0002 toolchain pins, 0003 v2, 0004 v3, 0005 owner feedback. |
 > | `docs/specs/v2-requirements.md`, `docs/specs/v3-requirements.md` | v2 / v3 software requirements specifications (ISO/IEC/IEEE 29148 structure). |
 > | `docs/plans/v2-v3-delivery-plan.md` | v2 / v3 WBS, dependencies, estimates, risks, gates. |
 > | `docs/reports/overnight-2026-10-02.md` | Environment findings (ENV-1 … : sandbox limits). |
@@ -24,8 +24,8 @@
 ## 0. TL;DR for the next agent
 
 1. Read §3 (owner rules) and §2 (how work is done) — they are not written anywhere else.
-2. Finish the four **in-flight items in §4** in the order given (each has exact resume steps).
-3. Then ask the owner before starting v2 (M10). The owner wanted to stop after v1 to try the app themselves.
+2. Read `docs/tasks/OWNER-FB1.md`, especially its owner authorization and Result, then finish the current checks in §4.0 and the separate M9-QA gate in §4.4. Do not replay the archived M8/MW resume steps.
+3. v1 release sign-off is still pending. Ask the owner before starting v2 (M10); the owner wanted to try and adjust v1 first.
 4. Talk to the owner in **Vietnamese**; write every repo file in **English**.
 
 ---
@@ -44,20 +44,25 @@
 | M7 VS Code companion | 6/6 | ✅ signed off | |
 | SEC-01 dependency audit | 1/1 | ✅ | `npm run audit:prod` = 0 high vulnerabilities |
 | PERF-01 startup | 1/1 | ✅ | dev sidecar 2.8 s (was 4.0 s); packaged sidecar ~0.6 s warm |
-| **MW** Workflow map (D32) | 4/6 | 🟡 | MW-04 implemented, **not landed**; MW-QA not started |
-| **M8** image generation | 5/6 | 🟡 | M8-QA automated, **E2E failing**, not landed |
-| **M9** packaging | 6/7 | 🟡 | M9-04 (signing / clean VM) marked not needed by D33; M9-QA not started |
+| **MW** Workflow map (D32) | 6/6 | ✅ conditional | automated cases and E2E pass; exploratory session and QA report remain |
+| **WC** Quick web chat (D34) | 1/1 | ✅ | external-browser links, Cốc Cốc discovery and settings |
+| **OWNER-FB1** owner feedback | 5 packages implemented | 🟡 | final gates in task Result; native P3/P4 smoke follow-ups remain |
+| **M8** image generation | 6/6 | ✅ conditional | automated cases, focused E2E and coverage pass; exploratory follow-up in `docs/qa/M8-report.md` |
+| **M9** packaging | 6/7 | 🟡 | signing/updater deferred by D33; clean-VM check replaced by install smoke; new-build M9-QA pending |
 | QA tooling | 1/3 | backlog | `QA-E2E-FIX4`, `QA-TOOL-01` |
 | **v2** M10–M14 (+ REL-V2) | 0/46 | ⏸ not started | SRS, plan and all 46 task files written (see §7) |
 | **v3** M15–M19 (+ REL-V3) | 0/37 | ⏸ not started | SRS, plan and all 37 task files written (see §7) |
 
-Delivered numbers: about 875 unit tests (1 skipped) and about 111 integration tests. Packaging: SEA sidecar 96 MB, NSIS installer 93 MB, MSI 147 MB (LanceDB native binary is ~317 MB unpacked). Install smoke 7/7.
+Historical pre-OWNER-FB1 build evidence: about 875 unit tests (1 skipped) and about 111 integration tests; SEA sidecar 96 MB, NSIS installer 93 MB, MSI 147 MB (LanceDB native binary is ~317 MB unpacked); install smoke 7/7. These figures describe that earlier build. OWNER-FB1 now passes 1,030 Vitest tests (1 existing skip), 6 Node script tests, 28 Rust tests, typecheck and lint. Release installers and a fresh debug executable were rebuilt; sizes, hashes, integration results and native E2E evidence are in `docs/tasks/OWNER-FB1.md`. Install-smoke verification of the new batch remains part of the release gate.
 
 ---
 
 ## 2. How work is done (process)
 
 ### 2.1 Roles
+
+The original role split below describes the Claude-led workflow. The owner has since assigned Codex responsibility for the project and explicitly authorized all project-file edits and parallel implementation for OWNER-FB1. That task's authorization supersedes its older scope, migration, protected-document and `unstable` stop restrictions. Existing security, compatibility and verification requirements still apply.
+
 - **Architect / PM / QA** (an AI like Claude):
   - writes specs (`docs/tasks/<ID>.md`), contracts (`src/types/schemas.ts`, additive only), docs and decisions;
   - pre-installs dependencies; runs QA; resolves merge conflicts; lands work.
@@ -117,12 +122,14 @@ npx wdio run e2e/wdio.conf.ts --spec e2e/specs/<area>/<file>.spec.ts   # only th
   2. Codex automates the cases marked automated; the case ID goes in the test name.
   3. QA executes them and writes `docs/qa/Mx-report.md`. The verdict is SIGNED OFF, or CONDITIONAL with backlog items.
 
-### 2.4 Things only the Architect does (Codex cannot, or must not)
+### 2.4 Original Architect responsibilities and historical sandbox limits
+
+These limits were recorded for the earlier sandbox. OWNER-FB1 runs in an unrestricted worktree under the owner's expanded authorization; do not treat the historical migration or filesystem restrictions as a current blocker.
 
 | Job | Why / how |
 |---|---|
 | Install npm / cargo dependencies | Done once per milestone in a single commit. Tasks marked "deps pre-installed" must not touch `package.json`. |
-| Drizzle migrations | `npm run db:generate -w @itstudio/sidecar`; never hand-written; existing `0000`–`0010`. |
+| Drizzle migrations | `npm run db:generate -w @itstudio/sidecar`; never hand-written; existing `0000`–`0011`, including generated OWNER-FB1 `secret_history`. |
 | Integration tests | Codex sandbox: `tsx` fails on `os.userInfo()` (`uv_os_get_passwd ENOMEM`). |
 | esbuild / SEA builds, installers | Codex sandbox: esbuild access denied; cargo cannot download crates (TLS). |
 | E2E (WebdriverIO, VS Code E2E) | GUI; the Architect runs them. |
@@ -133,7 +140,7 @@ npx wdio run e2e/wdio.conf.ts --spec e2e/specs/<area>/<file>.spec.ts   # only th
 ## 3. Owner's working rules (agreed in chat — not written anywhere else)
 
 1. **Language:** chat with the owner in **Vietnamese**; every file in the repo is in **English**.
-2. **Autonomy:** work fully automatically. Ask the owner only for real decisions (product scope, money, credentials, anything irreversible). Record decisions in `CONTEXT.md` (next number: **D34**).
+2. **Autonomy:** work fully automatically. Ask the owner only for real decisions (product scope, money, credentials, anything irreversible). Record decisions in `CONTEXT.md` (next number: **D35**).
 3. **Delegate:** "Giao việc cho codex, đừng làm hết". The Architect specifies, coordinates and verifies; Codex writes code and tests. Use several Codex jobs in parallel when scopes are disjoint.
 4. **Lean QA** as in §2.3: no repeated full suites, no full E2E runs unless needed.
 5. **6-attempt rule:** if the same error survives 6 fix attempts, stop fixing it. Skip it, record it in the QA report and the ROADMAP backlog, report it to the owner, and move on (or stop the session if blocked).
@@ -147,11 +154,36 @@ npx wdio run e2e/wdio.conf.ts --spec e2e/specs/<area>/<file>.spec.ts   # only th
 
 ---
 
-## 4. In-flight work at the stop (do these first, in this order)
+## 4. Current continuation and historical stop notes
 
-Two worktrees exist (`git worktree list`). Both branches have **all work committed**; nothing is lost if the folders are deleted, as long as the branches are kept.
+### 4.0 OWNER-FB1 — current handover
 
-### 4.1 M8-QA — branch `task/M8-QA`, worktree `C:/Users/admin/itstudio-wt/M8-QA`
+Work order: `docs/tasks/OWNER-FB1.md`; branch `task/OWNER-FB1`; worktree `C:/Users/admin/itstudio-wt/OWNER-FB1`. The owner authorized all project-file edits and parallel agents, resolving the earlier P1 migration, P5 wiring, P4 generator/palette/startup and P3 Cargo-feature blockers. The task Result records actual checks; it does not replace the separate M9-QA release gate.
+
+Implemented packages:
+
+- **P1 — API keys:** verify before save with one provider request and a 25-second timeout; localized progress, errors, masked status and action history. Generated Drizzle migration `0011_fair_mole_man.sql` creates `secret_history` and is applied by startup migrations. Real SQLite tests cover migrated startup, repeat migration, repository roundtrip and RPC save/delete wiring. History failures restore the prior key; failed recovery returns a sanitized error and refreshes the actual displayed status.
+- **P5 — Pricing:** choose the cheapest eligible enabled chat/JSON model with an actual saved key when the configured extractor is unusable; expose keyed choices, saved selection, planning estimates and all five per-provider outcomes. Persist row provenance across restarts; unchanged confirmed rows can become auto-origin without a price change. Input planning includes rendered metadata, messages, framing and retry; UTF-8 bytes are conservative planning units with complete-character truncation. The estimate includes two extraction attempts per provider and is not a billing guarantee.
+- **P2 — Workflow:** nodes show only module name and status text/dot; counters stay in the detail panel. Smooth-step edges queue activity dots, with static highlighting for reduced motion and token-based active/error states.
+- **P4 — Themes:** 21 themes (18 preserved legacy definitions plus Neon Gold, Neon Cyan and Neon Violet), each with light/dark modes. Neon Gold is the default dark theme; saved choices retain precedence. Optional glow/glass/border/gradient tokens have legacy fallbacks. Source palettes deterministically generate the catalog and startup map. Added shared primitives, designer-agent instructions and `docs/design/DARK-GLOW.md`; contrast checks cover all 42 theme/mode pairs and dark primitive snapshots.
+- **P3 — Embedded web chat:** resolved first-load Cốc Cốc default plus a Web chat route with 1–4 native child webviews, persisted sites/layout, reload, external-browser actions and pointer/keyboard splitters. Tauri's `unstable` feature is enabled under owner authorization. Commands accept the main caller only; children have no Tauri capability or sidecar access, use separate web-chat profiles, and accept saved HTTPS origins with non-HTTPS/local/credential-bearing navigation blocked. Safe HTTPS popups open externally. A serialized host handles clipping, drag/dialog pauses, site changes and route cleanup. Existing external Cốc Cốc actions and the once-only embedded-sign-in warning remain.
+
+Pricing seed audit (2026-10-04): publicly confirmable represented values matched, so numeric seed rates stayed unchanged. Official source URLs and model-by-model evidence are in the task Result. `xai/grok-4.1-fast` has no current official listing; Groq's `llama-3.3-70b-versatile` and `llama-3.1-8b-instant` list Contact Sales without public token rates. Those entries remain unchanged and unconfirmed. Represented tiers are Grok 4.6 short context, Gemini 3.1 Pro Preview up to 200K, and Gemini Embedding 2 text input; Gemini 3.8 Flash rates are time-limited through 2026-12-31. Seed-origin rows remain visibly unverified until an app refresh confirms them.
+
+Verified so far: whole-project typecheck/lint/unit gates, Rust tests/check/clippy/formatting, affected integration cases, release/debug builds and isolated SEA startup smoke. Native Theme Settings screenshots for Neon Gold, Neon Cyan and Neon Violet dark modes were inspected; this covers the captured settings views. Detailed counts and artifacts are in the task Result. Automated tests use fake providers/key storage; no paid extraction or real keychain smoke was performed.
+
+Remaining handover checks:
+
+1. Finish and record the focused native E2E run in the task Result.
+2. Perform native P3 provider sign-in, popup/navigation and visual pane-placement/resize smoke. Some providers may reject embedded sign-in; use Open in browser when needed.
+3. Extend P4 native visual review to full-page, dialog and backdrop states.
+4. Arrange runtime-data and keychain isolation for install smoke on the rebuilt batch, then complete M9-QA before declaring a v1 release. The current `smoke:install` script isolates the install directory and Node environment but launches the release app against the user's actual appdata/keychain; it must not be run as an isolated automated check in its current form. M8 and MW still retain their separately documented exploratory/report follow-ups.
+
+The following §4.1–4.3 preserve the earlier Claude stop state and its failure/resume evidence. M8/MW automated work has since progressed as recorded in ROADMAP and task Results; these are archived instructions, not the current action list. Historical worktree existence below must be checked with `git worktree list` before use.
+
+At that stop, two worktrees existed. Both branches had all work committed, so the branch history preserved that work.
+
+### 4.1 Historical M8-QA stop — branch `task/M8-QA`, worktree `C:/Users/admin/itstudio-wt/M8-QA`
 
 **Done:**
 - Test cases are in `docs/qa/M8-test-cases.md`.
@@ -177,7 +209,7 @@ Two worktrees exist (`git worktree list`). Both branches have **all work committ
    - fix the remote-session usage. Use `await $(...)` element handles, and give `waitUntil` a longer timeout (30 s) for app start.
 3. Rerun only that spec. If it passes, write `docs/qa/M8-report.md`, land with `scripts/dev/land-task.sh M8-QA "test(images): M8 QA gate [M8-QA]"`, and tick M8-QA in ROADMAP.
 
-### 4.2 MW-04 — branch `task/MW-04`, worktree `C:/Users/admin/itstudio-wt/MW-04`
+### 4.2 Historical MW-04 stop — branch `task/MW-04`, worktree `C:/Users/admin/itstudio-wt/MW-04`
 
 **Done:**
 - Codex implemented the task (spec `docs/tasks/MW-04.md`, `## Result` on the branch):
@@ -200,7 +232,7 @@ Two worktrees exist (`git worktree list`). Both branches have **all work committ
 2. If both are green: `scripts/dev/land-task.sh MW-04 "feat(workflow): internal events + selecting deep links [MW-04]"`. Expect the nothing-to-commit caveat in §2.2, step 6.
 3. Tick MW-04 in ROADMAP.
 
-### 4.3 MW-QA — not started
+### 4.3 Historical MW-QA planning — not started at the earlier stop
 1. Write `docs/qa/MW-test-cases.md`. Scope is in ROADMAP MW-QA:
    - topology completeness vs ARCH §13.1;
    - an event → module mapping table;
@@ -212,7 +244,7 @@ Two worktrees exist (`git worktree list`). Both branches have **all work committ
    Existing IDs: TC-MW-003, TC-MW-004 (L3), TC-MW-010 (L4).
 2. Create `docs/tasks/MW-QA.md` → Codex automates it → QA executes it → `docs/qa/MW-report.md`.
 
-### 4.4 M9-QA — not started
+### 4.4 M9-QA — pending release gate
 1. Write `docs/qa/M9-test-cases.md`. Most cases are re-running existing scripts:
 
    | Command | What it checks |
@@ -220,17 +252,17 @@ Two worktrees exist (`git worktree list`). Both branches have **all work committ
    | `npm run build:sidecar` | builds the SEA sidecar |
    | `npm run smoke:sidecar` | sidecar starts; native modules (better-sqlite3, LanceDB) load; ready under 1.5 s |
    | `npm run build:app` | builds the NSIS + MSI installers |
-   | `npm run smoke:install` | silent install into a temp dir; runs with no Node on PATH; clean exit; uninstall |
+   | `npm run smoke:install` | silent temp-directory install, no Node on PATH, clean exit and uninstall; runtime-data/keychain isolation must be arranged before execution |
    | `npm run release:bump -- --dry-run` | version bump |
    | `npm run audit:prod` | dependency audit |
    | `node --test scripts/build/*.test.mjs` | debug-config regression (`tauri-debug-config.test.mjs`) |
 
    The clean-VM case is replaced by the install smoke (D33). Auto-update is out of scope unless the owner wants it.
-2. **Rebuild the installers after M8-QA and MW-04 land** (both change the app), rerun the install smoke, then write `docs/qa/M9-report.md`.
+2. **Use the rebuilt OWNER-FB1 installers** (including the M8/MW changes already present), arrange runtime-data/keychain isolation and rerun install smoke, then write `docs/qa/M9-report.md`. The existing script's temporary install path and restricted Node environment do not isolate the release app's data or keychain; do not run it as an isolated automated test until that gap is resolved. Artifact hashes are in the task Result. Rebuild again if application code changes before this gate. Prior installer smoke evidence does not sign off this changed build.
 
 ---
 
-## 5. Backlog / known issues (not blocking v1)
+## 5. Backlog / known issues
 
 | ID / item | Details |
 |---|---|
@@ -241,6 +273,8 @@ Two worktrees exist (`git worktree list`). Both branches have **all work committ
 | Image node in the workflow map | See §4.2 design note. |
 | Dry-run diff cosmetics | Minor display issues in the Code tab dry-run diff (from the M6 exploratory session). |
 | Auto-update | The M9-04 updater key pair was not created (D33). Only do it if the owner wants auto-update. |
+| OWNER-FB1 native smoke | P3 provider sign-in/navigation/popups and pane visuals; P4 full-page/dialog/backdrop review beyond the three captured dark Theme Settings views. See §4.0. |
+| OWNER-FB1 seed audit caveats | Three unconfirmed model rates retain seed values; represented context/input tiers and Gemini 3.8 Flash's rate period are documented in the task Result. Seed-origin UI warnings remain intentional. |
 
 Bug history (all fixed; details in the task files):
 
@@ -270,15 +304,15 @@ apps/
                         + journal-recovery + command-runner, vscode-bridge / launcher, image-service, embedding-dispatcher,
                         activity-recorder (workflow map), secrets-service (Windows Credential Manager)
     src/providers/      LLM, embedding and image adapters (Strategy / Adapter)
-    src/infra/          SQLite (Drizzle, migrations 0000–0010), LanceDB, fakes for ITSTUDIO_E2E=1
+    src/infra/          SQLite (Drizzle, migrations 0000–0011), LanceDB, fakes for ITSTUDIO_E2E=1
     test/integration/   L3 tests (spawn the real sidecar; harness.ts)
-  desktop/   Tauri v2 shell (src-tauri, Rust) + React 19 UI (src/features: chat, code, cost, gallery, knowledge, settings, workflow)
+  desktop/   Tauri v2 shell (src-tauri, Rust) + React 19 UI (src/features: chat, code, cost, gallery, knowledge, settings, webchat, workflow)
     src-tauri/tauri.conf.json          debug / dev config
     src-tauri/tauri.conf.release.json  release-only: externalBin sidecar, bundle resources, asset protocol scope
   vscode-ext/  companion extension (WebSocket to the sidecar, token auth)
 src/types/schemas.ts   shared contracts (@itstudio/schemas)
 config/                seed data (pricing seed, defaults)
-e2e/                   WebdriverIO + tauri-driver specs (m1, m4, m5, m6, mw; m8 on branch task/M8-QA), wdio.conf.ts, run-e2e.mjs
+e2e/                   WebdriverIO + tauri-driver specs (m1, m4, m5, m6, m8, mw), wdio.conf.ts, run-e2e.mjs
 scripts/dev/           run-task.sh, land-task.sh, measure-startup.mjs
 scripts/build/         build-sidecar.mjs (esbuild + Node SEA + postject), smoke-sidecar.mjs, build-app.mjs, install-smoke.ps1, make-icon.mjs
 scripts/release/       bump-version.mjs (+ node tests)
@@ -291,7 +325,7 @@ E2E fakes (only active when `ITSTUDIO_E2E=1`):
 | `ITSTUDIO_E2E_LLM_SCRIPT` / `ITSTUDIO_E2E_LLM_TEXT` | scripted LLM replies and tool calls |
 | `ITSTUDIO_E2E_EMBEDDING_SCRIPT` | scripted embedding results |
 | `ITSTUDIO_E2E_PRICING_HTTP=fail` | pricing fetch fails |
-| `ITSTUDIO_E2E_IMAGE_SCRIPT` | scripted image provider outcomes (branch `task/M8-QA`) |
+| `ITSTUDIO_E2E_IMAGE_SCRIPT` | scripted image provider outcomes |
 | `ITSTUDIO_E2E_CRASH_AT` | crash at a given point, to test journal recovery |
 
 ---
@@ -323,7 +357,7 @@ Design decisions already taken in the SRS (no ADR needed): DD-V2-01…09 (e.g. `
 
 - **Machine:** Windows 11 Home (no Hyper-V or Windows Sandbox).
   - The repo path contains spaces: `C:\Users\admin\Desktop\File All\Demo project\Project\IT Studio`. Quote it.
-  - Codex cannot write there, which is why worktrees under `C:/Users/admin/itstudio-wt/` are used.
+  - Earlier Codex sandbox sessions could not write there. Current OWNER-FB1 uses an unrestricted worktree under `C:/Users/admin/itstudio-wt/` to isolate parallel work.
 - **Toolchain:** Node 24, npm 11, TypeScript **6.0.x** (do not install 7), Rust via rustup (`$USERPROFILE/.cargo/bin` must be on PATH). Pins are in ADR-0002.
 - **E2E:**
   - Stack: WebdriverIO + `tauri-driver` + msedgedriver at `C:\Users\admin\.itstudio-tools\msedgedriver.exe`; native driver ports 4454/4455.

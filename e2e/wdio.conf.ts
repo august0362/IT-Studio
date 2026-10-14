@@ -24,6 +24,7 @@ function startDriver(
   nativePort: number,
   options: {
     readonly crashOnStart?: boolean;
+    readonly verifierOutcome?: 'success' | 'auth' | 'server' | 'timeout';
     readonly llmScript?: string;
     readonly llmText?: string;
     readonly imageScript?: string;
@@ -64,7 +65,7 @@ function startDriver(
               WEBVIEW2_USER_DATA_FOLDER: join(e2eTempRoot, `webview-${String(port)}`),
             }),
         ITSTUDIO_E2E: '1',
-        ITSTUDIO_E2E_VERIFIER_OUTCOME: 'timeout',
+        ITSTUDIO_E2E_VERIFIER_OUTCOME: options.verifierOutcome ?? 'success',
         ...(llmScriptPath === undefined
           ? options.llmScript === undefined
             ? {}
@@ -187,6 +188,7 @@ export const config: Options.Testrunner & { capabilities: Capabilities.Requested
       imageScript: JSON.stringify({ openai_dalle3: ['success'] }),
       imagePriceMicroUsd: 1_000_000,
     });
+    startDriver(4450, 4460, { verifierOutcome: 'timeout' });
     await new Promise((resolveReady) => setTimeout(resolveReady, 1200));
   },
   onComplete() {

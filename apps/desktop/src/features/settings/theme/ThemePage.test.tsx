@@ -41,6 +41,17 @@ function setup() {
 }
 
 describe('ThemePage', () => {
+  it('lists all new dark-native themes in the dark filter', async () => {
+    setup();
+    await screen.findByRole('radio', { name: /Neon Gold/ });
+    fireEvent.click(screen.getByRole('button', { name: 'Dark-native' }));
+    expect(screen.getAllByRole('radio')).toHaveLength(5);
+    expect(screen.getByRole('radio', { name: /Neon Gold/ })).toBeVisible();
+    expect(screen.getByRole('radio', { name: /Neon Cyan/ })).toBeVisible();
+    expect(screen.getByRole('radio', { name: /Neon Violet/ })).toBeVisible();
+    expect(screen.queryByRole('radio', { name: /Arctic Focus/ })).toBeNull();
+  });
+
   it('supports arrow key navigation and applies with Space', async () => {
     const { transport } = setup();
     const arctic = await screen.findByRole('radio', { name: /Arctic Focus/ });

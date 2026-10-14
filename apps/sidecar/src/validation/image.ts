@@ -61,6 +61,11 @@ export const themeTokensSchema = z
     warning: hexColorSchema,
     danger: hexColorSchema,
     info: hexColorSchema,
+    glow: hexColorSchema.exactOptional(),
+    surfaceGlass: hexColorSchema.exactOptional(),
+    borderGlow: hexColorSchema.exactOptional(),
+    gradientStart: hexColorSchema.exactOptional(),
+    gradientEnd: hexColorSchema.exactOptional(),
     chart: z.array(hexColorSchema).max(6).readonly(),
     contrast: z.record(z.string(), z.number()).readonly(),
   })

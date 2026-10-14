@@ -35,6 +35,48 @@ afterEach(() => {
 });
 
 describe('SettingsService', () => {
+  it('persists web-chat layout and reconciles panes when saved sites are disabled', async () => {
+    const { opened, service, loaded } = createService();
+    try {
+      const links = buildDefaultSettings(loaded.value).webChat.links;
+      const first = links[0];
+      const second = links[1];
+      if (first === undefined || second === undefined) throw new Error('Missing default web-chat links');
+      const saved = await service.update({ webChat: { layout: { panes: [first.id, second.id], sizes: [0.4, 0.6] } } });
+      expect(saved).toMatchObject({
+        ok: true,
+        value: { webChat: { layout: { panes: [first.id, second.id], sizes: [0.4, 0.6] } } },
+      });
+      expect((await new SettingsRepository(opened.db).load())?.json).toContain('"sizes":[0.4,0.6]');
+      const reduced = await service.update({
+        webChat: { links: links.map((link) => (link.id === first.id ? { ...link, enabled: false } : link)) },
+      });
+      expect(reduced).toMatchObject({ ok: true, value: { webChat: { layout: { panes: [second.id], sizes: [1] } } } });
+      const cleared = await service.update({ webChat: { links: [] } });
+      expect(cleared.ok && cleared.value.webChat.layout).toBeUndefined();
+    } finally {
+      opened.client.close();
+    }
+  });
+
+  it('rejects an explicit pane layout selecting a disabled saved site', async () => {
+    const { opened, service, loaded } = createService();
+    try {
+      const links = buildDefaultSettings(loaded.value).webChat.links;
+      const first = links[0];
+      if (first === undefined) throw new Error('Missing default web-chat link');
+      const result = await service.update({
+        webChat: {
+          links: links.map((link) => ({ ...link, enabled: false })),
+          layout: { panes: [first.id], sizes: [1] },
+        },
+      });
+      expect(result).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
+    } finally {
+      opened.client.close();
+    }
+  });
+
   it('creates defaults and deep-merges nested patches', async () => {
     const { opened, service } = createService();
     const initial = await service.get();

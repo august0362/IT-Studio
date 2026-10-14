@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 const fixtureDirectory = fileURLToPath(new URL('./', import.meta.url));
 const eslintScript = fileURLToPath(new URL('../../node_modules/eslint/bin/eslint.js', import.meta.url));
 const secretScanner = fileURLToPath(new URL('../scan-secrets.mjs', import.meta.url));
+const secretScannerTests = fileURLToPath(new URL('../scan-secrets.test.mjs', import.meta.url));
 const eslintFixtures = [
   { name: 'bad-enum.ts', rule: 'no-restricted-syntax' },
   { name: 'bad-any.ts', rule: '@typescript-eslint/no-explicit-any' },
@@ -52,6 +53,15 @@ if (
   failed = true;
 } else {
   process.stdout.write('Rejected bad-secret.txt without printing its value.\n');
+}
+
+const regressionResult = run(process.execPath, ['--test', secretScannerTests]);
+if (regressionResult.error !== undefined || regressionResult.status !== 0) {
+  process.stderr.write('Secret scanner regression tests failed.\n');
+  process.stderr.write(`${regressionResult.stdout}\n${regressionResult.stderr}`);
+  failed = true;
+} else {
+  process.stdout.write('Secret scanner regression tests passed.\n');
 }
 
 if (failed) {

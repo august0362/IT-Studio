@@ -9,7 +9,18 @@ export function statusBar() {
 }
 
 export async function navigateToSettings() {
-  await browser.$('nav[aria-label="Main navigation"] a[href="#settings-api-keys"]').click();
+  await browser.$('nav a[href="#settings-api-keys"]').click();
+}
+
+export async function resetLocaleToEnglish(session = browser): Promise<void> {
+  await session.$('nav a[href="#settings-theme"]').click();
+  const locale = session.$('select:has(option[value="vi"])');
+  await locale.waitForDisplayed();
+  if ((await locale.getValue()) !== 'en') await locale.selectByAttribute('value', 'en');
+  await session.waitUntil(async () => (await session.$('nav a[href="#chat"]').getText()) === 'Chat', {
+    timeout: 10_000,
+    timeoutMsg: 'The E2E session did not reset to English',
+  });
 }
 
 export function createTemporaryProjectFolder(): string {

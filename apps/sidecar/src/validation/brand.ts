@@ -21,6 +21,7 @@ export const toolCallIdSchema = z
   .regex(/^[A-Za-z0-9_.:-]{1,128}$/)
   .transform((value) => value as Brand<string, 'ToolCallId'>);
 export const imageAssetIdSchema = brandedUuid<'ImageAssetId'>();
+export const secretHistoryIdSchema = brandedUuid<'SecretHistoryId'>();
 export const priceTableVersionSchema = z
   .string()
   .min(1)

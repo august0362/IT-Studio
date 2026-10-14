@@ -1,5 +1,13 @@
-import type { ModelCapability, ModelDescriptor, ModelKey, ProviderId, SecretStatus } from '@itstudio/schemas';
-import { isoDateTimeSchema, modelKeySchema, providerIdSchema, z } from './common.js';
+import type {
+  ModelCapability,
+  ModelDescriptor,
+  ModelKey,
+  ProviderId,
+  SecretHistoryEntry,
+  SecretStatus,
+} from '@itstudio/schemas';
+import { isoDateTimeSchema, modelKeySchema, providerIdSchema, secretHistoryIdSchema, z } from './common.js';
+import { errorCodeSchema } from './errors.js';
 export const modelCapabilitySchema = z.enum([
   'chat',
   'tool_calling',
@@ -29,5 +37,15 @@ export const secretStatusSchema = z
     lastVerifiedAt: isoDateTimeSchema.exactOptional(),
   })
   .readonly() satisfies z.ZodType<SecretStatus>;
+export const secretHistoryEntrySchema = z
+  .object({
+    id: secretHistoryIdSchema,
+    provider: providerIdSchema,
+    hint: z.string().max(4),
+    action: z.enum(['saved', 'deleted', 'verify_failed']),
+    resultCode: errorCodeSchema.nullable(),
+    at: isoDateTimeSchema,
+  })
+  .readonly() satisfies z.ZodType<SecretHistoryEntry>;
 export const modelKeyContractSchema = modelKeySchema satisfies z.ZodType<ModelKey>;
 export const providerIdContractSchema = providerIdSchema satisfies z.ZodType<ProviderId>;

@@ -1,7 +1,20 @@
 import { ErrorCode, ProviderId, type ProviderId as ProviderIdType } from '@itstudio/schemas';
-import { describe, expect, it } from 'vitest';
+import { HttpResponse } from 'msw';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { IHttpClient } from '../../ports/http-client.js';
-import { ProviderKeyVerifier } from './provider-key-verifier.js';
+import { captureRequest, mswServer } from '../../providers/testing/msw-harness.js';
+import { FetchHttpClient, ProviderKeyVerifier } from './provider-key-verifier.js';
+
+beforeAll(() => {
+  mswServer.listen({ onUnhandledRequest: 'error' });
+});
+afterEach(() => {
+  mswServer.resetHandlers();
+  vi.restoreAllMocks();
+});
+afterAll(() => {
+  mswServer.close();
+});
 
 const cases: readonly {
   readonly provider: ProviderIdType;
@@ -23,7 +36,7 @@ const cases: readonly {
   },
   {
     provider: ProviderId.GOOGLE,
-    url: 'https://generativelanguage.googleapis.com/v1beta/models',
+    url: 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1',
     header: 'x-goog-api-key',
     value: 'sentinel-secret',
   },
@@ -56,9 +69,11 @@ const cases: readonly {
 class FakeHttpClient implements IHttpClient {
   input = '';
   init: RequestInit | undefined;
+  calls = 0;
   handler: () => Promise<Response> = () => Promise.resolve(new Response(null, { status: 200 }));
 
   request(input: string | URL, init?: RequestInit): Promise<Response> {
+    this.calls += 1;
     this.input = input.toString();
     this.init = init;
     return this.handler();
@@ -73,6 +88,7 @@ describe('ProviderKeyVerifier', () => {
       value: undefined,
     });
     expect(http.input).toBe(url);
+    expect(http.calls).toBe(1);
     expect(new Headers(http.init?.headers).get(header)).toBe(value);
     if (provider === ProviderId.ANTHROPIC)
       expect(new Headers(http.init?.headers).get('anthropic-version')).toBe('2023-06-01');
@@ -86,7 +102,7 @@ describe('ProviderKeyVerifier', () => {
       const result = await new ProviderKeyVerifier(http).verify(provider, 'sentinel-secret');
       expect(result).toMatchObject({
         ok: false,
-        error: { code: ErrorCode.PROVIDER_AUTH, remediation: [`Re-enter the API key for ${provider}.`] },
+        error: { code: ErrorCode.PROVIDER_AUTH, remediation: ['The provider rejected this key.'] },
       });
       expect(JSON.stringify(result)).not.toContain('sentinel-secret');
     }
@@ -106,8 +122,42 @@ describe('ProviderKeyVerifier', () => {
     http.handler = () => Promise.reject(new DOMException('timeout', 'TimeoutError'));
     expect(await new ProviderKeyVerifier(http).verify(provider, 'secret')).toMatchObject({
       ok: false,
-      error: { code: ErrorCode.PROVIDER_TIMEOUT, retryable: true },
+      error: {
+        code: ErrorCode.PROVIDER_TIMEOUT,
+        retryable: true,
+        remediation: ['The provider did not answer in time — check your network and try again; the key was not saved.'],
+      },
     });
     expect(http.init?.signal).toBeInstanceOf(AbortSignal);
+    expect(http.calls).toBe(1);
+  });
+
+  it.each(cases)('sends only one intercepted HTTP request for $provider', async ({ provider, url, header, value }) => {
+    let calls = 0;
+    let requestUrl: URL | undefined;
+    mswServer.use(
+      captureRequest(
+        new URL(url).origin + new URL(url).pathname,
+        ({ request, url: capturedUrl }) => {
+          calls += 1;
+          requestUrl = capturedUrl;
+          expect(new Headers(request.headers).get(header)).toBe(value);
+        },
+        () => HttpResponse.json({ data: [] }),
+      ),
+    );
+
+    const result = await new ProviderKeyVerifier(new FetchHttpClient()).verify(provider, 'sentinel-secret');
+
+    expect(result).toEqual({ ok: true, value: undefined });
+    expect(calls).toBe(1);
+    expect(requestUrl?.toString()).toBe(url);
+  });
+
+  it('uses a 25 second abort timeout', async () => {
+    const http = new FakeHttpClient();
+    const timeout = vi.spyOn(AbortSignal, 'timeout').mockReturnValue(new AbortController().signal);
+    await new ProviderKeyVerifier(http).verify(ProviderId.OPENAI, 'secret');
+    expect(timeout).toHaveBeenCalledWith(25_000);
   });
 });

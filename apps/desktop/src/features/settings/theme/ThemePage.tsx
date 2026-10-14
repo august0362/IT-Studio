@@ -13,17 +13,17 @@ import '../../../i18n';
 const FILTERS = ['All', 'Focus', 'Calm', 'Warm', 'Creative', 'Dark-native'] as const;
 const FILTER_IDS: Readonly<Record<(typeof FILTERS)[number], readonly string[]>> = {
   All: [],
-  Focus: ['arctic-focus', 'midnight-focus', 'winter-stone', 'lemon-sky'],
+  Focus: ['arctic-focus', 'midnight-focus', 'winter-stone', 'lemon-sky', 'neon-gold', 'neon-cyan'],
   Calm: ['deep-forest', 'blush-lavender', 'vintage-dawn', 'espresso', 'peach-cream'],
-  Warm: ['sherbet', 'honey-sand', 'autumn-ember', 'candy-floss', 'berry-dusk', 'summer-meadow'],
-  Creative: ['royal-ink', 'berry-dusk', 'sherbet'],
-  'Dark-native': ['midnight-focus', 'deep-forest'],
+  Warm: ['sherbet', 'honey-sand', 'autumn-ember', 'candy-floss', 'berry-dusk', 'summer-meadow', 'neon-gold'],
+  Creative: ['royal-ink', 'berry-dusk', 'sherbet', 'neon-violet'],
+  'Dark-native': [],
 };
 
 function MiniPreview({ tokens, label }: { readonly tokens: ThemeTokens; readonly label: string }): JSX.Element {
   return (
     <div
-      className="rounded border p-3"
+      className="studio-card p-3"
       style={{ backgroundColor: tokens.bg, borderColor: tokens.border, color: tokens.text }}
     >
       <div className="mb-2 h-2 rounded" style={{ backgroundColor: tokens.surface }} />
@@ -55,7 +55,13 @@ export function ThemePage(): JSX.Element {
   const activeThemeId = previewId ?? selectedId;
   const active = resolveTheme(activeThemeId, mode, prefersDark);
   const selectedTheme = resolveTheme(selectedId, mode, prefersDark);
-  const themes = themeCatalog.themes.filter((item) => filter === 'All' || FILTER_IDS[filter].includes(item.id));
+  const themes = themeCatalog.themes.filter((item) =>
+    filter === 'All'
+      ? true
+      : filter === 'Dark-native'
+        ? item.nativeMode === 'dark'
+        : FILTER_IDS[filter].includes(item.id),
+  );
 
   async function save(patch: {
     readonly themeId?: ThemeId;
@@ -139,10 +145,7 @@ export function ThemePage(): JSX.Element {
           </button>
         </div>
       </div>
-      <section
-        aria-label={t('theme.appearance')}
-        className="flex flex-wrap items-center gap-3 rounded border border-border bg-surface p-4"
-      >
+      <section aria-label={t('theme.appearance')} className="studio-card flex flex-wrap items-center gap-3 p-4">
         <h3 className="font-semibold">{t('theme.appearance')}</h3>
         <label className="flex items-center gap-2">
           {t('theme.language')}
@@ -207,7 +210,7 @@ export function ThemePage(): JSX.Element {
             >
               <button
                 aria-checked={selectedId === item.id}
-                className="w-full space-y-3 rounded-lg border border-border bg-surface p-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+                className="studio-card w-full space-y-3 p-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
                 data-theme-id={item.id}
                 onClick={() => {
                   void save({ themeId: item.id });
@@ -243,7 +246,7 @@ export function ThemePage(): JSX.Element {
                 ⓘ {t('theme.details')}
               </button>
               {detailsId === item.id ? (
-                <div className="rounded border border-border bg-surface p-3 text-sm">
+                <div className="studio-card p-3 text-sm">
                   <p>{item.psychology}</p>
                   <p className="mt-2 text-text-muted">
                     {t('theme.recommended', { activities: item.recommendedFor.join(', ') })}
@@ -254,10 +257,7 @@ export function ThemePage(): JSX.Element {
           );
         })}
       </div>
-      <aside
-        aria-label={t('theme.previewLabel')}
-        className="grid gap-4 rounded-lg border border-border bg-surface p-4 md:grid-cols-3"
-      >
+      <aside aria-label={t('theme.previewLabel')} className="studio-card grid gap-4 p-4 md:grid-cols-3">
         <div>
           <h3 className="font-semibold">{t('theme.preview', { name: active.definition.name })}</h3>
           <p className="text-text-muted">{t('theme.hover')}</p>

@@ -26,6 +26,16 @@ export function applyTheme(themeId: string, mode: 'light' | 'dark', tokens: Them
   for (const key of semanticKeys) {
     root.style.setProperty(`--color-${kebabCase(key)}`, tokens[key]);
   }
+  const effects = {
+    glow: tokens.glow ?? tokens.primary,
+    surfaceGlass: tokens.surfaceGlass ?? tokens.surface,
+    borderGlow: tokens.borderGlow ?? tokens.border,
+    gradientStart: tokens.gradientStart ?? tokens.bg,
+    gradientEnd: tokens.gradientEnd ?? tokens.surfaceAlt,
+  };
+  for (const [key, value] of Object.entries(effects)) {
+    root.style.setProperty(`--color-${kebabCase(key)}`, value);
+  }
   tokens.chart.forEach((color, index) => {
     root.style.setProperty(`--color-chart-${(index + 1).toString()}`, color);
   });

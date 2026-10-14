@@ -1,10 +1,10 @@
-# AGENTS.md — Instructions for Codex (Implementer)
+# AGENTS.md — Instructions for Codex
 
-You are the **Implementer** (ROLES.md §1.3). Claude is the Architect/QA. You write code; you do not change specifications.
+The owner delegated project execution to Codex on 2026-10-04, including implementation, necessary design/documentation changes, and verification. The owner's current instructions supersede older task scope restrictions. Keep work focused on the requested product outcome and preserve unrelated user changes.
 
 ## 1. Read order (every task)
 
-1. The task file you were given: `docs/tasks/<ID>.md` — your only work order.
+1. The task file you were given: `docs/tasks/<ID>.md`, together with the owner's latest instructions.
 2. `CONTEXT.md` — product, decisions, glossary.
 3. `CONVENTIONS.md` — binding coding rules + review checklist (§10).
 4. The `ARCHITECTURE.md` sections and `src/types/schemas.ts` sections the task cites.
@@ -12,13 +12,13 @@ You are the **Implementer** (ROLES.md §1.3). Claude is the Architect/QA. You wr
 
 ## 2. Hard rules
 
-- Touch **only** the paths listed in the task's *Scope*. **Exception (always allowed):** append `## Result` / `## Blocked` to your own task file `docs/tasks/<ID>.md`.
-- Do **not** edit: `CONTEXT.md`, `ARCHITECTURE.md`, `ROLES.md`, `ROADMAP.md`, `CONVENTIONS.md`, `AGENTS.md`, `CHANGELOG.md`.
+- Use task Scope to organize ownership. Necessary adjacent code, generated migrations/assets, wiring, and documentation may be updated under the owner's project-wide authorization. Record meaningful scope additions in the task Result.
+- Keep `CONTEXT.md`, `ARCHITECTURE.md`, `ROADMAP.md`, `AGENTS.md`, and `CHANGELOG.md` consistent with completed work.
 - Do **not** change existing shapes in `src/types/schemas.ts`. Additive changes only when the task explicitly allows.
 - Import contracts from `@itstudio/schemas`; never redeclare them.
 - No `any`, `@ts-ignore`, TS `enum`, `namespace`, default exports, `eslint-disable`, `shell: true`, raw SQL, `dangerouslySetInnerHTML`, hard-coded secrets.
 - No real network or real keychain in tests.
-- Do **not** run `git commit` / `git push` / `git reset`.
+- Commit and push completed, checked work when authorized by the owner. Preserve unrelated changes; do not use destructive resets.
 - Do not install global tools. Add dependencies only if the task lists them (or justify in *Result*).
 
 ## 3. Definition of done
@@ -38,7 +38,7 @@ You are the **Implementer** (ROLES.md §1.3). Claude is the Architect/QA. You wr
 
 ## 4. When blocked
 
-Stop. Append `## Blocked` to the task file with the precise question and what you tried. Leave the codebase compiling.
+Investigate the cause and use the authorized adjacent paths before declaring a blocker. Record an actual unresolved dependency or decision under `## Blocked`, and continue independent work. Leave the codebase compiling.
 
 ## 5. Invocation (maintained by Architect)
 
@@ -48,14 +48,14 @@ scripts/dev/run-task.sh <ID>            # creates worktree C:/Users/admin/itstud
 scripts/dev/land-task.sh <ID> "feat(scope): subject [<ID>]"   # commit in worktree, merge --no-ff into main, remove worktree
 ```
 
-**Codex should work in its own git worktree** (`C:/Users/admin/itstudio-wt/<ID>`). If you were started in the main checkout, still touch only your task's Scope — other Codex sessions may be working in the same tree; never run repo-wide formatters or `git` write commands there.
+**Codex should work in its own git worktree** (`C:/Users/admin/itstudio-wt/<ID>`). Give each parallel worker explicit file ownership and keep shared contracts/dependencies under one owner. Format changed files only. Preserve user changes when integrating into the main checkout.
 
-**Worktree note:** (not in the main checkout): the Codex Windows sandbox cannot write to the repo's Desktop path, and worktrees isolate parallel tasks. You (Codex) will see a normal repo checkout; `node_modules` may be absent — run `npm --cache .npm-cache install` first.
+**Worktree note:** older Codex sandbox sessions could not write to the repo's Desktop path. OWNER-FB1 runs in an unrestricted worktree; inspect the current environment before reporting a filesystem blocker. Worktrees isolate parallel tasks. You (Codex) will see a normal repo checkout; `node_modules` may be absent — follow the task's dependency instructions before running `npm --cache .npm-cache install`.
 Verified 2026-10-02 with codex-cli 0.159.3 (ChatGPT login): writes in worktree + network (npm registry) work.
-In the sandbox npm uses a repo-local `.npm-cache/` (gitignored). Max 2 Codex runs in parallel, only on tasks with disjoint *Scope* (never two tasks editing the same `package.json` / lockfile).
+In the sandbox npm uses a repo-local `.npm-cache/` (gitignored). Parallel agents may use available slots with disjoint file ownership (never two agents editing the same `package.json` / lockfile).
 From M1 on, the Architect pre-installs each milestone's dependencies in one commit; tasks marked **"deps pre-installed"** must NOT run `npm install <pkg>` or edit any `package.json` / `package-lock.json` — if a needed package is missing, write `## Blocked`.
 
-**Known sandbox limits** (Windows): esbuild/vitest native helpers may be denied process access, `cargo` cannot download crates (TLS `SEC_E_NO_CREDENTIALS`), `tsx` may fail on `os.userInfo()`. If a verification command fails for one of these reasons, record it under *Open issues* in `## Result` and continue — QA re-runs it outside the sandbox. Do not work around by changing tooling.
+**Historical Windows sandbox observations:** earlier sessions encountered denied esbuild/vitest native-helper access, Cargo TLS `SEC_E_NO_CREDENTIALS`, and `tsx` failures on `os.userInfo()`. These are evidence from those environments. Record any reproduced current verification failure under *Open issues* in `## Result`, continue independent work, and arrange verification in a supported environment. Preserve the pinned toolchain.
 
 ## 6. Toolchain
 

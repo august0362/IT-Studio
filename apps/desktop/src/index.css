@@ -22,9 +22,233 @@
   --color-chart-4: var(--color-chart-4);
   --color-chart-5: var(--color-chart-5);
   --color-chart-6: var(--color-chart-6);
+  --color-glow: var(--color-glow);
+  --color-surface-glass: var(--color-surface-glass);
+  --color-border-glow: var(--color-border-glow);
+  --color-gradient-start: var(--color-gradient-start);
+  --color-gradient-end: var(--color-gradient-end);
+}
+
+:root {
+  --radius-control: 12px;
+  --radius-panel: 16px;
+  --shadow-low: 0 4px 16px color-mix(in srgb, var(--color-text) 6%, transparent);
+  --shadow-panel: 0 12px 36px color-mix(in srgb, var(--color-text) 10%, transparent);
+  --shadow-dialog: 0 24px 72px color-mix(in srgb, var(--color-text) 16%, transparent);
+  --shadow-glow: 0 0 22px color-mix(in srgb, var(--color-glow, var(--color-primary)) 16%, transparent);
 }
 
 body {
   background-color: var(--color-bg);
   color: var(--color-text);
+}
+
+/* Existing controls share the same focus treatment without feature logic changes. */
+:where(button, input, select, textarea, a[href], [tabindex]):focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 3px;
+  box-shadow: var(--shadow-glow);
+}
+
+:where(button, input, select, textarea) {
+  border-radius: var(--radius-control);
+}
+
+:where(button:not(:disabled), a[href]) {
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+:where(button:not(:disabled)):hover {
+  box-shadow: 0 0 14px color-mix(in srgb, var(--color-glow, var(--color-primary)) 12%, transparent);
+}
+
+:where(button:disabled, input:disabled, select:disabled, textarea:disabled) {
+  cursor: not-allowed;
+}
+
+.studio-card {
+  border: 1px solid color-mix(in srgb, var(--color-border-glow, var(--color-border)) 35%, var(--color-border));
+  border-radius: var(--radius-panel);
+  background: var(--color-surface-glass, var(--color-surface));
+  color: var(--color-text);
+  box-shadow: var(--shadow-panel);
+}
+
+@supports (backdrop-filter: blur(12px)) {
+  .studio-card,
+  .studio-bar {
+    background-color: color-mix(in srgb, var(--color-surface-glass, var(--color-surface)) 96%, transparent);
+    backdrop-filter: blur(12px);
+  }
+}
+
+.studio-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  padding: 0.5rem 0.875rem;
+  font-weight: 600;
+}
+
+.studio-button-primary {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-primary-fg);
+}
+
+.studio-button-primary:not(:disabled):hover {
+  background: var(--color-primary-hover);
+  box-shadow: var(--shadow-glow);
+}
+
+.studio-button-secondary {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.studio-button-secondary:not(:disabled):hover {
+  border-color: var(--color-border-glow, var(--color-border));
+  background: var(--color-surface-alt);
+}
+
+.studio-button-danger {
+  border-color: var(--color-danger);
+  background: var(--color-surface);
+  color: var(--color-danger);
+}
+
+.studio-button-danger:not(:disabled):hover {
+  box-shadow: 0 0 16px color-mix(in srgb, var(--color-danger) 18%, transparent);
+}
+
+.studio-button:disabled {
+  box-shadow: none;
+}
+
+.studio-input {
+  min-height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-bg);
+  padding: 0.5rem 0.75rem;
+  color: var(--color-text);
+}
+
+.studio-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.studio-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: var(--color-surface);
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.studio-chip-neutral {
+  color: var(--color-text-muted);
+}
+
+.studio-chip-success {
+  color: var(--color-success);
+}
+
+.studio-chip-warning {
+  color: var(--color-warning);
+}
+
+.studio-chip-danger {
+  color: var(--color-danger);
+}
+
+.studio-kpi {
+  padding: 1.25rem;
+  background-image: linear-gradient(135deg, var(--color-gradient-start, var(--color-bg)), var(--color-gradient-end, var(--color-surface-alt)));
+}
+
+.studio-kpi-value {
+  margin-block: 0.625rem;
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.025em;
+}
+
+.studio-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-table :where(th, td) {
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.75rem;
+  text-align: start;
+}
+
+.studio-table th {
+  background: var(--color-surface-alt);
+  font-weight: 600;
+}
+
+.studio-table tbody tr:hover {
+  background: var(--color-surface-alt);
+}
+
+.studio-code {
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-low);
+}
+
+.studio-bar {
+  border-color: var(--color-border-glow, var(--color-border));
+}
+
+.studio-dialog-backdrop {
+  background: color-mix(in srgb, var(--color-bg) 72%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+.studio-dialog-backdrop .studio-card {
+  background: var(--color-surface);
+  box-shadow: var(--shadow-dialog), var(--shadow-glow);
+}
+
+:where([role="tab"][aria-selected="true"], nav [aria-current="page"]) {
+  border-color: var(--color-border-glow, var(--color-primary));
+  box-shadow: inset 0 -2px 0 var(--color-primary), var(--shadow-glow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(button, input, select, textarea, a[href], [tabindex]) {
+    animation: none;
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .studio-card,
+  .studio-button,
+  .studio-input,
+  .studio-chip {
+    border-color: CanvasText;
+    background: Canvas;
+    color: CanvasText;
+    box-shadow: none;
+  }
 }

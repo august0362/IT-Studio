@@ -249,7 +249,13 @@ function WebChatSettingsForm({
             className="rounded bg-accent px-3 py-2 text-on-accent disabled:opacity-50"
             disabled={form.saving}
             onClick={() => {
-              void form.save({ webChat: value });
+              void form.save({
+                webChat: {
+                  browser: value.browser,
+                  customBrowserPath: value.customBrowserPath,
+                  links: value.links,
+                },
+              });
             }}
             type="button"
           >

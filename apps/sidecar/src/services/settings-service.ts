@@ -5,6 +5,7 @@ import type { Logger } from 'pino';
 import type { IClock } from '../infra/clock.js';
 import type { ISettingsRepository } from '../ports/settings-repository.js';
 import { appSettingsSchema } from '../validation/settings.js';
+import { reconcileWebChatLayout } from '../domain/web-chat.js';
 
 export interface SettingsServiceDependencies {
   readonly repository: ISettingsRepository;
@@ -101,6 +102,12 @@ export class SettingsService {
 }
 
 function mergeSettings(current: AppSettings, patch: SettingsPatch): AppSettings {
+  const webChat = { ...current.webChat, ...patch.webChat };
+  if (patch.webChat?.links !== undefined && patch.webChat.layout === undefined) {
+    const layout = reconcileWebChatLayout(webChat.layout, webChat.links);
+    if (layout === undefined) delete webChat.layout;
+    else webChat.layout = layout;
+  }
   return {
     ...current,
     ...patch,
@@ -113,7 +120,7 @@ function mergeSettings(current: AppSettings, patch: SettingsPatch): AppSettings 
     rag: { ...current.rag, ...patch.rag },
     image: { ...current.image, ...patch.image },
     ui: { ...current.ui, ...patch.ui },
-    webChat: { ...current.webChat, ...patch.webChat },
+    webChat,
   };
 }
 

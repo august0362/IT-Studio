@@ -2,6 +2,7 @@
 // Usage: node scripts/design/derive-themes.mjs  (deterministic; re-run after editing THEME_META)
 // Spec: docs/design/THEMES.md
 import fs from 'node:fs';
+import { deflateSync } from 'node:zlib';
 
 const THEME_META = [
   { id: 'arctic-focus', name: 'Arctic Focus', source: 'ColdColor.png', palette: ['#e3f2fd', '#90caf9', '#2196f3', '#0d47a1'], native: 'light',
@@ -40,6 +41,12 @@ const THEME_META = [
     mood: 'Natural, grounded, relaxed', psychology: 'Olive and terracotta are earthy and organic; they signal stability and ease, good for steady routine work.', recommendedFor: ['routine work'] },
   { id: 'winter-stone', name: 'Winter Stone', source: 'WinterColor.png', palette: ['#777c6d', '#b7b89f', '#cbcbcb', '#eeeeee'], native: 'light',
     mood: 'Neutral, minimal, distraction-free', psychology: 'Muted greys minimise emotional and visual stimulation and let content dominate: a focus-mode theme.', recommendedFor: ['focus mode', 'presentations'] },
+  { id: 'neon-gold', name: 'Neon Gold', source: 'NeonGold.png', palette: ['#12100d', '#f6c65b', '#ef9850', '#ffe7a5'], brand: '#f6c65b', native: 'dark', generatedPalette: true,
+    mood: 'Warm, focused, quietly luminous', psychology: 'Warm near-black surfaces reduce glare while restrained gold accents identify actions and large metrics. Amber adds warmth without turning the whole workspace into a warning signal.', recommendedFor: ['night work', 'finance', 'default dark'] },
+  { id: 'neon-cyan', name: 'Neon Cyan', source: 'NeonCyan.png', palette: ['#0c1217', '#47d8ef', '#69a7ff', '#cbf4ff'], brand: '#47d8ef', native: 'dark', generatedPalette: true,
+    mood: 'Clear, precise, composed', psychology: 'Cool cyan focus cues distinguish interactive controls from quiet charcoal surfaces; blue secondary accents support clear navigation during coding and monitoring.', recommendedFor: ['coding', 'monitoring', 'night work'] },
+  { id: 'neon-violet', name: 'Neon Violet', source: 'NeonViolet.png', palette: ['#12101b', '#bc92ff', '#906ee8', '#e7dcff'], brand: '#bc92ff', native: 'dark', generatedPalette: true,
+    mood: 'Reflective, creative, calm', psychology: 'Soft violet accents bring a creative mood to near-black surfaces, with restrained glow that keeps reading and ideation comfortable over long sessions.', recommendedFor: ['ideation', 'writing', 'night work'] },
 ];
 
 // ---- color math: sRGB <-> OKLCH, WCAG 2.x contrast ----
@@ -91,7 +98,7 @@ const hueDist = (a, b) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b));
 function derive(meta) {
   const cols = meta.palette.map((h) => ({ hex: h, lch: lch(h) }));
   const byChroma = [...cols].sort((a, b) => b.lch[1] - a.lch[1]);
-  const brand = byChroma[0];
+  const brand = cols.find((color) => color.hex === meta.brand) ?? byChroma[0];
   const accent = byChroma.find((c) => c !== brand && hueDist(c.lch[2], brand.lch[2]) > 30 && c.lch[1] > 0.03) ?? byChroma[1];
   const darkest = [...cols].sort((a, b) => a.lch[0] - b.lch[0])[0];
   const lightest = [...cols].sort((a, b) => b.lch[0] - a.lch[0])[0];
@@ -142,12 +149,21 @@ function derive(meta) {
   const min = { 'text/bg': 7, 'text/surface': 7, 'text/surfaceAlt': 7, 'muted/surfaceAlt': 4.5, 'primaryFg/primary': 4.5, 'accent/bg': 3 };
   for (const [mode, t] of [['light', light], ['dark', dark]]) {
     for (const [k, h] of Object.entries(statusHue)) {
-      t[k] = mode === 'light' ? ensure(toHex([0.55, 0.15, h]), t.surface, 4.5, -1) : ensure(toHex([0.75, 0.14, h]), t.surface, 4.5, 1);
+      const background = meta.generatedPalette ? t.surfaceAlt : t.surface;
+      t[k] = mode === 'light' ? ensure(toHex([0.55, 0.15, h]), background, 4.5, -1) : ensure(toHex([0.75, 0.14, h]), background, 4.5, 1);
     }
     // Every chart color must reach 3:1 against the surface it is drawn on (fixed after M4-01b QA).
     const dir = mode === 'light' ? -1 : 1;
     const series = [t.primary, t.accent, ...cols.map((c) => c.hex)].map((hex) => ensure(hex, t.surface, 3, dir));
     t.chart = [...new Set(series)].slice(0, 6);
+    if (meta.generatedPalette) {
+      t.glow = t.primary;
+      t.surfaceGlass = t.surface;
+      t.borderGlow = ensure(t.primary, t.surfaceAlt, 3, dir);
+      t.focusRing = t.borderGlow;
+      t.gradientStart = t.bg;
+      t.gradientEnd = t.surfaceAlt;
+    }
     const checks = {
       'text/bg': contrast(t.text, t.bg), 'text/surface': contrast(t.text, t.surface), 'text/surfaceAlt': contrast(t.text, t.surfaceAlt),
       'muted/surfaceAlt': contrast(t.textMuted, t.surfaceAlt), 'primaryFg/primary': contrast(t.primaryFg, t.primary), 'accent/bg': contrast(t.accent, t.bg),
@@ -163,8 +179,58 @@ function derive(meta) {
 }
 
 const themes = THEME_META.map(derive);
-const out = { version: 1, generatedBy: 'scripts/design/derive-themes.mjs', defaultLight: 'arctic-focus', defaultDark: 'midnight-focus', themes };
+const out = { version: 1, generatedBy: 'scripts/design/derive-themes.mjs', defaultLight: 'arctic-focus', defaultDark: 'neon-gold', themes };
 fs.writeFileSync(new URL('../../config/themes.json', import.meta.url), JSON.stringify(out, null, 2) + '\n');
+
+// Keep the new four-band source palettes deterministic and dependency-free.
+function pngChunk(type, data) {
+  const name = Buffer.from(type);
+  const payload = Buffer.concat([name, data]);
+  let crc = 0xffffffff;
+  for (const byte of payload) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+  }
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length);
+  const checksum = Buffer.alloc(4);
+  checksum.writeUInt32BE((crc ^ 0xffffffff) >>> 0);
+  return Buffer.concat([length, payload, checksum]);
+}
+
+for (const meta of THEME_META.filter((entry) => entry.generatedPalette)) {
+  const width = 128;
+  const height = 64;
+  const pixels = Buffer.alloc(height * (width * 3 + 1));
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const color = meta.palette[Math.floor(x / (width / 4))];
+      const offset = y * (width * 3 + 1) + 1 + x * 3;
+      for (let channel = 0; channel < 3; channel++) pixels[offset + channel] = parseInt(color.slice(1 + channel * 2, 3 + channel * 2), 16);
+    }
+  }
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header[8] = 8;
+  header[9] = 2;
+  const png = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), pngChunk('IHDR', header), pngChunk('IDAT', deflateSync(pixels)), pngChunk('IEND', Buffer.alloc(0))]);
+  fs.writeFileSync(new URL(`../../src/image/theme/${meta.source}`, import.meta.url), png);
+}
+
+// Apply exactly the same catalog before React, including optional-token fallbacks.
+const properties = ['bg', 'surface', 'surfaceAlt', 'border', 'text', 'textMuted', 'primary', 'primaryFg', 'primaryHover', 'accent', 'focusRing', 'success', 'warning', 'danger', 'info', 'glow', 'surfaceGlass', 'borderGlow', 'gradientStart', 'gradientEnd'];
+const startupCatalog = themes.map((theme) => [theme.id, ...['light', 'dark'].map((mode) => {
+  const tokens = theme[mode];
+  const resolved = { ...tokens, glow: tokens.glow ?? tokens.primary, surfaceGlass: tokens.surfaceGlass ?? tokens.surface, borderGlow: tokens.borderGlow ?? tokens.border, gradientStart: tokens.gradientStart ?? tokens.bg, gradientEnd: tokens.gradientEnd ?? tokens.surfaceAlt };
+  return [...properties.map((key) => resolved[key]), tokens.chart.join(',')];
+})]);
+const startup = `(function(){const properties=${JSON.stringify(properties)};const themes=${JSON.stringify(startupCatalog)};const defaults=${JSON.stringify({ light: out.defaultLight, dark: out.defaultDark })};let cached={};try{const value=JSON.parse(localStorage.getItem('itstudio.theme')||'{}');if(value&&typeof value==='object')cached=value}catch{}const mode=['system','light','dark'].includes(cached.mode)?cached.mode:'system';const active=mode==='system'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):mode;const selected=themes.find(theme=>theme[0]===cached.themeId)||themes.find(theme=>theme[0]===defaults[active]);if(selected){const root=document.documentElement,tokens=selected[active==='dark'?2:1];properties.forEach((key,index)=>root.style.setProperty('--color-'+key.replace(/[A-Z]/g,letter=>'-'+letter.toLowerCase()),tokens[index]));tokens[properties.length].split(',').forEach((color,index)=>root.style.setProperty('--color-chart-'+(index+1),color));for(let index=tokens[properties.length].split(',').length;index<6;index++)root.style.removeProperty('--color-chart-'+(index+1));root.dataset.theme=selected[0];root.dataset.mode=active}})();`;
+const htmlPath = new URL('../../apps/desktop/index.html', import.meta.url);
+const html = fs.readFileSync(htmlPath, 'utf8');
+const generatedBlock = /    <!-- Generated from config\/themes\.json;[^\n]*-->\r?\n    <!-- prettier-ignore -->\r?\n    <script>[\s\S]*?<\/script>/;
+if (!generatedBlock.test(html)) throw new Error('Startup theme block is missing from index.html');
+fs.writeFileSync(htmlPath, html.replace(generatedBlock, `    <!-- Generated from config/themes.json; color map ${Buffer.byteLength(startup)} bytes. -->\n    <!-- prettier-ignore -->\n    <script>${startup}</script>`));
 for (const t of themes) {
   console.log(t.id.padEnd(15), 'L', t.light.bg, t.light.text, t.light.primary, t.light.accent, '| D', t.dark.bg, t.dark.text, t.dark.primary, t.dark.accent);
 }

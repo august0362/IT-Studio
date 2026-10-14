@@ -1,6 +1,13 @@
 import { isIP } from 'node:net';
+import { Buffer } from 'node:buffer';
 import { isAbsolute } from 'node:path';
-import { WebChatBrowser, type WebChatLink, type WebChatLinkId, type WebChatSettings } from '@itstudio/schemas';
+import {
+  WebChatBrowser,
+  type WebChatLink,
+  type WebChatLinkId,
+  type WebChatSettings,
+  type WebChatLayout,
+} from '@itstudio/schemas';
 
 export const DEFAULT_WEB_CHAT_LINKS: readonly WebChatLink[] = [
   { id: 'chatgpt' as WebChatLinkId, name: 'ChatGPT', url: 'https://chatgpt.com/', enabled: true },
@@ -28,8 +35,13 @@ export interface WebChatIssue {
 }
 
 export function validateWebChatSettings(
-  value: Pick<WebChatSettings, 'browser' | 'customBrowserPath'> & {
-    readonly links: readonly { readonly id: string; readonly name: string; readonly url: string }[];
+  value: Pick<WebChatSettings, 'browser' | 'customBrowserPath' | 'layout'> & {
+    readonly links: readonly {
+      readonly id: string;
+      readonly name: string;
+      readonly url: string;
+      readonly enabled?: boolean;
+    }[];
   },
 ): readonly WebChatIssue[] {
   const issues: WebChatIssue[] = [];
@@ -44,9 +56,20 @@ export function validateWebChatSettings(
     if (!isAllowedWebChatUrl(link.url))
       issues.push({
         path: `${prefix}.url`,
-        message: 'Enter a valid HTTPS URL without credentials or a local/IP host (maximum 2,048 characters).',
+        message:
+          'Enter a valid HTTPS URL without credentials or a local/IP host (maximum 2,048 UTF-8 bytes after URL normalization).',
       });
   });
+  if (value.layout !== undefined) {
+    const enabledIds = new Set(value.links.filter((link) => link.enabled !== false).map((link) => link.id));
+    value.layout.panes.forEach((id, index) => {
+      if (!enabledIds.has(id))
+        issues.push({
+          path: `webChat.layout.panes.${String(index)}`,
+          message: 'Select an enabled saved web-chat link.',
+        });
+    });
+  }
   if (value.browser === WebChatBrowser.CUSTOM && value.customBrowserPath === null)
     issues.push({ path: 'webChat.customBrowserPath', message: 'Choose a browser executable path.' });
   if (
@@ -58,24 +81,45 @@ export function validateWebChatSettings(
   return issues;
 }
 
+export function reconcileWebChatLayout(
+  layout: WebChatLayout | undefined,
+  links: readonly WebChatLink[],
+): WebChatLayout | undefined {
+  if (layout === undefined) return undefined;
+  const enabled = new Set(links.filter((link) => link.enabled).map((link) => link.id));
+  const remaining = layout.panes
+    .map((id, index) => ({ id, size: layout.sizes[index] ?? 1 }))
+    .filter(({ id }) => enabled.has(id));
+  if (remaining.length === 0) return undefined;
+  const total = remaining.reduce((sum, { size }) => sum + size, 0);
+  return { panes: remaining.map(({ id }) => id), sizes: remaining.map(({ size }) => size / total) };
+}
+
 export function isAllowedWebChatUrl(value: string): boolean {
-  if (value.length === 0 || value.length > 2048) return false;
+  if (value.length === 0 || Buffer.byteLength(value, 'utf8') > 2048) return false;
   try {
     const url = new URL(value);
-    const hostname = url.hostname.replace(/^\[|\]$/gu, '').toLocaleLowerCase('en-US');
+    if (Buffer.byteLength(url.href, 'utf8') > 2048) return false;
+    const hostname = url.hostname
+      .replace(/^\[|\]$/gu, '')
+      .replace(/\.+$/u, '')
+      .toLocaleLowerCase('en-US');
     const validLabels = hostname
       .split('.')
       .every((label) => /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/u.test(label) && label.length <= 63);
+    const localHost =
+      !hostname.includes('.') ||
+      hostname === 'localhost' ||
+      ['.localhost', '.local', '.internal', '.lan', '.home.arpa'].some((suffix) => hostname.endsWith(suffix));
     return (
       url.protocol === 'https:' &&
-      !/\s/u.test(value) &&
+      !/[\s\p{Cc}]/u.test(value) &&
       url.username.length === 0 &&
       url.password.length === 0 &&
       hostname.length > 0 &&
       hostname.length <= 253 &&
       validLabels &&
-      hostname !== 'localhost' &&
-      !hostname.endsWith('.localhost') &&
+      !localHost &&
       isIP(hostname) === 0
     );
   } catch {

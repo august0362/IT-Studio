@@ -24,6 +24,7 @@ import {
   commandRunIdSchema,
   toolCallIdSchema,
   imageAssetIdSchema,
+  secretHistoryIdSchema,
   priceTableVersionSchema,
 } from './brand.js';
 
@@ -52,6 +53,7 @@ export {
   commandRunIdSchema,
   toolCallIdSchema,
   imageAssetIdSchema,
+  secretHistoryIdSchema,
   priceTableVersionSchema,
 };
 export const providerIdSchema = z.enum(['anthropic', 'openai', 'google', 'xai', 'groq', 'together', 'replicate']);

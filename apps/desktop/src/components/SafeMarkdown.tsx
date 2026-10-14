@@ -13,6 +13,7 @@ function isAllowedLink(uri: string | undefined): uri is string {
 }
 
 const markdownComponents: Components = {
+  table: ({ children }) => <table className="studio-table">{children}</table>,
   a: ({ children, href }) =>
     isAllowedLink(href) ? (
       <a href={href} rel="noopener noreferrer" target="_blank">
@@ -23,7 +24,7 @@ const markdownComponents: Components = {
     ),
   img: ({ alt }) => <span>{alt ?? ''}</span>,
   pre: ({ children }) => (
-    <pre className="overflow-x-auto rounded border border-border bg-surface-alt p-3">{children}</pre>
+    <pre className="studio-code overflow-x-auto rounded border border-border bg-surface-alt p-3">{children}</pre>
   ),
   code: ({ children, className }) => (
     <code className={`rounded bg-surface-alt px-1 ${className ?? ''}`}>{children}</code>

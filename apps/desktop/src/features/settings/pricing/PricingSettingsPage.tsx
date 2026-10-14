@@ -1,8 +1,8 @@
-import type { AppError, ModelKey, PriceUpdateRun } from '@itstudio/schemas';
+import type { AppError, ModelKey, PriceRow, PriceTable, PriceUpdateRun } from '@itstudio/schemas';
 import { useQueryClient } from '@tanstack/react-query';
-import { useState, type SyntheticEvent } from 'react';
+import { useEffect, useState, type SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { formatNumber } from '../../../i18n/format';
+import { formatDateTime } from '../../../i18n/format';
 import { ErrorPanel } from '../../../components/ErrorPanel';
 import { Money } from '../../../components/Money';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
@@ -11,6 +11,8 @@ import { useRpcQuery } from '../../../hooks/use-rpc-query';
 import { RpcCallError } from '../../../rpc/rpc-client';
 import { useRpcClient } from '../../../rpc/rpc-context';
 import { SettingsHeading } from '../settings-form';
+import { PricingExtractionControl } from './PricingExtractionControl';
+import { PricingUpdateResult, PricingUpdateToast } from './PricingUpdateResult';
 
 interface OverrideDraft {
   readonly modelKey: ModelKey;
@@ -19,6 +21,11 @@ interface OverrideDraft {
   readonly cached: string;
 }
 const USD_DECIMAL = /^\d+(\.\d{1,6})?$/;
+const TOAST_DURATION_MS = 8000;
+
+function rowOrigin(row: PriceRow, table: PriceTable): PriceTable['origin'] {
+  return row.origin ?? (row.overridden ? 'manual_override' : (row.entry.origin ?? table.origin));
+}
 
 export function PricingSettingsPage({ projectActive }: { readonly projectActive: boolean }) {
   const { t, i18n } = useTranslation();
@@ -27,8 +34,10 @@ export function PricingSettingsPage({ projectActive }: { readonly projectActive:
   const prices = useRpcQuery('pricing.getRows', {});
   const models = useRpcQuery('models.list', {});
   const [running, setRunning] = useState(false);
+  const [savingModel, setSavingModel] = useState(false);
   const [failure, setFailure] = useState<AppError | null>(null);
   const [result, setResult] = useState<PriceUpdateRun | null>(null);
+  const [toast, setToast] = useState<PriceUpdateRun | null>(null);
   const [draft, setDraft] = useState<OverrideDraft | null>(null);
   const [overrideError, setOverrideError] = useState<AppError | null>(null);
   const [saved, setSaved] = useState(false);
@@ -36,6 +45,15 @@ export function PricingSettingsPage({ projectActive }: { readonly projectActive:
     null,
   );
   const [clearError, setClearError] = useState<AppError | null>(null);
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => {
+      setToast(null);
+    }, TOAST_DURATION_MS);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [toast]);
   useNotification('pricing.updated', () => {
     void cache.invalidateQueries({ queryKey: ['pricing.getRows', {}] });
   });
@@ -43,8 +61,11 @@ export function PricingSettingsPage({ projectActive }: { readonly projectActive:
     setRunning(true);
     setFailure(null);
     setResult(null);
+    setToast(null);
     try {
-      setResult(await rpc.call('pricing.refresh', {}));
+      const run = await rpc.call('pricing.refresh', {});
+      setResult(run);
+      setToast(run);
       await cache.invalidateQueries({ queryKey: ['pricing.getRows', {}] });
     } catch (error: unknown) {
       setFailure(
@@ -59,6 +80,22 @@ export function PricingSettingsPage({ projectActive }: { readonly projectActive:
       );
     } finally {
       setRunning(false);
+    }
+  }
+  async function selectExtractionModel(modelKey: ModelKey): Promise<void> {
+    setSavingModel(true);
+    setFailure(null);
+    try {
+      await rpc.call('settings.update', { patch: { pricing: { extractionModelKey: modelKey } } });
+      await cache.invalidateQueries({ queryKey: ['pricing.getRows', {}] });
+    } catch (error: unknown) {
+      setFailure(
+        error instanceof RpcCallError
+          ? error.appError
+          : { code: 'INTERNAL', message: t('settings.saveError'), retryable: true, remediation: [t('settings.retry')] },
+      );
+    } finally {
+      setSavingModel(false);
     }
   }
   async function saveOverride(event: SyntheticEvent<HTMLFormElement>): Promise<void> {
@@ -124,6 +161,9 @@ export function PricingSettingsPage({ projectActive }: { readonly projectActive:
     }
   }
   const name = (key: string) => models.data?.find((model) => model.key === key)?.displayName ?? key;
+  const priceData = prices.data;
+  const origins = priceData ? [...new Set(priceData.rows.map((row) => rowOrigin(row, priceData.table)))] : [];
+  const seedRemaining = origins.includes('seed');
   return (
     <section aria-labelledby="settings-heading" className="space-y-5">
       <SettingsHeading section="pricing" />
@@ -137,38 +177,49 @@ export function PricingSettingsPage({ projectActive }: { readonly projectActive:
           {t('settings.pricing.stale')}
         </p>
       ) : null}
-      {failure ? <ErrorPanel error={failure} onRetry={() => void refresh()} /> : null}
-      {result ? (
-        <section aria-live="polite" className="space-y-2 rounded border border-border bg-surface p-4">
-          <h3 className="font-semibold">{t(`settings.pricing.status.${result.status}`)}</h3>
-          {result.status === 'fetch_failed' && result.error ? <ErrorPanel error={result.error} /> : null}
-          {result.deltas.length > 0 ? (
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr>
-                  <th>{t('settings.pricing.model')}</th>
-                  <th>{t('settings.pricing.change')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.deltas.map((delta, index) => (
-                  <tr key={`${delta.modelKey}-${delta.field}-${String(index)}`}>
-                    <td>
-                      {name(delta.modelKey)} · {delta.field}
-                    </td>
-                    <td>
-                      {formatNumber(delta.percent, i18n.language, { signDisplay: 'always', maximumFractionDigits: 2 })}%
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : null}
-        </section>
+      {prices.error ? <ErrorPanel error={prices.error.appError} onRetry={() => void prices.refetch()} /> : null}
+      {prices.data ? (
+        <dl className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
+          <div>
+            <dt className="text-text-muted">{t('settings.pricing.lastUpdated')}</dt>
+            <dd>
+              <time dateTime={prices.data.table.effectiveFrom}>
+                {formatDateTime(prices.data.table.effectiveFrom, i18n.language)}
+              </time>
+            </dd>
+          </div>
+          <div>
+            <dt className="text-text-muted">{t('settings.pricing.origin')}</dt>
+            <dd>
+              {(origins.length > 0 ? origins : [prices.data.table.origin])
+                .map((origin) => t(`settings.pricing.origins.${origin}`))
+                .join(' · ')}
+            </dd>
+          </div>
+        </dl>
       ) : null}
+      {seedRemaining ? (
+        <p className="rounded border border-warning p-3" role="status">
+          {t('settings.pricing.seedWarning')}
+        </p>
+      ) : null}
+      {failure ? <ErrorPanel error={failure} /> : null}
+      {result ? <PricingUpdateResult modelName={name} result={result} /> : null}
+      <PricingExtractionControl
+        disabled={running || savingModel}
+        extraction={prices.data?.extraction}
+        onSelect={(modelKey) => void selectExtractionModel(modelKey)}
+      />
       <button
         className="rounded bg-primary px-4 py-2 text-primary-fg disabled:opacity-50"
-        disabled={running || !projectActive}
+        disabled={
+          running ||
+          savingModel ||
+          !projectActive ||
+          prices.isPending ||
+          prices.isError ||
+          !prices.data.extraction?.selectedModelKey
+        }
         onClick={() => {
           void refresh();
         }}
@@ -209,7 +260,7 @@ export function PricingSettingsPage({ projectActive }: { readonly projectActive:
                 </td>
                 <td className="p-2">
                   <a className="underline" href={row.entry.sourceUrl} rel="noreferrer" target="_blank">
-                    {prices.data?.table.origin}
+                    {prices.data ? t(`settings.pricing.origins.${rowOrigin(row, prices.data.table)}`) : ''}
                   </a>
                 </td>
                 <td className="p-2">
@@ -245,6 +296,7 @@ export function PricingSettingsPage({ projectActive }: { readonly projectActive:
         </table>
       </div>
       {saved ? <p role="status">{t('settings.saved')}</p> : null}
+      {toast ? <PricingUpdateToast result={toast} /> : null}
       {clearError ? <ErrorPanel error={clearError} /> : null}
       <ConfirmDialog
         cancelLabel={t('settings.cancel')}
