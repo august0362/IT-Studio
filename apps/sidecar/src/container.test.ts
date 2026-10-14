@@ -12,6 +12,8 @@ import type { IProviderKeyVerifier } from './infra/http/provider-key-verifier.js
 import { ProviderId } from '@itstudio/schemas';
 import type { IHttpClient } from './ports/http-client.js';
 import type { ProviderRequest } from './ports/llm-provider.js';
+import type { SecretHistoryEntry } from '@itstudio/schemas';
+import type { ISecretHistoryRepository } from './infra/sqlite/secret-history-repository.js';
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -35,6 +37,43 @@ const testFxHttpClient: IHttpClient = {
 };
 
 describe('sidecar container', () => {
+  it('verifies saves deletes and reads masked history through the migrated production repository', async () => {
+    const store = new MemorySecretStore();
+    const clock = createFakeClock(new Date('2026-10-04T00:00:00.000Z'));
+    const container = createContainer(
+      {},
+      {
+        dataDir: makeDataDir(),
+        clock,
+        secretStore: store,
+        keyVerifier: { verify: () => Promise.resolve({ ok: true, value: undefined }) },
+        fxHttpClient: testFxHttpClient,
+        logger: createLogger({ streams: [] }),
+      },
+    );
+    try {
+      expect(await container.secretsService.verifyAndSave(ProviderId.OPENAI, 'candidate-test-key-1234')).toMatchObject({
+        ok: true,
+        value: { configured: true, hint: '1234' },
+      });
+      expect(container.secretsService.history(ProviderId.OPENAI)).toMatchObject({
+        ok: true,
+        value: [{ action: 'saved', hint: '1234' }],
+      });
+      clock.advance(1000);
+      expect(await container.secretsService.delete(ProviderId.OPENAI)).toMatchObject({
+        ok: true,
+        value: { configured: false },
+      });
+      const history = container.secretsService.history(ProviderId.OPENAI);
+      expect(history.ok && history.value.map((entry) => entry.action)).toEqual(['deleted', 'saved']);
+      expect(JSON.stringify(history)).not.toContain('candidate-test-key');
+      expect(await store.get(ProviderId.OPENAI)).toEqual({ ok: true, value: null });
+    } finally {
+      container.database.client.close();
+    }
+  });
+
   it('scripts a tool call and then returns the follow-up assistant text', async () => {
     const modelId = 'scripted-model';
     const provider = scriptedLlmProvider(
@@ -278,6 +317,12 @@ describe('sidecar container', () => {
       lines.push(...chunks.filter(Boolean));
     });
     let logs = '';
+    const entries: SecretHistoryEntry[] = [];
+    const secretHistoryRepository: ISecretHistoryRepository = {
+      append: (entry) => entries.unshift(entry),
+      list: (provider, limit) =>
+        entries.filter((entry) => provider === undefined || entry.provider === provider).slice(0, limit),
+    };
     const secret = 'rpc-secret-that-must-not-leak';
     const verifier: IProviderKeyVerifier = { verify: () => Promise.resolve({ ok: true, value: undefined }) };
     const container = createContainer(
@@ -288,6 +333,7 @@ describe('sidecar container', () => {
         fxHttpClient: testFxHttpClient,
         dataDir: makeDataDir(),
         secretStore: new MemorySecretStore(),
+        secretHistoryRepository,
         keyVerifier: verifier,
         logger: createLogger({
           streams: [
@@ -312,7 +358,18 @@ describe('sidecar container', () => {
       `${JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'secrets.verify', params: { provider: ProviderId.OPENAI } })}\n`,
     );
     await new Promise((resolve) => setTimeout(resolve, 20));
+    input.write(
+      `${JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'secrets.verifyAndSave', params: { provider: ProviderId.GOOGLE, apiKey: 'candidate-key-9876' } })}\n`,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    input.write(`${JSON.stringify({ jsonrpc: '2.0', id: 4, method: 'secrets.history', params: { limit: 10 } })}\n`);
+    await new Promise((resolve) => setTimeout(resolve, 20));
     expect(JSON.stringify(lines.map(parseLine))).not.toContain(secret);
+    expect(JSON.stringify(lines.map(parseLine))).not.toContain('candidate-key-9876');
+    expect(lines.map(parseLine).find((line) => line.id === 4)?.result).toMatchObject([
+      { provider: 'google', hint: '9876', action: 'saved', resultCode: null },
+    ]);
+    expect(logs).not.toContain('candidate-key-9876');
     expect(logs).not.toContain(secret);
     container.database.client.close();
   });

@@ -183,6 +183,8 @@ Integer math only. Price lookup by `modelKey` in the **current** `PriceTable`; t
 4. Validation: every known model present or explicitly omitted; all rates ≥ 0; `|Δ%| ≤ maxAutoChangePercent` (default 50) versus current; else `rejected_validation`.
 5. Apply → new `PriceTable` version (`origin = auto_extracted`) → `pricing.updated`. Reject/fail → keep current, emit warning. Manual edits (`pricing.override`) create `origin = manual_override` versions and are preserved over auto updates for that model until the user clears them.
 
+Owner feedback (`OWNER-FB1`) adds a keyed extraction-model fallback: use the configured eligible chat/json model, otherwise the cheapest enabled eligible model with a stored provider key and a current price. `pricing.getRows` includes keyed extraction choices and sidecar-formatted planning costs before any paid call. Refresh returns per-provider outcomes and reasons; extraction failures are explicit. Entry-level provenance survives restart so an auto/manual table cannot hide untouched seed rows. Valid unchanged seed prices can create a provenance-only version. A failed validation rejects the entire price batch; successful providers remain applicable when other providers fail fetch/extraction. Extraction text/output are bounded to the selected model, and the estimate includes one possible retry per provider.
+
 ### 6.3 FX (D8)
 
 - Fetch `usdToVnd` daily from `settings` FX URL (default `https://open.er-api.com/v6/latest/USD`, decided 2026-10-02). Plain HTTP GET — no LLM tokens. Manual override wins when non-null.
@@ -396,7 +398,15 @@ Each edge declares `{ from, to, contract, direction }` where `contract` names th
 
 "All projects" shows the same graph aggregated across projects (per-project filter chips).
 
-## 14. Deferred components (specified, not implemented in v1)
+### 13.2 Embedded web chat (OWNER-FB1)
+
+The Web chat route hosts one to four Tauri child webviews, managed by main-only async Rust commands. The main React webview passes saved enabled sites and visible pane bounds; Rust validates HTTPS URLs, non-local hosts, enabled IDs, slot counts and window bounds. Navigation stays within saved HTTPS origins. New-window requests open externally; native children receive no capabilities or sidecar access. All custom commands verify the caller is the main webview, and the main capability selects only that webview.
+
+Profiles live under the app data directory's `webchat/profile` subtree, separate from the main profile. Splitter dragging, modal dialogs and offscreen panes hide webviews while retaining sessions; removed panes, changed sites and route cleanup close them. Reload/open-in-browser controls remain in React. `webChat.layout` persists site IDs and pane width fractions; settings validation enforces one to four enabled saved sites, matching fractions and a 10% minimum. Changing saved sites reconciles stale panes. A dismissible one-time sign-in warning provides the external-browser fallback. Tauri's `unstable` child-webview feature is enabled by the owner's explicit override (ADR-0005).
+
+## 14. Image generation and packaging (implemented v1 additions)
+
+M8 generation/Gallery and M9 SEA/NSIS/MSI builds are implemented. M8 has conditional automated QA sign-off with its exploratory follow-up recorded separately; M9 release sign-off remains pending runtime-isolated installer smoke and M9-QA. OWNER-FB1 native provider/theme follow-ups remain recorded in its task Result. Build artifacts and passing automated checks do not complete the release gate.
 
 ### 14.1 Image generation — M8
 
@@ -409,8 +419,8 @@ Each edge declares `{ from, to, contract, direction }` where `contract` names th
 - Sidecar bundled with esbuild into one JS file, then into a Node **Single Executable Application** (`node --experimental-sea-config`) named `itstudio-sidecar-x86_64-pc-windows-msvc.exe`, registered as Tauri `externalBin`. Native modules (better-sqlite3, LanceDB, keyring) shipped as `.node` files in `resources/` and loaded via absolute path; verify each at startup.
 - Tauri bundler: NSIS installer (`.exe`) + MSI; per-user install; WebView2 bootstrapper embedded.
 - Bundled resources: `itstudio-vscode.vsix`, `config/*.seed.json`.
-- Code signing (Authenticode cert — user to supply), Tauri updater with signed update manifests (key pair generated in M9, private key kept out of repo).
-- Release checklist: version bump in 4 manifests (root, desktop, sidecar, ext) via script; CHANGELOG release section; smoke test on clean Windows VM.
+- Single-user distribution follows D33: installers are unsigned; Authenticode signing and the Tauri updater key pair are deferred until the owner requests them. If update signing is later introduced, keep private keys outside the repo.
+- Release checklist: version bump in 4 manifests (root, desktop, sidecar, ext) via script; CHANGELOG release section; M9-QA with install smoke proving independence from system Node/repository modules. D33 replaces the clean-VM requirement. The current install-smoke script uses real app data, so QA must provide runtime isolation before executing it for the new release; see `docs/RUNNING.md`.
 - macOS (`.dmg`) and Linux (`.AppImage`) targets: out of scope until requested.
 
 ---

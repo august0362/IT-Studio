@@ -1,6 +1,6 @@
-import type { ActivityEvent, ActivityEventId, IsoDateTime, WorkflowGraph } from '@itstudio/schemas';
+import type { ActivityEvent, ActivityEventId, IsoDateTime, ProjectId, WorkflowGraph } from '@itstudio/schemas';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import '../../i18n';
 import { RpcClient } from '../../rpc/rpc-client';
@@ -16,7 +16,25 @@ class TestResizeObserver implements ResizeObserver {
   }
   public observe(target: Element): void {
     this.observed.add(target);
-    this.callback([], this);
+    const isNode = target.matches('.react-flow__node');
+    const width = isNode ? 240 : 1280;
+    const height = isNode ? 72 : 800;
+    if (isNode) {
+      Object.defineProperty(target, 'offsetWidth', { configurable: true, value: width });
+      Object.defineProperty(target, 'offsetHeight', { configurable: true, value: height });
+    }
+    const contentRect = {
+      x: 0,
+      y: 0,
+      top: 0,
+      right: width,
+      bottom: height,
+      left: 0,
+      width,
+      height,
+      toJSON: () => ({}),
+    };
+    this.callback([{ target, contentRect } as ResizeObserverEntry], this);
   }
   public unobserve(target: Element): void {
     this.observed.delete(target);
@@ -55,8 +73,17 @@ const graph: WorkflowGraph = {
       calls24h: 1,
       errors24h: 0,
     },
+    {
+      id: 'router',
+      lane: 'engine',
+      labelKey: 'workflow.module.router',
+      status: 'idle',
+      inFlight: 0,
+      calls24h: 0,
+      errors24h: 0,
+    },
   ],
-  edges: [],
+  edges: [{ id: 'chat-router', from: 'chat', to: 'router', contract: 'LlmRequest' }],
 };
 const activity: ActivityEvent = {
   id: 'event-1' as ActivityEventId,
@@ -107,13 +134,104 @@ function renderPage(): {
   return { transport, routes, navigations };
 }
 
+function mockReducedMotion(matches: boolean): () => void {
+  const original = Object.getOwnPropertyDescriptor(window, 'matchMedia');
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: vi.fn(
+      (media: string) =>
+        ({
+          matches,
+          media,
+          onchange: null,
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          dispatchEvent: vi.fn(() => true),
+        }) satisfies MediaQueryList,
+    ),
+  });
+  return () => {
+    if (original === undefined) Reflect.deleteProperty(window, 'matchMedia');
+    else Object.defineProperty(window, 'matchMedia', original);
+  };
+}
+
+function edgeActivity(id: string, kind: ActivityEvent['kind'], summary: string): ActivityEvent {
+  return { ...activity, id: id as ActivityEventId, edgeId: 'chat-router', kind, summary };
+}
+
+const PROJECT_A = '00000000-0000-4000-8000-000000000003' as ProjectId;
+const PROJECT_B = '00000000-0000-4000-8000-000000000004' as ProjectId;
+
+function renderSwitchableProject() {
+  const transport = new FakeTransport();
+  transport.setStatus({ running: true, ready: true, restarts: 0 });
+  const requests: {
+    readonly id: number;
+    readonly method: string;
+    readonly params: { readonly projectId: ProjectId };
+  }[] = [];
+  transport.send = (line) => {
+    requests.push(JSON.parse(line) as (typeof requests)[number]);
+    return Promise.resolve();
+  };
+  const client = new RpcClient(transport);
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const page = (projectId: ProjectId) => (
+    <QueryClientProvider client={queryClient}>
+      <RpcClientProvider client={client}>
+        <WorkflowPage projectId={projectId} projects={[]} onNavigate={() => undefined} />
+      </RpcClientProvider>
+    </QueryClientProvider>
+  );
+  const rendered = render(page(PROJECT_A));
+  function respond(id: number, result: unknown): void {
+    transport.receive(JSON.stringify({ jsonrpc: '2.0', id, result }));
+  }
+  function projectGraph(projectId: ProjectId, calls: number): WorkflowGraph {
+    return { ...graph, projectId, nodes: graph.nodes.map((node) => ({ ...node, calls24h: calls })) };
+  }
+  return {
+    ...rendered,
+    requests,
+    respond,
+    projectGraph,
+    switchProject: (projectId: ProjectId) => {
+      rendered.rerender(page(projectId));
+    },
+  };
+}
+
+async function renderPageWithFakeTimers(): Promise<ReturnType<typeof renderPage>> {
+  vi.useFakeTimers();
+  const result = renderPage();
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(32);
+  });
+  return result;
+}
+
 describe('WorkflowPage', () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
 
   it('renders the graph, opens a module panel, paginates activity, and follows deep links', async () => {
     const { routes } = renderPage();
     const graphNode = await screen.findByLabelText('Chat · Idle');
+    expect(await screen.findByLabelText('Workflow minimap')).toBeInTheDocument();
+    expect(await screen.findByText('LlmRequest')).toBeVisible();
+    expect(within(graphNode).queryByText('Calls (24 h)')).not.toBeInTheDocument();
+    expect(graphNode.querySelector('dl')).toBeNull();
     fireEvent.click(graphNode);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Metrics 24 h' }));
+    expect(await screen.findByText('Calls (24 h): 1')).toBeVisible();
+    expect(screen.getByText('Errors (24 h): 0')).toBeVisible();
+    fireEvent.click(screen.getByRole('tab', { name: 'Now' }));
+    expect(screen.getByText('In flight: 0')).toBeVisible();
     fireEvent.click(await screen.findByRole('tab', { name: 'Recent' }));
     expect(await screen.findByText('1 response completed')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
@@ -165,12 +283,132 @@ describe('WorkflowPage', () => {
     });
 
     const activeNode = await screen.findByLabelText('Chat · Active');
-    const counts = activeNode.querySelectorAll('dd');
-    expect(counts[0]?.textContent).toBe('100');
-    expect(counts[1]?.textContent).toBe('101');
+    expect(within(activeNode).queryByText('Calls (24 h)')).not.toBeInTheDocument();
+    expect(activeNode.querySelector('dl')).toBeNull();
     fireEvent.click(activeNode);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Metrics 24 h' }));
+    expect(await screen.findByText('Calls (24 h): 101')).toBeVisible();
+    fireEvent.click(screen.getByRole('tab', { name: 'Now' }));
+    expect(screen.getByText('In flight: 100')).toBeVisible();
     fireEvent.click(await screen.findByRole('tab', { name: 'Recent' }));
     expect(screen.getAllByText(/^Burst event \d+$/)).toHaveLength(100);
+  });
+
+  it('renders one queued edge dot per event in a batched activity notification', async () => {
+    const { transport } = await renderPageWithFakeTimers();
+    expect(document.querySelector('.react-flow')).not.toBeNull();
+    const callbacks: FrameRequestCallback[] = [];
+    const requestFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callbacks.push(callback);
+      return callbacks.length;
+    });
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined);
+    const scheduledBefore = callbacks.length;
+    const callsBefore = requestFrame.mock.calls.length;
+
+    act(() => {
+      transport.receive(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'workflow.activity',
+          params: [
+            edgeActivity('edge-event-1', 'started', 'First queued event'),
+            edgeActivity('edge-event-2', 'progress', 'Second queued event'),
+          ],
+        }),
+      );
+    });
+    expect(requestFrame).toHaveBeenCalledTimes(callsBefore + 1);
+    const flushFrame = callbacks[scheduledBefore];
+    if (flushFrame === undefined) throw new Error('The activity batch did not schedule an animation frame');
+    act(() => {
+      flushFrame(performance.now());
+    });
+
+    const dots = screen.getAllByTestId('workflow-edge-dot');
+    expect(dots).toHaveLength(2);
+    expect(dots.map((dot) => dot.getAttribute('data-event-id'))).toEqual(['edge-event-1', 'edge-event-2']);
+    const motions = dots.map((dot) => dot.querySelector('animateMotion'));
+    expect(motions).toHaveLength(2);
+    expect(motions.every((motion) => motion?.getAttribute('dur') === '1200ms')).toBe(true);
+    const firstMotion = motions[0];
+    const secondMotion = motions[1];
+    if (firstMotion === null || firstMotion === undefined || secondMotion === null || secondMotion === undefined)
+      throw new Error('Each queued edge dot must contain one motion element');
+    const motionPrototype = Object.getPrototypeOf(firstMotion) as object;
+    const originalBeginElement = Object.getOwnPropertyDescriptor(motionPrototype, 'beginElement');
+    const beginElement = vi.fn();
+    Object.defineProperty(motionPrototype, 'beginElement', { configurable: true, value: beginElement });
+    const startTimes = dots.map((dot) => Number(dot.getAttribute('data-start-at')));
+    const firstStart = startTimes[0];
+    const secondStart = startTimes[1];
+    if (firstStart === undefined || secondStart === undefined) throw new Error('Each dot must expose its start time');
+    expect(secondStart - firstStart).toBe(1200);
+
+    try {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(beginElement).toHaveBeenCalledTimes(1);
+      expect(dots[0]).toHaveStyle({ visibility: 'visible' });
+      expect(dots[1]).toHaveStyle({ visibility: 'hidden' });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1250);
+      });
+      const remainingDot = screen.getByTestId('workflow-edge-dot');
+      expect(remainingDot).toHaveAttribute('data-event-id', 'edge-event-2');
+      expect(beginElement).toHaveBeenCalledTimes(2);
+      expect(remainingDot).toHaveStyle({ visibility: 'visible' });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1250);
+      });
+      expect(screen.queryByTestId('workflow-edge-dot')).not.toBeInTheDocument();
+    } finally {
+      if (originalBeginElement === undefined) Reflect.deleteProperty(motionPrototype, 'beginElement');
+      else Object.defineProperty(motionPrototype, 'beginElement', originalBeginElement);
+    }
+  });
+
+  it('highlights an active edge without a moving dot for reduced motion', async () => {
+    const restoreMatchMedia = mockReducedMotion(true);
+    try {
+      const { transport } = await renderPageWithFakeTimers();
+      expect(document.querySelector('.react-flow')).not.toBeNull();
+      const callbacks: FrameRequestCallback[] = [];
+      const requestFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+        callbacks.push(callback);
+        return callbacks.length;
+      });
+      vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined);
+      const scheduledBefore = callbacks.length;
+      const callsBefore = requestFrame.mock.calls.length;
+
+      act(() => {
+        transport.receive(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'workflow.activity',
+            params: [edgeActivity('reduced-motion-event', 'started', 'Reduced motion event')],
+          }),
+        );
+      });
+      expect(requestFrame).toHaveBeenCalledTimes(callsBefore + 1);
+      const flushFrame = callbacks[scheduledBefore];
+      if (flushFrame === undefined) throw new Error('The activity event did not schedule an animation frame');
+      act(() => {
+        flushFrame(performance.now());
+      });
+
+      expect(screen.queryByTestId('workflow-edge-dot')).not.toBeInTheDocument();
+      const edgePath = document.querySelector<SVGPathElement>('.react-flow__edge-path');
+      expect(edgePath).not.toBeNull();
+      expect(edgePath).toHaveAttribute('style', expect.stringContaining('var(--color-primary)'));
+    } finally {
+      cleanup();
+      restoreMatchMedia();
+      vi.useRealTimers();
+    }
   });
 
   it('TC-MW-009 forwards the selected activity references through its deep link', async () => {
@@ -184,5 +422,104 @@ describe('WorkflowPage', () => {
       route: 'chat',
       event: { refs: { conversationId: activity.refs.conversationId } },
     });
+  });
+
+  it('ignores a late graph response from the previous project after a project switch', async () => {
+    const h = renderSwitchableProject();
+    await waitFor(() => {
+      expect(h.requests).toHaveLength(1);
+    });
+    const requestA = h.requests[0];
+    if (!requestA) throw new Error('Project A graph was not requested');
+    h.switchProject(PROJECT_B);
+    await waitFor(() => {
+      expect(h.requests).toHaveLength(2);
+    });
+    const requestB = h.requests[1];
+    if (!requestB) throw new Error('Project B graph was not requested');
+    await act(async () => {
+      h.respond(requestB.id, h.projectGraph(PROJECT_B, 20));
+      await Promise.resolve();
+    });
+    fireEvent.click(await screen.findByLabelText('Chat · Idle'));
+    fireEvent.click(await screen.findByRole('tab', { name: 'Metrics 24 h' }));
+    expect(screen.getByText('Calls (24 h): 20')).toBeVisible();
+    await act(async () => {
+      h.respond(requestA.id, h.projectGraph(PROJECT_A, 10));
+      await Promise.resolve();
+    });
+    expect(screen.getByText('Calls (24 h): 20')).toBeVisible();
+    expect(screen.queryByText('Calls (24 h): 10')).not.toBeInTheDocument();
+  });
+
+  it('hides prior project history immediately and ignores late pagination after switching projects', async () => {
+    const h = renderSwitchableProject();
+    await waitFor(() => {
+      expect(h.requests).toHaveLength(1);
+    });
+    const graphA = h.requests[0];
+    if (!graphA) throw new Error('Project A graph was not requested');
+    await act(async () => {
+      h.respond(graphA.id, h.projectGraph(PROJECT_A, 10));
+      await Promise.resolve();
+    });
+    fireEvent.click(await screen.findByLabelText('Chat · Idle'));
+    fireEvent.click(await screen.findByRole('tab', { name: 'Recent' }));
+    await waitFor(() => {
+      expect(h.requests).toHaveLength(2);
+    });
+    const historyA = h.requests[1];
+    if (!historyA) throw new Error('Project A history was not requested');
+    await act(async () => {
+      h.respond(historyA.id, [{ ...activity, projectId: PROJECT_A, summary: 'Project A history' }]);
+      await Promise.resolve();
+    });
+    expect(screen.getByText('Project A history')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
+    await waitFor(() => {
+      expect(h.requests).toHaveLength(3);
+    });
+    const pageA = h.requests[2];
+    if (!pageA) throw new Error('Project A history page was not requested');
+    h.switchProject(PROJECT_B);
+    expect(screen.queryByText('Project A history')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        h.requests.some((request) => request.method === 'workflow.graph' && request.params.projectId === PROJECT_B),
+      ).toBe(true);
+    });
+    const graphB = h.requests.find(
+      (request) => request.method === 'workflow.graph' && request.params.projectId === PROJECT_B,
+    );
+    if (!graphB) throw new Error('Project B graph was not requested');
+    await act(async () => {
+      h.respond(graphB.id, h.projectGraph(PROJECT_B, 20));
+      await Promise.resolve();
+    });
+    fireEvent.click(await screen.findByRole('tab', { name: 'Recent' }));
+    const historyB = h.requests.find(
+      (request) => request.method === 'workflow.activity' && request.params.projectId === PROJECT_B,
+    );
+    if (!historyB) throw new Error('Project B history was not requested');
+    await act(async () => {
+      h.respond(historyB.id, [
+        { ...activity, id: 'project-b-history' as ActivityEventId, projectId: PROJECT_B, summary: 'Project B history' },
+      ]);
+      await Promise.resolve();
+    });
+    expect(screen.getByText('Project B history')).toBeVisible();
+    await act(async () => {
+      h.respond(pageA.id, [
+        {
+          ...activity,
+          id: 'late-project-a-page' as ActivityEventId,
+          projectId: PROJECT_A,
+          summary: 'Late project A history',
+        },
+      ]);
+      await Promise.resolve();
+    });
+    expect(screen.queryByText('Late project A history')).not.toBeInTheDocument();
+    expect(screen.getByText('Project B history')).toBeVisible();
   });
 });

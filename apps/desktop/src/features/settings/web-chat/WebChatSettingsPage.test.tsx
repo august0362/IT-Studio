@@ -9,7 +9,7 @@ import { FakeTransport } from '../../../rpc/transport';
 
 afterEach(cleanup);
 
-function renderPage(rejectUpdate = false) {
+function renderPage(rejectUpdate = false, withLayout = false) {
   const transport = new FakeTransport();
   transport.setStatus({ running: true, ready: true, restarts: 0 });
   const saved: string[] = [];
@@ -17,6 +17,7 @@ function renderPage(rejectUpdate = false) {
     webChat: {
       browser: 'default',
       customBrowserPath: null,
+      ...(withLayout ? { layout: { panes: ['chatgpt', 'gemini'], sizes: [0.5, 0.5] } } : {}),
       links: [
         { id: 'chatgpt', name: 'ChatGPT', url: 'https://chatgpt.com/', enabled: true },
         { id: 'gemini', name: 'Gemini', url: 'https://gemini.google.com/app', enabled: true },
@@ -122,4 +123,25 @@ describe('WebChatSettingsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save web chat settings' }));
     expect(await screen.findByText('Use a valid HTTPS URL.')).toBeVisible();
   });
+
+  it.each(['disable', 'delete', 'reset'] as const)(
+    'omits the existing pane layout when saving a %s link change so the sidecar can reconcile it',
+    async (action) => {
+      const { saved } = renderPage(false, true);
+      await screen.findByRole('button', { name: 'Save web chat settings' });
+      if (action === 'disable') fireEvent.click(screen.getByRole('checkbox', { name: 'Enabled ChatGPT' }));
+      else if (action === 'delete') fireEvent.click(screen.getByRole('button', { name: 'Delete ChatGPT' }));
+      else fireEvent.click(screen.getByRole('button', { name: 'Reset to defaults' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Save web chat settings' }));
+      await waitFor(() => {
+        expect(saved).toHaveLength(1);
+      });
+      const patch: unknown = JSON.parse(saved[0] ?? '{}');
+      expect(patch).toMatchObject({ webChat: { browser: 'default', customBrowserPath: null } });
+      expect(patch).toHaveProperty('webChat.links');
+      expect(patch).not.toHaveProperty('webChat.layout');
+      if (action === 'disable') expect(patch).toHaveProperty('webChat.links.0.enabled', false);
+      if (action === 'delete') expect(patch).toHaveProperty('webChat.links.0.id', 'gemini');
+    },
+  );
 });

@@ -26,6 +26,7 @@ function startDriver(
   workerRoot: string,
   options: {
     readonly crashOnStart?: boolean;
+    readonly verifierOutcome?: 'success' | 'auth' | 'server' | 'timeout';
     readonly llmScript?: string;
     readonly llmText?: string;
     readonly imageScript?: string;
@@ -58,7 +59,7 @@ function startDriver(
         ITSTUDIO_DATA_DIR: join(workerRoot, `data-${String(port)}`),
         WEBVIEW2_USER_DATA_FOLDER: join(workerRoot, `webview-${String(port)}`),
         ITSTUDIO_E2E: '1',
-        ITSTUDIO_E2E_VERIFIER_OUTCOME: 'timeout',
+        ITSTUDIO_E2E_VERIFIER_OUTCOME: options.verifierOutcome ?? 'success',
         ...(llmScriptPath === undefined
           ? options.llmScript === undefined
             ? {}
@@ -198,6 +199,7 @@ export const config: Options.Testrunner & { capabilities: Capabilities.Requested
       needs('/m5/knowledge.spec.ts') ? { llmText: 'The blue lantern is in the north archive room [1].' } : {},
     );
     if (needs('/m1/fatal.spec.ts')) await launch(4445, 4455, { crashOnStart: true });
+    if (needs('/m1/startup.spec.ts')) await launch(4452, 4462, { verifierOutcome: 'timeout' });
     if (needs('/m4/scripted-llm.spec.ts')) {
       await launch(4446, 4456, { llmScript: 'e2e/fixtures/m4-slow-chat.json' });
       await launch(4447, 4457, { llmScript: 'e2e/fixtures/m4-fallback.json' });

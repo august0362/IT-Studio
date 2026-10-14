@@ -1,0 +1,38 @@
+@keyframes workflow-node-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 24%, transparent);
+  }
+
+  50% {
+    box-shadow: 0 0 18px color-mix(in srgb, var(--color-primary) 42%, transparent);
+  }
+}
+
+.workflow-node-active {
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-primary) 32%, transparent);
+  animation: workflow-node-pulse 1.8s ease-in-out infinite;
+}
+
+.workflow-node-pulse {
+  animation: workflow-node-pulse 1.2s ease-in-out 1;
+}
+
+.workflow-edge-dot {
+  filter: drop-shadow(0 0 5px var(--color-primary));
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workflow-node-active {
+    animation: none;
+  }
+
+  .workflow-node-pulse {
+    animation: none;
+  }
+
+  .workflow-edge-dot {
+    display: none;
+  }
+}

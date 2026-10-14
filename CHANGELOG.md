@@ -6,6 +6,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add verify-before-save API keys, localized verification progress and masked key-action history, backed by generated SQLite migration `0011` ([OWNER-FB1 P1](docs/tasks/OWNER-FB1.md))
+- Add one-to-four native web-chat panes with saved site/layout selection, keyboard/pointer splitters and a separate browser profile; restrict child navigation and keep management IPC in the main webview ([OWNER-FB1 P3](docs/tasks/OWNER-FB1.md))
+- Add Neon Gold, Neon Cyan and Neon Violet with light counterparts, optional glow/glass/gradient tokens, shared visual primitives and a frontend-designer agent; expand the catalog to 21 themes ([OWNER-FB1 P4](docs/tasks/OWNER-FB1.md))
+- Add keyed price-extractor choices, planning estimates and per-provider refresh results with visible seed/auto/manual provenance ([OWNER-FB1 P5](docs/tasks/OWNER-FB1.md))
 - Open web chats (ChatGPT, Gemini, Grok, Claude, AI Studio, Perplexity) in the user's browser, default Cốc Cốc, and copy a project brief ([WC-01](docs/tasks/WC-01.md))
 - Add "Clear override" for manual prices ([M4-FIX3](docs/tasks/M4-FIX3.md))
 - Add Settings: router ladder (drag & keyboard), Auto Fallback, lock model, Hard Stop, pricing table with refresh and USD override, FX override, VS Code, pipeline roles ([M4-03](docs/tasks/M4-03.md))
@@ -47,6 +51,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 - Add L3 sidecar integration harness and M1 integration suite ([M1-QA](docs/tasks/M1-QA.md))
 
 ### Fixed
+- Let the secret scanner discover Git paths directly so Windows lint avoids command-length limits; preserve deleted-file/fixture handling and add black-box regressions ([OWNER-FB1](docs/tasks/OWNER-FB1.md))
+- Keep workflow graph/history/pagination responses scoped to the selected project and retain Active status while concurrent calls remain ([OWNER-FB1 P2](docs/tasks/OWNER-FB1.md))
+- Reconcile embedded-chat layout after saved-site changes, wait for native cleanup on hash navigation, and remeasure panes after shell notices ([OWNER-FB1 P3](docs/tasks/OWNER-FB1.md))
+- Align saved URL validation with native navigation and bound separate profile paths for Windows filenames ([OWNER-FB1 P3](docs/tasks/OWNER-FB1.md))
+- Keep stored keys unchanged when candidate verification fails; bound provider verification to one request and 25 seconds, with actionable timeout/auth errors ([OWNER-FB1 P1](docs/tasks/OWNER-FB1.md))
+- Show installed Cốc Cốc as the resolved first-load web-chat browser and persist the choice while preserving explicit preferences ([OWNER-FB1 P3](docs/tasks/OWNER-FB1.md))
+- Select the cheapest eligible keyed extraction model when the configured choice is unusable; report extraction/fetch/validation failures and preserve row provenance after restart ([OWNER-FB1 P5](docs/tasks/OWNER-FB1.md))
+- Bound pricing extraction with conservative UTF-8 request planning, complete character truncation and reserved retry/output space ([OWNER-FB1 P5](docs/tasks/OWNER-FB1.md))
 - Keep the chunker speed check out of mutation instrumentation while retaining its normal assertion ([M9-FIX4](docs/tasks/M9-FIX4.md))
 - Exclude generated Stryker sandboxes from Git, Prettier, ESLint, and the secret scan ([M9-FIX5](docs/tasks/M9-FIX5.md))
 - Keep the Windows lint secret scan below the process argument limit ([M9-FIX3](docs/tasks/M9-FIX3.md))
@@ -81,7 +93,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 - Add strict lint gate: typescript-eslint strict-type-checked, layer boundaries, Prettier, secret scanner with self-test ([M0-05](docs/tasks/M0-05.md))
 - Add npm-workspaces monorepo scaffold: sidecar, desktop (Tauri v2 + React 19 + Vite 8 + Tailwind 4), VS Code extension skeleton ([M0-04](docs/tasks/M0-04.md))
 
+### Changed
+- Show workflow nodes as names and status labels, keep counters in the side panel, and animate queued activity dots with reduced-motion highlighting ([OWNER-FB1 P2](docs/tasks/OWNER-FB1.md))
+- Use Neon Gold as the default dark catalog theme and regenerate palette/catalog/startup data together; preserve existing theme selections ([OWNER-FB1 P4](docs/tasks/OWNER-FB1.md))
+- Refresh official pricing source URLs and record the 2026-10-04 seed audit; retain unconfirmed prices and document context-tier/time-limited caveats ([OWNER-FB1 P5](docs/tasks/OWNER-FB1.md))
+
 ### Docs
+- Add dark-glow design guidance and update theme/roadmap/handoff status for OWNER-FB1; native visual/provider-login smoke and M9-QA release checks remain pending ([OWNER-FB1](docs/tasks/OWNER-FB1.md))
 - Add v2/v3 planning baseline: requirements specifications (docs/specs/v2-requirements.md, docs/specs/v3-requirements.md), delivery plan (docs/plans/v2-v3-delivery-plan.md), re-planned ROADMAP M10–M19 + REL-V2/REL-V3 and 83 task work orders; open questions Q-06…Q-11
 - Add continuation guide for another agent (docs/HANDOFF.md)
 - Add Workflow map (D32, milestone MW): architecture §13.1, schema types §12b, roadmap MW-00…MW-QA

@@ -2,7 +2,7 @@
   "version": 1,
   "generatedBy": "scripts/design/derive-themes.mjs",
   "defaultLight": "arctic-focus",
-  "defaultDark": "midnight-focus",
+  "defaultDark": "neon-gold",
   "themes": [
     {
       "id": "arctic-focus",
@@ -1474,6 +1474,285 @@
           "muted/surfaceAlt": 7,
           "primaryFg/primary": 9.29,
           "accent/bg": 4.38
+        }
+      }
+    },
+    {
+      "id": "neon-gold",
+      "name": "Neon Gold",
+      "source": "src/image/theme/NeonGold.png",
+      "palette": [
+        "#12100d",
+        "#f6c65b",
+        "#ef9850",
+        "#ffe7a5"
+      ],
+      "nativeMode": "dark",
+      "mood": "Warm, focused, quietly luminous",
+      "psychology": "Warm near-black surfaces reduce glare while restrained gold accents identify actions and large metrics. Amber adds warmth without turning the whole workspace into a warning signal.",
+      "recommendedFor": [
+        "night work",
+        "finance",
+        "default dark"
+      ],
+      "light": {
+        "bg": "#fcf7e8",
+        "surface": "#fffcf3",
+        "surfaceAlt": "#f4ebd7",
+        "border": "#dad0bb",
+        "text": "#12100d",
+        "textMuted": "#6e6249",
+        "primary": "#967006",
+        "primaryFg": "#ffffff",
+        "primaryHover": "#846204",
+        "accent": "#b38709",
+        "focusRing": "#967006",
+        "success": "#157b26",
+        "warning": "#ad5002",
+        "danger": "#b6433f",
+        "info": "#036bb9",
+        "chart": [
+          "#967006",
+          "#b38709",
+          "#12100d",
+          "#b78a0a",
+          "#d07c31",
+          "#a79151"
+        ],
+        "glow": "#967006",
+        "surfaceGlass": "#fffcf3",
+        "borderGlow": "#967006",
+        "gradientStart": "#fcf7e8",
+        "gradientEnd": "#f4ebd7",
+        "contrast": {
+          "text/bg": 17.73,
+          "text/surface": 18.51,
+          "text/surfaceAlt": 16.02,
+          "muted/surfaceAlt": 5.05,
+          "primaryFg/primary": 4.55,
+          "accent/bg": 3.07
+        }
+      },
+      "dark": {
+        "bg": "#12100d",
+        "surface": "#221702",
+        "surfaceAlt": "#2c2109",
+        "border": "#40351d",
+        "text": "#f1eee7",
+        "textMuted": "#b7ad99",
+        "primary": "#f6c65b",
+        "primaryFg": "#12100d",
+        "primaryHover": "#ffd989",
+        "accent": "#f6c65b",
+        "focusRing": "#f6c65b",
+        "success": "#71c575",
+        "warning": "#f49157",
+        "danger": "#fa8880",
+        "info": "#68b3fe",
+        "chart": [
+          "#f6c65b",
+          "#696763",
+          "#ef9850",
+          "#ffe7a5"
+        ],
+        "glow": "#f6c65b",
+        "surfaceGlass": "#221702",
+        "borderGlow": "#f6c65b",
+        "gradientStart": "#12100d",
+        "gradientEnd": "#2c2109",
+        "contrast": {
+          "text/bg": 16.39,
+          "text/surface": 15.21,
+          "text/surfaceAlt": 13.64,
+          "muted/surfaceAlt": 7.11,
+          "primaryFg/primary": 11.89,
+          "accent/bg": 11.89
+        }
+      }
+    },
+    {
+      "id": "neon-cyan",
+      "name": "Neon Cyan",
+      "source": "src/image/theme/NeonCyan.png",
+      "palette": [
+        "#0c1217",
+        "#47d8ef",
+        "#69a7ff",
+        "#cbf4ff"
+      ],
+      "nativeMode": "dark",
+      "mood": "Clear, precise, composed",
+      "psychology": "Cool cyan focus cues distinguish interactive controls from quiet charcoal surfaces; blue secondary accents support clear navigation during coding and monitoring.",
+      "recommendedFor": [
+        "coding",
+        "monitoring",
+        "night work"
+      ],
+      "light": {
+        "bg": "#cbf4ff",
+        "surface": "#e8f3f6",
+        "surfaceAlt": "#cce6eb",
+        "border": "#bbd7dc",
+        "text": "#0c1217",
+        "textMuted": "#486a70",
+        "primary": "#038292",
+        "primaryFg": "#ffffff",
+        "primaryHover": "#097280",
+        "accent": "#4b87dd",
+        "focusRing": "#038292",
+        "success": "#01721c",
+        "warning": "#855904",
+        "danger": "#af3d3a",
+        "info": "#0365af",
+        "chart": [
+          "#038292",
+          "#4b87dd",
+          "#0c1217",
+          "#0599ac",
+          "#4e8be0",
+          "#6b919b"
+        ],
+        "glow": "#038292",
+        "surfaceGlass": "#e8f3f6",
+        "borderGlow": "#038292",
+        "gradientStart": "#cbf4ff",
+        "gradientEnd": "#cce6eb",
+        "contrast": {
+          "text/bg": 16.08,
+          "text/surface": 16.67,
+          "text/surfaceAlt": 14.43,
+          "muted/surfaceAlt": 4.5,
+          "primaryFg/primary": 4.55,
+          "accent/bg": 3.09
+        }
+      },
+      "dark": {
+        "bg": "#0c1217",
+        "surface": "#011f24",
+        "surfaceAlt": "#09282e",
+        "border": "#1f3d42",
+        "text": "#e7f0f2",
+        "textMuted": "#99b4b9",
+        "primary": "#47d8ef",
+        "primaryFg": "#0c1217",
+        "primaryHover": "#62e8fe",
+        "accent": "#69a7ff",
+        "focusRing": "#47d8ef",
+        "success": "#71c575",
+        "warning": "#e1a035",
+        "danger": "#fa8880",
+        "info": "#68b3fe",
+        "chart": [
+          "#47d8ef",
+          "#69a7ff",
+          "#626a70",
+          "#cbf4ff"
+        ],
+        "glow": "#47d8ef",
+        "surfaceGlass": "#011f24",
+        "borderGlow": "#47d8ef",
+        "gradientStart": "#0c1217",
+        "gradientEnd": "#09282e",
+        "contrast": {
+          "text/bg": 16.28,
+          "text/surface": 14.84,
+          "text/surfaceAlt": 13.39,
+          "muted/surfaceAlt": 7.07,
+          "primaryFg/primary": 11.07,
+          "accent/bg": 7.69
+        }
+      }
+    },
+    {
+      "id": "neon-violet",
+      "name": "Neon Violet",
+      "source": "src/image/theme/NeonViolet.png",
+      "palette": [
+        "#12101b",
+        "#bc92ff",
+        "#906ee8",
+        "#e7dcff"
+      ],
+      "nativeMode": "dark",
+      "mood": "Reflective, creative, calm",
+      "psychology": "Soft violet accents bring a creative mood to near-black surfaces, with restrained glow that keeps reading and ideation comfortable over long sessions.",
+      "recommendedFor": [
+        "ideation",
+        "writing",
+        "night work"
+      ],
+      "light": {
+        "bg": "#f8f5fe",
+        "surface": "#fcfbfe",
+        "surfaceAlt": "#eee7fc",
+        "border": "#d4cde2",
+        "text": "#12101b",
+        "textMuted": "#675e77",
+        "primary": "#8b61c9",
+        "primaryFg": "#ffffff",
+        "primaryHover": "#7c52b8",
+        "accent": "#a379e4",
+        "focusRing": "#8b61c9",
+        "success": "#107823",
+        "warning": "#8c5e05",
+        "danger": "#b6433f",
+        "info": "#036bb9",
+        "chart": [
+          "#8b61c9",
+          "#a379e4",
+          "#12101b",
+          "#a67ce7",
+          "#906ee8",
+          "#988dad"
+        ],
+        "glow": "#8b61c9",
+        "surfaceGlass": "#fcfbfe",
+        "borderGlow": "#8b61c9",
+        "gradientStart": "#f8f5fe",
+        "gradientEnd": "#eee7fc",
+        "contrast": {
+          "text/bg": 17.46,
+          "text/surface": 18.26,
+          "text/surfaceAlt": 15.66,
+          "muted/surfaceAlt": 5.07,
+          "primaryFg/primary": 4.52,
+          "accent/bg": 3.04
+        }
+      },
+      "dark": {
+        "bg": "#12101b",
+        "surface": "#1c162e",
+        "surfaceAlt": "#252038",
+        "border": "#39344e",
+        "text": "#efedf4",
+        "textMuted": "#b1aabf",
+        "primary": "#bc92ff",
+        "primaryFg": "#12101b",
+        "primaryHover": "#c8a9ff",
+        "accent": "#bc92ff",
+        "focusRing": "#bc92ff",
+        "success": "#71c575",
+        "warning": "#e1a035",
+        "danger": "#fa8880",
+        "info": "#68b3fe",
+        "chart": [
+          "#bc92ff",
+          "#666473",
+          "#906ee8",
+          "#e7dcff"
+        ],
+        "glow": "#bc92ff",
+        "surfaceGlass": "#1c162e",
+        "borderGlow": "#bc92ff",
+        "gradientStart": "#12101b",
+        "gradientEnd": "#252038",
+        "contrast": {
+          "text/bg": 16.21,
+          "text/surface": 15.03,
+          "text/surfaceAlt": 13.48,
+          "muted/surfaceAlt": 6.98,
+          "primaryFg/primary": 7.79,
+          "accent/bg": 7.79
         }
       }
     }

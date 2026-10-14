@@ -1,12 +1,17 @@
 import type { ActivityEvent, ProjectId, WorkflowModuleId } from '@itstudio/schemas';
 import type { JSX } from 'react';
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNotification } from '../../hooks/use-notification';
 import { useRpcClient } from '../../rpc/rpc-context';
 import { ModulePanel } from './ModulePanel';
 import { WorkflowGraphProvider } from './WorkflowGraph';
 import { initialWorkflowState, workflowReducer } from './workflow-store';
+
+interface HistoryScope {
+  readonly projectId: ProjectId | null;
+  readonly moduleId: WorkflowModuleId | null;
+}
 
 export function WorkflowPage({
   projectId,
@@ -22,19 +27,39 @@ export function WorkflowPage({
   const [state, dispatch] = useReducer(workflowReducer, initialWorkflowState);
   const [selectedId, setSelectedId] = useState<WorkflowModuleId | null>(null);
   const [recent, setRecent] = useState<readonly ActivityEvent[]>([]);
-  const [recentFor, setRecentFor] = useState<WorkflowModuleId | null>(null);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [recentFor, setRecentFor] = useState<HistoryScope | null>(null);
+  const [loadingMoreFor, setLoadingMoreFor] = useState<HistoryScope | null>(null);
   const [loadError, setLoadError] = useState(false);
   const queued = useRef<ActivityEvent[]>([]);
   const frame = useRef<number | null>(null);
+  const graphRequest = useRef(0);
+  const historyScope = useMemo((): HistoryScope => ({ projectId, moduleId: selectedId }), [projectId, selectedId]);
+  const historyScopeRef = useRef(historyScope);
+  const loadingMore = loadingMoreFor === historyScope;
+
+  useLayoutEffect(() => {
+    historyScopeRef.current = historyScope;
+  }, [historyScope]);
+  useLayoutEffect(() => {
+    graphRequest.current += 1;
+    queued.current = [];
+    if (frame.current !== null) window.cancelAnimationFrame(frame.current);
+    frame.current = null;
+    return () => {
+      graphRequest.current += 1;
+    };
+  }, [projectId]);
 
   const refreshGraph = useCallback(async () => {
-    if (document.visibilityState === 'hidden') return;
+    if (document.visibilityState === 'hidden' || historyScopeRef.current.projectId !== projectId) return;
+    const request = ++graphRequest.current;
     try {
-      dispatch({ type: 'graph', graph: await rpc.call('workflow.graph', { projectId }) });
+      const graph = await rpc.call('workflow.graph', { projectId });
+      if (request !== graphRequest.current || historyScopeRef.current.projectId !== projectId) return;
+      dispatch({ type: 'graph', graph });
       setLoadError(false);
     } catch {
-      setLoadError(true);
+      if (request === graphRequest.current) setLoadError(true);
     }
   }, [projectId, rpc]);
 
@@ -85,10 +110,14 @@ export function WorkflowPage({
     };
   }, []);
 
-  const node = state.graph?.nodes.find((item) => item.id === selectedId);
+  const activeGraph = state.graph?.projectId === projectId ? state.graph : null;
+  const node = activeGraph?.nodes.find((item) => item.id === selectedId);
   const liveEvents = useMemo(
-    () => state.events.filter((event) => event.moduleId === selectedId),
-    [selectedId, state.events],
+    () =>
+      state.events.filter(
+        (event) => event.moduleId === selectedId && (projectId === null || event.projectId === projectId),
+      ),
+    [projectId, selectedId, state.events],
   );
   useEffect(() => {
     if (selectedId === null) return;
@@ -98,7 +127,7 @@ export function WorkflowPage({
       .then((events) => {
         if (!cancelled) {
           setRecent(events);
-          setRecentFor(selectedId);
+          setRecentFor(historyScope);
         }
       })
       .catch(() => {
@@ -107,23 +136,24 @@ export function WorkflowPage({
     return () => {
       cancelled = true;
     };
-  }, [projectId, rpc, selectedId]);
+  }, [historyScope, projectId, rpc, selectedId]);
 
-  const selectedRecent = useMemo(() => (recentFor === selectedId ? recent : []), [recentFor, recent, selectedId]);
+  const selectedRecent = useMemo(() => (recentFor === historyScope ? recent : []), [historyScope, recentFor, recent]);
   const loadMore = useCallback(async () => {
     if (selectedId === null || loadingMore || selectedRecent.length === 0) return;
-    setLoadingMore(true);
+    setLoadingMoreFor(historyScope);
     try {
       const before = selectedRecent[selectedRecent.length - 1]?.ts;
       if (before === undefined) return;
       const page = await rpc.call('workflow.activity', { projectId, moduleId: selectedId, limit: 50, before });
+      if (historyScopeRef.current !== historyScope) return;
       setRecent((current) => [...current, ...page.filter((event) => !current.some((item) => item.id === event.id))]);
     } catch {
-      setLoadError(true);
+      if (historyScopeRef.current === historyScope) setLoadError(true);
     } finally {
-      setLoadingMore(false);
+      setLoadingMoreFor((current) => (current === historyScope ? null : current));
     }
-  }, [loadingMore, projectId, rpc, selectedId, selectedRecent]);
+  }, [historyScope, loadingMore, projectId, rpc, selectedId, selectedRecent]);
 
   return (
     <section aria-label={t('workflow.heading')} className="space-y-4">
@@ -143,14 +173,15 @@ export function WorkflowPage({
           {t('workflow.loadError')}
         </p>
       ) : null}
-      {state.graph === null ? (
+      {activeGraph === null ? (
         <p role="status">{t('workflow.loading')}</p>
       ) : (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <WorkflowGraphProvider
             activeEdges={state.activeEdges}
-            edges={state.graph.edges}
-            nodes={state.graph.nodes}
+            edgeAnimations={state.edgeAnimations}
+            edges={activeGraph.edges}
+            nodes={activeGraph.nodes}
             onSelect={setSelectedId}
             pulses={state.pulses}
           />
@@ -164,7 +195,7 @@ export function WorkflowPage({
           ) : (
             <ModulePanel
               canLoadMore={selectedRecent.length < 20_000 && selectedRecent.length > 0}
-              edges={state.graph.edges}
+              edges={activeGraph.edges}
               liveEvents={liveEvents}
               loadingMore={loadingMore}
               node={node}

@@ -2,12 +2,21 @@ import { expect } from 'chai';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ensureProviderKeys } from '../../helpers/keys.js';
-import { createTemporaryProjectFolder, waitForReady } from '../../helpers/ui.js';
+import { createTemporaryProjectFolder, resetLocaleToEnglish, waitForReady } from '../../helpers/ui.js';
 
 describe('M4 App shell', () => {
   before(async () => {
     await waitForReady();
     await ensureProviderKeys();
+  });
+
+  beforeEach(async () => {
+    await waitForReady();
+    await resetLocaleToEnglish();
+  });
+
+  afterEach(async () => {
+    await resetLocaleToEnglish();
   });
 
   it('TC-M4-010 creates a project in the dialog and selects its tab', async () => {
@@ -27,22 +36,16 @@ describe('M4 App shell', () => {
 
   it('TC-M4-011 switches to Vietnamese and restores the locale after reload', async () => {
     await waitForReady();
-    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-theme"]').click();
+    await browser.$('nav a[href="#settings-theme"]').click();
     await browser.$('select:has(option[value="vi"])').selectByAttribute('value', 'vi');
-    await browser.waitUntil(
-      async () => (await browser.$('nav[aria-label="Main navigation"] a[href="#chat"]').getText()) === 'Trò chuyện',
-    );
+    await browser.waitUntil(async () => (await browser.$('nav a[href="#chat"]').getText()) === 'Trò chuyện');
     await browser.refresh();
     await waitForReady();
-    await browser.waitUntil(
-      async () => (await browser.$('nav[aria-label="Main navigation"] a[href="#chat"]').getText()) === 'Trò chuyện',
-    );
-    expect(await browser.$('nav[aria-label="Main navigation"] a[href="#cost"]').getText()).to.equal('Chi phí & Lãi lỗ');
-    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-theme"]').click();
+    await browser.waitUntil(async () => (await browser.$('nav a[href="#chat"]').getText()) === 'Trò chuyện');
+    expect(await browser.$('nav a[href="#cost"]').getText()).to.equal('Chi phí & Lãi lỗ');
+    await browser.$('nav a[href="#settings-theme"]').click();
     await browser.$('select:has(option[value="vi"])').selectByAttribute('value', 'en');
-    await browser.waitUntil(
-      async () => (await browser.$('nav[aria-label="Main navigation"] a[href="#chat"]').getText()) === 'Chat',
-    );
+    await browser.waitUntil(async () => (await browser.$('nav a[href="#chat"]').getText()) === 'Chat');
   });
 
   it('TC-M4-012 opens three projects, closes the middle tab and keeps its project', async () => {
@@ -58,7 +61,7 @@ describe('M4 App shell', () => {
     await browser.$('button[aria-label="Close Portfolio Beta"]').click();
     expect(await browser.$('[role="tablist"]').getText()).not.to.include('Portfolio Beta');
     expect(await browser.$('[role="tab"][aria-selected="true"]').getText()).to.equal('All projects');
-    await browser.$('nav[aria-label="Main navigation"] a[href="#cost"]').click();
+    await browser.$('nav a[href="#cost"]').click();
     await browser.waitUntil(async () => (await browser.$('body').getText()).includes('Portfolio Beta'));
   });
 
@@ -79,7 +82,7 @@ describe('M4 App shell', () => {
       'settings-pipeline',
     ];
     for (const route of routes) {
-      await browser.$(`nav[aria-label="Main navigation"] a[href="#${route}"]`).click();
+      await browser.$(`nav a[href="#${route}"]`).click();
       await browser.waitUntil(async () => (await browser.$('main').getText()).length > 0);
       const text = await browser.$('main').getText();
       expect(text, `route ${route}`).not.to.match(
@@ -96,7 +99,7 @@ describe('M4 App shell', () => {
         value: performance.getEntriesByType('resource').map(({ name }) => name),
       });
     });
-    await browser.$('nav[aria-label="Main navigation"] a[href="#code"]').click();
+    await browser.$('nav a[href="#code"]').click();
     await browser.waitUntil(async () => await browser.$('#code-heading').isDisplayed());
     const external = await browser.execute(() => {
       const before = (window as Window & { __m4ResourcesBefore?: string[] }).__m4ResourcesBefore ?? [];
@@ -121,11 +124,11 @@ describe('M4 App shell', () => {
     await browser.waitUntil(
       async () => (await browser.$('[role="tab"][aria-selected="true"]').getText()) === 'Tab Switch Project',
     );
-    await browser.$('nav[aria-label="Main navigation"] a[href="#knowledge"]').click();
+    await browser.$('nav a[href="#knowledge"]').click();
     await browser.$('aria/Workspace-relative file or folder paths (one per line)').setValue('guide.md');
     await browser.$('button=Add sources').click();
-    await browser.$('nav[aria-label="Main navigation"] a[href="#chat"]').click();
-    await browser.$('nav[aria-label="Main navigation"] a[href="#knowledge"]').click();
+    await browser.$('nav a[href="#chat"]').click();
+    await browser.$('nav a[href="#knowledge"]').click();
     await browser.waitUntil(async () => (await browser.$('body').getText()).includes('guide.md'), { timeout: 20_000 });
     expect(await browser.$('body').getText()).to.match(/Indexed|Ingestion progress/u);
   });

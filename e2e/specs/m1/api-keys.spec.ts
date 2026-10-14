@@ -1,9 +1,10 @@
 import { expect } from 'chai';
-import { apiKeyInput, navigateToSettings, waitForReady } from '../../helpers/ui.js';
+import { apiKeyInput, navigateToSettings, resetLocaleToEnglish, waitForReady } from '../../helpers/ui.js';
 
 describe('M1 API Keys UI', () => {
   beforeEach(async () => {
     await waitForReady();
+    await resetLocaleToEnglish();
     await navigateToSettings();
   });
 
@@ -13,8 +14,9 @@ describe('M1 API Keys UI', () => {
     await input.setValue(secret);
     await browser.$('form:has(#api-key-openai) button[type="submit"]').click();
     await browser.waitUntil(async () => (await input.getValue()) === '');
-    expect(await browser.$('[aria-label="OpenAI key status"]').getText()).to.include('Set ••••4321');
+    expect(await browser.$('[aria-label="OpenAI key status"]').getText()).to.include('Verified · …4321');
     expect(await input.getValue()).to.equal('');
+    expect(await browser.$('article:has(#api-key-openai)').getText()).not.to.include(secret);
   });
 
   it('TC-M1-035 confirms deletion and cancel preserves the key', async () => {
@@ -22,15 +24,15 @@ describe('M1 API Keys UI', () => {
     await input.setValue('test-delete-1234');
     await browser.$('form:has(#api-key-openai) button[type="submit"]').click();
     await browser.waitUntil(async () =>
-      (await browser.$('[aria-label="OpenAI key status"]').getText()).includes('Set'),
+      (await browser.$('[aria-label="OpenAI key status"]').getText()).includes('Verified · …1234'),
     );
     // In-app ConfirmDialog (BUG-M1-005 / M1-FIX3) replaced window.confirm.
-    await browser.$('form:has(#api-key-openai) button:nth-of-type(3)').click();
+    await browser.$('form:has(#api-key-openai)').$('button=Delete').click();
     await browser.$('[role="alertdialog"]').waitForDisplayed();
     await browser.$('[role="alertdialog"]').$('button=Cancel').click();
     await browser.$('[role="alertdialog"]').waitForDisplayed({ reverse: true });
-    expect(await browser.$('[aria-label="OpenAI key status"]').getText()).to.include('Set');
-    await browser.$('form:has(#api-key-openai) button:nth-of-type(3)').click();
+    expect(await browser.$('[aria-label="OpenAI key status"]').getText()).to.include('Verified · …1234');
+    await browser.$('form:has(#api-key-openai)').$('button=Delete').click();
     await browser.$('[role="alertdialog"]').waitForDisplayed();
     await browser.$('[role="alertdialog"]').$('button=Delete').click();
     await browser.waitUntil(async () =>
@@ -45,11 +47,11 @@ describe('M1 API Keys UI', () => {
     await input.setValue('keyboard-test-1234');
     await input.addValue('\uE007');
     await browser.waitUntil(
-      async () => (await browser.$('[aria-label="OpenAI key status"]').getText()).includes('Set'),
+      async () => (await browser.$('[aria-label="OpenAI key status"]').getText()).includes('Verified · …1234'),
       { timeout: 10_000 },
     );
     expect(await input.getValue()).to.equal('');
-    await browser.$('form:has(#api-key-openai) button:nth-of-type(3)').click();
+    await browser.$('form:has(#api-key-openai)').$('button=Delete').click();
     // Wait like a real user: dialog visible and focus moved to Cancel before pressing keys.
     await browser.$('[role="alertdialog"]').waitForDisplayed();
     await browser.waitUntil(
@@ -57,8 +59,8 @@ describe('M1 API Keys UI', () => {
     );
     await browser.keys(['Escape']);
     await browser.$('[role="alertdialog"]').waitForDisplayed({ reverse: true });
-    expect(await browser.$('[aria-label="OpenAI key status"]').getText()).to.include('Set');
-    await browser.$('form:has(#api-key-openai) button:nth-of-type(3)').click();
+    expect(await browser.$('[aria-label="OpenAI key status"]').getText()).to.include('Verified · …1234');
+    await browser.$('form:has(#api-key-openai)').$('button=Delete').click();
     await browser.$('[role="alertdialog"]').waitForDisplayed();
     await browser.waitUntil(
       async () => (await browser.execute(() => document.activeElement?.textContent)) === 'Cancel',

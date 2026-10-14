@@ -14,12 +14,37 @@ describe('web chat domain rules', () => {
     ['https://:secret@example.com', false],
     ['https://localhost', false],
     ['https://chat.localhost', false],
+    ['https://localhost.', false],
+    ['https://intranet', false],
+    ['https://printer.local', false],
+    ['https://host.internal', false],
+    ['https://host.lan', false],
+    ['https://host.home.arpa', false],
+    ['https://host.local.', false],
+    ['https://[::1]', false],
+    ['https://2130706433', false],
+    ['https://0x7f000001', false],
+    ['https://example.com.', true],
+    ['https://example.com/\u0000', false],
     ['https://example..com', false],
     ['https://example.com/\n', false],
     ['https://example.com/'.padEnd(2048, 'a'), true],
     ['https://example.com/'.padEnd(2049, 'a'), false],
   ])('validates %s', (url, expected) => {
     expect(isAllowedWebChatUrl(url)).toBe(expected);
+  });
+
+  it('uses UTF-8 bytes for both raw and normalized Unicode URL boundaries', () => {
+    const prefix = 'https://example.com/';
+    const accepted = `${prefix}${'é'.repeat(338)}`;
+    expect(Buffer.byteLength(new URL(accepted).href, 'utf8')).toBe(2048);
+    expect(isAllowedWebChatUrl(accepted)).toBe(true);
+    expect(isAllowedWebChatUrl(new URL(accepted).href)).toBe(true);
+    expect(isAllowedWebChatUrl(`${accepted}a`)).toBe(false);
+    const rawTooLong = `${prefix}${'é'.repeat(1025)}`;
+    expect(rawTooLong.length).toBeLessThan(2048);
+    expect(Buffer.byteLength(rawTooLong, 'utf8')).toBeGreaterThan(2048);
+    expect(isAllowedWebChatUrl(rawTooLong)).toBe(false);
   });
   it('ships stable defaults and reports duplicate ids and link limits', () => {
     expect(DEFAULT_WEB_CHAT_LINKS.map((link) => link.id)).toEqual([

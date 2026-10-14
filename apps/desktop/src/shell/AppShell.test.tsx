@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { i18n } from '../i18n';
@@ -6,11 +6,25 @@ import { RpcClient } from '../rpc/rpc-client';
 import { RpcClientProvider } from '../rpc/rpc-context';
 import { FakeTransport } from '../rpc/transport';
 import { AppShell } from './AppShell';
+import * as webChatHosts from '../features/webchat/webchat-host';
+
+function mockNativeHost(closeAll = vi.fn(() => Promise.resolve())) {
+  const host = {
+    available: true,
+    sync: vi.fn(() => Promise.resolve()),
+    setVisible: vi.fn(() => Promise.resolve()),
+    reload: vi.fn(() => Promise.resolve()),
+    closeAll,
+  } satisfies webChatHosts.IWebChatHost;
+  vi.spyOn(webChatHosts, 'createWebChatHost').mockReturnValue(host);
+  return host;
+}
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
   localStorage.clear();
+  window.history.replaceState(null, '', '#settings-api-keys');
   void i18n.changeLanguage('en');
 });
 
@@ -24,7 +38,15 @@ function setup() {
     createdAt: '2026-01-01T00:00:00.000Z',
     archived: false,
   };
-  const settings = { activeProjectId: project.id, ui: { themeId: 'arctic-focus', mode: 'system', locale: 'en' } };
+  const settings = {
+    activeProjectId: project.id,
+    ui: { themeId: 'arctic-focus', mode: 'system', locale: 'en' },
+    webChat: {
+      browser: 'coccoc',
+      customBrowserPath: null,
+      links: [{ id: 'chatgpt', name: 'ChatGPT', url: 'https://chatgpt.com/', enabled: true }],
+    },
+  };
   transport.send = (line) => {
     transport.sent.push(line);
     const request: unknown = JSON.parse(line);
@@ -58,16 +80,18 @@ describe('AppShell', () => {
   it('keeps the main navigation in keyboard order and enables Gallery', () => {
     setup();
     const links = screen.getAllByRole('link');
-    expect(links.slice(0, 7).map((link) => link.getAttribute('href'))).toEqual([
+    expect(links.slice(0, 8).map((link) => link.getAttribute('href'))).toEqual([
       '#chat',
       '#code',
       '#knowledge',
+      '#webchat',
       '#gallery',
       '#cost',
       '#settings-api-keys',
       '#settings-theme',
     ]);
     expect(screen.getByRole('link', { name: 'Gallery' })).toHaveAttribute('href', '#gallery');
+    expect(screen.getByRole('link', { name: 'Web chat' })).toHaveAttribute('href', '#webchat');
     expect(document.querySelector('footer[role="status"]')).toBeVisible();
   });
 
@@ -80,6 +104,55 @@ describe('AppShell', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Close Project One' }));
     expect(screen.queryByRole('tab', { name: 'Project One' })).not.toBeInTheDocument();
+  });
+
+  it('opens the internal Web chat page through main navigation', async () => {
+    setup();
+    fireEvent.click(screen.getByRole('link', { name: 'Web chat' }));
+    expect(await screen.findByRole('heading', { name: 'Web chat' })).toBeVisible();
+    expect(screen.getByRole('combobox', { name: 'Panes' })).toBeVisible();
+    expect(window.location.hash).toBe('#webchat');
+  });
+
+  it('waits for native pane closure before applying a hash route change', async () => {
+    let finishClose: (() => void) | undefined;
+    const closeComplete = new Promise<void>((resolve) => {
+      finishClose = resolve;
+    });
+    const host = mockNativeHost(vi.fn(() => closeComplete));
+    window.history.replaceState(null, '', '#webchat');
+    setup();
+    await screen.findByRole('heading', { name: 'Web chat' });
+
+    act(() => {
+      window.history.replaceState(null, '', '#settings-api-keys');
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    });
+    expect(host.closeAll).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('heading', { name: 'Web chat' })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'API keys' })).not.toBeInTheDocument();
+    await act(async () => {
+      finishClose?.();
+      await closeComplete;
+    });
+
+    expect(await screen.findByRole('heading', { name: 'API keys' })).toBeVisible();
+    expect(window.location.hash).toBe('#settings-api-keys');
+  });
+
+  it('keeps the current route and reports a native pane closure failure', async () => {
+    mockNativeHost(vi.fn(() => Promise.reject(new Error('close failed'))));
+    window.history.replaceState(null, '', '#webchat');
+    setup();
+    await screen.findByRole('heading', { name: 'Web chat' });
+    act(() => {
+      window.history.replaceState(null, '', '#settings-api-keys');
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    });
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The request could not be completed.');
+    expect(screen.getByRole('heading', { name: 'Web chat' })).toBeVisible();
+    expect(window.location.hash).toBe('#webchat');
   });
 
   it('shows validation errors in the new project dialog', async () => {

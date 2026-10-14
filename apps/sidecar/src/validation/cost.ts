@@ -14,6 +14,8 @@ import type {
   PriceRow,
   PriceTable,
   PriceUpdateRun,
+  PriceUpdateOutcome,
+  PricingExtractionOptions,
   PortfolioPnL,
   ProjectPnL,
   RevenueEntry,
@@ -31,6 +33,7 @@ import {
   pipelineRunIdSchema,
   priceTableVersionSchema,
   projectIdSchema,
+  providerIdSchema,
   revenueEntryIdSchema,
   vndSchema,
   z,
@@ -55,6 +58,7 @@ export const priceEntrySchema = z
     perImageMicroUsd: microUsdSchema.exactOptional(),
     freeTier: z.boolean(),
     sourceUrl: z.string(),
+    origin: z.enum(['seed', 'auto_extracted', 'manual_override']).exactOptional(),
   })
   .readonly() satisfies z.ZodType<PriceEntry>;
 export const priceTableSchema = z
@@ -83,6 +87,7 @@ export const priceUpdateRunSchema = z
               'perImageMicroUsd',
               'freeTier',
               'sourceUrl',
+              'origin',
             ]),
             percent: z.number(),
           })
@@ -91,6 +96,18 @@ export const priceUpdateRunSchema = z
       .readonly(),
     newVersion: priceTableVersionSchema.exactOptional(),
     error: appErrorSchema.exactOptional(),
+    providerOutcomes: z
+      .array(
+        z
+          .object({
+            provider: providerIdSchema,
+            status: z.enum(['applied', 'no_change', 'rejected_validation', 'fetch_failed', 'extraction_failed']),
+            reason: z.string().min(1),
+          })
+          .readonly() satisfies z.ZodType<PriceUpdateOutcome>,
+      )
+      .readonly()
+      .exactOptional(),
   })
   .readonly() satisfies z.ZodType<PriceUpdateRun>;
 export const fxRateSchema = z
@@ -113,8 +130,28 @@ export const priceRowSchema = z
     cachedInput: moneyDisplaySchema,
     perImage: moneyDisplaySchema.exactOptional(),
     overridden: z.boolean(),
+    origin: z.enum(['seed', 'auto_extracted', 'manual_override']).exactOptional(),
   })
   .readonly() satisfies z.ZodType<PriceRow>;
+export const pricingExtractionOptionsSchema = z
+  .object({
+    options: z
+      .array(
+        z
+          .object({
+            modelKey: modelKeySchema,
+            displayName: z.string(),
+            estimatedCost: moneyDisplaySchema,
+          })
+          .readonly(),
+      )
+      .readonly(),
+    selectedModelKey: modelKeySchema.nullable(),
+    inputTokensPerCall: z.number().int().nonnegative(),
+    outputTokensPerCall: z.number().int().nonnegative(),
+    calls: z.number().int().nonnegative(),
+  })
+  .readonly() satisfies z.ZodType<PricingExtractionOptions>;
 export const pnlMarginDisplaySchema = z
   .object({
     microUsd: signedMicroUsdSchema,

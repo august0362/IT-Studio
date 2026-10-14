@@ -13,7 +13,7 @@ export function ThemeSync(): JSX.Element | null {
   useEffect(() => {
     enableThemeTransitions();
     const preference = window.matchMedia('(prefers-color-scheme: dark)');
-    let themeId: ThemeId = themeCatalog.defaultLight;
+    let themeId: ThemeId = preference.matches ? themeCatalog.defaultDark : themeCatalog.defaultLight;
     let mode: 'system' | 'light' | 'dark' = ThemeMode.SYSTEM;
     try {
       const raw = localStorage.getItem(STORAGE_KEY);

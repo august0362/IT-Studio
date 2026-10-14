@@ -132,7 +132,7 @@ describe('M4 Settings', () => {
     await browser.$('button=All projects').click();
     await browser.$('nav[aria-label="Main navigation"] a[href="#settings-pricing"]').click();
     expect(await browser.$('button=Update prices').isEnabled()).to.equal(false);
-    expect(await browser.$('body').getText()).to.include('D31: Select a project before updating prices.');
+    expect(await browser.$('body').getText()).to.include('Select a project before updating prices.');
   });
 
   it('TC-M4-045 applies and clears an FX override reflected in VND Money lines', async () => {

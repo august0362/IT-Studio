@@ -1,5 +1,6 @@
 import type { AppError } from '@itstudio/schemas';
 import type { JSX } from 'react';
+import { Button } from './ui/primitives';
 
 export interface ErrorPanelProps {
   readonly error: AppError;
@@ -19,13 +20,9 @@ export function ErrorPanel({ error, onRetry }: ErrorPanelProps): JSX.Element {
       ) : null}
       <small className="mt-1 block text-text-muted">{error.code}</small>
       {error.retryable && onRetry !== undefined ? (
-        <button
-          className="mt-2 rounded border border-border px-3 py-2 hover:bg-surface-alt"
-          onClick={onRetry}
-          type="button"
-        >
+        <Button className="mt-2" onClick={onRetry} type="button">
           Retry
-        </button>
+        </Button>
       ) : null}
     </section>
   );

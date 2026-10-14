@@ -155,7 +155,7 @@
       "vscode": "VS Code",
       "pipeline": "Vai trò quy trình",
       "images": "Hình ảnh",
-      "web-chat": "Trò chuyện web"
+      "web-chat": "Cài đặt trò chuyện web"
     },
     "saved": "Đã lưu cài đặt.",
     "save": "Lưu",
@@ -187,7 +187,7 @@
       "limits": "Đặt giới hạn ngân sách trong Chi phí & Lãi lỗ."
     },
     "pricing": {
-      "noProject": "D31: Hãy chọn dự án trước khi cập nhật giá.",
+      "noProject": "Hãy chọn dự án trước khi cập nhật giá.",
       "stale": "Dữ liệu giá đã cũ hơn 30 ngày. Hãy cập nhật để xem giá hiện tại.",
       "update": "Cập nhật giá",
       "updating": "Đang cập nhật…",
@@ -197,6 +197,30 @@
       "output": "Đầu ra mỗi 1 triệu token",
       "cached": "Đầu vào lưu đệm mỗi 1 triệu token",
       "origin": "Nguồn",
+      "lastUpdated": "Cập nhật lần cuối",
+      "origins": {
+        "seed": "giá ban đầu (chưa xác minh)",
+        "auto_extracted": "tự động",
+        "manual_override": "thủ công"
+      },
+      "seedWarning": "Một số giá vẫn là dữ liệu ban đầu đi kèm ứng dụng và chưa được xác minh qua lần cập nhật giá. Hãy kiểm tra trước khi dựa vào chi phí ước tính.",
+      "extractionModel": "Mô hình trích xuất giá",
+      "noExtractionModel": "Không có mô hình khả dụng",
+      "addKey": "Hãy thêm khóa API trước — trích xuất giá cần gọi AI. Chỉ mô hình chat đã bật, hỗ trợ JSON và có khóa đã lưu mới xuất hiện ở đây.",
+      "estimate": "Chi phí ước tính cho tối đa {{calls}} lần gọi, gồm một lần trích xuất lại mỗi nhà cung cấp:",
+      "estimateHelp": "Dựa trên giá hiện tại và lượng token được dự trù thận trọng. Nhà cung cấp thử lại thêm hoặc ghi nhận lượng dùng khác có thể làm chi phí thay đổi; giá ban đầu có thể chưa được xác minh.",
+      "estimateUnavailable": "Chưa có mô hình trích xuất và chi phí ước tính. Hãy tải lại trang trước khi cập nhật giá.",
+      "resultTitle": "Kết quả cập nhật giá",
+      "toastSummary": "Đã cập nhật giá: {{applied}} áp dụng, {{unchanged}} không đổi, {{rejected}} từ chối, {{fetchFailed}} lỗi tải trang, {{extractionFailed}} lỗi trích xuất.",
+      "providers": {
+        "anthropic": "Anthropic",
+        "openai": "OpenAI",
+        "google": "Google",
+        "xai": "xAI",
+        "groq": "Groq",
+        "together": "Together",
+        "replicate": "Replicate"
+      },
       "override": "Ghi đè",
       "overridden": "Đã ghi đè",
       "clearOverride": "Xóa ghi đè",
@@ -207,7 +231,8 @@
         "applied": "Đã cập nhật giá",
         "no_change": "Giá không đổi",
         "rejected_validation": "Từ chối cập nhật giá",
-        "fetch_failed": "Cập nhật giá thất bại"
+        "fetch_failed": "Tải trang giá thất bại",
+        "extraction_failed": "Trích xuất giá thất bại"
       },
       "change": "Thay đổi",
       "overrideTitle": "Ghi đè giá cho {{model}}",
@@ -260,6 +285,8 @@
     },
     "webChat": {
       "browser": "Trình duyệt",
+      "resolveError": "Không thể tự động chọn Cốc Cốc.",
+      "retryResolution": "Thử lại",
       "browserName": {
         "default": "Trình duyệt mặc định",
         "coccoc": "Cốc Cốc",
@@ -282,16 +309,44 @@
       "save": "Lưu cài đặt trò chuyện web"
     }
   },
+  "webChat": {
+    "pane": "Ô trò chuyện web {{number}}",
+    "site": "Trang web cho ô {{number}}",
+    "panes": "Các ô trò chuyện web",
+    "paneCount": "Số ô",
+    "reload": "Tải lại",
+    "openInBrowser": "Mở trong trình duyệt",
+    "resize": "Đổi kích thước ô {{left}} và {{right}}",
+    "desktopOnly": "Trò chuyện web nhúng có trong ứng dụng desktop. Dùng Mở trong trình duyệt để mở trang web từ bản xem trước.",
+    "noSites": "Hãy bật một liên kết trò chuyện web đã lưu trong Cài đặt để mở ô.",
+    "nativeError": "Không thể mở hoặc cập nhật ô trò chuyện web nhúng.",
+    "useBrowser": "Hãy thử Mở trong trình duyệt. Bạn cũng có thể quay lại trang này để tải lại các ô.",
+    "saveError": "Không thể lưu bố cục trò chuyện web. Bố cục trước đó đã được khôi phục.",
+    "signInWarning": "Một số nhà cung cấp (đặc biệt tài khoản Google) có thể chặn đăng nhập trong trình duyệt nhúng. Nếu đăng nhập thất bại, hãy dùng 'Mở trong trình duyệt' (Cốc Cốc).",
+    "dismiss": "Đóng thông báo"
+  },
   "api": {
     "heading": "Khóa API",
     "description": "Khóa được lưu an toàn và không bao giờ hiển thị đầy đủ.",
     "invalid": "Không hợp lệ",
-    "verified": "Đã xác minh lúc {{date}}",
+    "verified": "Đã xác minh · …{{hint}}",
     "configured": "Đã đặt ••••{{hint}}",
     "notSet": "Chưa đặt",
     "enter": "Nhập khóa API",
-    "save": "Lưu",
-    "verify": "Xác minh",
+    "verifyAndSave": "Xác minh và lưu",
+    "verifying": "Đang xác minh…",
+    "emptyHint": "Nhập khóa API trước khi xác minh.",
+    "keySaved": "Đã lưu khóa {{provider}} ✓",
+    "history": "Lịch sử khóa API",
+    "historyEmpty": "Chưa có hoạt động khóa API.",
+    "historyError": "Không thể tải lịch sử khóa API.",
+    "historyTime": "Thời gian",
+    "historyProvider": "Nhà cung cấp",
+    "historyKey": "Khóa",
+    "historyResult": "Kết quả",
+    "historySaved": "Đã lưu",
+    "historyDeleted": "Đã xóa",
+    "historyFailed": "Xác minh thất bại ({{code}})",
     "delete": "Xóa",
     "cancel": "Hủy",
     "deletePrompt": "Xóa khóa API {{provider}}?",
@@ -497,6 +552,8 @@
   },
   "workflow": {
     "heading": "Quy trình",
+    "graphLabel": "Sơ đồ quy trình",
+    "minimapLabel": "Sơ đồ thu nhỏ quy trình",
     "loading": "Đang tải quy trình…",
     "loadError": "Không thể tải dữ liệu quy trình.",
     "refresh": "Làm mới",

@@ -21,6 +21,7 @@
 | M7 VS Code companion extension | **Done** (QA signed off) | 6 / 6 |
 | MW Workflow map (v1 addendum) | **Done** (conditional QA sign-off; exploratory follow-up) | 6 / 6 |
 | WC Quick web chat (v1 addendum) | **Done** | 1 / 1 |
+| OWNER-FB1 Owner feedback | Implementation complete; final gates and native smoke follow-ups tracked in task Result | 5 packages implemented |
 | M8 Image generation | **Done** (conditional QA sign-off; exploratory follow-up) | 6 / 6 |
 | M9 Packaging & release | In progress (QA) | 6 / 7 |
 | **v2** M10 Agent Orchestrator | Specified — waits for owner go-ahead | 0 / 11 |
@@ -160,6 +161,16 @@ Open ChatGPT / Gemini / Grok / … in the owner's browser (default Cốc Cốc) 
 
 - [x] **WC-01** (C) Web chat links + browser locator + `webchat.*` RPC + Chat header menu + Settings → Web chat; upgrade-safe settings defaults.
 
+## OWNER-FB1 — Owner feedback (2026-10-04)
+
+Work order: `docs/tasks/OWNER-FB1.md`. The owner authorized edits across the project to complete the batch, clearing the original P5 wiring/P4 source-path restrictions and P3 `unstable` stop condition. Work is on `task/OWNER-FB1` in `C:/Users/admin/itstudio-wt/OWNER-FB1`; final repository gate results belong in the task Result.
+
+- [~] **OWNER-FB1** (C) Implementation complete; review and native smoke follow-ups remain. P1 adds verify-before-save, a single verification request with 25-second timeout, masked key history and generated migration `0011`. P5 adds cheapest keyed chat/JSON-model fallback, per-provider refresh outcomes, persistent row provenance, a saved extractor selector and conservative UTF-8 planning estimates with retry/context limits. P2 simplifies workflow nodes and adds queued activity dots/reduced-motion highlighting. P4 adds three glow themes, shared primitives, designer instructions and synchronized palette/catalog/startup generation. P3 adds resolved Cốc Cốc defaults and one-to-four isolated native child-webview panes with saved layout and accessible splitters.
+- **Pricing audit caveats:** official-source audit dated 2026-10-04 is recorded per model in the task. Unconfirmed `xai/grok-4.1-fast`, `groq/llama-3.3-70b-versatile` and `groq/llama-3.1-8b-instant` retain seed values. Context-tier and time-limited rates retain the documented seed representation. Seed-origin rows remain visibly unverified until an app refresh confirms them.
+- **Verification:** whole-project typecheck/lint/unit gates, 28 Rust tests, release installers and the fresh debug executable passed. Native Theme Settings screenshots for all three new dark themes were inspected; detailed results are in the task Result.
+- **Remaining checks:** native P3 provider login/navigation and pane placement smoke; P4 full-page/dialog/backdrop visual review; isolated install smoke and the separate M9-QA gate. No paid provider calls or real keychain operations are part of the automated batch tests.
+- **Installer smoke prerequisite:** the current script isolates installation/Node lookup, but release still uses the user's actual appdata/keychain. Arrange runtime-data/keychain isolation before the new-build automated install smoke.
+
 ## M8 — Image generation *(v1 feature)*
 
 Spec: ARCH §14.1, `schemas.ts` §13.
@@ -171,7 +182,7 @@ Spec: ARCH §14.1, `schemas.ts` §13.
 - [x] **M8-05** (C) Gallery tab.
 - [x] **M8-QA** (A+C) *(conditional sign-off; automated cases and coverage pass, separate 20-minute exploratory follow-up remains — see `docs/qa/M8-report.md`)* Milestone QA gate (TESTING.md §7): A writes `docs/qa/M8-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M8-report.md` sign-off. Scope: Image generation: tool call → image stored locally, provider fallback, cost per image, gallery.
 
-## M9 — Packaging & release *(deferred)*
+## M9 — Packaging & release
 
 Spec: ARCH §14.2.
 
@@ -191,7 +202,7 @@ Spec: ARCH §14.2.
 - [ ] **M9-FIX7** (C) Keep Cost & P&L mounted while custom dates are incomplete or reversed; add `TC-M9-015` GUI regression for the S1 blank-window defect.
 - [x] **M9-04** (A) *(not needed — D33 single user; updater key pair deferred until auto-update is wanted)* Code-signing setup (user supplies certificate) + updater key pair (private key outside repo).
 - [x] **M9-05** (C) Version bump script (4 manifests) + release CHANGELOG automation.
-- [x] **M9-06** (C) *(D33: replaced by an isolated install smoke — no system Node on PATH, no repo node_modules reachable)* Clean-VM smoke test checklist and execution.
+- [x] **M9-06** (C) *(D33: replaced by temp-directory install smoke — no system Node on PATH, no repo node_modules reachable; prior-build evidence retained. Runtime-data/keychain isolation and a new-build rerun remain in M9-QA.)* Clean-VM smoke test checklist and execution.
 - [ ] **M9-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M9-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M9-report.md` sign-off. Scope: Packaging: install on clean VM, first run, sidecar SEA starts, native modules load, update flow.
 
 ---

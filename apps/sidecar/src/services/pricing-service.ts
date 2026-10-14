@@ -75,6 +75,7 @@ export class PricingService {
         cachedInput: toMoneyDisplay(entry.cachedInputPerMTokMicroUsd, fx),
         ...(entry.perImageMicroUsd === undefined ? {} : { perImage: toMoneyDisplay(entry.perImageMicroUsd, fx) }),
         overridden: overrides.has(entry.modelKey),
+        origin: overrides.has(entry.modelKey) ? 'manual_override' : (entry.origin ?? 'seed'),
       })),
     };
   }
@@ -113,10 +114,11 @@ export class PricingService {
     if (!parsed.success) return validationError('Price entry failed validation.');
     if (!this.knownModels.has(parsed.data.modelKey)) return validationError('Price entry refers to an unknown model.');
     const current = this.requireCurrent();
-    const entries = current.entries.map((existing) =>
-      existing.modelKey === parsed.data.modelKey ? parsed.data : existing,
+    const entries = current.entries.map((existing): PriceEntry =>
+      existing.modelKey === parsed.data.modelKey ? { ...parsed.data, origin: 'manual_override' } : existing,
     );
-    if (!current.entries.some((existing) => existing.modelKey === parsed.data.modelKey)) entries.push(parsed.data);
+    if (!current.entries.some((existing) => existing.modelKey === parsed.data.modelKey))
+      entries.push({ ...parsed.data, origin: 'manual_override' });
     const manualOverrides = new Set(current.manualOverrides);
     manualOverrides.add(parsed.data.modelKey);
     return { ok: true, value: this.insertVersion(current, entries, [...manualOverrides]) };
@@ -139,7 +141,7 @@ export class PricingService {
   applyExtracted(entries: readonly PriceEntry[]): PriceTable {
     const current = this.requireCurrent();
     const automatic = new Map(this.latestAutomaticEntries.map((entry) => [entry.modelKey, entry]));
-    for (const entry of entries) automatic.set(entry.modelKey, entry);
+    for (const entry of entries) automatic.set(entry.modelKey, { ...entry, origin: 'auto_extracted' });
     this.latestAutomaticEntries = [...automatic.values()];
     const overrides = new Set(current.manualOverrides);
     const currentEntries = new Map(current.entries.map((entry) => [entry.modelKey, entry]));

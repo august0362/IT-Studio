@@ -11,6 +11,7 @@ import type {
   VSCodeSettings,
   WebChatSettings,
   WebChatLinkId,
+  WebChatLayout,
 } from '@itstudio/schemas';
 import { projectIdSchema, modelKeySchema, themeIdSchema, z } from './common.js';
 import { routerConfigSchema, ladderEntrySchema, circuitBreakerConfigSchema } from './router.js';
@@ -28,10 +29,27 @@ const webChatBrowserSchema = z.enum([
   WebChatBrowser.FIREFOX,
   WebChatBrowser.CUSTOM,
 ]);
+export const webChatLayoutSchema = z
+  .object({
+    panes: z
+      .array(z.custom<WebChatLinkId>((value) => typeof value === 'string' && value.length > 0))
+      .min(1)
+      .max(4)
+      .readonly(),
+    sizes: z.array(z.number().min(0.1).max(1)).min(1).max(4).readonly(),
+  })
+  .readonly()
+  .superRefine((layout, context) => {
+    if (layout.panes.length !== layout.sizes.length)
+      context.addIssue({ code: 'custom', path: ['sizes'], message: 'Provide one size for each pane.' });
+    if (Math.abs(layout.sizes.reduce((total, size) => total + size, 0) - 1) > 0.000001)
+      context.addIssue({ code: 'custom', path: ['sizes'], message: 'Pane sizes must total 1.' });
+  }) satisfies z.ZodType<WebChatLayout>;
 export const webChatSettingsSchema = z
   .object({
     browser: webChatBrowserSchema,
     customBrowserPath: z.string().nullable(),
+    layout: webChatLayoutSchema.exactOptional(),
     links: z
       .array(
         z
@@ -182,6 +200,7 @@ export const settingsPatchSchema = z
       .object({
         browser: webChatBrowserSchema.exactOptional(),
         customBrowserPath: z.string().nullable().exactOptional(),
+        layout: webChatLayoutSchema.exactOptional(),
         links: z
           .array(
             z
