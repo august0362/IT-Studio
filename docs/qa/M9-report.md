@@ -1,6 +1,6 @@
 # M9 QA report — packaging and release
 
-Date: 2026-10-14 · Platform: Windows x64 · Gate: `M9-QA` · Status: **in progress** (final build, installer checks, and main-branch regression pass; task integration remains)
+Date: 2026-10-14 · Platform: Windows x64 · Gate: `M9-QA` · Status: **SIGNED OFF** (2026-10-14; S3 observations moved to the v1 polish backlog)
 
 This report follows `docs/qa/M9-test-cases.md` and `TESTING.md` §§7–8. A branch build is implementation evidence only; final gate evidence must come from the merged source and the same installers used by install smoke. No M9 sign-off is recorded while a P1 case is pending.
 
@@ -67,7 +67,22 @@ Evidence screenshots: `project-validation.png`, `chat-sent.png`, `pipeline-no-ke
 
 ## Defects and sign-off
 
-No M9 exit verdict yet. Source regression and the M9-FIX6/FIX7 behavior checks pass, final artifact build/install evidence is recorded above, and `npm run test:all` now passes on both the QA branch and `main`. M9 sign-off remains pending integration/review of the QA task branch and its committed report. The NSIS and MSI Ready checks used the real `%APPDATA%\\com.itstudio.app` profile; they are not fresh-profile results. MSI context was verified as per-user unmanaged using `MsiEnumProductsExW`; the separate HKLM uninstall ARP key is not itself evidence of a per-machine Windows Installer context.
+Exit criteria (TESTING.md §7), checked 2026-10-14 after merging current `main` into `task/M9-QA`:
+
+- [x] 100 % P1 pass — TC-M9-001…012, 014, 015 pass; TC-M9-003 passes with the recorded cold-start outlier (M9-OBS-04).
+- [x] ≥ 95 % P2 pass — TC-M9-013 passes.
+- [x] No open S1/S2 — M9-OBS-01 (S2) fixed by M9-FIX6, M9-OBS-07 (S1) fixed by M9-FIX7; both verified on the final build.
+- [x] Coverage and mutation gates — statements 85.55 %, domain branches 97.01 %, domain mutation 77.53 %.
+- [x] Traceability — every case in `docs/qa/M9-test-cases.md` has a verdict above.
+- [x] Report committed.
+
+Re-check on the merged branch: `npm run typecheck` ✔, `npm run lint` ✔, `npm test` 933 passed + 1 skipped ✔.
+
+Limits of this sign-off: the NSIS and MSI Ready checks used the real `%APPDATA%\com.itstudio.app` profile, so they are not fresh-profile results. MSI context was verified as per-user unmanaged with `MsiEnumProductsExW`; the separate HKLM uninstall ARP key does not show a per-machine Windows Installer context. Signing, auto-update and a clean VM stay deferred (D33).
+
+Open S3 observations M9-OBS-02, 03, 05 and 06 and the M9-OBS-04 cold-start outlier do not block v1. They move to the ROADMAP v1 polish backlog.
+
+**Sign-off:** M9 — Packaging & release is **DONE**. — QA (Claude), 2026-10-14
 
 ### Open observations
 
