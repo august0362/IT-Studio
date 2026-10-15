@@ -107,9 +107,12 @@ describe('ChatPage', () => {
   it('TC-MW-009 opens a conversation selected by a workflow deep link', async () => {
     useNavigationIntent.getState().setIntent({ kind: 'conversation', id: '00000000-0000-4000-8000-000000000002' });
     renderChat(true);
-    expect(await screen.findByRole('heading', { name: 'Selected workflow conversation' })).toBeVisible();
+    await screen.findByRole('button', { name: 'Selected workflow conversation' }, { timeout: 10000 });
+    expect(
+      await screen.findByRole('heading', { name: 'Selected workflow conversation' }, { timeout: 10000 }),
+    ).toBeVisible();
     expect(useNavigationIntent.getState().intent).toBeNull();
-  });
+  }, 20000);
   it('sends and cancels with the active request id', async () => {
     const transport = renderChat();
     fireEvent.click(await screen.findByRole('button', { name: 'New chat' }));

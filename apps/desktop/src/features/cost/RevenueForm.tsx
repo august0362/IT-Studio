@@ -1,6 +1,6 @@
 import type { ProjectId, RevenueRow } from '@itstudio/schemas';
 import type { JSX } from 'react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRpcClient } from '../../rpc/rpc-context';
 import { Money } from '../../components/Money';
@@ -21,12 +21,17 @@ export function RevenueForm({
   const [currency, setCurrency] = useState<'USD' | 'VND'>('USD');
   const [description, setDescription] = useState('');
   const [error, setError] = useState('');
+  const inFlight = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
   async function submit(): Promise<void> {
+    if (inFlight.current) return;
     setError('');
     if (!/^\d+(?:\.\d+)?$/u.test(amount) || Number(amount) <= 0 || description.trim() === '') {
       setError(t('cost.invalidRevenue'));
       return;
     }
+    inFlight.current = true;
+    setSubmitting(true);
     try {
       await rpc.call('revenue.add', { projectId, amount: Number(amount), currency, description });
       onAdded();
@@ -34,6 +39,9 @@ export function RevenueForm({
       setDescription('');
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : t('cost.revenueError'));
+    } finally {
+      inFlight.current = false;
+      setSubmitting(false);
     }
   }
   return (
@@ -80,7 +88,7 @@ export function RevenueForm({
             }}
           />
         </label>
-        <button className="rounded bg-primary px-3 py-2 text-primary-fg" type="submit">
+        <button className="rounded bg-primary px-3 py-2 text-primary-fg" disabled={submitting} type="submit">
           {t('cost.addRevenue')}
         </button>
       </form>

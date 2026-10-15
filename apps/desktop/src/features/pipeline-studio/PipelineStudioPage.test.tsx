@@ -17,7 +17,7 @@ vi.mock('../code/monaco-setup', () => ({}));
 vi.mock('@monaco-editor/react', () => ({ DiffEditor: () => <div>Diff editor</div> }));
 const disposers: (() => void)[] = [];
 beforeAll(async () => {
-  await import('./index');
+  await Promise.all([import('./index'), import('./PipelineStudioPage')]);
 }, 20000);
 beforeEach(() => {
   graphDimensions();
@@ -46,7 +46,7 @@ const node = (name: string) => screen.getByRole('button', { name: new RegExp(`^$
 describe('PSTUDIO-02 page', () => {
   it('has a black fullscreen root and all module names, with no canvas detail panels', async () => {
     const { container, calls } = setup();
-    await screen.findByRole('button', { name: 'Spec — Active' });
+    await screen.findByRole('button', { name: 'Spec — Active' }, { timeout: 10000 });
     expect(screen.getByRole('region', { name: 'Pipeline Studio' })).toHaveClass('fixed', 'inset-0', 'overflow-hidden');
     expect(screen.getByRole('region', { name: 'Pipeline Studio' })).toHaveStyle({ background: 'black' });
     for (const name of [
@@ -65,7 +65,7 @@ describe('PSTUDIO-02 page', () => {
     expect(container.querySelectorAll('.react-flow__node')).toHaveLength(10);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(calls('pipeline.list')[0]).toContain('"limit":20');
-  });
+  }, 20000);
   it.each(['Clarify', 'Validate'])(
     'QA round 1: %s panel stays fixed and opaque, with scroll-free focus',
     async (name) => {

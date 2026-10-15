@@ -25,13 +25,16 @@ import { useNavigationIntent } from '../../state/navigation-intent';
 import { WebChatMenu } from './WebChatMenu';
 import type { ShellRoute } from '../../shell/MainNav';
 
-export function ChatPage({
-  projectId,
-  onNavigate = () => undefined,
-}: {
+interface ChatPageProps {
   readonly projectId: ProjectId | null;
   readonly onNavigate?: (route: ShellRoute) => void;
-}): JSX.Element {
+}
+
+export function ChatPage(props: ChatPageProps): JSX.Element {
+  return <ProjectChatPage key={props.projectId} {...props} />;
+}
+
+function ProjectChatPage({ projectId, onNavigate = () => undefined }: ChatPageProps): JSX.Element {
   const { t } = useTranslation();
   const rpc = useRpcClient();
   const queryClient = useQueryClient();
@@ -136,6 +139,10 @@ export function ChatPage({
 
   async function send(): Promise<void> {
     if (conversationId === null || projectId === null || draft.trim().length === 0 || activeRequest !== null) return;
+    if (
+      !conversations.some((conversation) => conversation.id === conversationId && conversation.projectId === projectId)
+    )
+      return;
     const text = draft.trim();
     setDraft('');
     try {
