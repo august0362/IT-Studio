@@ -38,6 +38,13 @@ function withInvalidRate(value: number): PriceEntry {
 }
 
 describe('validatePriceEntries', () => {
+  it('PROV-01 attributes nested OpenRouter model keys to the first segment', () => {
+    const entry: PriceEntry = { ...initial, modelKey: 'openrouter/deepseek/deepseek-v4-flash' };
+    const current = { ...table, entries: [entry] };
+    const known = new Set([entry.modelKey]);
+    expect(validatePriceEntries('openrouter', [entry], current, known, 50).entries).toEqual([entry]);
+    expect(validatePriceEntries('deepseek', [entry], current, known, 50).entries).toEqual([]);
+  });
   it('accepts exactly the percent limit and rejects a change 0.01 above it', () => {
     const baseline: PriceTable = {
       ...table,

@@ -1,3 +1,4 @@
+import { providerIdSchema } from './validation/common.js';
 import {
   FailureKind,
   ModelCapability,
@@ -406,6 +407,18 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   });
   const projectService = new ProjectService({ repository: projectRepository, settings: settingsService, ids, clock });
   const secretStore = dependencies.secretStore ?? (e2e ? new MemorySecretStore() : new KeychainSecretStore());
+  const qwenVerificationModel = loadedSeeds.value.pricing.entries
+    .filter((entry) =>
+      loadedSeeds.value.models.some(
+        (model) => model.key === entry.modelKey && model.provider === ProviderId.QWEN && model.enabled,
+      ),
+    )
+    .toSorted(
+      (a, b) => a.inputPerMTokMicroUsd + a.outputPerMTokMicroUsd - (b.inputPerMTokMicroUsd + b.outputPerMTokMicroUsd),
+    )[0];
+  const qwenVerificationModelId = loadedSeeds.value.models.find(
+    (model) => model.key === qwenVerificationModel?.modelKey,
+  )?.providerModelId;
   const secretsService = new SecretsService({
     store: secretStore,
     history: secretHistoryRepository,
@@ -414,7 +427,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
       dependencies.keyVerifier ??
       (e2e
         ? new ScriptedKeyVerifier(env.ITSTUDIO_E2E_VERIFIER_OUTCOME, env.ITSTUDIO_E2E_VERIFIER_FIXTURE)
-        : new ProviderKeyVerifier(new FetchHttpClient())),
+        : new ProviderKeyVerifier(new FetchHttpClient(), () => settingsService.get(), qwenVerificationModelId)),
     clock,
   });
   const fxHttpClient: IHttpClient =
@@ -431,7 +444,30 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     logger,
   });
   const fxDailyJob = new FxDailyJob({ fx: fxService, settings: settingsService, clock, logger });
+  const compatibleFactories = Object.fromEntries(
+    Object.entries(OPENAI_COMPATIBLE_BASE_URLS).map(([id, baseURL]) => {
+      const providerId = providerIdSchema.parse(id);
+      return [
+        providerId,
+        () =>
+          e2e
+            ? scriptedLlmProvider(providerId, llmTexts, llmScripts, llmScriptCursors, llmCapturePath)
+            : new OpenAiCompatibleProvider({
+                id: providerId,
+                baseURL:
+                  providerId === ProviderId.QWEN
+                    ? async () => {
+                        const settings = await settingsService.get();
+                        if (!settings.ok) throw new Error('Could not load provider settings.');
+                        return settings.value.providers?.qwen?.baseUrl ?? baseURL;
+                      }
+                    : baseURL,
+              }),
+      ];
+    }),
+  );
   const providers = new ProviderRegistry({
+    ...compatibleFactories,
     [ProviderId.ANTHROPIC]: () =>
       e2e
         ? scriptedLlmProvider(ProviderId.ANTHROPIC, llmTexts, llmScripts, llmScriptCursors, llmCapturePath)
@@ -440,28 +476,6 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
       e2e
         ? scriptedLlmProvider(ProviderId.GOOGLE, llmTexts, llmScripts, llmScriptCursors, llmCapturePath)
         : new GoogleProvider(),
-    [ProviderId.OPENAI]: () =>
-      e2e
-        ? scriptedLlmProvider(ProviderId.OPENAI, llmTexts, llmScripts, llmScriptCursors, llmCapturePath)
-        : new OpenAiCompatibleProvider({
-            id: ProviderId.OPENAI,
-            baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.OPENAI],
-          }),
-    [ProviderId.XAI]: () =>
-      e2e
-        ? scriptedLlmProvider(ProviderId.XAI, llmTexts, llmScripts, llmScriptCursors, llmCapturePath)
-        : new OpenAiCompatibleProvider({ id: ProviderId.XAI, baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.XAI] }),
-    [ProviderId.GROQ]: () =>
-      e2e
-        ? scriptedLlmProvider(ProviderId.GROQ, llmTexts, llmScripts, llmScriptCursors, llmCapturePath)
-        : new OpenAiCompatibleProvider({ id: ProviderId.GROQ, baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.GROQ] }),
-    [ProviderId.TOGETHER]: () =>
-      e2e
-        ? scriptedLlmProvider(ProviderId.TOGETHER, llmTexts, llmScripts, llmScriptCursors, llmCapturePath)
-        : new OpenAiCompatibleProvider({
-            id: ProviderId.TOGETHER,
-            baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.TOGETHER],
-          }),
   });
   const modelRegistry = new ModelRegistry(loadedSeeds.value.models, providers);
   const pricingService = new PricingService({

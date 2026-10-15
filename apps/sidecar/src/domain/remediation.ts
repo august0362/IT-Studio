@@ -85,6 +85,10 @@ export function remediationFor(code: ErrorCodeType, context?: RemediationContext
 }
 
 const providerNames: Record<ProviderId, string> = {
+  deepseek: 'DeepSeek',
+  openrouter: 'OpenRouter',
+  qwen: 'Qwen (Alibaba Cloud)',
+  mistral: 'Mistral',
   anthropic: 'Anthropic',
   openai: 'OpenAI',
   google: 'Google',

@@ -53,6 +53,18 @@ export class PricingService {
         if (!manualOverrides.has(entry.modelKey)) automatic.set(entry.modelKey, entry);
       }
       this.latestAutomaticEntries = [...automatic.values()];
+      const existingKeys = new Set(existing.entries.map((entry) => entry.modelKey));
+      const missingSeeds = this.seed.entries.filter((entry) => !existingKeys.has(entry.modelKey));
+      if (missingSeeds.length > 0) {
+        this.repository.insert({
+          ...existing,
+          version: priceTableVersionSchema.parse('seed-' + this.ids.uuid()),
+          // Preserve the age of existing prices and keep the previous version immutable.
+          effectiveFrom: isoDateTimeSchema.parse(new Date(Date.parse(existing.effectiveFrom) + 1).toISOString()),
+          entries: [...existing.entries, ...missingSeeds.map((entry) => ({ ...entry, origin: 'seed' as const }))],
+          automaticEntries: this.latestAutomaticEntries,
+        });
+      }
       return;
     }
     this.repository.insert({ ...this.seed, manualOverrides: [] });

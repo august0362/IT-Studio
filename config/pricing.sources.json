@@ -10,5 +10,9 @@
   "xai": ["https://docs.x.ai/developers/pricing"],
   "groq": ["https://console.groq.com/docs/models"],
   "together": ["https://www.together.ai/pricing"],
+  "deepseek": ["https://api-docs.deepseek.com/quick_start/pricing"],
+  "openrouter": ["https://openrouter.ai/models", "https://openrouter.ai/deepseek"],
+  "qwen": ["https://www.alibabacloud.com/help/en/model-studio/models"],
+  "mistral": ["https://mistral.ai/pricing"],
   "replicate": ["https://replicate.com/pricing"]
 }

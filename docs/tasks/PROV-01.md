@@ -63,3 +63,43 @@ Use the same approach as the existing OpenAI-compatible providers. If `GET {base
 ## Hand-back
 
 Append `## Result` per AGENTS.md §3.
+
+## Result
+
+- Summary: Added DeepSeek, OpenRouter, Qwen (Alibaba Cloud), and Mistral through the OpenAI-compatible adapter, including API-key verification, Qwen region/custom HTTPS endpoints, ten enabled model seeds, unverified prices, and refresh sources. Existing router ladders and pipeline role defaults are preserved. No commit was created.
+- Files changed:
+  - `src/types/schemas.ts`; `config/models.seed.json`, `config/pricing.seed.json`, `config/pricing.sources.json`.
+  - `apps/sidecar/src/container.ts` and `container.test.ts`; `domain/default-settings.ts`, `domain/provider-endpoints.ts`, `domain/remediation.ts`, `domain/price-validation.ts` and its test.
+  - `apps/sidecar/src/config/load-seeds.test.ts`; `infra/http/provider-key-verifier.ts` and its test; `providers/openai-compatible/openai-compatible-provider.ts` and its test.
+  - `apps/sidecar/src/services/settings-service.ts`, `pricing-service.ts`, `pricing-updater.ts` and their tests; `services/secrets-service.test.ts`; `validation/common.ts`, `validation/settings.ts`.
+  - `apps/desktop/src/features/settings/api-keys/ApiKeysPage.tsx`, its test, and `QwenEndpoint.tsx`; new keys only in `apps/desktop/src/i18n/en.json` and `vi.json`.
+- Dependencies added (with reason): None. Ran `npm.cmd --cache .npm-cache install` because `node_modules` was absent; package manifests and lockfile are unchanged. Used `npm.cmd` because PowerShell blocks `npm.ps1` under this session's execution policy.
+- Decisions taken within scope:
+  - Centralized compatible endpoints/attribution headers and read saved Qwen settings for each request. The UI persists the selected endpoint successfully before submitting the candidate key for verification.
+  - Qwen verification sends a one-token completion using the cheapest enabled Qwen seed model, selected from seed prices at composition time; model IDs are not hard-coded in implementation logic. Alibaba documents model listing at a separate `/api/v1/models` route, so verification uses the configured compatible chat endpoint. OpenRouter verifies with `/key`, never its public `/models` route. DeepSeek and Mistral use authenticated `/models` requests.
+  - Allowed additional slash-separated model-ID segments in validation; pricing provider attribution uses the first segment or the descriptor's provider, preserving complete nested IDs in requests, registry lookup, and extraction.
+  - Required cached-input prices default to the corresponding input price where the task specifies no discount; DeepSeek V4 Flash uses the specified 2,800 microUSD/MTok cached rate. All added rows remain seed/unverified.
+  - Also wired the remediation provider-name map and added an immutable price-table version on upgrade when new seed rows are missing. Existing prices, row provenance, manual overrides, old table versions, and price age are preserved. This is necessary for existing installations to meter the new models immediately.
+- Validation:
+  - Ran Prettier on changed files before checks; repository ignore rules retain the existing compact seed/schema formatting.
+  - `npm.cmd --cache .npm-cache run typecheck`: passed; final test additions also checked separately.
+  - Full Vitest command (`npm.cmd --cache .npm-cache exec -- vitest run --project sidecar --project desktop --project vscode-ext`): 158 files passed, 1 skipped; 1,383 tests passed, 1 skipped. Subsequent container/nested-pricing regression additions: 37 tests passed across 2 files. Focused feature run: 238 tests passed across 8 files.
+  - `npm.cmd --cache .npm-cache test`: pretest stopped before Vitest because four existing secret-scanner regression tests require empty stderr, but Git emits permission denied for `C:/Users/admin/.config/git/ignore` in the sandbox. Direct Vitest execution above passed without changing tooling.
+  - Direct release/build/dev script tests: 25 passed, 1 failed. Existing `REPO-01` reference-guard failure identifies `docs/HANDOFF.md:136` and the original Read-first paragraph in this task at line 11. Neither specification text was edited.
+  - Requested secrets/router/settings-projects integration files: all 27 cases could not start the sidecar because `tsx` calls `os.userInfo()` and receives `uv_os_get_passwd ENOMEM`, a documented sandbox limit.
+  - API Keys E2E launch: WDIO fails while importing `tsx` with the same `os.userInfo()` sandbox error; no UI cases ran. The wrapper does not forward its `--spec` argument; the import failure happens before any suite starts.
+  - `npm.cmd --cache .npm-cache run build:app`: failed at sidecar esbuild, with access denied reading a parent directory and resolving `apps/sidecar/src/main.ts`. `smoke:sidecar` subsequently failed with ENOENT because the packaged executable was not produced. Tooling was not changed to work around sandbox limits.
+- Open issues / follow-ups: QA must rerun the checks affected by sandbox restrictions outside the sandbox; the integration provider-count fixture requires the scope clarification below. `npm.cmd --cache .npm-cache run lint` passed (exit 0), including ESLint, Prettier check and secret scan; Git still emitted its global-ignore permission warning. The final verifier-only rerun passed all 68 cases.
+- Changelog draft (for Architect; protected changelog not edited): Add DeepSeek, OpenRouter, Qwen regional/custom endpoints, and Mistral with unverified seed pricing (PROV-01).
+
+## Result
+
+- Summary: Applied the approved TC-M1-032 provider-count correction from seven to eleven (test title and count assertion only).
+- Files changed: `apps/sidecar/test/integration/secrets.test.ts`; this task file.
+- Dependencies added (with reason): None; `node_modules` is present.
+- Decisions taken within scope: Used the Architect's approved scope extension below; no other implementation changes.
+- Open issues / follow-ups: Full suite rerun skipped as requested; prior validation and sandbox limitations remain documented above. No commit created.
+
+## Answer to Blocked (Architect, 2026-10-15)
+
+Approved: update `apps/sidecar/test/integration/secrets.test.ts` TC-M1-032 from seven to eleven providers (count + title only). QA already ran: unit 1 386 pass; integration secrets/router/settings-projects/startup — only TC-M1-032 fails. Do that one change, then replace `## Blocked` with `## Result`.

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ErrorCode, type AppError, type JsonValue, type Result } from '@itstudio/schemas';
+import { ErrorCode, ProviderId, type AppError, type JsonValue, type Result } from '@itstudio/schemas';
 import {
   isoDateTimeSchema,
   microUsdSchema,
@@ -56,8 +56,12 @@ export {
   secretHistoryIdSchema,
   priceTableVersionSchema,
 };
-export const providerIdSchema = z.enum(['anthropic', 'openai', 'google', 'xai', 'groq', 'together', 'replicate']);
-export const modelKeySchema = z.templateLiteral([providerIdSchema, '/', z.string().regex(/^[A-Za-z0-9._:-]+$/)]);
+export const providerIdSchema = z.enum(ProviderId);
+export const modelKeySchema = z.templateLiteral([
+  providerIdSchema,
+  '/',
+  z.string().regex(/^[A-Za-z0-9._:-]+(?:\/[A-Za-z0-9._:-]+)*$/),
+]);
 export const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
   z.union([
     z.string(),

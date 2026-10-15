@@ -8,21 +8,17 @@ import type { ILlmProvider, ProviderFailure, ProviderRequest, ProviderResponse }
 import { parseRetryAfter } from '../../domain/failure.js';
 import { finishReason, mapMessages, mapResponse, mapTools, parseToolCalls, UnsupportedImageError } from './mapping.js';
 
-export const OPENAI_COMPATIBLE_BASE_URLS = {
-  [ProviderId.OPENAI]: 'https://api.openai.com/v1',
-  [ProviderId.XAI]: 'https://api.x.ai/v1',
-  [ProviderId.GROQ]: 'https://api.groq.com/openai/v1',
-  [ProviderId.TOGETHER]: 'https://api.together.xyz/v1',
-} as const;
+export { OPENAI_COMPATIBLE_BASE_URLS } from '../../domain/provider-endpoints.js';
+import { compatibleHeaders } from '../../domain/provider-endpoints.js';
 
 export interface OpenAiCompatibleProviderOptions {
   readonly id: ProviderId;
-  readonly baseURL: string;
+  readonly baseURL: string | (() => Promise<string>);
 }
 
 export class OpenAiCompatibleProvider implements ILlmProvider {
   readonly id: ProviderId;
-  private readonly baseURL: string;
+  private readonly baseURL: string | (() => Promise<string>);
 
   constructor(options: OpenAiCompatibleProviderOptions) {
     this.id = options.id;
@@ -31,7 +27,7 @@ export class OpenAiCompatibleProvider implements ILlmProvider {
 
   async complete(req: ProviderRequest, apiKey: string, signal: AbortSignal) {
     try {
-      const client = this.client(apiKey, req.timeoutMs);
+      const client = await this.client(apiKey, req.timeoutMs);
       const tools = req.tools === undefined ? undefined : (mapTools(req) ?? []);
       const params: ChatCompletionCreateParamsNonStreaming = {
         model: req.modelId,
@@ -56,7 +52,7 @@ export class OpenAiCompatibleProvider implements ILlmProvider {
   async stream(req: ProviderRequest, apiKey: string, signal: AbortSignal, onDelta: (text: string) => void) {
     let emitted = false;
     try {
-      const client = this.client(apiKey, req.timeoutMs);
+      const client = await this.client(apiKey, req.timeoutMs);
       const tools = req.tools === undefined ? undefined : (mapTools(req) ?? []);
       const params: ChatCompletionCreateParamsStreaming = {
         model: req.modelId,
@@ -138,7 +134,7 @@ export class OpenAiCompatibleProvider implements ILlmProvider {
 
   async listModels(apiKey: string, signal: AbortSignal) {
     try {
-      const response = await this.client(apiKey).models.list({ signal });
+      const response = await (await this.client(apiKey)).models.list({ signal });
       const ids: string[] = [];
       for await (const model of response) ids.push(model.id);
       return { ok: true, value: ids } as const;
@@ -148,8 +144,14 @@ export class OpenAiCompatibleProvider implements ILlmProvider {
     }
   }
 
-  private client(apiKey: string, timeout?: number): OpenAI {
-    return new OpenAI({ apiKey, baseURL: this.baseURL, maxRetries: 0, ...(timeout === undefined ? {} : { timeout }) });
+  private async client(apiKey: string, timeout?: number): Promise<OpenAI> {
+    return new OpenAI({
+      apiKey,
+      baseURL: typeof this.baseURL === 'string' ? this.baseURL : await this.baseURL(),
+      defaultHeaders: compatibleHeaders(this.id),
+      maxRetries: 0,
+      ...(timeout === undefined ? {} : { timeout }),
+    });
   }
 }
 

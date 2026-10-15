@@ -29,8 +29,7 @@ const toolCall: ToolCall = {
   arguments: { query: 'weather' },
 };
 
-type CompatibleProviderId =
-  typeof ProviderId.OPENAI | typeof ProviderId.XAI | typeof ProviderId.GROQ | typeof ProviderId.TOGETHER;
+type CompatibleProviderId = keyof typeof OPENAI_COMPATIBLE_BASE_URLS;
 
 function configure(id: CompatibleProviderId, scenario: ProviderContractScenario): void {
   const url = `${OPENAI_COMPATIBLE_BASE_URLS[id]}/chat/completions`;
@@ -110,7 +109,14 @@ function completionWithToolCall() {
   };
 }
 
-for (const id of [ProviderId.OPENAI, ProviderId.GROQ] as const) {
+for (const id of [
+  ProviderId.OPENAI,
+  ProviderId.GROQ,
+  ProviderId.DEEPSEEK,
+  ProviderId.OPENROUTER,
+  ProviderId.QWEN,
+  ProviderId.MISTRAL,
+] as const) {
   runProviderContract(
     `${id} OpenAI-compatible adapter`,
     () => new OpenAiCompatibleProvider({ id, baseURL: OPENAI_COMPATIBLE_BASE_URLS[id] }),
@@ -289,5 +295,78 @@ describe('OpenAI-compatible provider mapping', () => {
     }).complete(request, KEY, new AbortController().signal);
     expect(lastAuthorization).toBe(`Bearer ${KEY}`);
     expect(JSON.stringify(result)).not.toContain(KEY);
+  });
+});
+
+describe('PROV-01 compatible endpoints', () => {
+  beforeAll(() => {
+    mswServer.listen({ onUnhandledRequest: 'error' });
+  });
+  afterEach(() => {
+    mswServer.resetHandlers();
+  });
+  afterAll(() => {
+    mswServer.close();
+  });
+  it.each([
+    { id: ProviderId.DEEPSEEK, url: 'https://api.deepseek.com' },
+    { id: ProviderId.OPENROUTER, url: 'https://openrouter.ai/api/v1' },
+    { id: ProviderId.QWEN, url: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1' },
+    { id: ProviderId.MISTRAL, url: 'https://api.mistral.ai/v1' },
+  ])('sends completions to the registered $id endpoint with attribution and intact model ids', async ({ id, url }) => {
+    const modelId = id === ProviderId.OPENROUTER ? 'deepseek/deepseek-v4-flash' : 'test-model';
+    let calls = 0;
+    mswServer.use(
+      http.post(url + '/chat/completions', async ({ request: incoming }) => {
+        calls += 1;
+        expect(incoming.headers.get('authorization')).toBe('Bearer ' + KEY);
+        if (id === ProviderId.OPENROUTER) {
+          expect(incoming.headers.get('HTTP-Referer')).toBe('https://itstudio.local');
+          expect(incoming.headers.get('X-OpenRouter-Title')).toBe('IT Studio');
+          expect(incoming.headers.get('X-Title')).toBe('IT Studio');
+        } else expect(incoming.headers.get('HTTP-Referer')).toBeNull();
+        expect(await incoming.json()).toMatchObject({ model: modelId });
+        return new HttpResponse(JSON.stringify(completionFixture), { headers: { 'content-type': 'application/json' } });
+      }),
+    );
+    expect(OPENAI_COMPATIBLE_BASE_URLS[id]).toBe(url);
+    const adapter = new OpenAiCompatibleProvider({ id, baseURL: OPENAI_COMPATIBLE_BASE_URLS[id] });
+    expect(await adapter.complete({ ...request, modelId }, KEY, new AbortController().signal)).toMatchObject({
+      ok: true,
+    });
+    expect(calls).toBe(1);
+  });
+
+  it('reads changed Qwen custom endpoints for completions, streams and model listings', async () => {
+    let baseURL = 'https://workspace.example/v1';
+    const urls: string[] = [];
+    mswServer.use(
+      http.post('https://workspace.example/v1/chat/completions', ({ request: incoming }) => {
+        urls.push(incoming.url);
+        return new HttpResponse(JSON.stringify(completionFixture), { headers: { 'content-type': 'application/json' } });
+      }),
+      http.post('https://workspace.example/v2/chat/completions', ({ request: incoming }) => {
+        urls.push(incoming.url);
+        return new HttpResponse(new TextEncoder().encode(streamFixture), {
+          headers: { 'content-type': 'text/event-stream' },
+        });
+      }),
+      http.get('https://workspace.example/v2/models', ({ request: incoming }) => {
+        urls.push(incoming.url);
+        return HttpResponse.json({ data: [{ id: 'qwen-flash' }] });
+      }),
+    );
+    const adapter = new OpenAiCompatibleProvider({ id: ProviderId.QWEN, baseURL: () => Promise.resolve(baseURL) });
+    expect(await adapter.complete(request, KEY, new AbortController().signal)).toMatchObject({ ok: true });
+    baseURL = 'https://workspace.example/v2';
+    expect(await adapter.stream(request, KEY, new AbortController().signal, () => undefined)).toMatchObject({
+      ok: true,
+    });
+    expect(await adapter.listModels(KEY, new AbortController().signal)).toEqual({ ok: true, value: ['qwen-flash'] });
+    expect(urls).toEqual([
+      'https://workspace.example/v1/chat/completions',
+      'https://workspace.example/v2/chat/completions',
+      'https://workspace.example/v2/models',
+    ]);
   });
 });

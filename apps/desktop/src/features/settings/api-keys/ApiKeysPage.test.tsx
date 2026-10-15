@@ -9,6 +9,8 @@ import { ApiKeysPage } from './ApiKeysPage';
 afterEach(cleanup);
 
 interface SetupOptions {
+  readonly endpointSaveFails?: boolean;
+  readonly qwenEndpoint?: string;
   readonly recoveryFailure?: 'save' | 'delete';
   readonly verifyAndSaveSucceeds?: boolean;
   readonly keepVerifyAndSavePending?: boolean;
@@ -27,6 +29,30 @@ function setup(options: SetupOptions = {}) {
   transport.send = (line: string) => {
     transport.sent.push(line);
     const request = JSON.parse(line) as { id: number; method: string; params: Record<string, unknown> };
+    if (request.method === 'settings.get' || request.method === 'settings.update') {
+      const result = {
+        providers: {
+          qwen: { baseUrl: options.qwenEndpoint ?? 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1' },
+        },
+      };
+      const response =
+        request.method === 'settings.update' && options.endpointSaveFails === true
+          ? {
+              error: {
+                code: -32000,
+                message: 'Endpoint save failed',
+                data: {
+                  code: 'INTERNAL',
+                  message: 'Endpoint save failed',
+                  remediation: ['Try again'],
+                  retryable: true,
+                },
+              },
+            }
+          : { result };
+      transport.receive(JSON.stringify({ jsonrpc: '2.0', id: request.id, ...response }));
+      return Promise.resolve();
+    }
     if (request.method === 'secrets.verifyAndSave' && options.keepVerifyAndSavePending === true)
       return Promise.resolve();
     if (
@@ -104,6 +130,84 @@ function firstButton(name: string): HTMLButtonElement {
 }
 
 describe('ApiKeysPage', () => {
+  it.each(['DeepSeek', 'OpenRouter', 'Qwen (Alibaba Cloud)', 'Mistral'])(
+    'PROV-01 lists %s with verify and save',
+    async (name) => {
+      setup();
+      const input = await screen.findByLabelText(name + ' API key');
+      const article = input.closest('article');
+      if (article === null) throw new Error('Missing provider row');
+      expect(within(article).getByRole('button', { name: 'Verify & save' })).toBeVisible();
+    },
+  );
+
+  it.each([
+    ['United States (Virginia)', 'https://dashscope-us.aliyuncs.com/compatible-mode/v1'],
+    ['China (Beijing)', 'https://dashscope.aliyuncs.com/compatible-mode/v1'],
+    ['International (Singapore)', 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1'],
+  ])('PROV-01 saves the Qwen %s endpoint before verifying', async (_name, endpoint) => {
+    const { transport } = setup({ verifyAndSaveSucceeds: true });
+    const select = await screen.findByLabelText('Region / endpoint');
+    await waitFor(() => expect(select).toBeEnabled());
+    fireEvent.change(select, { target: { value: endpoint } });
+    const input = screen.getByLabelText('Qwen (Alibaba Cloud) API key');
+    fireEvent.change(input, { target: { value: 'candidate-test-1234' } });
+    const article = input.closest('article');
+    if (article === null) throw new Error('Missing Qwen row');
+    fireEvent.click(within(article).getByRole('button', { name: 'Verify & save' }));
+    await waitFor(() => expect(input).toHaveValue(''));
+    const writes = transport.sent.filter(
+      (line) => line.includes('settings.update') || line.includes('secrets.verifyAndSave'),
+    );
+    expect(writes).toHaveLength(2);
+    expect(JSON.parse(writes[0] ?? '{}')).toMatchObject({
+      method: 'settings.update',
+      params: { patch: { providers: { qwen: { baseUrl: endpoint } } } },
+    });
+    expect(JSON.parse(writes[1] ?? '{}')).toMatchObject({
+      method: 'secrets.verifyAndSave',
+      params: { provider: 'qwen' },
+    });
+  });
+
+  it('PROV-01 restores a custom endpoint and only verifies valid HTTPS URLs', async () => {
+    const { transport } = setup({ verifyAndSaveSucceeds: true, qwenEndpoint: 'https://workspace.example/v1' });
+    const input = await screen.findByLabelText('Qwen (Alibaba Cloud) API key');
+    const custom = await screen.findByLabelText('Custom HTTPS endpoint');
+    expect(custom).toHaveValue('https://workspace.example/v1');
+    fireEvent.change(input, { target: { value: 'candidate-test-1234' } });
+    const article = input.closest('article');
+    if (article === null) throw new Error('Missing Qwen row');
+    const save = within(article).getByRole('button', { name: 'Verify & save' });
+    for (const invalid of ['http://workspace.example/v1', 'bad-url', 'https://' + 'a'.repeat(301)]) {
+      fireEvent.change(custom, { target: { value: invalid } });
+      expect(save).toBeDisabled();
+      fireEvent.click(save);
+    }
+    expect(transport.sent.some((line) => line.includes('secrets.verifyAndSave'))).toBe(false);
+    fireEvent.change(custom, { target: { value: 'https://custom.example/v1' } });
+    fireEvent.click(save);
+    await waitFor(() => expect(input).toHaveValue(''));
+    expect(transport.sent.some((line) => line.includes('https://custom.example/v1'))).toBe(true);
+  });
+
+  it('PROV-01 selects Custom and does not verify when endpoint persistence fails', async () => {
+    const { transport } = setup({ endpointSaveFails: true });
+    const select = await screen.findByLabelText('Region / endpoint');
+    await waitFor(() => expect(select).toBeEnabled());
+    fireEvent.change(select, { target: { value: 'custom' } });
+    fireEvent.change(screen.getByLabelText('Custom HTTPS endpoint'), {
+      target: { value: 'https://custom.example/v1' },
+    });
+    const input = screen.getByLabelText('Qwen (Alibaba Cloud) API key');
+    fireEvent.change(input, { target: { value: 'candidate-test-1234' } });
+    const article = input.closest('article');
+    if (article === null) throw new Error('Missing Qwen row');
+    fireEvent.click(within(article).getByRole('button', { name: 'Verify & save' }));
+    expect(await screen.findByText('Endpoint save failed')).toBeVisible();
+    expect(transport.sent.some((line) => line.includes('secrets.verifyAndSave'))).toBe(false);
+    expect(input).toHaveValue('candidate-test-1234');
+  });
   it('shows an inline hint and makes no RPC call for an empty key', async () => {
     const { transport } = setup();
     await screen.findByRole('status', { name: 'Anthropic key status' });

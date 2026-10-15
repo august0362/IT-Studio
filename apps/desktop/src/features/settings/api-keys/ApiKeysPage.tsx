@@ -14,6 +14,7 @@ import { useRpcClient } from '../../../rpc/rpc-context';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { ErrorPanel } from '../../../components/ErrorPanel';
 import '../../../i18n';
+import { QwenEndpoint, QWEN_DEFAULT_ENDPOINT, validQwenEndpoint } from './QwenEndpoint';
 import { formatDateTime } from '../../../i18n/format';
 
 const PROVIDERS: readonly { readonly id: Provider; readonly name: string }[] = [
@@ -23,6 +24,10 @@ const PROVIDERS: readonly { readonly id: Provider; readonly name: string }[] = [
   { id: ProviderId.XAI, name: 'xAI' },
   { id: ProviderId.GROQ, name: 'Groq' },
   { id: ProviderId.TOGETHER, name: 'Together' },
+  { id: ProviderId.DEEPSEEK, name: 'DeepSeek' },
+  { id: ProviderId.OPENROUTER, name: 'OpenRouter' },
+  { id: ProviderId.QWEN, name: 'Qwen (Alibaba Cloud)' },
+  { id: ProviderId.MISTRAL, name: 'Mistral' },
   { id: ProviderId.REPLICATE, name: 'Replicate' },
 ];
 
@@ -41,6 +46,9 @@ export function ApiKeysPage(): JSX.Element {
   const rpc = useRpcClient();
   const queryClient = useQueryClient();
   const statuses = useRpcQuery('secrets.status', {});
+  const settings = useRpcQuery('settings.get', {});
+  const [qwenEndpoint, setQwenEndpoint] = useState<string | null>(null);
+  const endpoint = qwenEndpoint ?? settings.data?.providers?.qwen?.baseUrl ?? QWEN_DEFAULT_ENDPOINT;
   const history = useRpcQuery('secrets.history', { limit: 50 });
   const [keys, setKeys] = useState<Partial<Record<Provider, string>>>({});
   const [emptyHints, setEmptyHints] = useState<Partial<Record<Provider, boolean>>>({});
@@ -105,6 +113,12 @@ export function ApiKeysPage(): JSX.Element {
     setProviderBusy(provider, true);
     setVerifying((current) => ({ ...current, [provider]: true }));
     try {
+      if (provider === ProviderId.QWEN) {
+        const updatedSettings = await rpc.call('settings.update', {
+          patch: { providers: { qwen: { baseUrl: endpoint } } },
+        });
+        queryClient.setQueryData(['settings.get', {}], updatedSettings);
+      }
       const updated = await rpc.call('secrets.verifyAndSave', { provider, apiKey });
       setKeys((current) => ({ ...current, [provider]: '' }));
       refreshStatuses(updated);
@@ -180,6 +194,14 @@ export function ApiKeysPage(): JSX.Element {
                 </p>
               </div>
               <div>
+                {id === ProviderId.QWEN ? (
+                  <QwenEndpoint
+                    endpoint={endpoint}
+                    onChange={setQwenEndpoint}
+                    disabled={busy[id] === true || settings.isPending}
+                  />
+                ) : null}
+                {id === ProviderId.QWEN && settings.isError ? <ErrorPanel error={errorFrom(settings.error)} /> : null}
                 <form
                   className="flex flex-wrap gap-2"
                   onSubmit={(event) => {
@@ -205,7 +227,11 @@ export function ApiKeysPage(): JSX.Element {
                   />
                   <button
                     className="rounded border border-border px-3 py-2 hover:bg-surface-alt disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={busy[id] === true}
+                    disabled={
+                      busy[id] === true ||
+                      (id === ProviderId.QWEN &&
+                        (settings.isPending || settings.isError || !validQwenEndpoint(endpoint)))
+                    }
                     type="submit"
                   >
                     {verifying[id] === true ? (

@@ -24,14 +24,14 @@ describe('secret store integration', () => {
     });
   }, 30_000);
 
-  it('TC-M1-032 returns statuses for seven providers without key material', async () => {
+  it('TC-M1-032 returns statuses for eleven providers without key material', async () => {
     sidecar = await startSidecar();
     await sidecar.call('secrets.set', { provider: 'openai', apiKey: 'sk-TEST-secret-1234' });
     const response = await sidecar.call('secrets.status');
     const statuses = z.array(secretStatusSchema).safeParse(response.result);
     expect(statuses.success).toBe(true);
     if (statuses.success) {
-      expect(statuses.data).toHaveLength(7);
+      expect(statuses.data).toHaveLength(11);
       expect(statuses.data.find((status) => status.provider === 'openai')).toMatchObject({
         configured: true,
         hint: '1234',
