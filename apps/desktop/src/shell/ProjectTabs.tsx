@@ -20,7 +20,7 @@ export function ProjectTabs({
   readonly error: string | null;
 }): JSX.Element {
   const { t } = useTranslation();
-  const openProjects = projects.filter((project) => openIds.includes(project.id));
+  const openProjects = openIds.flatMap((id) => projects.find((project) => project.id === id) ?? []);
   return (
     <div
       aria-label={t('projects.all')}
@@ -56,6 +56,7 @@ export function ProjectTabs({
           </button>
           <button
             aria-label={t('projects.close', { name: project.name })}
+            title={t('projects.closeTooltip')}
             className="px-2 text-text-muted hover:text-text"
             onClick={() => {
               onClose(project.id);

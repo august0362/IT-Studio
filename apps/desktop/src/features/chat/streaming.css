@@ -1,0 +1,17 @@
+.chat-streaming > div > :last-child::after {
+  content: '▍';
+  display: inline;
+  animation: chat-caret 1s step-end infinite;
+}
+
+@keyframes chat-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-streaming > div > :last-child::after {
+    animation: none;
+  }
+}

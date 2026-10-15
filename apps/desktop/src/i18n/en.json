@@ -75,6 +75,7 @@
     "name": "IT Studio"
   },
   "nav": {
+    "projects": "Projects",
     "pipelineStudio": "Pipeline Studio",
     "main": "Main navigation",
     "chat": "Chat",
@@ -91,6 +92,27 @@
     "empty": "This area is ready for a future task."
   },
   "projects": {
+    "browse": "Browse…",
+    "pickFolder": "Choose project folder",
+    "pickFolderError": "Could not open the folder picker. Enter the folder path or try again.",
+    "closeTooltip": "Close tab (project stays in Projects)",
+    "search": "Search projects",
+    "lastOpened": "Last opened",
+    "created": "Created",
+    "never": "Never",
+    "actions": "Actions",
+    "open": "Open",
+    "openNamed": "Open {{name}}",
+    "delete": "Delete",
+    "deleteNamed": "Delete {{name}}",
+    "deleteTitle": "Delete project",
+    "deleteConfirm": "Delete {{name}} from IT Studio? Its chats, pipeline runs, knowledge index, images and cost records are removed. Files in {{path}} are not touched.",
+    "deleteConflict": "A pipeline is running in this project — cancel it first",
+    "deleteError": "The project could not be deleted.",
+    "tryAgain": "Check the sidecar connection and try again.",
+    "empty": "No projects yet. Create a new project to get started.",
+    "noMatches": "No projects match your search.",
+    "loading": "Loading projects…",
     "all": "All projects",
     "new": "New project",
     "add": "Add project",
@@ -104,6 +126,8 @@
     "loadError": "Projects could not be loaded."
   },
   "chat": {
+    "thinking": "Thinking…",
+    "requestError": "The chat request could not be completed.",
     "heading": "Chat",
     "pickProject": "Choose a project tab to start chatting.",
     "conversations": "Conversations",
