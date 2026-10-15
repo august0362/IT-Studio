@@ -35,6 +35,35 @@ afterEach(() => {
 });
 
 describe('SettingsService', () => {
+  it('PSTUDIO-01 defaults autoClarify to false, upgrades older settings, and saves changes', async () => {
+    const { opened, service, loaded } = createService();
+    try {
+      const defaults = buildDefaultSettings(loaded.value);
+      expect(defaults.pipeline.autoClarify).toBe(false);
+      const legacy = {
+        ...defaults,
+        pipeline: Object.fromEntries(Object.entries(defaults.pipeline).filter(([key]) => key !== 'autoClarify')),
+        budget: { hardStop: true },
+      };
+      const repository = new SettingsRepository(opened.db);
+      await repository.save(JSON.stringify(legacy), '2026-01-01T00:00:00.000Z');
+      expect(await service.get()).toMatchObject({
+        ok: true,
+        value: {
+          pipeline: { autoClarify: false, roleAssignment: defaults.pipeline.roleAssignment },
+          budget: { hardStop: true },
+        },
+      });
+      expect((await repository.load())?.json).toContain('"autoClarify":false');
+      expect(await service.update({ pipeline: { autoClarify: true } })).toMatchObject({
+        ok: true,
+        value: { pipeline: { autoClarify: true } },
+      });
+      expect(await service.get()).toMatchObject({ ok: true, value: { pipeline: { autoClarify: true } } });
+    } finally {
+      opened.client.close();
+    }
+  });
   it('persists web-chat layout and reconciles panes when saved sites are disabled', async () => {
     const { opened, service, loaded } = createService();
     try {

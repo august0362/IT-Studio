@@ -95,6 +95,7 @@
     "elapsed": "Elapsed: {{seconds}} seconds",
     "stages": {
       "specifying": "Specify",
+      "clarifying": "Clarifying",
       "coding": "Code",
       "reviewing": "Review",
       "fixing": "Fix",
@@ -136,6 +137,13 @@
     "history": "Run history",
     "historyError": "Run history could not be loaded.",
     "empty": "Start a pipeline or select a previous run.",
+    "recommendations": "Recommendations",
+    "recommended": "Recommended",
+    "autoChosen": "Auto-chosen",
+    "yourAnswer": "Your answer",
+    "freeText": "Your own answer",
+    "acceptRecommendations": "Accept all recommendations",
+    "submitAnswers": "Submit answers",
     "preview": "Prompt",
     "cancel": "Cancel run",
     "keepWorking": "Keep working",
@@ -280,6 +288,7 @@
       "reveal": "Reveal changed files"
     },
     "pipeline": {
+      "autoClarify": "Auto-answer clarifying questions with the recommendation",
       "roles": {
         "pm": "PM model order",
         "coder": "Coder model order",

@@ -960,6 +960,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
         }
       : { ok: true, value: run };
   });
+  server.register('pipeline.answerClarifications', (input) => pipelineOrchestrator.answerClarifications(input));
   server.register('workflow.graph', ({ projectId }) =>
     activityRecorder.graph(projectId).then((value) => ({ ok: true as const, value })),
   );

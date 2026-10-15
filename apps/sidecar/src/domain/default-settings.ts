@@ -49,6 +49,7 @@ export function buildDefaultSettings(seeds: Seeds): AppSettings {
       roleAssignment: seeds.defaultRoleAssignment,
       validationCommands: [...seeds.commands],
       maxFixAttempts: 1,
+      autoClarify: false,
     },
     rag: {
       embedding: seeds.defaultEmbedding,

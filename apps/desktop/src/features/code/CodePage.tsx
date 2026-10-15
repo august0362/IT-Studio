@@ -1,4 +1,4 @@
-import { PipelineStage, type PipelineRun, type ProjectId } from '@itstudio/schemas';
+import { PipelineStage, type PipelineRun, type ProjectId, type RpcMethodMap } from '@itstudio/schemas';
 import { Editor } from '@monaco-editor/react';
 import { useQuery } from '@tanstack/react-query';
 import type { JSX } from 'react';
@@ -9,6 +9,7 @@ import { Money } from '../../components/Money';
 import { useNotification } from '../../hooks/use-notification';
 import { useRpcClient } from '../../rpc/rpc-context';
 import { CommandOutput } from './CommandOutput';
+import { ClarificationForm } from './ClarificationForm';
 import { DiffViewer } from './DiffViewer';
 import { FailureReportPanel } from './FailureReportPanel';
 import { PromptBox } from './PromptBox';
@@ -22,6 +23,7 @@ import { useNavigationIntent } from '../../state/navigation-intent';
 
 const busyStages: readonly string[] = [
   PipelineStage.SPECIFYING,
+  PipelineStage.CLARIFYING,
   PipelineStage.CODING,
   PipelineStage.REVIEWING,
   PipelineStage.FIXING,
@@ -126,6 +128,19 @@ export function CodePage({ projectId }: { readonly projectId: ProjectId | null }
     }
   }
 
+  async function answerClarifications(
+    answers: RpcMethodMap['pipeline.answerClarifications']['params']['answers'],
+  ): Promise<void> {
+    if (selected === undefined) return;
+    setActionError(null);
+    try {
+      const run = await rpc.call('pipeline.answerClarifications', { runId: selected.run.id, answers });
+      dispatch({ type: 'loaded', run });
+    } catch (error: unknown) {
+      setActionError(error instanceof Error ? error.message : t('code.actionError'));
+    }
+  }
+
   const requiresConfirm =
     selected?.run.stage === PipelineStage.WRITING || selected?.run.stage === PipelineStage.VALIDATING;
   const outputEntries = selected === undefined ? [] : Object.entries(selected.outputs);
@@ -177,6 +192,17 @@ export function CodePage({ projectId }: { readonly projectId: ProjectId | null }
                   ) : null}
                 </div>
               </div>
+              {selected.run.clarifications !== undefined ? (
+                <ClarificationForm
+                  key={selected.run.id}
+                  onSubmit={(answers) => {
+                    void answerClarifications(answers);
+                  }}
+                  questions={selected.run.clarifications}
+                  readOnly={selected.run.stage !== PipelineStage.CLARIFYING}
+                  runId={selected.run.id}
+                />
+              ) : null}
               {selected.run.spec !== undefined ? <SpecView spec={selected.run.spec} /> : null}
               {selected.run.coderOutputs.map((output, index) => (
                 <section className="space-y-3" key={`${selected.run.id}-coder-${index.toString()}`}>

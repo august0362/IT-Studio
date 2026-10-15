@@ -1,4 +1,4 @@
-import { PipelineStage, type PipelineRun } from '@itstudio/schemas';
+import { PipelineStage, type PipelineRun, type ClarificationQuestion } from '@itstudio/schemas';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -46,14 +46,23 @@ function pipeline(stage: PipelineRun['stage']): PipelineRun {
   };
 }
 
-function setup(stage: PipelineRun['stage'], withRun = false) {
+function setup(stage: PipelineRun['stage'], withRun = false, clarifications?: readonly ClarificationQuestion[]) {
   const transport = new FakeTransport();
   transport.setStatus({ running: true, ready: true, restarts: 0 });
-  const startingRun = pipeline(stage);
+  let startingRun = { ...pipeline(stage), ...(clarifications === undefined ? {} : { clarifications }) };
   transport.send = (line) => {
     transport.sent.push(line);
     const request = JSON.parse(line) as { readonly id?: number; readonly method?: string };
     if (request.id === undefined || request.method === undefined) return Promise.resolve();
+    if (request.method === 'pipeline.answerClarifications')
+      startingRun = {
+        ...startingRun,
+        stage: PipelineStage.CODING,
+        clarifications: (startingRun.clarifications ?? []).map((question) => ({
+          ...question,
+          answer: { optionId: question.recommendedOptionId, by: 'user', at: startingRun.startedAt },
+        })),
+      };
     const result =
       request.method === 'pipeline.list'
         ? withRun
@@ -81,6 +90,43 @@ function setup(stage: PipelineRun['stage'], withRun = false) {
 }
 
 describe('CodePage', () => {
+  it('PSTUDIO-01 renders waiting questions before Spec, submits answers, and refetches clarification events', async () => {
+    const question: ClarificationQuestion = {
+      id: 'storage',
+      question: 'Where should data live?',
+      why: 'Changes the API.',
+      options: [
+        { id: 'local', label: 'Local' },
+        { id: 'cloud', label: 'Cloud' },
+      ],
+      recommendedOptionId: 'local',
+      recommendationReason: 'Works offline.',
+    };
+    const transport = setup(PipelineStage.CLARIFYING, true, [question]);
+    expect(await screen.findByRole('group', { name: question.question })).toBeInTheDocument();
+    const marker = screen.getByText('?');
+    expect(marker.closest('li')).toHaveAttribute('aria-current', 'step');
+    const timeline = screen.getByRole('list', { name: 'Pipeline stages' });
+    expect(timeline.textContent.indexOf('Clarifying')).toBeLessThan(timeline.textContent.indexOf('Specify'));
+    transport.receive(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'pipeline.event',
+        params: { type: 'clarification', runId: 'run-1', status: 'required' },
+      }),
+    );
+    await waitFor(() => {
+      expect(transport.sent.some((line) => line.includes('pipeline.get'))).toBe(true);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit answers' }));
+    await screen.findByText('Your answer');
+    expect(
+      transport.sent.some(
+        (line) => line.includes('pipeline.answerClarifications') && line.includes('"optionId":"local"'),
+      ),
+    ).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Submit answers' })).not.toBeInTheDocument();
+  });
   it('TC-MW-009 selects the pipeline run referenced by a workflow deep link', async () => {
     useNavigationIntent.getState().setIntent({ kind: 'pipelineRun', id: 'run-1' });
     setup(PipelineStage.COMPLETED, true);
