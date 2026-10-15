@@ -17,7 +17,14 @@ afterEach(async () => {
 });
 
 async function setup(outcomes: readonly string[]) {
-  sidecar = await startSidecar({}, { 'google/gemini-3.8-flash': outcomes });
+  // Auto also tries the other chat models belonging to the keyed Google provider.
+  sidecar = await startSidecar(
+    {},
+    {
+      'google/gemini-3.8-flash': outcomes,
+      'google/gemini-3.1-pro-preview': outcomes,
+    },
+  );
   const root = resolve(sidecar.dataDir, 'process-project');
   await mkdir(root);
   const project = projectSchema.parse(
@@ -27,8 +34,9 @@ async function setup(outcomes: readonly string[]) {
   const first = settings.router.ladder[0];
   if (first === undefined) throw new Error('A seeded chat model is required');
   await sidecar.call('router.updateConfig', { config: { ...settings.router, ladder: [{ ...first, maxRetries: 0 }] } });
+  const provider = providerIdSchema.parse(first.modelKey.split('/')[0]);
   await sidecar.call('secrets.set', {
-    provider: providerIdSchema.parse(first.modelKey.split('/')[0]),
+    provider,
     apiKey: 'process-integration-only',
   });
   const conversation = conversationSchema.parse(
@@ -39,7 +47,7 @@ async function setup(outcomes: readonly string[]) {
     const envelope = z.object({ method: z.literal('process.event'), params: processEventSchema }).safeParse(raw);
     if (envelope.success) processEvents.push(envelope.data.params);
   });
-  return { h: sidecar, project, conversation, processEvents };
+  return { h: sidecar, project, conversation, processEvents, provider };
 }
 
 async function waitForStatus(h: SidecarHarness, id: ProcessRecord['id'], status: ProcessRecord['status']) {
@@ -103,7 +111,7 @@ describe('processes integration', () => {
   });
 
   it('TC-PROC-003 restart changes a persisted running chat to stopped and preserves retry parameters', async () => {
-    const { h, project, conversation } = await setup(['delay:30000']);
+    const { h, project, conversation, provider } = await setup(['delay:30000']);
     await h.call('chat.send', { conversationId: conversation.id, text: 'Survive a restart' });
     const initial = await onlyChat(h, project.id);
     expect(initial.status).toBe('running');
@@ -113,8 +121,12 @@ describe('processes integration', () => {
     await h.restart();
     const stopped = processRecordSchema.parse((await h.call('process.get', { id: initial.id })).result);
     expect(stopped).toMatchObject({ status: 'stopped', statusReason: 'Interrupted by restart', retryable: true });
+    // Restart clears the in-memory key store and resets the delayed script's cursor.
+    expect((await h.call('secrets.set', { provider, apiKey: 'process-integration-only' })).error).toBeUndefined();
     const retried = processRecordSchema.parse((await h.call('process.retry', { id: initial.id })).result);
     expect(retried.id).not.toBe(initial.id);
+    await waitForStatus(h, retried.id, 'running');
     expect((await h.call('process.cancel', { id: retried.id })).result).toMatchObject({ status: 'stopped' });
+    await waitForStatus(h, retried.id, 'stopped');
   });
 });
