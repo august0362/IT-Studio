@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add DeepSeek, OpenRouter, Qwen (region endpoint) and Mistral API keys and models through the OpenAI-compatible adapter; seed prices stay unverified until Update prices ([PROV-01](docs/tasks/PROV-01.md))
 - Add a PM clarifying step: up to five questions with a recommended option, answer them in the Code tab or Pipeline Studio, or turn on Settings → Pipeline → Auto-answer ([PSTUDIO-01](docs/tasks/PSTUDIO-01.md))
 - Add Pipeline Studio, a removable full-screen view of a pipeline run with live data-flow animation, ?/✓/✕ module badges, draggable saved layout and full per-module details ([PSTUDIO-02](docs/tasks/PSTUDIO-02.md))
 - Reject a pipeline start when a role has no usable model, name the missing provider keys and say "Nothing was written" for failures before writing ([UX-02](docs/tasks/UX-02.md))

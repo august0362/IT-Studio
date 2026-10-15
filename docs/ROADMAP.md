@@ -190,7 +190,7 @@ Work order and QA verdict: `docs/tasks/OWNER-FB1.md`.
 
 ## PROV — More providers *(D38)*
 
-- [ ] **PROV-01** (C) DeepSeek, OpenRouter, Qwen (region endpoint), Mistral via the OpenAI-compatible adapter; seed models/prices; API Keys page.
+- [x] **PROV-01** (C) DeepSeek, OpenRouter, Qwen (region endpoint), Mistral via the OpenAI-compatible adapter; seed models/prices; API Keys page.
 
 ## MOD — Sidecar feature modules *(D37; after v1 sign-off, before LLMPOOL)*
 
