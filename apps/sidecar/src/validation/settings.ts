@@ -97,6 +97,7 @@ export const pipelineSettingsSchema = z
     roleAssignment: roleAssignmentSchema,
     validationCommands: z.array(commandSpecSchema).readonly(),
     maxFixAttempts: z.literal(1),
+    autoClarify: z.boolean(),
   })
   .readonly() satisfies z.ZodType<PipelineSettings>;
 export const ragSettingsSchema = z
@@ -169,6 +170,7 @@ export const settingsPatchSchema = z
         roleAssignment: roleAssignmentSchema.exactOptional(),
         validationCommands: z.array(commandSpecSchema).readonly().exactOptional(),
         maxFixAttempts: z.literal(1).exactOptional(),
+        autoClarify: z.boolean().exactOptional(),
       })
       .readonly()
       .exactOptional(),

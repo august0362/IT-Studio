@@ -8,6 +8,7 @@ import {
 
 const displayStages = [
   PipelineStage.SPECIFYING,
+  PipelineStage.CLARIFYING,
   PipelineStage.CODING,
   PipelineStage.REVIEWING,
   PipelineStage.FIXING,
@@ -47,7 +48,8 @@ const terminal = new Set(['completed', 'rolled_back', 'failed', 'cancelled']);
 const MAX_LINES = 2000;
 
 function initialHistory(run: PipelineRun): readonly PipelineStage[] {
-  if (run.stage === PipelineStage.COMPLETED) return displayStages;
+  if (run.stage === PipelineStage.COMPLETED)
+    return displayStages.filter((stage) => stage !== PipelineStage.CLARIFYING || run.clarifications !== undefined);
   if (run.failureReport !== undefined) return [run.failureReport.stage];
   return displayStages.includes(run.stage as (typeof displayStages)[number]) ? [run.stage] : [];
 }
@@ -129,6 +131,7 @@ export function pipelineReducer(state: PipelineState, action: PipelineAction): P
       },
     };
   }
+  if (event.type === 'clarification') return state;
   if (event.type === 'artifact') return state;
   if (event.type === 'finished') {
     return {

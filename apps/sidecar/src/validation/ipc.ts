@@ -154,6 +154,23 @@ export const rpcParamsSchemas = {
   'pipeline.get': z.object({ runId: pipelineRunIdSchema }).readonly(),
   'pipeline.list': z.object({ projectId: projectIdSchema, limit: z.number() }).readonly(),
   'pipeline.cancel': z.object({ runId: pipelineRunIdSchema }).readonly(),
+  'pipeline.answerClarifications': z
+    .object({
+      runId: pipelineRunIdSchema,
+      answers: z
+        .array(
+          z
+            .object({
+              questionId: z.string(),
+              optionId: z.string().exactOptional(),
+              freeText: z.string().max(2000).exactOptional(),
+            })
+            .readonly(),
+        )
+        .max(5)
+        .readonly(),
+    })
+    .readonly(),
   'workflow.graph': z.object({ projectId: projectIdSchema.nullable() }).readonly(),
   'workflow.activity': z
     .object({
@@ -280,6 +297,7 @@ export const rpcResultSchemas = {
   'pipeline.get': pipelineRunSchema,
   'pipeline.list': z.array(pipelineRunSchema).readonly(),
   'pipeline.cancel': pipelineRunSchema,
+  'pipeline.answerClarifications': pipelineRunSchema,
   'workflow.graph': workflowGraphSchema,
   'workflow.activity': z.array(activityEventSchema).readonly(),
   'workspace.openInVSCode': vscodeStatusSchema,

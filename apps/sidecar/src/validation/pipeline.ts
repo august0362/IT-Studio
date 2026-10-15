@@ -4,6 +4,7 @@ import type {
   FindingCategory,
   FindingSeverity,
   PipelineEvent,
+  ClarificationQuestion,
   PipelineRun,
   PipelineStage,
   ReviewFinding,
@@ -34,6 +35,7 @@ export const roleAssignmentSchema = z
   .readonly() satisfies z.ZodType<RoleAssignment>;
 export const pipelineStageSchema = z.enum([
   'specifying',
+  'clarifying',
   'coding',
   'reviewing',
   'fixing',
@@ -45,6 +47,59 @@ export const pipelineStageSchema = z.enum([
   'failed',
   'cancelled',
 ]) satisfies z.ZodType<PipelineStage>;
+export const clarificationQuestionSchema = z
+  .object({
+    id: z.string().min(1),
+    question: z.string().min(1),
+    why: z.string().min(1),
+    options: z
+      .array(
+        z.object({ id: z.string().min(1), label: z.string().min(1), detail: z.string().exactOptional() }).readonly(),
+      )
+      .min(2)
+      .max(4)
+      .readonly(),
+    recommendedOptionId: z.string().min(1),
+    recommendationReason: z.string().min(1),
+    answer: z
+      .object({
+        optionId: z.string().exactOptional(),
+        freeText: z.string().max(2000).exactOptional(),
+        by: z.enum(['user', 'auto']),
+        at: isoDateTimeSchema,
+      })
+      .readonly()
+      .exactOptional(),
+  })
+  .readonly()
+  .superRefine((question, context) => {
+    if (!question.options.some((option) => option.id === question.recommendedOptionId))
+      context.addIssue({
+        code: 'custom',
+        path: ['recommendedOptionId'],
+        message: 'Recommendation must match an option.',
+      });
+    if (new Set(question.options.map((option) => option.id)).size !== question.options.length)
+      context.addIssue({ code: 'custom', path: ['options'], message: 'Option ids must be unique.' });
+    if (
+      question.answer?.optionId !== undefined &&
+      !question.options.some((option) => option.id === question.answer?.optionId)
+    )
+      context.addIssue({ code: 'custom', path: ['answer', 'optionId'], message: 'Answer must match an option.' });
+    if (question.answer?.optionId === undefined && !question.answer?.freeText?.trim())
+      if (question.answer !== undefined)
+        context.addIssue({ code: 'custom', path: ['answer'], message: 'Answer must contain an option or free text.' });
+  }) satisfies z.ZodType<ClarificationQuestion>;
+
+export const clarificationQuestionsSchema = z
+  .array(clarificationQuestionSchema)
+  .min(1)
+  .max(5)
+  .readonly()
+  .superRefine((questions, context) => {
+    if (new Set(questions.map((question) => question.id)).size !== questions.length)
+      context.addIssue({ code: 'custom', message: 'Question ids must be unique.' });
+  });
 export const taskSpecSchema = z
   .object({
     title: z.string(),
@@ -99,6 +154,9 @@ export const reviewVerdictSchema = z
 export const pipelineEventSchema: z.ZodType<PipelineEvent> = z.discriminatedUnion('type', [
   z.object({ type: z.literal('stage'), runId: pipelineRunIdSchema, stage: pipelineStageSchema }).readonly(),
   z
+    .object({ type: z.literal('clarification'), runId: pipelineRunIdSchema, status: z.enum(['required', 'answered']) })
+    .readonly(),
+  z
     .object({
       type: z.literal('artifact'),
       runId: pipelineRunIdSchema,
@@ -142,6 +200,7 @@ export const pipelineRunSchema = z
     stage: pipelineStageSchema,
     roleAssignment: roleAssignmentSchema,
     spec: taskSpecSchema.exactOptional(),
+    clarifications: z.array(clarificationQuestionSchema).max(5).readonly().exactOptional(),
     coderOutputs: z.array(coderOutputSchema).readonly(),
     verdicts: z.array(reviewVerdictSchema).readonly(),
     fixAttempts: z.union([z.literal(0), z.literal(1)]),

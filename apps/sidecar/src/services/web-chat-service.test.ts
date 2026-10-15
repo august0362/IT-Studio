@@ -35,7 +35,12 @@ function setup(
     pricing: { autoUpdate: false, updateIntervalHours: 24, maxAutoChangePercent: 50, extractionModelKey: 'openai/x' },
     fx: { autoUpdate: true, manualUsdToVnd: null },
     vscode: { autoLaunch: true, codeExecutable: null, showDiffBeforeValidate: true, revealChangedFiles: true },
-    pipeline: { roleAssignment: { pm: [], coder: [], reviewer: [] }, validationCommands: [], maxFixAttempts: 1 },
+    pipeline: {
+      roleAssignment: { pm: [], coder: [], reviewer: [] },
+      validationCommands: [],
+      maxFixAttempts: 1,
+      autoClarify: false,
+    },
     rag: {
       embedding: { modelKey: 'openai/x', dimensions: 1, batchSize: 1, fallbackModelKeys: [] },
       chunking: { targetTokens: 10, overlapTokens: 0, respectHeadings: true },

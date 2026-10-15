@@ -49,6 +49,18 @@ const settingsFailure: Result<AppSettings> = {
 afterEach(() => vi.useRealTimers());
 
 describe('ActivityRecorder correlations', () => {
+  it.each(['required', 'answered'] as const)(
+    'PSTUDIO-01 maps clarification %s to a PM activity without question text',
+    (status) => {
+      expect(
+        mapWorkflowEvent({ name: 'pipeline.event', payload: { type: 'clarification', runId, status } }, projectId),
+      ).toMatchObject({
+        moduleId: WorkflowModuleId.PIPELINE_PM,
+        summary: `Pipeline clarification ${status}`,
+        refs: { pipelineRunId: runId },
+      });
+    },
+  );
   it('TC-MW-004 records retrieval, embedding, and validation command events for a RAG chat pipeline', async () => {
     const database = openDatabase(':memory:');
     const repository = new ActivityRepository(database.db);

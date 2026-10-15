@@ -10,22 +10,35 @@ import {
   type Result,
   type ReviewVerdict,
   type TaskSpec,
+  type ClarificationQuestion,
 } from '@itstudio/schemas';
 import type { Logger } from 'pino';
-import { ZodError } from 'zod';
+import { z, ZodError } from 'zod';
 import { contextBlock, renderTemplate } from '../domain/template.js';
 import { systemIdGenerator, type IIdGenerator } from '../infra/id.js';
 import { CODER_ROLE_PROMPT } from '../prompts/coder.js';
 import { PM_ROLE_PROMPT } from '../prompts/pm.js';
 import { REVIEWER_ROLE_PROMPT } from '../prompts/reviewer.js';
 import type { LlmRouter } from './llm-router.js';
-import { coderOutputSchema, reviewVerdictSchema, taskSpecSchema, toJsonSchema } from '../validation/pipeline.js';
+import {
+  coderOutputSchema,
+  clarificationQuestionsSchema,
+  reviewVerdictSchema,
+  taskSpecSchema,
+  toJsonSchema,
+} from '../validation/pipeline.js';
 import { conversationIdSchema, isoDateTimeSchema, llmRequestIdSchema, messageIdSchema } from '../validation/brand.js';
 
 export type Role = 'pm' | 'coder' | 'reviewer';
 
 export type RoleInputs =
-  | { readonly prompt: string; readonly ragHits: string; readonly tree: string; readonly conventionsSummary: string }
+  | {
+      readonly prompt: string;
+      readonly ragHits: string;
+      readonly tree: string;
+      readonly conventionsSummary: string;
+      readonly clarifications?: readonly ClarificationQuestion[];
+    }
   | {
       readonly spec: TaskSpec;
       readonly filesWithHashes: string;
@@ -47,16 +60,34 @@ export interface RoleCallerDependencies {
   readonly now?: () => Date;
 }
 
-type RoleOutput = TaskSpec | CoderOutput | ReviewVerdict;
+export type RoleOutput = z.infer<typeof firstPmOutputSchema> | CoderOutput | ReviewVerdict;
+
+const pmQuestionsSchema = z
+  .object({
+    kind: z.literal('questions'),
+    questions: clarificationQuestionsSchema.refine(
+      (questions) => questions.every((question) => question.answer === undefined),
+      'The PM cannot supply answers.',
+    ),
+  })
+  .readonly();
+const pmSpecSchema = z.object({ kind: z.literal('spec'), spec: taskSpecSchema }).readonly();
+const firstPmOutputSchema = z.discriminatedUnion('kind', [pmSpecSchema, pmQuestionsSchema]);
 
 function promptFor(role: Role, inputs: RoleInputs): string {
   if (role === 'pm' && 'prompt' in inputs) {
     return renderTemplate(PM_ROLE_PROMPT, {
-      taskSpecJsonSchema: JSON.stringify(toJsonSchema(taskSpecSchema)),
+      pmOutputJsonSchema: JSON.stringify(
+        toJsonSchema(inputs.clarifications === undefined ? firstPmOutputSchema : pmSpecSchema),
+      ),
       tree: inputs.tree,
       ragHits: inputs.ragHits,
       conventionsSummary: inputs.conventionsSummary,
       prompt: inputs.prompt,
+      clarificationsContext:
+        inputs.clarifications === undefined
+          ? ''
+          : contextBlock('clarifications', JSON.stringify(inputs.clarifications)),
     });
   }
   if (role === 'coder' && 'filesWithHashes' in inputs) {
@@ -77,8 +108,9 @@ function promptFor(role: Role, inputs: RoleInputs): string {
   });
 }
 
-function getSchema(role: Role) {
-  if (role === 'pm') return taskSpecSchema;
+function getSchema(role: Role, inputs: RoleInputs) {
+  if (role === 'pm')
+    return 'prompt' in inputs && inputs.clarifications !== undefined ? pmSpecSchema : firstPmOutputSchema;
   if (role === 'coder') return coderOutputSchema;
   return reviewVerdictSchema;
 }
@@ -217,7 +249,7 @@ export class RoleCaller {
             'Forcing reviewer verdict to rejected because it contains blocking findings',
           );
         }
-        const validated = getSchema(role).safeParse(normalized.value);
+        const validated = getSchema(role, inputs).safeParse(normalized.value);
         if (validated.success) return { ok: true, value: validated.data };
         throw validated.error;
       } catch (error) {
