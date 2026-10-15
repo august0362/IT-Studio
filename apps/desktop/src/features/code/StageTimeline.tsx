@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { PipelineRunWithHistory } from './pipeline-store';
 
 const stages = [
+  PipelineStage.CLARIFYING,
   PipelineStage.SPECIFYING,
   PipelineStage.CODING,
   PipelineStage.REVIEWING,
@@ -39,6 +40,7 @@ export function StageTimeline({ run }: { readonly run: PipelineRun | PipelineRun
   const finalStage = terminalStages.includes(run.stage as (typeof terminalStages)[number]) ? run.stage : null;
   const enteredStages = 'enteredStages' in run ? run.enteredStages : [];
   const entered = new Set(enteredStages);
+  if (run.clarifications?.every((question) => question.answer !== undefined)) entered.add(PipelineStage.CLARIFYING);
   if (run.failureReport !== undefined) entered.add(run.failureReport.stage);
   if (finalStage === null) entered.add(run.stage);
   const failedStage =
@@ -48,9 +50,14 @@ export function StageTimeline({ run }: { readonly run: PipelineRun | PipelineRun
       {visibleStages.map((stage) => {
         const active = stage === run.stage;
         const failed = finalStage !== null && stage === failedStage;
-        const done = finalStage === PipelineStage.COMPLETED || (entered.has(stage) && !active && !failed);
+        const skippedClarification =
+          stage === PipelineStage.CLARIFYING && run.clarifications === undefined && !entered.has(stage);
+        const done =
+          !skippedClarification &&
+          (finalStage === PipelineStage.COMPLETED || (entered.has(stage) && !active && !failed));
         const state = failed ? 'failed' : active ? 'current' : done ? 'done' : 'skipped';
-        const icon = failed ? '✕' : done ? '✓' : active ? '●' : '—';
+        const icon =
+          stage === PipelineStage.CLARIFYING && active ? '?' : failed ? '✕' : done ? '✓' : active ? '●' : '—';
         return (
           <li aria-current={active ? 'step' : undefined} className="flex gap-2" key={stage}>
             <span aria-hidden="true">{icon}</span>

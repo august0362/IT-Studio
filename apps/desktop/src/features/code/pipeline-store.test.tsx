@@ -30,6 +30,26 @@ function run(id = 'run-1', stage: PipelineRun['stage'] = PipelineStage.SPECIFYIN
 }
 
 describe('pipelineReducer', () => {
+  it('PSTUDIO-01 retains clarification stages and accepts clarification notifications before refetch', () => {
+    const waiting = run('run-1', PipelineStage.CLARIFYING);
+    const initial = pipelineReducer(initialPipelineState, { type: 'started', run: waiting });
+    expect(initial.entries[waiting.id]?.finished).toBe(false);
+    expect(initial.entries[waiting.id]?.run.enteredStages).toContain(PipelineStage.CLARIFYING);
+    expect(
+      pipelineReducer(initial, {
+        type: 'event',
+        event: { type: 'clarification', runId: waiting.id, status: 'required' },
+      }),
+    ).toBe(initial);
+    const resumed = pipelineReducer(initial, {
+      type: 'event',
+      event: { type: 'stage', runId: waiting.id, stage: PipelineStage.SPECIFYING },
+    });
+    expect(resumed.entries[waiting.id]?.run.enteredStages).toEqual([
+      PipelineStage.CLARIFYING,
+      PipelineStage.SPECIFYING,
+    ]);
+  });
   it('adds, selects and refreshes runs', () => {
     const first = pipelineReducer(initialPipelineState, { type: 'started', run: run() });
     expect(first.selectedRunId).toBe('run-1');
@@ -42,6 +62,7 @@ describe('pipelineReducer', () => {
       run: run('run-3', PipelineStage.COMPLETED),
     });
     expect(loadedWithoutPrevious.entries['run-3']).toMatchObject({ finished: true, outputs: {}, queued: false });
+    expect(loadedWithoutPrevious.entries['run-3']?.run.enteredStages).not.toContain(PipelineStage.CLARIFYING);
   });
 
   it('applies stage, artifact and finished notifications and ignores unknown or terminal runs', () => {

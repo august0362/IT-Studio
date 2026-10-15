@@ -7,7 +7,7 @@ import {
   type Result,
   type CommandRun,
 } from '@itstudio/schemas';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createFakeClock } from '../infra/clock.js';
 import { createFakeIdGenerator } from '../infra/id.js';
 import { MemoryFileSystem } from '../infra/memory-file-system.js';
@@ -18,16 +18,27 @@ import { EventBus } from '../rpc/event-bus.js';
 import { ProjectContextService } from './project-context.js';
 import { FailureReportBuilder } from './failure-report-builder.js';
 import { WriteTransactionService } from './write-transaction.js';
-import { PipelineOrchestrator } from './pipeline-orchestrator.js';
+import { PipelineOrchestrator, type PipelineOrchestratorDependencies } from './pipeline-orchestrator.js';
+import type { RoleOutput, RoleInputs, RoleCallOptions } from './role-caller.js';
 import type { PipelineEvent, FailureReport, TaskSpec, CoderOutput, ReviewVerdict, Project } from '@itstudio/schemas';
 import { toMoneyDisplay, microUsd } from '../domain/money.js';
+import { PassThrough } from 'node:stream';
+import { RpcServer } from '../rpc/rpc-server.js';
+import { LineTransport } from '../rpc/line-transport.js';
+import { createLogger } from '../infra/logger.js';
+import type { RpcNotificationMap } from '@itstudio/schemas';
 
 const projectId = projectIdSchema.parse('00000000-0000-4000-8000-000000000011');
 const root = 'C:/sample-project';
 const ladder = [modelKeySchema.parse('openai/gpt-4o-mini')];
 const roleAssignment = { pm: ladder, coder: ladder, reviewer: ladder } as const;
 const validationCommand = { kind: 'build' as const, executable: 'node', args: ['pass.js'], timeoutMs: 1000 };
-const settings: PipelineSettings = { roleAssignment, validationCommands: [validationCommand], maxFixAttempts: 1 };
+const settings: PipelineSettings = {
+  roleAssignment,
+  validationCommands: [validationCommand],
+  maxFixAttempts: 1,
+  autoClarify: false,
+};
 const spec: TaskSpec = {
   title: 'Write greeting',
   userStory: 'Create greeting file',
@@ -45,6 +56,21 @@ const created: CoderOutput = {
 };
 const accepted: ReviewVerdict = { approved: true, findings: [], summary: 'Approved' };
 const firstAllowedPath = spec.allowedPaths[0] ?? workspaceRelativePathSchema.parse('hello.txt');
+const questions = [
+  {
+    id: 'storage',
+    question: 'Where should data live?',
+    why: 'This determines the storage API.',
+    options: [
+      { id: 'local', label: 'Local' },
+      { id: 'cloud', label: 'Cloud' },
+    ],
+    recommendedOptionId: 'local',
+    recommendationReason: 'The app works offline.',
+  },
+] as const;
+const askOnce = (inputs: RoleInputs): Extract<RoleOutput, { readonly kind: string }> =>
+  'clarifications' in inputs ? { kind: 'spec', spec } : { kind: 'questions', questions };
 
 interface HarnessOptions {
   readonly commandResult?: () => Promise<Result<CommandRun>>;
@@ -57,6 +83,8 @@ interface HarnessOptions {
   readonly prepareFailure?: boolean;
   readonly markValidatedFailure?: boolean;
   readonly settingsFailureCall?: number;
+  readonly autoClarify?: boolean;
+  readonly pmOutput?: (inputs: RoleInputs) => Extract<RoleOutput, { readonly kind: string }>;
 }
 
 function harness(
@@ -82,8 +110,14 @@ function harness(
   let reviewIndex = 0;
   let settingsCalls = 0;
   let costReads = 0;
+  const calls: { readonly role: string; readonly inputs: RoleInputs; readonly options: RoleCallOptions }[] = [];
   const roles = {
-    call: async (role: 'pm' | 'coder' | 'reviewer'): Promise<Result<TaskSpec | CoderOutput | ReviewVerdict>> => {
+    call: async (
+      role: 'pm' | 'coder' | 'reviewer',
+      inputs: RoleInputs,
+      callOptions: RoleCallOptions,
+    ): Promise<Result<RoleOutput>> => {
+      calls.push({ role, inputs, options: callOptions });
       await options.beforeRole?.(role);
       if (role === options.roleFailure)
         return {
@@ -95,7 +129,7 @@ function harness(
             remediation: ['Retry the pipeline.'],
           },
         };
-      if (role === 'pm') return Promise.resolve({ ok: true, value: spec });
+      if (role === 'pm') return { ok: true, value: options.pmOutput?.(inputs) ?? { kind: 'spec', spec } };
       if (role === 'coder') return Promise.resolve({ ok: true, value: output });
       const value = verdicts[reviewIndex] ?? accepted;
       reviewIndex += 1;
@@ -111,7 +145,7 @@ function harness(
   };
   const events = new EventBus<{ 'pipeline.event': PipelineEvent; 'pipeline.failureReport': FailureReport }>();
   const fx = { usdToVnd: 25000, asOf: isoDateTimeSchema.parse('2026-01-01T00:00:00.000Z'), source: 'auto' as const };
-  const orchestrator = new PipelineOrchestrator({
+  const dependencies: PipelineOrchestratorDependencies = {
     repository,
     projects: {
       get: async (id) => {
@@ -133,7 +167,7 @@ function harness(
                 remediation: ['Retry the pipeline.'],
               },
             }
-          : { ok: true as const, value: settings },
+          : { ok: true as const, value: { ...settings, autoClarify: options.autoClarify ?? false } },
       );
     },
     context: new ProjectContextService(fs),
@@ -209,13 +243,16 @@ function harness(
     },
     moneyDisplay: (amount) => toMoneyDisplay(amount, fx),
     ...(options.hardStop === undefined ? {} : { budgetHardStop: options.hardStop }),
-  });
+  };
+  const orchestrator = new PipelineOrchestrator(dependencies);
   return {
     fs,
     rootDirectory,
     orchestrator,
     rows,
     events,
+    calls,
+    restart: () => new PipelineOrchestrator(dependencies),
     get costReads() {
       return costReads;
     },
@@ -254,6 +291,229 @@ async function waitForTerminal(orchestrator: PipelineOrchestrator, id: PipelineR
 }
 
 describe('PipelineOrchestrator', () => {
+  it.each([false, true])(
+    'PSTUDIO-01 honours cancellation at the clarification stage (auto=%s)',
+    async (autoClarify) => {
+      const h = harness([accepted], created, { pmOutput: askOnce, autoClarify });
+      h.events.subscribe('pipeline.event', (event) => {
+        if (event.type === 'stage' && event.stage === PipelineStage.CLARIFYING) void h.orchestrator.cancel(event.runId);
+      });
+      const run = await h.orchestrator.start({ projectId, prompt: 'First' });
+      expect((await waitForTerminal(h.orchestrator, run.id)).stage).toBe(PipelineStage.CANCELLED);
+      expect(h.calls.filter((call) => call.role === 'coder')).toHaveLength(0);
+    },
+  );
+
+  it('PSTUDIO-01 honours cancellation racing an invalid answer submission', async () => {
+    const h = harness([accepted], created, { pmOutput: askOnce });
+    const run = await h.orchestrator.start({ projectId, prompt: 'First' });
+    await vi.waitFor(() => {
+      expect(h.rows.get(run.id)?.stage).toBe(PipelineStage.CLARIFYING);
+    });
+    await Promise.all([
+      h.orchestrator.answerClarifications({ runId: run.id, answers: [] }),
+      h.orchestrator.cancel(run.id),
+    ]);
+    expect((await h.orchestrator.get(run.id))?.stage).toBe(PipelineStage.CANCELLED);
+  });
+  it.each([
+    { name: 'missing run', stage: 'missing', answers: [{ questionId: 'storage', optionId: 'local' }] },
+    { name: 'wrong stage', stage: 'completed', answers: [{ questionId: 'storage', optionId: 'local' }] },
+    { name: 'missing answer', answers: [] },
+    { name: 'unknown question', answers: [{ questionId: 'unknown', optionId: 'local' }] },
+    {
+      name: 'duplicate answer',
+      answers: [
+        { questionId: 'storage', optionId: 'local' },
+        { questionId: 'storage', optionId: 'local' },
+      ],
+    },
+    { name: 'bad option', answers: [{ questionId: 'storage', optionId: 'bad' }] },
+    { name: 'bad option with text', answers: [{ questionId: 'storage', optionId: 'bad', freeText: 'SQLite' }] },
+    { name: 'empty answer', answers: [{ questionId: 'storage' }] },
+    { name: 'empty text', answers: [{ questionId: 'storage', freeText: '' }] },
+    { name: 'blank text', answers: [{ questionId: 'storage', freeText: '  ' }] },
+    { name: 'long text', answers: [{ questionId: 'storage', freeText: 'x'.repeat(2001) }] },
+  ])('PSTUDIO-01 RPC rejects $name without resuming', async ({ stage, answers }) => {
+    const h = harness([accepted], created, { pmOutput: askOnce });
+    const run = await h.orchestrator.start({ projectId, prompt: 'Build storage' });
+    await vi.waitFor(() => {
+      expect(h.rows.get(run.id)?.stage).toBe(PipelineStage.CLARIFYING);
+    });
+    if (stage === 'completed') {
+      const waiting = h.rows.get(run.id);
+      if (waiting === undefined) throw new Error('Missing waiting row');
+      h.rows.set(run.id, { ...waiting, stage: PipelineStage.COMPLETED });
+    }
+    const orchestrator = h.restart();
+    const output = new PassThrough();
+    const chunks: string[] = [];
+    output.on('data', (chunk: Buffer) => chunks.push(chunk.toString()));
+    const transport = new LineTransport({ input: new PassThrough(), output, onLine: () => undefined });
+    const server = new RpcServer(transport, new EventBus<RpcNotificationMap>(), createLogger({ streams: [] }));
+    server.register('pipeline.answerClarifications', (input) => orchestrator.answerClarifications(input));
+    const runId = stage === 'missing' ? '00000000-0000-4000-8000-000000000099' : run.id;
+    await server.handleLine(
+      JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'pipeline.answerClarifications', params: { runId, answers } }),
+    );
+    const response: unknown = JSON.parse(chunks.join(''));
+    expect(response).toMatchObject({ error: { data: { code: ErrorCode.VALIDATION } } });
+    expect(h.calls).toHaveLength(1);
+  });
+
+  it.each([1, 2000])('PSTUDIO-01 accepts free-text boundary of %s characters after restart', async (length) => {
+    const h = harness([accepted], created, { pmOutput: askOnce });
+    const run = await h.orchestrator.start({ projectId, prompt: 'Build storage' });
+    await vi.waitFor(() => {
+      expect(h.rows.get(run.id)?.stage).toBe(PipelineStage.CLARIFYING);
+    });
+    const restarted = h.restart();
+    const result = await restarted.answerClarifications({
+      runId: run.id,
+      answers: [{ questionId: 'storage', freeText: 'x'.repeat(length) }],
+    });
+    expect(result.ok).toBe(true);
+    expect((await waitForTerminal(restarted, run.id)).stage).toBe(PipelineStage.COMPLETED);
+  });
+  it('PSTUDIO-01 waits for manual answers, preserves Q&A, and resumes through coding', async () => {
+    const h = harness([accepted], created, { pmOutput: askOnce });
+    const events: PipelineEvent[] = [];
+    h.events.subscribe('pipeline.event', (event) => events.push(event));
+    const run = await h.orchestrator.start({ projectId, prompt: 'Build storage' });
+    await vi.waitFor(() => {
+      expect(h.rows.get(run.id)?.stage).toBe(PipelineStage.CLARIFYING);
+    });
+    expect(h.calls.map((call) => call.role)).toEqual(['pm']);
+    expect(h.rows.get(run.id)?.clarifications).toEqual(questions);
+    await expectNoUserWrites(h.fs);
+    const result = await h.orchestrator.answerClarifications({
+      runId: run.id,
+      answers: [{ questionId: 'storage', freeText: 'Use SQLite' }],
+    });
+    expect(result).toMatchObject({ ok: true, value: { stage: PipelineStage.SPECIFYING } });
+    const completed = await waitForTerminal(h.orchestrator, run.id);
+    expect(completed.stage).toBe(PipelineStage.COMPLETED);
+    expect(completed.clarifications?.[0]?.answer).toEqual({ freeText: 'Use SQLite', by: 'user', at: run.startedAt });
+    expect(h.calls.map((call) => call.role)).toEqual(['pm', 'pm', 'coder', 'reviewer']);
+    expect(h.calls[1]?.inputs).toMatchObject({ clarifications: completed.clarifications });
+    expect(events.filter((event) => event.type === 'clarification')).toEqual([
+      { type: 'clarification', runId: run.id, status: 'required' },
+      { type: 'clarification', runId: run.id, status: 'answered' },
+    ]);
+  });
+
+  it('PSTUDIO-01 auto answers recommendations and emits both clarification stages and events', async () => {
+    const h = harness([accepted], created, { pmOutput: askOnce, autoClarify: true });
+    const events: PipelineEvent[] = [];
+    h.events.subscribe('pipeline.event', (event) => events.push(event));
+    const run = await h.orchestrator.start({ projectId, prompt: 'Build storage' });
+    const completed = await waitForTerminal(h.orchestrator, run.id);
+    expect(completed.stage).toBe(PipelineStage.COMPLETED);
+    expect(completed.clarifications?.[0]?.answer).toEqual({ optionId: 'local', by: 'auto', at: run.startedAt });
+    const progression = events.filter((event) => event.type === 'clarification' || event.type === 'stage').slice(0, 5);
+    expect(progression).toEqual([
+      { type: 'stage', runId: run.id, stage: PipelineStage.SPECIFYING },
+      { type: 'stage', runId: run.id, stage: PipelineStage.CLARIFYING },
+      { type: 'clarification', runId: run.id, status: 'required' },
+      { type: 'clarification', runId: run.id, status: 'answered' },
+      { type: 'stage', runId: run.id, stage: PipelineStage.SPECIFYING },
+    ]);
+  });
+
+  it('PSTUDIO-01 rejects a second question round without workspace writes', async () => {
+    const h = harness([accepted], created, { autoClarify: true, pmOutput: () => ({ kind: 'questions', questions }) });
+    const run = await h.orchestrator.start({ projectId, prompt: 'Build storage' });
+    const failed = await waitForTerminal(h.orchestrator, run.id);
+    expect(failed.stage).toBe(PipelineStage.FAILED);
+    expect(failed.failureReport?.error.code).toBe(ErrorCode.VALIDATION);
+    expect(h.calls).toHaveLength(2);
+    await expectNoUserWrites(h.fs);
+  });
+
+  it.each([false, true])(
+    'PSTUDIO-01 keeps the project queued through waiting and resumed coding (restart=%s)',
+    async (restart) => {
+      const codingEntered = deferred();
+      const releaseCoding = deferred();
+      const h = harness([accepted], created, {
+        pmOutput: askOnce,
+        beforeRole: async (role) => {
+          if (role === 'coder') {
+            codingEntered.resolve();
+            await releaseCoding.promise;
+          }
+        },
+      });
+      const first = await h.orchestrator.start({ projectId, prompt: 'First' });
+      await vi.waitFor(() => {
+        expect(h.rows.get(first.id)?.stage).toBe(PipelineStage.CLARIFYING);
+      });
+      const orchestrator = restart ? h.restart() : h.orchestrator;
+      // No get/list before start: discovering the waiting row must restore its queue gate.
+      const second = await orchestrator.start({ projectId, prompt: 'Second' });
+      const third = await orchestrator.start({ projectId, prompt: 'Third' });
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(h.calls).toHaveLength(1);
+      expect(await orchestrator.get(first.id)).toMatchObject({ stage: PipelineStage.CLARIFYING });
+      const input = { runId: first.id, answers: [{ questionId: 'storage', optionId: 'cloud' }] };
+      const [answer, duplicate] = await Promise.all([
+        orchestrator.answerClarifications(input),
+        orchestrator.answerClarifications(input),
+      ]);
+      expect(answer.ok).toBe(true);
+      expect(duplicate).toMatchObject({ ok: false, error: { code: ErrorCode.VALIDATION } });
+      await codingEntered.promise;
+      expect(h.calls.map((call) => call.options.pipelineRunId)).toEqual([first.id, first.id, first.id]);
+      releaseCoding.resolve();
+      expect((await waitForTerminal(orchestrator, first.id)).stage).toBe(PipelineStage.COMPLETED);
+      await vi.waitFor(() => {
+        expect(h.rows.get(second.id)?.stage).toBe(PipelineStage.CLARIFYING);
+      });
+      expect(h.calls.filter((call) => call.role === 'pm').map((call) => call.options.pipelineRunId)).toEqual([
+        first.id,
+        first.id,
+        second.id,
+      ]);
+      await orchestrator.cancel(second.id);
+      await vi.waitFor(() => {
+        expect(h.rows.get(third.id)?.stage).toBe(PipelineStage.CLARIFYING);
+      });
+      await orchestrator.cancel(third.id);
+    },
+  );
+
+  it('PSTUDIO-01 cancels a waiting run after restart and unblocks its project', async () => {
+    const h = harness([accepted], created, { pmOutput: askOnce });
+    const first = await h.orchestrator.start({ projectId, prompt: 'First' });
+    await vi.waitFor(() => {
+      expect(h.rows.get(first.id)?.stage).toBe(PipelineStage.CLARIFYING);
+    });
+    const restarted = h.restart();
+    const second = await restarted.start({ projectId, prompt: 'Second' });
+    expect(await restarted.cancel(first.id)).toMatchObject({ stage: PipelineStage.CANCELLED });
+    await vi.waitFor(() => {
+      expect(h.rows.get(second.id)?.stage).toBe(PipelineStage.CLARIFYING);
+    });
+    await restarted.cancel(second.id);
+    await expectNoUserWrites(h.fs);
+  });
+
+  it('PSTUDIO-01 honours cancellation while the first PM is returning questions', async () => {
+    const entered = deferred();
+    const release = deferred();
+    const h = harness([accepted], created, {
+      pmOutput: askOnce,
+      beforeRole: async () => {
+        entered.resolve();
+        await release.promise;
+      },
+    });
+    const run = await h.orchestrator.start({ projectId, prompt: 'First' });
+    await entered.promise;
+    await h.orchestrator.cancel(run.id);
+    release.resolve();
+    expect((await waitForTerminal(h.orchestrator, run.id)).stage).toBe(PipelineStage.CANCELLED);
+  });
   it('updates pipeline cost after each role call and at completion', async () => {
     const h = harness();
     await h.rootDirectory;

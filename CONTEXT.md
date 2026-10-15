@@ -7,8 +7,8 @@
 |---|---|
 | Product | **IT Studio** — Desktop Multi-Agent Command Center |
 | Doc owner | Architect role (Claude) |
-| Last updated | 2026-10-04 |
-| Status | v1 implementation delivered (M0–M8, MW/WC, OWNER-FB1 and M9 installer builds); v1 release sign-off remains pending M9-QA/runtime-isolated install smoke and the recorded native provider/theme follow-ups. v2 (M10–M14) and v3 (M15–M19) are fully specified, not started. Continuation guide: `docs/HANDOFF.md`; task status: `ROADMAP.md` |
+| Last updated | 2026-10-14 |
+| Status | v1 delivered and signed off (M0–M9, MW, WC, OWNER-FB1; M9 QA gate 2026-10-14); v1 hardening in progress (adversarial QA, UX-02, V1-POLISH-01). v2 (M10–M14) and v3 (M15–M19) fully specified, not started. Continuation guide: `docs/HANDOFF.md`; task status: `ROADMAP.md` |
 
 ---
 
@@ -71,6 +71,7 @@ Changing any row requires an ADR in `docs/decisions/` and user approval.
 | D32 | **Workflow map (v1 addendum, milestone MW):** a per-project Workflow tab shows modules, links and the data contract on each link; clicking a module shows **realtime** in-flight work and **history** (7 days / 20 000 events), metrics and deep links. Passive observer — no LLM tokens, no polling; summaries never contain prompt/document text or keys. Scheduled **after** the v1 hand-over. | User decision 2026-10-03 |
 | D33 | **Single-user distribution (2026-10-04):** only the owner installs IT Studio. No Authenticode code-signing for now (SmartScreen "Run anyway" accepted); no clean-VM test — replaced by an install smoke on this machine that proves the packaged app does not depend on the system Node / repo `node_modules`. Revisit before any wider distribution. | User decision |
 | D34 | **Web chat (v1 addendum, WC / OWNER-FB1, 2026-10-04):** IT Studio opens consumer web chats (ChatGPT, Gemini, Grok, Claude, AI Studio, Perplexity; user-editable list) in the owner's browser — default Cốc Cốc when installed — and offers 1–4 native embedded panes for saved HTTPS sites, with persisted layout and separate web-chat profiles. Children have no Tauri capability or sidecar access; navigation stays within the saved origins and safe popups open externally. Embedded sign-in may be blocked; Open in browser remains available. IT Studio never reads, scrapes or automates page content and does not meter consumer chats; Copy project brief remains available. Using consumer subscriptions as model providers (official CLIs) needs its own ADR (changes D15). | User decision and owner feedback authorization; ADR-0005. |
+| D35 | **Clarifying step + Pipeline Studio (v1 add-on, PSTUDIO, 2026-10-15):** in SPECIFYING the PM may return up to 5 clarification questions (2–4 options each, one recommended) instead of a spec; the run waits in stage `clarifying` until answered, then the PM writes the spec with the answers. Setting `pipeline.autoClarify` (default off) answers with the recommended option automatically and continues; questions and the chosen answers stay visible in the run. No migration (stored in run artifacts JSON). Pipeline Studio is a removable, hideable add-on (`features/pipeline-studio/`, flag `PIPELINE_STUDIO_ENABLED`): a full-screen black node view of a run — input → clarify → spec → code → review → fix → re-review → write → validate — with live data-flow animation, `?` when user input is needed, ✓ when done; core features never import it. | Owner request 2026-10-15. |
 
 ## 4. Open questions (ask the user before the milestone that needs them)
 

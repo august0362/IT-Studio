@@ -95,6 +95,7 @@
     "elapsed": "Thời gian: {{seconds}} giây",
     "stages": {
       "specifying": "Đặc tả",
+      "clarifying": "Làm rõ yêu cầu",
       "coding": "Lập trình",
       "reviewing": "Đánh giá",
       "fixing": "Sửa lỗi",
@@ -136,6 +137,13 @@
     "history": "Lịch sử chạy",
     "historyError": "Không thể tải lịch sử chạy.",
     "empty": "Bắt đầu quy trình hoặc chọn lần chạy trước.",
+    "recommendations": "Đề xuất",
+    "recommended": "Đề xuất",
+    "autoChosen": "Tự động chọn",
+    "yourAnswer": "Câu trả lời của bạn",
+    "freeText": "Câu trả lời riêng",
+    "acceptRecommendations": "Chấp nhận tất cả đề xuất",
+    "submitAnswers": "Gửi câu trả lời",
     "preview": "Yêu cầu",
     "cancel": "Hủy lần chạy",
     "keepWorking": "Tiếp tục",
@@ -255,6 +263,7 @@
       "reveal": "Hiện tệp đã thay đổi"
     },
     "pipeline": {
+      "autoClarify": "Tự động trả lời câu hỏi làm rõ bằng đề xuất",
       "roles": {
         "pm": "Thứ tự mô hình PM",
         "coder": "Thứ tự mô hình lập trình",

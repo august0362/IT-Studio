@@ -130,7 +130,9 @@ export function mapWorkflowEvent(
                 : event.stage === 'writing' || event.stage === 'validating'
                   ? WorkflowModuleId.WORKER
                   : WorkflowModuleId.PIPELINE_PM
-          : WorkflowModuleId.WORKER;
+          : event.type === 'clarification'
+            ? WorkflowModuleId.PIPELINE_PM
+            : WorkflowModuleId.WORKER;
       const kind: ActivityKind =
         event.type === 'finished'
           ? event.stage === 'completed'
@@ -148,7 +150,9 @@ export function mapWorkflowEvent(
             ? `Produced ${event.kind} artifact ${String(event.index + 1)}`
             : event.type === 'finished'
               ? `Pipeline ${event.stage}`
-              : `Validation output (${event.stream})`;
+              : event.type === 'clarification'
+                ? `Pipeline clarification ${event.status}`
+                : `Validation output (${event.stream})`;
       return {
         projectId,
         moduleId,
