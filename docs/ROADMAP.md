@@ -188,6 +188,10 @@ Work order and QA verdict: `docs/tasks/OWNER-FB1.md`.
 - [x] **REPO-01** (C) Move project docs into `docs/`, update every reference; `Start-IT-Studio.bat` one-click start from source.
 - [x] **V1-QA** (A) *(passed 2026-10-15, `docs/qa/V1-report.md`; owner acceptance pending)* Final v1 gate: full unit + integration + E2E + smoke + build, visual check, owner checklist `docs/qa/V1-owner-checklist.md`.
 
+## PROV — More providers *(D38)*
+
+- [ ] **PROV-01** (C) DeepSeek, OpenRouter, Qwen (region endpoint), Mistral via the OpenAI-compatible adapter; seed models/prices; API Keys page.
+
 ## MOD — Sidecar feature modules *(D37; after v1 sign-off, before LLMPOOL)*
 
 - [ ] **MOD-01** (C) `kernel/` + module rules (eslint boundaries) + leaf modules cost, knowledge, images, vscode, web-chat, workflow (move-only).
