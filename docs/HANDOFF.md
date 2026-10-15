@@ -133,7 +133,7 @@ npx wdio run e2e/wdio.conf.ts --spec e2e/specs/<area>/<file>.spec.ts   # only th
 ## 3. Owner's working rules (agreed in chat — not written anywhere else)
 
 1. **Language:** chat with the owner in **Vietnamese**; every file in the repo is in **English**.
-2. **Autonomy:** work fully automatically. Ask the owner only for real decisions (product scope, money, credentials, anything irreversible). Record decisions in `docs/CONTEXT.md` (next number: **D38**).
+2. **Autonomy:** work fully automatically. Ask the owner only for real decisions (product scope, money, credentials, anything irreversible). Record decisions in `CONTEXT.md` (next number: **D38**).
 3. **Delegate:** "Giao việc cho codex, đừng làm hết". The Architect specifies, coordinates and verifies; Codex writes code and tests. Use several Codex jobs in parallel when scopes are disjoint.
 4. **Lean QA** as in §2.3: no repeated full suites, no full E2E runs unless needed.
 5. **6-attempt rule:** if the same error survives 6 fix attempts, stop fixing it. Skip it, record it in the QA report and the ROADMAP backlog, report it to the owner, and move on (or stop the session if blocked).
