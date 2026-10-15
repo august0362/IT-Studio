@@ -27,6 +27,7 @@ Turn every sidecar `it.fails('QA-BREAK-0x-Dnn …')` in `apps/sidecar/test/integ
 | QA-BREAK-02-D05 | Deleting a RAG source during an in-flight (re-)index must win: the ingest job checks a per-source generation/cancel token before every write (metadata and vectors) and drops its results if the source was deleted; no resurrected document or vectors. |
 | QA-BREAK-02-D06 | Two same-tick `pipeline.start` for one project: admission must be atomic (synchronous check-and-reserve before any `await`). Exactly one active run; the other request follows the existing queue/reject contract consistently — keep whatever the current contract says for a busy project. |
 | QA-BREAK-02-D07 | During a 500-query `rag.query` burst ping p95 must be < 200 ms: workflow activity recording/broadcast must not block the event loop (batch/coalesce activity events, e.g. flush at most every 100 ms, bounded queue). |
+| QA-BREAK-02-D09 | **Found in UX-02 QA (S2):** after a crash during WRITING, startup journal recovery (`container.ts` startup block) restores the files and publishes a `pipeline.failureReport` **without `runId`**, but never updates the run row — the run stays `writing` forever, so the project's queue gate (PSTUDIO-01 hydration) blocks every later `pipeline.start`. Fix: at startup, for every non-terminal run that is not `clarifying`, mark it `rolled_back` when its transaction was recovered (else `failed`), set `finishedAt`, attach a failure report with its `runId`, persist, publish `pipeline.event` `finished` + the report; release its queue gate. `clarifying` runs stay waiting. `break-durability.test.ts` BRK-D02 (both crash points) must pass; add a unit test for the startup sweep. |
 | QA-BREAK-02-D08 | Concurrent `settings.update` patches lose fields: serialize updates (single-flight mutex / queue) and apply each patch to the latest persisted state (read-modify-write inside the lock). |
 
 ## Flaky test
@@ -37,7 +38,7 @@ Turn every sidecar `it.fails('QA-BREAK-0x-Dnn …')` in `apps/sidecar/test/integ
 
 ## Acceptance criteria
 
-- [ ] All seven defects fixed; their tests are plain `it(...)` and pass; no other break or integration test regresses.
+- [ ] All eight defects fixed; their tests are plain `it(...)` and pass; no other break or integration test regresses.
 - [ ] `npx prettier --write <changed files>`, `npm run typecheck`, `npm run lint`, `npm test` pass. QA runs `npx vitest run --config vitest.integration.config.ts apps/sidecar/test/integration/` outside the sandbox.
 
 ## Hand-back
