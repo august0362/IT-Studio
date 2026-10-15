@@ -192,6 +192,11 @@ Work order and QA verdict: `docs/tasks/OWNER-FB1.md`.
 
 - [x] **PROV-01** (C) DeepSeek, OpenRouter, Qwen (region endpoint), Mistral via the OpenAI-compatible adapter; seed models/prices; API Keys page.
 
+## OWNER-FB2 — Owner acceptance feedback (2026-10-16)
+
+- [ ] **OWNER-FB2-A** (C) Sidecar: Auto includes keyed providers, half-open probe, attempt-failure logging + real reasons in errors, `project.delete`, history order, missing-workspace warn.
+- [ ] **OWNER-FB2-B** (C) Desktop: folder picker, Projects page (history, open, delete), tab restore, chat thinking dots.
+
 ## MOD — Sidecar feature modules *(D37; after v1 sign-off, before LLMPOOL)*
 
 - [ ] **MOD-01** (C) `kernel/` + module rules (eslint boundaries) + leaf modules cost, knowledge, images, vscode, web-chat, workflow (move-only).
