@@ -8,7 +8,8 @@ import { StatusBar } from '../components/StatusBar';
 import { useRpcQuery } from '../hooks/use-rpc-query';
 import { RpcCallError } from '../rpc/rpc-client';
 import { useRpcClient } from '../rpc/rpc-context';
-import { readOpenProjects, writeOpenProjects } from '../state/open-projects';
+import { readActiveProject, readOpenProjects, writeOpenProjects } from '../state/open-projects';
+import { ProjectsPage } from '../features/projects/ProjectsPage';
 import { MainNav, type ShellRoute } from './MainNav';
 import { NewProjectDialog } from './NewProjectDialog';
 import { ProjectTabs } from './ProjectTabs';
@@ -46,6 +47,7 @@ function initialRoute(): ShellRoute {
   if (PIPELINE_STUDIO_ENABLED && hash === 'pipeline-studio') return 'pipeline-studio';
   if (
     [
+      'projects',
       'chat',
       'webchat',
       'code',
@@ -80,11 +82,15 @@ export function AppShell(): JSX.Element {
   const [openIds, setOpenIds] = useState<string[]>(readOpenProjects);
   const [activeSelection, setActiveSelection] = useState<
     { readonly kind: 'project'; readonly id: string } | { readonly kind: 'all' } | undefined
-  >(undefined);
+  >(() => {
+    const id = readActiveProject();
+    return id === undefined ? undefined : id === null ? { kind: 'all' } : { kind: 'project', id };
+  });
   const [showNewProject, setShowNewProject] = useState(false);
   const [webChatSuspended, setWebChatSuspended] = useState(false);
   const [projectError, setProjectError] = useState<AppError | null>(null);
   const navigationRevision = useRef(0);
+  const restoredActive = useRef(false);
   const studioPreviousRoute = useRef<ShellRoute>('settings-api-keys');
   const projects = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data]);
   const validOpenIds = useMemo(
@@ -96,7 +102,9 @@ export function AppShell(): JSX.Element {
     activeSelection?.kind === 'all'
       ? null
       : activeSelection?.kind === 'project'
-        ? activeSelection.id
+        ? projects.some((project) => project.id === activeSelection.id)
+          ? activeSelection.id
+          : (validOpenIds[0] ?? null)
         : configuredActiveId !== null &&
             configuredActiveId !== undefined &&
             projects.some((project) => project.id === configuredActiveId)
@@ -108,8 +116,21 @@ export function AppShell(): JSX.Element {
   );
 
   useEffect(() => {
-    writeOpenProjects(visibleOpenIds);
-  }, [visibleOpenIds]);
+    if (projectsQuery.isSuccess && settingsQuery.isSuccess) writeOpenProjects(visibleOpenIds, activeId);
+  }, [visibleOpenIds, activeId, projectsQuery.isSuccess, settingsQuery.isSuccess]);
+
+  useEffect(() => {
+    if (!projectsQuery.isSuccess || !settingsQuery.isSuccess || restoredActive.current) return;
+    restoredActive.current = true;
+    const project = projects.find((item) => item.id === activeId);
+    if (project === undefined || project.id === configuredActiveId) return;
+    void rpc
+      .call('project.setActive', { projectId: project.id })
+      .then(() => queryClient.invalidateQueries({ queryKey: ['settings.get', {}] }))
+      .catch((cause: unknown) => {
+        setProjectError(asAppError(cause));
+      });
+  }, [activeId, configuredActiveId, projects, projectsQuery.isSuccess, queryClient, rpc, settingsQuery.isSuccess]);
   const navigate = useCallback(
     (next: ShellRoute): void => {
       const revision = ++navigationRevision.current;
@@ -161,20 +182,23 @@ export function AppShell(): JSX.Element {
     setShowNewProject(true);
   }
 
-  async function activate(id: string | null): Promise<void> {
+  async function activate(id: string | null): Promise<boolean> {
+    setProjectError(null);
     if (id !== null) {
       const project = projects.find((item) => item.id === id);
-      if (project === undefined) return;
+      if (project === undefined) return false;
       try {
         await rpc.call('project.setActive', { projectId: project.id });
         await queryClient.invalidateQueries({ queryKey: ['settings.get', {}] });
+        await queryClient.invalidateQueries({ queryKey: ['project.list', {}] });
       } catch (cause: unknown) {
         setProjectError(asAppError(cause));
-        return;
+        return false;
       }
     }
     setActiveSelection(id === null ? { kind: 'all' } : { kind: 'project', id });
     if (id !== null) setOpenIds((current) => (current.includes(id) ? current : [...current, id]));
+    return true;
   }
 
   async function createProject(name: string, workspaceRoot: string): Promise<void> {
@@ -195,7 +219,7 @@ export function AppShell(): JSX.Element {
   }
 
   function closeProject(id: string): void {
-    const remaining = openIds.filter((openId) => openId !== id);
+    const remaining = visibleOpenIds.filter((openId) => openId !== id);
     setOpenIds(remaining);
     if (activeId === id) setActiveSelection({ kind: 'all' });
   }
@@ -222,7 +246,19 @@ export function AppShell(): JSX.Element {
   }
 
   let content: JSX.Element;
-  if (route === 'chat')
+  if (route === 'projects')
+    content = (
+      <ProjectsPage
+        onDeleted={closeProject}
+        onNew={() => {
+          void openNewProjectDialog();
+        }}
+        onOpen={async (id) => {
+          if (await activate(id)) navigate('chat');
+        }}
+      />
+    );
+  else if (route === 'chat')
     content = (
       <ChatPage onNavigate={navigate} projectId={projects.find((project) => project.id === activeId)?.id ?? null} />
     );

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ModelCapability } from '@itstudio/schemas';
@@ -10,7 +10,7 @@ import { RpcClientProvider } from '../../rpc/rpc-context';
 import { FakeTransport } from '../../rpc/transport';
 import { useNavigationIntent } from '../../state/navigation-intent';
 
-function renderChat(withConversation = false) {
+function renderChat(withConversation = false, delaySend = false) {
   const transport = new FakeTransport();
   transport.setStatus({ running: true, ready: true, restarts: 0 });
   transport.send = (line) => {
@@ -20,6 +20,7 @@ function renderChat(withConversation = false) {
       return Promise.resolve();
     }
     const call = request as { readonly id: number; readonly method: string };
+    if (call.method === 'chat.send' && delaySend) return Promise.resolve();
     const config = {
       ladder: [],
       autoFallback: true,
@@ -123,10 +124,112 @@ describe('ChatPage', () => {
       expect(transport.sent.some((line) => line.includes('"method":"chat.send"'))).toBe(true);
     });
     await screen.findByRole('button', { name: 'Stop' });
+    expect(screen.getByRole('status')).toHaveTextContent('Thinking…');
+    expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite');
     fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+    expect(screen.queryByText('Thinking…')).not.toBeInTheDocument();
     await waitFor(() => {
       expect(transport.sent.some((line) => line.includes('"method":"chat.cancel"'))).toBe(true);
     });
+  });
+
+  it('replaces thinking dots with a streaming caret on first delta and removes it on completion', async () => {
+    const transport = await startMessage();
+    expect(screen.getByRole('status')).toHaveTextContent('Thinking…');
+    notify(transport, 'chat.delta', { requestId: REQUEST_ID, textDelta: 'First answer' });
+    expect(screen.queryByText('Thinking…')).not.toBeInTheDocument();
+    expect(screen.getByText('First answer').closest('li')).toHaveClass('chat-streaming');
+    expect(screen.getByRole('button', { name: 'Stop' })).toBeVisible();
+    notify(transport, 'chat.delta', { requestId: REQUEST_ID, textDelta: ' continued' });
+    expect(screen.getByText('First answer continued')).toBeVisible();
+    notify(transport, 'chat.completed', {
+      requestId: REQUEST_ID,
+      message: {
+        id: 'answer-1',
+        conversationId: CONVERSATION_ID,
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'Final answer' }],
+        createdAt: '2026-10-16T00:00:00.000Z',
+      },
+      cost: { microUsd: 0, vnd: 0, usdText: '$0', vndText: '0 ₫', fxAsOf: '2026-10-16T00:00:00.000Z' },
+    });
+    expect(screen.getByText('Final answer')).toBeVisible();
+    expect(document.querySelector('.chat-streaming')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Stop' })).not.toBeInTheDocument();
+  });
+
+  it.each([false, true])(
+    'removes thinking/caret on failure (after delta: %s) and preserves remediation',
+    async (delta) => {
+      const transport = await startMessage();
+      if (delta) notify(transport, 'chat.delta', { requestId: REQUEST_ID, textDelta: 'Partial' });
+      notify(transport, 'chat.failed', {
+        requestId: REQUEST_ID,
+        error: {
+          code: 'AUTH',
+          message: 'Check your provider key',
+          retryable: false,
+          remediation: ['Open Settings → API Keys.', 'Save a valid key.'],
+        },
+      });
+      expect(screen.getByRole('alert')).toHaveTextContent('Open Settings → API Keys.');
+      expect(screen.getByRole('alert')).toHaveTextContent('Save a valid key.');
+      expect(screen.queryByText('Thinking…')).not.toBeInTheDocument();
+      expect(document.querySelector('.chat-streaming')).toBeNull();
+      expect(screen.getByRole('button', { name: 'Send' })).toBeVisible();
+    },
+  );
+
+  it('keeps partial text on Stop and ignores late deltas and completion', async () => {
+    const transport = await startMessage();
+    notify(transport, 'chat.delta', { requestId: REQUEST_ID, textDelta: 'Partial text' });
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+    expect(screen.getByText('Partial text')).toBeVisible();
+    expect(document.querySelector('.chat-streaming')).toBeNull();
+    notify(transport, 'chat.delta', { requestId: REQUEST_ID, textDelta: ' late' });
+    notify(transport, 'chat.completed', { requestId: REQUEST_ID, message: { parts: [] }, cost: {} });
+    expect(screen.getByText('Partial text')).toBeVisible();
+  });
+
+  it('shows thinking immediately while send is pending and can stop before acknowledgment', async () => {
+    const transport = await startMessage(true);
+    expect(screen.getByRole('status')).toHaveTextContent('Thinking…');
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+    expect(screen.queryByText('Thinking…')).not.toBeInTheDocument();
+    const call: unknown = JSON.parse(transport.sent.find((line) => line.includes('"method":"chat.send"')) ?? '{}');
+    if (typeof call !== 'object' || call === null || !('id' in call)) throw new Error('Missing send request');
+    act(() => {
+      transport.receive(
+        JSON.stringify({ jsonrpc: '2.0', id: call.id, result: { requestId: REQUEST_ID, userMessageId: 'user-1' } }),
+      );
+    });
+    await waitFor(() => {
+      expect(transport.sent.some((line) => line.includes('chat.cancel') && line.includes(REQUEST_ID))).toBe(true);
+    });
+    expect(screen.queryByText('Thinking…')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send' })).toBeVisible();
+  });
+
+  it('removes thinking and displays remediation when chat.send rejects', async () => {
+    const transport = await startMessage(true);
+    const call: unknown = JSON.parse(transport.sent.find((line) => line.includes('"method":"chat.send"')) ?? '{}');
+    if (typeof call !== 'object' || call === null || !('id' in call)) throw new Error('Missing send request');
+    act(() => {
+      transport.receive(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: call.id,
+          error: {
+            code: -32000,
+            message: 'unavailable',
+            data: { code: 'INTERNAL', message: 'Unavailable', retryable: true, remediation: ['Try another model.'] },
+          },
+        }),
+      );
+    });
+    expect(await screen.findByRole('alert')).toHaveTextContent('Try another model.');
+    expect(screen.queryByText('Thinking…')).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Message' })).toHaveValue('hello');
   });
 
   it('sets the locked model in router config', async () => {
@@ -150,3 +253,28 @@ describe('ChatPage', () => {
     });
   });
 });
+
+const REQUEST_ID = '00000000-0000-4000-8000-000000000003';
+const CONVERSATION_ID = '00000000-0000-4000-8000-000000000002';
+
+function notify(transport: FakeTransport, method: string, params: unknown): void {
+  act(() => {
+    transport.receive(JSON.stringify({ jsonrpc: '2.0', method, params }));
+  });
+}
+
+async function startMessage(delaySend = false): Promise<FakeTransport> {
+  const transport = renderChat(false, delaySend);
+  fireEvent.click(await screen.findByRole('button', { name: 'New chat' }));
+  const composer = await screen.findByRole('textbox', { name: 'Message' });
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'New conversation' })).toBeVisible();
+  });
+  fireEvent.change(composer, { target: { value: 'hello' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+  await screen.findByRole('button', { name: 'Stop' });
+  await waitFor(() => {
+    expect(transport.sent.some((line) => line.includes('"method":"chat.send"'))).toBe(true);
+  });
+  return transport;
+}

@@ -1,4 +1,5 @@
 import {
+  type AppError,
   type ChatMessage,
   type Conversation,
   type FallbackDecision,
@@ -10,7 +11,9 @@ import {
 } from '@itstudio/schemas';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { JSX } from 'react';
-import { useEffect, useMemo, useReducer, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { ErrorPanel } from '../../components/ErrorPanel';
+import { RpcCallError } from '../../rpc/rpc-client';
 import { useTranslation } from 'react-i18next';
 import { useRpcQuery } from '../../hooks/use-rpc-query';
 import { useNotification } from '../../hooks/use-notification';
@@ -43,6 +46,10 @@ function ProjectChatPage({ projectId, onNavigate = () => undefined }: ChatPagePr
   const [draft, setDraft] = useState('');
   const [modelSelection, setModelSelection] = useState<{ readonly value: ModelKey | undefined } | null>(null);
   const [activeRequest, setActiveRequest] = useState<LlmRequestId | null>(null);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<AppError | null>(null);
+  const [stopBeforeAck, setStopBeforeAck] = useState(false);
+  const stopBeforeAckRef = useRef({ requested: false });
   const [fallback, setFallback] = useState<FallbackDecisionRequest | null>(null);
   const conversationsQuery = useQuery<readonly Conversation[]>({
     queryKey: ['chat.listConversations', { projectId }],
@@ -138,13 +145,18 @@ function ProjectChatPage({ projectId, onNavigate = () => undefined }: ChatPagePr
   }
 
   async function send(): Promise<void> {
-    if (conversationId === null || projectId === null || draft.trim().length === 0 || activeRequest !== null) return;
+    if (conversationId === null || projectId === null || draft.trim().length === 0 || activeRequest !== null || sending)
+      return;
     if (
       !conversations.some((conversation) => conversation.id === conversationId && conversation.projectId === projectId)
     )
       return;
     const text = draft.trim();
     setDraft('');
+    setSending(true);
+    setSendError(null);
+    setStopBeforeAck(false);
+    stopBeforeAckRef.current = { requested: false };
     try {
       const result = await rpc.call('chat.send', {
         conversationId,
@@ -160,10 +172,40 @@ function ProjectChatPage({ projectId, onNavigate = () => undefined }: ChatPagePr
       };
       dispatch({ type: 'optimistic', message: userMessage });
       dispatch({ type: 'stream', requestId: result.requestId });
-      setActiveRequest(result.requestId);
-    } catch {
+      if (stopBeforeAckRef.current.requested) {
+        dispatch({ type: 'stopped', requestId: result.requestId });
+        void rpc.call('chat.cancel', { requestId: result.requestId }).catch(showSendError);
+      } else setActiveRequest(result.requestId);
+    } catch (cause: unknown) {
       setDraft(text);
+      showSendError(cause);
+    } finally {
+      setSending(false);
     }
+  }
+
+  function showSendError(cause: unknown): void {
+    setSendError(
+      cause instanceof RpcCallError
+        ? cause.appError
+        : {
+            code: 'INTERNAL',
+            message: t('chat.requestError'),
+            retryable: true,
+            remediation: [t('projects.tryAgain')],
+          },
+    );
+  }
+
+  function stop(): void {
+    if (activeRequest === null) {
+      stopBeforeAckRef.current.requested = true;
+      setStopBeforeAck(true);
+      return;
+    }
+    dispatch({ type: 'stopped', requestId: activeRequest });
+    setActiveRequest(null);
+    void rpc.call('chat.cancel', { requestId: activeRequest }).catch(showSendError);
   }
 
   async function decideFallback(decision: FallbackDecision): Promise<void> {
@@ -259,21 +301,21 @@ function ProjectChatPage({ projectId, onNavigate = () => undefined }: ChatPagePr
             fallbacks={state.fallbacks}
             images={imagesQuery.data ?? []}
             models={modelsQuery.data ?? []}
+            pending={sending && !stopBeforeAck}
           />
         )}
         {conversationId !== null ? (
           <Composer
-            busy={activeRequest !== null}
+            busy={activeRequest !== null || sending}
             onChange={setDraft}
             onSend={() => {
               void send();
             }}
-            onStop={() => {
-              if (activeRequest !== null) void rpc.call('chat.cancel', { requestId: activeRequest });
-            }}
+            onStop={stop}
             value={draft}
           />
         ) : null}
+        {sendError !== null ? <ErrorPanel error={sendError} /> : null}
       </div>
       {fallback !== null ? (
         <FallbackModal

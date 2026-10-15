@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { PIPELINE_STUDIO_ENABLED, PipelineStudioNavButton } from '../features/pipeline-studio';
 
 export type ShellRoute =
+  | 'projects'
   | 'pipeline-studio'
   | 'chat'
   | 'webchat'
@@ -41,6 +42,17 @@ export function MainNav({
     <nav aria-label={t('nav.main')} className="w-56 shrink-0 border-r border-border bg-surface p-4">
       <h1 className="mb-6 text-lg font-semibold">{t('app.name')}</h1>
       <div className="space-y-1">
+        <a
+          aria-current={route === 'projects' ? 'page' : undefined}
+          className="block rounded px-3 py-2 hover:bg-surface-alt focus-visible:outline-2 focus-visible:outline-focus-ring"
+          href="#projects"
+          onClick={(event) => {
+            event.preventDefault();
+            navigate('projects');
+          }}
+        >
+          {t('nav.projects')}
+        </a>
         {links.slice(0, 3).map(({ route: target, label }) => (
           <a
             aria-current={route === target ? 'page' : undefined}
