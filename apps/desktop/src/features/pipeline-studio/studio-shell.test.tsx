@@ -42,6 +42,8 @@ describe('PSTUDIO-02 shell integration', () => {
   it('Settings button enters #pipeline-studio with no MainNav, project tabs or status bar; Back returns', async () => {
     const view = setup();
     await screen.findByRole('tab', { name: 'Project One' }, { timeout: 10000 });
+    expect(screen.queryByRole('button', { name: 'Pipeline Studio' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('link', { name: 'Labs' }));
     fireEvent.click(screen.getByRole('button', { name: 'Pipeline Studio' }));
     expect(await screen.findByRole('region', { name: 'Pipeline Studio' }, { timeout: 10000 })).toBeInTheDocument();
     expect(window.location.hash).toBe('#pipeline-studio');
@@ -50,7 +52,7 @@ describe('PSTUDIO-02 shell integration', () => {
     expect(view.container.querySelector('footer')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '← Back' }));
     expect(await screen.findByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument();
-    expect(window.location.hash).toBe('#settings-api-keys');
+    expect(window.location.hash).toBe('#settings-labs');
   }, 15000);
   it('direct hash entry works and Escape returns to the default route', async () => {
     window.history.replaceState(null, '', '#pipeline-studio');
@@ -64,6 +66,7 @@ describe('PSTUDIO-02 shell integration', () => {
     window.history.replaceState(null, '', '#pipeline-studio');
     setup();
     expect(await screen.findByRole('heading', { name: 'API keys' })).toBeVisible();
+    fireEvent.click(screen.getByRole('link', { name: 'Labs' }));
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: 'Pipeline Studio' })).not.toBeInTheDocument();
     });
