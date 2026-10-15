@@ -1,6 +1,6 @@
 # M9 — Packaging and release test cases
 
-> Gate: `M9-QA` · Platform: Windows x64 · Decision: D33 single-user distribution. All cases below are planned; this document does not claim a build, install, or first-run result. Levels and exit rules follow `TESTING.md` §§1–8.
+> Gate: `M9-QA` · Platform: Windows x64 · Decision: D33 single-user distribution. All cases below are planned; this document does not claim a build, install, or first-run result. Levels and exit rules follow `../TESTING.md` §§1–8.
 
 ## Scope and evidence rules
 
@@ -32,7 +32,7 @@
 ## White-box targets
 
 - Native module loader: normal versus SEA resolution, each supported package, missing resource and startup fatal branch. Package resource verification: valid manifest, missing file, changed hash, and traversal path. Release path tests: present/absent sidecar and base debug config without staged outputs.
-- Version bump parser: major/minor/patch/explicit version, prerelease/malformed manifests, inconsistent versions, empty Unreleased, and no-write dry-run. Preserve TESTING.md §4 coverage targets; report measured coverage and mutation score. `QA-TOOL-01` in HANDOFF §5 records a Stryker/Vitest incompatibility, so a missing mutation result must be reported explicitly rather than silently treated as a pass.
+- Version bump parser: major/minor/patch/explicit version, prerelease/malformed manifests, inconsistent versions, empty Unreleased, and no-write dry-run. Preserve ../TESTING.md §4 coverage targets; report measured coverage and mutation score. `QA-TOOL-01` in HANDOFF §5 records a Stryker/Vitest incompatibility, so a missing mutation result must be reported explicitly rather than silently treated as a pass.
 - Every newly implemented automated case must put its `TC-M9-###` ID in its test name. For command-only automation, record command, exit code, timestamp, and artifact hash in the QA report.
 
 ## Traceability matrix
@@ -54,8 +54,8 @@
 ## Package gate and reporting sequence
 
 1. Confirm M8/MW changes are in the source tree and capture the revision. Run `npx prettier --write <changed QA/test files>`, then `npm run typecheck`, `npm run lint`, `npm test`, and `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml`.
-2. Run `npm run test:integration` and `npm run test:e2e` including prior milestone L4 regression; do not overlap E2E with install smoke. Record skipped cases and TESTING.md §7 impact. Run coverage/mutation gates and `npm run audit:prod`.
+2. Run `npm run test:integration` and `npm run test:e2e` including prior milestone L4 regression; do not overlap E2E with install smoke. Record skipped cases and ../TESTING.md §7 impact. Run coverage/mutation gates and `npm run audit:prod`.
 3. Run `npm run release:bump -- patch --dry-run`; verify pre/post hashes of its target manifests and `CHANGELOG.md` match. Do not make a real version bump merely for QA.
 4. Run `npm run build:sidecar`, `node --test scripts/build/qa/package.test.mjs`, `npm run smoke:sidecar`, then `npm run build:app`. Capture exact NSIS/MSI paths, byte sizes, SHA-256, build time, and final source revision. The successful M9-FIX2 build is prior evidence; these checks require final-source artifacts. If packaging fails, record the error and do not substitute a staged `output.msi` for a final bundle.
 5. Run `npm run smoke:install` against the final NSIS build and record all seven checks. It opens an app window and uses the real owner app-data directory; preserve that data and describe TC-M9-008 as installed Ready rather than fresh-profile evidence. Execute the MSI install and Ready check (TC-M9-010) using an isolated temporary per-user installation, preserving existing app data.
-6. Perform a 20-minute exploratory session. Write `docs/qa/M9-report.md` with verdict and evidence per TC, artifact provenance, coverage/mutation figures, defects, unresolved blockers, and sign-off. M9 remains open while any P1 case is pending or any TESTING.md §7 exit criterion is unmet.
+6. Perform a 20-minute exploratory session. Write `docs/qa/M9-report.md` with verdict and evidence per TC, artifact provenance, coverage/mutation figures, defects, unresolved blockers, and sign-off. M9 remains open while any P1 case is pending or any ../TESTING.md §7 exit criterion is unmet.

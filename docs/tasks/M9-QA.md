@@ -4,11 +4,11 @@ Milestone: M9 · Depends on: M9-01, M9-02, M9-05, M9-06, M9-FIX1, M9-FIX2, M9-FI
 
 ## Goal
 
-Verify that the Windows x64 package contains a working SEA sidecar and its runtime resources, that both NSIS and MSI meet the per-user installer requirement, and that the installed app starts without system Node.js or repository dependencies. Record reproducible evidence and sign off M9 only when the TESTING.md §7 gate passes.
+Verify that the Windows x64 package contains a working SEA sidecar and its runtime resources, that both NSIS and MSI meet the per-user installer requirement, and that the installed app starts without system Node.js or repository dependencies. Record reproducible evidence and sign off M9 only when the ../TESTING.md §7 gate passes.
 
 ## Read first
 
-- `AGENTS.md`, `CONTEXT.md` D33, `CONVENTIONS.md` §10, `ARCHITECTURE.md` §14.2, `TESTING.md` §§1–8, `ROADMAP.md` M9.
+- `AGENTS.md`, `../CONTEXT.md` D33, `../CONVENTIONS.md` §10, `../ARCHITECTURE.md` §14.2, `../TESTING.md` §§1–8, `../ROADMAP.md` M9.
 - `docs/qa/M9-test-cases.md`, `docs/HANDOFF.md` §4.4 and §5, `docs/RUNNING.md` §6.
 - `docs/tasks/M9-01.md`, `M9-02.md`, `M9-05.md`, `M9-06.md`, `M9-FIX1.md`, and `M9-FIX2.md`; the build, smoke, release, and existing test scripts they cite.
 
@@ -36,17 +36,17 @@ The existing `build:sidecar`, `smoke:sidecar`, `build:app`, and `smoke:install` 
 2. Build the final artifacts after all M8 and MW changes that affect the app have landed. Capture artifact paths, byte sizes, build time, and hashes so the smoke and manual checks are tied to the same build. Never use a stale installer as release evidence.
 3. Run the package command gate and full regression in the sequence listed in the test-case document. Run the NSIS install smoke without deleting or replacing the owner's `%APPDATA%\com.itstudio.app` data. Record that its installed Ready evidence uses the real app-data location and does not establish fresh-profile state.
 4. Verify MSI per-user configuration, final QA build output, and an isolated per-user installation that preserves existing app data. `M9-FIX2` has built a per-user MSI successfully after fixing WiX ICE38/ICE64 errors. Rebuild it with the final M9 source and keep installation and Ready verdicts pending until M9-QA executes them. Do not infer compliance from the older MSI that was built before the fix.
-5. Execute a 20-minute exploratory session and write `docs/qa/M9-report.md` with per-case verdicts, command output summaries, coverage/mutation results, defects, artifact provenance, and sign-off against TESTING.md §7.
+5. Execute a 20-minute exploratory session and write `docs/qa/M9-report.md` with per-case verdicts, command output summaries, coverage/mutation results, defects, artifact provenance, and sign-off against ../TESTING.md §7.
 6. Keep the release guide's known-limitations list aligned with the completed M8 image generation and MW Workflow milestones; do not change release policy or product behavior.
 7. After the gate, align `docs/HANDOFF.md` with the actual M9 result and remaining owner decision; remove the claim that M9-QA has not started.
 
 ## Acceptance criteria (verifiable)
 
 - [ ] Automated cases in `docs/qa/M9-test-cases.md` have executable checks and case-ID test names; manual cases have dated evidence and explicit pass/fail/pending status.
-- [ ] `npx prettier --write <changed files>` runs before `npm run typecheck`, `npm run lint`, and `npm test`; all three pass. `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml`, `npm run test:integration`, and `npm run test:e2e` pass, along with prior milestone L4 regression required by TESTING.md §8.
+- [ ] `npx prettier --write <changed files>` runs before `npm run typecheck`, `npm run lint`, and `npm test`; all three pass. `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml`, `npm run test:integration`, and `npm run test:e2e` pass, along with prior milestone L4 regression required by ../TESTING.md §8.
 - [ ] `npm run build:sidecar`, `npm run smoke:sidecar`, `npm run build:app`, `npm run smoke:install`, `npm run release:bump -- patch --dry-run`, and `npm run audit:prod` pass on the final source tree. The dry-run leaves manifests and `CHANGELOG.md` unchanged.
 - [ ] Both final installers are per-user; the MSI has a verified final bundle and isolated installation. The installed app reaches Ready with its bundled sidecar, with no claim about fresh-profile state.
-- [ ] TESTING.md §7 exit criteria hold: 100% P1 pass, at least 95% P2 pass, no open S1/S2 defects, coverage gates met, complete traceability, and a committed QA report. Otherwise leave M9 open and record the exact blocker.
+- [ ] ../TESTING.md §7 exit criteria hold: 100% P1 pass, at least 95% P2 pass, no open S1/S2 defects, coverage gates met, complete traceability, and a committed QA report. Otherwise leave M9 open and record the exact blocker.
 - [ ] `docs/HANDOFF.md` reflects the executed M9-QA status and the owner's required go-ahead before v2.
 
 ## Out of scope
@@ -74,7 +74,7 @@ Append `## Result` per AGENTS.md §3 with case verdicts, artifact provenance, ve
 - Tried: Completed one full final-source build attempt (16:06:18–16:14:05 UTC+07:00). No final installer pair or hashes are accepted from this failed attempt. Do not use stale pre-fix artifacts as final evidence.
 - Passed since the earlier automated-test implementation result: typecheck, lint, 933 Vitest + 15 Node tests (one intentional skip), Cargo formatting and 16 Rust tests, 114 integration tests, full L4 E2E (14 specs/45 tests), overall statement coverage 85.55%, domain branch coverage 97.01%, package tests 3/3, and three warm sidecar smoke runs (452/427/528 ms). `TC-M9-015` passes in focused component and GUI checks.
 - Resolution: `npm run build:app` succeeded on `ade1580ff20cb48786688aed1a884e7901b20ca5`; WebView2 bootstrapper download, NSIS, and MSI bundling completed. Final artifact sizes and hashes, install smokes, and logs are recorded in `docs/qa/M9-report.md`.
-- Remaining: Complete the main-branch `npm run test:all` gate and any remaining TESTING.md §7 checks before M9 sign-off.
+- Remaining: Complete the main-branch `npm run test:all` gate and any remaining ../TESTING.md §7 checks before M9 sign-off.
 
 ## Result — final installer verification (2026-10-14)
 
@@ -88,7 +88,7 @@ Append `## Result` per AGENTS.md §3 with case verdicts, artifact provenance, ve
 - Dependencies added (with reason): None.
 - Decisions taken within scope: Classified MSI scope from `MsiEnumProductsExW` (`MSIINSTALLCONTEXT_USERUNMANAGED`, value 2) rather than from the HKLM ARP uninstall key alone.
 - Verification: `npx prettier --write docs/tasks/M9-QA.md docs/qa/M9-report.md`, `npm run typecheck`, and `npm run lint` passed. `npm run test:all` exited 0 on this QA branch: 933 Vitest passed and 1 skipped, 15 Node tests passed, 114 integration tests passed, and 14 E2E specs / 45 tests passed. Log: `.npm-cache/m9-test-all-20261014.log`.
-- Open issues / follow-ups: M9-QA remains in progress until the Architect lands the task branches, reruns `npm run test:all` on main, and verifies all TESTING.md §7 exit criteria. No installer defect/fix task is indicated by the HKLM ARP entry; no installer implementation was changed in this QA task.
+- Open issues / follow-ups: M9-QA remains in progress until the Architect lands the task branches, reruns `npm run test:all` on main, and verifies all ../TESTING.md §7 exit criteria. No installer defect/fix task is indicated by the HKLM ARP entry; no installer implementation was changed in this QA task.
 
 ## Result (main regression continuation — 2026-10-14)
 
@@ -97,4 +97,4 @@ Append `## Result` per AGENTS.md §3 with case verdicts, artifact provenance, ve
 - Dependencies added (with reason): None.
 - Decisions taken within scope: Retained an in-progress M9 verdict until the QA task branch and report are reviewed and integrated.
 - Verification: On `main`, `npm run typecheck` passed; `npm run lint` passed; `npm run test:all` exited 0 with 932 Vitest tests passed and 1 skipped, 12 Node tests passed, 114 integration tests passed, and 14 E2E specs / 45 cases passed. The E2E suite used the rebuilt debug app from `npm run tauri -w @itstudio/desktop -- build --debug --no-bundle`.
-- Open issues / follow-ups: Architect review/integration is still required before the M9 QA report can be committed or M9 can be signed off. Review the branch comparison before landing: `task/M9-QA` removes `diagram.png` relative to main, while main has an existing user modification to that file. Preserve that user file during integration. No commit, merge, or worktree removal was performed.
+- Open issues / follow-ups: Architect review/integration is still required before the M9 QA report can be committed or M9 can be signed off. Review the branch comparison before landing: `task/M9-QA` removes `../diagram.png` relative to main, while main has an existing user modification to that file. Preserve that user file during integration. No commit, merge, or worktree removal was performed.

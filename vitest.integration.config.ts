@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
-// L3 integration suite (TESTING.md §1): spawns the real sidecar process; run with `npm run test:integration`.
+// L3 integration suite (docs/TESTING.md §1): spawns the real sidecar process; run with `npm run test:integration`.
 export default defineConfig({
   resolve: {
     alias: { '@itstudio/schemas': fileURLToPath(new URL('./src/types/schemas.ts', import.meta.url)) },

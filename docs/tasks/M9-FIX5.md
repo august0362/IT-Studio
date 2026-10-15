@@ -1,6 +1,6 @@
 # M9-FIX5 — Ignore Stryker's generated sandbox in source gates
 
-Milestone: M9 · Depends on: M9-QA mutation run · Roles: Architect, Implementer, QA/Reviewer (ROLES.md §§1.1–1.3)
+Milestone: M9 · Depends on: M9-QA mutation run · Roles: Architect, Implementer, QA/Reviewer (../ROLES.md §§1.1–1.3)
 
 ## Goal
 
@@ -8,7 +8,7 @@ Keep generated `.stryker-tmp/` sandboxes out of Git status, ESLint, Prettier, an
 
 ## Read first
 
-- `AGENTS.md`, `CONTEXT.md`, `CONVENTIONS.md` §10, `TESTING.md` §4, `docs/tasks/M9-QA.md`.
+- `AGENTS.md`, `../CONTEXT.md`, `../CONVENTIONS.md` §10, `../TESTING.md` §4, `docs/tasks/M9-QA.md`.
 - `.gitignore`, `.prettierignore`, `eslint.config.js`, and `scripts/scan-secrets.mjs`.
 
 ## Scope — files you may create/modify
@@ -45,7 +45,7 @@ No package manifest, lockfile, product file, or generated sandbox contents are i
 
 - Architect: writes this work order with the observed failure.
 - Implementer: edits only the three ignore files in a dedicated `M9-FIX5` worktree; scope is disjoint from M9-QA's tests/report.
-- QA/Reviewer: checks the exact ignores against CONVENTIONS.md §10 and verifies the full source gates in M9-QA.
+- QA/Reviewer: checks the exact ignores against ../CONVENTIONS.md §10 and verifies the full source gates in M9-QA.
 
 ## Result
 

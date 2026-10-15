@@ -6,7 +6,7 @@ Milestone: M1 · Depends on: M1-01…M1-07 · Role: Implementer (ROLES §1.3) ·
 Build the reusable L3 (sidecar integration) and L4 (Tauri E2E) test harnesses and automate every M1 test case marked `integration` / `e2e` in `docs/qa/M1-test-cases.md`.
 
 ## Read first
-- `AGENTS.md`, `TESTING.md` (all), `docs/qa/M1-test-cases.md` (your work list), `ARCHITECTURE.md` §2–§3, existing `apps/sidecar/src/container.ts`, `apps/desktop/src-tauri/src/sidecar/**`, `apps/desktop/src/rpc/**`
+- `AGENTS.md`, `../TESTING.md` (all), `docs/qa/M1-test-cases.md` (your work list), `../ARCHITECTURE.md` §2–§3, existing `apps/sidecar/src/container.ts`, `apps/desktop/src-tauri/src/sidecar/**`, `apps/desktop/src/rpc/**`
 
 ## Scope — files you may create/modify
 - `apps/sidecar/test/integration/**` (new), `apps/sidecar/src/container.ts` + `apps/sidecar/src/main.ts` (only to add the `ITSTUDIO_E2E` / `ITSTUDIO_E2E_CRASH_ON_START` switches)

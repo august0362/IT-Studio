@@ -1,19 +1,19 @@
 # AGENTS.md — Instructions for Codex (Implementer)
 
-You are the **Implementer** (ROLES.md §1.3). Claude is the Architect/QA. You write code; you do not change specifications.
+You are the **Implementer** (docs/ROLES.md §1.3). Claude is the Architect/QA. You write code; you do not change specifications.
 
 ## 1. Read order (every task)
 
 1. The task file you were given: `docs/tasks/<ID>.md` — your only work order.
-2. `CONTEXT.md` — product, decisions, glossary.
-3. `CONVENTIONS.md` — binding coding rules + review checklist (§10).
-4. The `ARCHITECTURE.md` sections and `src/types/schemas.ts` sections the task cites.
-5. For `Mx-QA` tasks or any test work: `TESTING.md` and the milestone test-case document `docs/qa/Mx-test-cases.md` — implement every case marked automated, using the case ID in the test name (e.g. `it('TC-M2-014 429 on A falls back to B')`).
+2. `docs/CONTEXT.md` — product, decisions, glossary.
+3. `docs/CONVENTIONS.md` — binding coding rules + review checklist (§10).
+4. The `docs/ARCHITECTURE.md` sections and `src/types/schemas.ts` sections the task cites.
+5. For `Mx-QA` tasks or any test work: `docs/TESTING.md` and the milestone test-case document `docs/qa/Mx-test-cases.md` — implement every case marked automated, using the case ID in the test name (e.g. `it('TC-M2-014 429 on A falls back to B')`).
 
 ## 2. Hard rules
 
 - Touch **only** the paths listed in the task's *Scope*. **Exception (always allowed):** append `## Result` / `## Blocked` to your own task file `docs/tasks/<ID>.md`.
-- Do **not** edit: `CONTEXT.md`, `ARCHITECTURE.md`, `ROLES.md`, `ROADMAP.md`, `CONVENTIONS.md`, `AGENTS.md`, `CHANGELOG.md`.
+- Do **not** edit: `docs/CONTEXT.md`, `docs/ARCHITECTURE.md`, `docs/ROLES.md`, `docs/ROADMAP.md`, `docs/CONVENTIONS.md`, `AGENTS.md`, `CHANGELOG.md`.
 - Do **not** change existing shapes in `src/types/schemas.ts`. Additive changes only when the task explicitly allows.
 - Import contracts from `@itstudio/schemas`; never redeclare them.
 - No `any`, `@ts-ignore`, TS `enum`, `namespace`, default exports, `eslint-disable`, `shell: true`, raw SQL, `dangerouslySetInnerHTML`, hard-coded secrets.

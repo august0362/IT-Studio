@@ -3,7 +3,7 @@
 Milestone: M6 · Role: Implementer (ROLES §1.3) · **Deps pre-installed** (`@stryker-mutator/core` + `vitest-runner` ~10.0)
 
 ## Read first
-- `AGENTS.md`, `TESTING.md`, **`docs/qa/M6-test-cases.md`** (your work order), existing pipeline / worker tests, `apps/sidecar/test/integration/pipeline.test.ts`
+- `AGENTS.md`, `../TESTING.md`, **`docs/qa/M6-test-cases.md`** (your work order), existing pipeline / worker tests, `apps/sidecar/test/integration/pipeline.test.ts`
 
 ## Scope
 - Tests: `apps/sidecar/src/{domain,services}/**/*.test.ts` for pipeline, worker, command runner, path guard, template, role caller, journal; `apps/sidecar/src/container.test.ts` (temp dataDir only); `apps/sidecar/test/integration/pipeline*.test.ts` (+ new `pipeline-*.test.ts`), `apps/sidecar/test/fixtures/sample-project/**`, `e2e/specs/m6/**`. Other QA tasks edit M3 / RAG tests in parallel — do not touch them.

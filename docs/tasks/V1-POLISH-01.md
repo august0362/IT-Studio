@@ -8,7 +8,7 @@ Fix the S3 observations left open by the M9 exploratory session (`docs/qa/M9-rep
 
 ## Read first
 
-`AGENTS.md`, `CONTEXT.md` D9, D32, `docs/qa/M9-report.md` (M9-OBS-02…06), `apps/desktop/src/features/{cost,workflow,settings/pricing}/**`, `apps/sidecar/src/services/pricing-service.ts`, `scripts/build/{smoke-sidecar,make-icon,build-app}.mjs`.
+`AGENTS.md`, `../CONTEXT.md` D9, D32, `docs/qa/M9-report.md` (M9-OBS-02…06), `apps/desktop/src/features/{cost,workflow,settings/pricing}/**`, `apps/sidecar/src/services/pricing-service.ts`, `scripts/build/{smoke-sidecar,make-icon,build-app}.mjs`.
 
 ## Scope — files you may create/modify
 

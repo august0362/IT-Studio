@@ -8,7 +8,7 @@ CONTEXT D35: an optional, **self-contained** page that shows a project's pipelin
 
 ## Read first
 
-`AGENTS.md`, `CONVENTIONS.md`, `CONTEXT.md` D35, `src/types/schemas.ts` (`PipelineRun`, `PipelineEvent`, `ClarificationQuestion`, `pipeline.*` RPC/notifications), `apps/desktop/src/features/code/{CodePage,pipeline-store,ClarificationForm,StageTimeline,DiffViewer,SpecView,ReviewView,CommandOutput,FailureReportPanel}.tsx`, `apps/desktop/src/shell/{AppShell,MainNav}.tsx`, `apps/desktop/src/features/workflow/{WorkflowGraph,ActivityEdge}.tsx` (reference for `@xyflow/react` only).
+`AGENTS.md`, `../CONVENTIONS.md`, `../CONTEXT.md` D35, `src/types/schemas.ts` (`PipelineRun`, `PipelineEvent`, `ClarificationQuestion`, `pipeline.*` RPC/notifications), `apps/desktop/src/features/code/{CodePage,pipeline-store,ClarificationForm,StageTimeline,DiffViewer,SpecView,ReviewView,CommandOutput,FailureReportPanel}.tsx`, `apps/desktop/src/shell/{AppShell,MainNav}.tsx`, `apps/desktop/src/features/workflow/{WorkflowGraph,ActivityEdge}.tsx` (reference for `@xyflow/react` only).
 
 ## Scope — files you may create/modify
 

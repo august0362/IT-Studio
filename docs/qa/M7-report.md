@@ -26,7 +26,7 @@
 - The installed extension only activates in folders containing `.itstudio/session.json`; other projects are unaffected.
 - A temp VS Code window (`itstudio-m7-052-project-*`) was left open for the user to close.
 
-## Exit criteria (TESTING.md §7)
+## Exit criteria (../TESTING.md §7)
 
 - [x] 100 % P1 pass · [x] ≥ 95 % P2 pass · [x] no open S1/S2 · [x] coverage gates · [x] traceability (spec §3) · [x] report committed
 

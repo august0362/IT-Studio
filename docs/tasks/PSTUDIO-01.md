@@ -8,7 +8,7 @@ CONTEXT D35: before writing the spec, the PM may ask the user up to 5 clarificat
 
 ## Read first
 
-`AGENTS.md`, `CONTEXT.md` D5, D11, D35, `src/types/schemas.ts` §pipeline (`PipelineStage`, `PipelineRun`, `PipelineEvent`, `PipelineSettings`, RPC map `pipeline.*`), `apps/sidecar/src/{domain/pipeline-machine.ts,services/pipeline-orchestrator.ts,prompts/pm.ts,domain/default-settings.ts}`, the sidecar settings load/validation path, `apps/desktop/src/features/code/**`, `apps/desktop/src/features/settings/pipeline/PipelineSettingsPage.tsx`.
+`AGENTS.md`, `../CONTEXT.md` D5, D11, D35, `src/types/schemas.ts` §pipeline (`PipelineStage`, `PipelineRun`, `PipelineEvent`, `PipelineSettings`, RPC map `pipeline.*`), `apps/sidecar/src/{domain/pipeline-machine.ts,services/pipeline-orchestrator.ts,prompts/pm.ts,domain/default-settings.ts}`, the sidecar settings load/validation path, `apps/desktop/src/features/code/**`, `apps/desktop/src/features/settings/pipeline/PipelineSettingsPage.tsx`.
 
 ## Scope — files you may create/modify
 

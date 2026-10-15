@@ -170,11 +170,11 @@ v2/v3 open questions are also listed with context in `docs/specs/v2-requirements
 ```
 IT Studio/
 ├─ AGENTS.md            # Codex entry point (read order + hard rules)
-├─ CONTEXT.md           # this file
-├─ ARCHITECTURE.md      # high-level + component specs
-├─ ROLES.md             # agent roles, prompts, I/O contracts
-├─ ROADMAP.md           # milestones + checkable tasks
-├─ CONVENTIONS.md       # coding standards, security, changelog rules
+├─ docs/CONTEXT.md           # this file
+├─ docs/ARCHITECTURE.md      # high-level + component specs
+├─ docs/ROLES.md             # agent roles, prompts, I/O contracts
+├─ docs/ROADMAP.md           # milestones + checkable tasks
+├─ docs/CONVENTIONS.md       # coding standards, security, changelog rules
 ├─ CHANGELOG.md
 ├─ docs/
 │  ├─ decisions/        # ADR-NNNN-*.md

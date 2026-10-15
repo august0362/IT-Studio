@@ -1,6 +1,6 @@
 # M1 — Test Case Specification (Sidecar core & IPC)
 
-> QA gate `M1-QA` · Author: QA (Claude) · Date: 2026-10-02 · Strategy: `TESTING.md`
+> QA gate `M1-QA` · Author: QA (Claude) · Date: 2026-10-02 · Strategy: `../TESTING.md`
 > Scope: M1-01…M1-07 — validators, sidecar RPC core, Rust supervisor, UI RpcClient, SQLite settings/projects, keychain secrets, status bar + API Keys page.
 > Levels: **L3** = real sidecar process over stdio (`ITSTUDIO_E2E=1`, temp data dir) · **L4** = real Tauri window via WebdriverIO + tauri-driver · **L2** = component test with fakes.
 

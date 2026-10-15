@@ -6,7 +6,7 @@ Milestone: M2 · Depends on: M2-01…M2-10, M3-02 (container changes land first)
 Automate every case in `docs/qa/M2-test-cases.md` marked L3, and close the white-box gaps listed there.
 
 ## Read first
-- `AGENTS.md`, `TESTING.md`, `docs/qa/M2-test-cases.md` (your work list, §4 hand-off), `apps/sidecar/test/integration/**`, the `ITSTUDIO_E2E` scripted provider in the sidecar composition root
+- `AGENTS.md`, `../TESTING.md`, `docs/qa/M2-test-cases.md` (your work list, §4 hand-off), `apps/sidecar/test/integration/**`, the `ITSTUDIO_E2E` scripted provider in the sidecar composition root
 
 ## Scope
 - `apps/sidecar/test/**`, the `ITSTUDIO_E2E` scripted-provider code (file(s) where it lives, plus the minimal `container.ts` change to load a per-test fixture via env var `ITSTUDIO_E2E_LLM_SCRIPT`), `apps/sidecar/src/services/llm-router.test.ts`, `apps/sidecar/src/services/circuit-breaker.test.ts`

@@ -57,7 +57,7 @@ Milestone: M9 · Follow-up to M9-02 · Role: Implementer
 
 - Architect: Keep the M9-02 per-user MSI and embedded WebView2 requirements. The work order covers the WiX template, its release overlay, the pre-bundle resource-component generator, their regression tests, Prettier configuration, and this task file; no package manifest or application contract is in scope.
 - Implementer: Fix the template's per-user components so WiX ICE38 accepts every file under the user profile with an HKCU registry KeyPath. Preserve the generated sidecar, resources, shortcuts, metadata, upgrade behavior, and WebView2 action. Extend the regression test to catch file KeyPaths under the per-user install tree. Do not edit package manifests or application contracts.
-- QA/Reviewer: Review against CONVENTIONS.md §10 and TESTING.md; run Prettier, typecheck, lint, tests, and the production MSI build. Check the final MSI database and isolated per-user installation in M9-QA.
+- QA/Reviewer: Review against ../CONVENTIONS.md §10 and ../TESTING.md; run Prettier, typecheck, lint, tests, and the production MSI build. Check the final MSI database and isolated per-user installation in M9-QA.
 - Evidence: On this machine the VBSCRIPT capability is already installed. A diagnostic MSI build reached WiX Light and failed with `LGHT0204 ICE38`: components `Path`, `itstudio_sidecar.exe`, and generated resource components install to a user-profile directory but use file KeyPaths. ICE91 warnings also appeared. The production build independently timed out downloading the Microsoft WebView2 bootstrapper before reaching Light; that network issue remains to be rechecked after the template fix.
 
 ## Result (per-user WiX validation fix, 2026-10-11)

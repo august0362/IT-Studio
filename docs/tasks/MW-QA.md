@@ -3,7 +3,7 @@
 Milestone: MW (D32) · Depends on: MW-01, MW-02, MW-04, M8-QA · Role: QA / Implementer · **Deps pre-installed**
 
 ## Read first
-`AGENTS.md`, `CONTEXT.md` D32, `CONVENTIONS.md`, `TESTING.md`, `ARCHITECTURE.md` §13.1, `docs/HANDOFF.md` §4, and `docs/qa/MW-test-cases.md`.
+`AGENTS.md`, `../CONTEXT.md` D32, `../CONVENTIONS.md`, `../TESTING.md`, `../ARCHITECTURE.md` §13.1, `docs/HANDOFF.md` §4, and `docs/qa/MW-test-cases.md`.
 
 ## Scope
 - `docs/qa/MW-test-cases.md`

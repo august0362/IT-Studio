@@ -17,7 +17,7 @@
 |---|---|---|---|
 | — | — | **No product defects found in M2.** Three integration failures were test defects: TC-M2-003 (exact-equality on partial object), TC-M2-004 (substring search instead of structured `circuit` event check), TC-M2-011 (scenario ignored ARCH §5.2 retry-before-fallback for 503 and reused the same reply text for both models). | Fixed in M2-QA (Codex round 1 + QA) |
 
-## Exit criteria (TESTING.md §7)
+## Exit criteria (../TESTING.md §7)
 
 - [x] 100 % P1 pass · [x] ≥ 95 % P2 pass · [x] no open S1/S2 · [x] coverage gates · [x] traceability (test-case spec §3) · [x] report committed
 

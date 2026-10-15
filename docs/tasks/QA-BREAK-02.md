@@ -8,7 +8,7 @@ Try to break state consistency with races, interleavings, process kills and data
 
 ## Read first
 
-`AGENTS.md`, `CONTEXT.md` D4, D7, D10, D11, D13, D21, D32, `ARCHITECTURE.md` (router, ledger/budget, pipeline + journal, RAG ingest, workflow map, settings), `src/types/schemas.ts`, `apps/sidecar/test/integration/harness.ts` (read-only) and the existing integration tests (`chat.test.ts`, `budget.test.ts`, `pipeline.test.ts`, `rag-ingest.test.ts`, `settings-projects.test.ts`, `workflow.test.ts`, `startup.test.ts`), `apps/sidecar/src/services/write-transaction.ts` (`ITSTUDIO_E2E_CRASH_AT`).
+`AGENTS.md`, `../CONTEXT.md` D4, D7, D10, D11, D13, D21, D32, `../ARCHITECTURE.md` (router, ledger/budget, pipeline + journal, RAG ingest, workflow map, settings), `src/types/schemas.ts`, `apps/sidecar/test/integration/harness.ts` (read-only) and the existing integration tests (`chat.test.ts`, `budget.test.ts`, `pipeline.test.ts`, `rag-ingest.test.ts`, `settings-projects.test.ts`, `workflow.test.ts`, `startup.test.ts`), `apps/sidecar/src/services/write-transaction.ts` (`ITSTUDIO_E2E_CRASH_AT`).
 
 ## Scope — files you may create/modify
 
@@ -72,7 +72,7 @@ Append `## Result` per AGENTS.md §3, including the defect table.
 
 ## Read first
 
-`AGENTS.md`, `CONTEXT.md` D4, D7, D10, D11, D13, D21, D32, `ARCHITECTURE.md` (router, ledger/budget, pipeline + journal, RAG ingest, workflow map, settings), `src/types/schemas.ts`, `apps/sidecar/test/integration/harness.ts` (read-only) and the existing integration tests (`chat.test.ts`, `budget.test.ts`, `pipeline.test.ts`, `rag-ingest.test.ts`, `settings-projects.test.ts`, `workflow.test.ts`, `startup.test.ts`), `apps/sidecar/src/services/write-transaction.ts` (`ITSTUDIO_E2E_CRASH_AT`).
+`AGENTS.md`, `../CONTEXT.md` D4, D7, D10, D11, D13, D21, D32, `../ARCHITECTURE.md` (router, ledger/budget, pipeline + journal, RAG ingest, workflow map, settings), `src/types/schemas.ts`, `apps/sidecar/test/integration/harness.ts` (read-only) and the existing integration tests (`chat.test.ts`, `budget.test.ts`, `pipeline.test.ts`, `rag-ingest.test.ts`, `settings-projects.test.ts`, `workflow.test.ts`, `startup.test.ts`), `apps/sidecar/src/services/write-transaction.ts` (`ITSTUDIO_E2E_CRASH_AT`).
 
 ## Scope — files you may create/modify
 

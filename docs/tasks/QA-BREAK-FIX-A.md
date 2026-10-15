@@ -8,7 +8,7 @@ Turn every sidecar `it.fails('QA-BREAK-0x-Dnn …')` in `apps/sidecar/test/integ
 
 ## Read first
 
-`AGENTS.md`, `CONTEXT.md` D4, D7, D10, D11, D32, the defect tables in `docs/tasks/QA-BREAK-01.md` and `docs/tasks/QA-BREAK-02.md`, the failing tests themselves.
+`AGENTS.md`, `../CONTEXT.md` D4, D7, D10, D11, D32, the defect tables in `docs/tasks/QA-BREAK-01.md` and `docs/tasks/QA-BREAK-02.md`, the failing tests themselves.
 
 ## Scope — files you may create/modify
 
