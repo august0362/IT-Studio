@@ -233,7 +233,7 @@ describe('QA-BREAK-02 UI races', () => {
     });
   });
 
-  it.fails('QA-BREAK-02-D01 BRK-U01 deduplicates Add revenue while the first RPC is pending', async () => {
+  it('QA-BREAK-02-D01 BRK-U01 deduplicates Add revenue while the first RPC is pending', async () => {
     const pending: { line: string; resolve: (result: unknown) => void }[] = [];
     const testFixture = fixture({ hold: new Set(['revenue.add']), pending });
     render(testFixture.wrap(<RevenueForm projectId={projectId} rows={[]} onAdded={() => undefined} />));
@@ -344,7 +344,7 @@ describe('QA-BREAK-02 UI races', () => {
     expect(workflowView.container).toBeInTheDocument();
   });
 
-  it.fails('QA-BREAK-02-D02 BRK-U02 clears the selected conversation when switching from project A to B', async () => {
+  it('QA-BREAK-02-D02 BRK-U02 clears the selected conversation when switching from project A to B', async () => {
     const oldConversation = {
       id: conversationId,
       projectId,
@@ -358,50 +358,46 @@ describe('QA-BREAK-02 UI races', () => {
         method === 'chat.listConversations' && params.projectId === projectId ? [oldConversation] : undefined,
     });
     const view = render(testFixture.wrap(<ChatPage projectId={projectId} />));
-    await screen.findByRole('button', { name: 'Project A conversation' });
-    view.rerender(testFixture.wrap(<ChatPage projectId={otherProjectId} />));
+    fireEvent.click(await screen.findByRole('button', { name: 'Project A conversation' }));
     const message = await screen.findByRole('textbox', { name: 'Message' });
     fireEvent.change(message, { target: { value: 'must not target project A chat' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(screen.getByRole('heading', { name: 'Project A conversation' })).toBeInTheDocument();
+    view.rerender(testFixture.wrap(<ChatPage projectId={otherProjectId} />));
     await waitFor(() => {
-      expect(requestCount(testFixture.transport, 'chat.send')).toBeGreaterThan(0);
+      expect(screen.queryByText('Project A conversation')).not.toBeInTheDocument();
+      expect(screen.queryByRole('textbox', { name: 'Message' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Send' })).not.toBeInTheDocument();
     });
-    const send = testFixture.transport.sent
-      .map((line) => JSON.parse(line) as { method: string; params: Record<string, unknown> })
-      .find((request) => request.method === 'chat.send');
-    expect(send?.params.conversationId).not.toBe(conversationId);
+    expect(requestCount(testFixture.transport, 'chat.send')).toBe(0);
   });
 
-  it.fails(
-    'QA-BREAK-02-D03 BRK-U02 clears a selected project A pipeline run after switching to project B',
-    async () => {
-      const oldRun = {
-        id: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
-        projectId,
-        prompt: 'Project A secret run',
-        stage: 'failed',
-        roleAssignment: { pm: [], coder: [], reviewer: [] },
-        coderOutputs: [],
-        verdicts: [],
-        fixAttempts: 0,
-        cost: { microUsd: 0, vnd: 0, usdText: '$0.00', vndText: '0 ₫', fxAsOf: at },
-        startedAt: at,
-      };
-      const testFixture = fixture({
-        respond: (method, params) =>
-          method === 'pipeline.list' && params.projectId === projectId ? [oldRun] : undefined,
-      });
-      const view = render(testFixture.wrap(<CodePage projectId={projectId} />));
-      fireEvent.click(await screen.findByRole('button', { name: /Project A secret run/u }));
-      await waitFor(() => {
-        expect(requestCount(testFixture.transport, 'pipeline.get')).toBeGreaterThan(0);
-      });
-      view.rerender(testFixture.wrap(<CodePage projectId={otherProjectId} />));
-      await waitFor(() => expect(screen.queryByText('Project A secret run')).not.toBeInTheDocument());
-    },
-  );
+  it('QA-BREAK-02-D03 BRK-U02 clears a selected project A pipeline run after switching to project B', async () => {
+    const oldRun = {
+      id: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+      projectId,
+      prompt: 'Project A secret run',
+      stage: 'failed',
+      roleAssignment: { pm: [], coder: [], reviewer: [] },
+      coderOutputs: [],
+      verdicts: [],
+      fixAttempts: 0,
+      cost: { microUsd: 0, vnd: 0, usdText: '$0.00', vndText: '0 ₫', fxAsOf: at },
+      startedAt: at,
+    };
+    const testFixture = fixture({
+      respond: (method, params) =>
+        method === 'pipeline.list' && params.projectId === projectId ? [oldRun] : undefined,
+    });
+    const view = render(testFixture.wrap(<CodePage projectId={projectId} />));
+    fireEvent.click(await screen.findByRole('button', { name: /Project A secret run/u }));
+    await waitFor(() => {
+      expect(requestCount(testFixture.transport, 'pipeline.get')).toBeGreaterThan(0);
+    });
+    view.rerender(testFixture.wrap(<CodePage projectId={otherProjectId} />));
+    await waitFor(() => expect(screen.queryByText('Project A secret run')).not.toBeInTheDocument());
+  });
 
-  it.fails('QA-BREAK-02-D04 BRK-U02 ignores stale pipeline.get results that resolve after a newer result', async () => {
+  it('QA-BREAK-02-D04 BRK-U02 ignores stale pipeline.get results that resolve after a newer result', async () => {
     const pending: { line: string; resolve: (result: unknown) => void }[] = [];
     const testFixture = fixture({
       hold: new Set(['pipeline.get']),
@@ -445,7 +441,7 @@ describe('QA-BREAK-02 UI races', () => {
     };
     pending.at(-1)?.resolve(completed);
     pending[0]?.resolve({ ...completed, stage: 'writing' });
-    await waitFor(() => expect(screen.getByText(/completed/u)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/completed/iu)).toBeInTheDocument());
   });
 
   it('BRK-U03 keeps a form draft and the app mounted through Disconnected to Ready', async () => {

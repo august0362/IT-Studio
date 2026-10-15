@@ -1,5 +1,5 @@
 import { PipelineStage, type PipelineRun, type ClarificationQuestion } from '@itstudio/schemas';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { i18n } from '../../i18n';
@@ -90,6 +90,41 @@ function setup(stage: PipelineRun['stage'], withRun = false, clarifications?: re
 }
 
 describe('CodePage', () => {
+  it('QA-BREAK-02-D04 ignores an older notification snapshot after a newer completion snapshot', async () => {
+    const transport = setup(PipelineStage.CODING, true);
+    await screen.findByRole('button', { name: 'Cancel run' });
+    const send = transport.send.bind(transport);
+    const pending: number[] = [];
+    transport.send = (line) => {
+      const request = JSON.parse(line) as { readonly id: number; readonly method: string };
+      if (request.method !== 'pipeline.get') return send(line);
+      pending.push(request.id);
+      return Promise.resolve();
+    };
+    await act(async () => {
+      for (const stage of [PipelineStage.WRITING, PipelineStage.COMPLETED]) {
+        transport.receive(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'pipeline.event',
+            params: { type: 'stage', runId: 'run-1', stage },
+          }),
+        );
+      }
+      await Promise.resolve();
+    });
+    expect(pending).toHaveLength(2);
+    await act(async () => {
+      transport.receive(JSON.stringify({ jsonrpc: '2.0', id: pending[1], result: pipeline(PipelineStage.COMPLETED) }));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      transport.receive(JSON.stringify({ jsonrpc: '2.0', id: pending[0], result: pipeline(PipelineStage.WRITING) }));
+      await Promise.resolve();
+    });
+    expect(screen.getByText('Completed — done')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cancel run' })).not.toBeInTheDocument();
+  });
   it('PSTUDIO-01 renders waiting questions before Spec, submits answers, and refetches clarification events', async () => {
     const question: ClarificationQuestion = {
       id: 'storage',

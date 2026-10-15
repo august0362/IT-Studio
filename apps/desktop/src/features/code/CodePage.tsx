@@ -2,7 +2,7 @@ import { PipelineStage, type PipelineRun, type ProjectId, type RpcMethodMap } fr
 import { Editor } from '@monaco-editor/react';
 import { useQuery } from '@tanstack/react-query';
 import type { JSX } from 'react';
-import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Money } from '../../components/Money';
@@ -33,12 +33,17 @@ const busyStages: readonly string[] = [
 ];
 
 export function CodePage({ projectId }: { readonly projectId: ProjectId | null }): JSX.Element {
+  return <ProjectCodePage key={projectId} projectId={projectId} />;
+}
+
+function ProjectCodePage({ projectId }: { readonly projectId: ProjectId | null }): JSX.Element {
   const { t } = useTranslation();
   const rpc = useRpcClient();
   const [state, dispatch] = useReducer(pipelineReducer, initialPipelineState);
   const [starting, setStarting] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const loadSequences = useRef(new Map<PipelineRun['id'], number>());
   const history = useQuery({
     queryKey: ['pipeline.list', { projectId, limit: 20 }],
     queryFn: () => (projectId === null ? Promise.resolve([]) : rpc.call('pipeline.list', { projectId, limit: 20 })),
@@ -55,39 +60,33 @@ export function CodePage({ projectId }: { readonly projectId: ProjectId | null }
   const clearNavigationIntent = useNavigationIntent((value) => value.clearIntent);
   const active = selected !== undefined && !selected.finished && busyStages.includes(selected.run.stage);
 
+  const loadRun = useCallback(
+    async (runId: PipelineRun['id']): Promise<void> => {
+      const sequence = (loadSequences.current.get(runId) ?? 0) + 1;
+      loadSequences.current.set(runId, sequence);
+      const run = await rpc.call('pipeline.get', { runId });
+      if (loadSequences.current.get(runId) === sequence && run.projectId === projectId)
+        dispatch({ type: 'loaded', run });
+    },
+    [projectId, rpc],
+  );
   const selectRun = useCallback(
     (run: PipelineRun): void => {
-      void rpc
-        .call('pipeline.get', { runId: run.id })
-        .then((loaded) => {
-          dispatch({ type: 'loaded', run: loaded });
-        })
-        .catch((error: unknown) => {
-          setActionError(error instanceof Error ? error.message : t('code.actionError'));
-        });
+      void loadRun(run.id).catch((error: unknown) => {
+        setActionError(error instanceof Error ? error.message : t('code.actionError'));
+      });
     },
-    [rpc, t],
+    [loadRun, t],
   );
 
   useNotification('pipeline.event', (event) => {
     dispatch({ type: 'event', event });
-    void rpc
-      .call('pipeline.get', { runId: event.runId })
-      .then((run) => {
-        dispatch({ type: 'loaded', run });
-      })
-      .catch(() => undefined);
+    void loadRun(event.runId).catch(() => undefined);
     void history.refetch();
   });
   useNotification('pipeline.failureReport', (report) => {
     dispatch({ type: 'failure', report });
-    if (report.runId !== undefined)
-      void rpc
-        .call('pipeline.get', { runId: report.runId })
-        .then((run) => {
-          dispatch({ type: 'loaded', run });
-        })
-        .catch(() => undefined);
+    if (report.runId !== undefined) void loadRun(report.runId).catch(() => undefined);
   });
 
   useEffect(() => {
