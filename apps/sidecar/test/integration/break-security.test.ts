@@ -10,6 +10,7 @@ import { makeProject, rawRequest, startSidecar, type SidecarHarness, waitFor } f
 import { appSettingsSchema } from '../../src/validation/settings.js';
 import { providerIdSchema } from '../../src/validation/common.js';
 import { conversationSchema } from '../../src/validation/chat.js';
+import { rpcParamsSchemas, rpcResultSchemas } from '../../src/validation/ipc.js';
 import { workspaceRelativePathSchema } from '../../src/validation/brand.js';
 
 let sidecar: SidecarHarness | undefined;
@@ -156,21 +157,29 @@ describe('adversarial security boundaries', () => {
     await exerciseLinkEscape('dir', 'symlinked', (reason) => context.skip(reason));
   }, 30_000);
 
-  it.fails(
-    'QA-BREAK-01-D01 declared workspace RPCs have sidecar handlers',
-    async () => {
-      sidecar = await startSidecar();
-      const project = await makeProject(sidecar);
-      const read = await sidecar.call('workspace.readFile', {
-        projectId: project.id,
-        path: workspaceRelativePathSchema.parse('missing.txt'),
-      });
-      const run = await sidecar.call('workspace.runCommand', { projectId: project.id, kind: 'build' });
-      expect(read.error?.code).not.toBe(-32601);
-      expect(run.error?.code).not.toBe(-32601);
-    },
-    30_000,
-  );
+  it('QA-BREAK-01-D01 removed workspace RPCs are absent from the contract and return method not found', async () => {
+    sidecar = await startSidecar();
+    const project = await makeProject(sidecar);
+    const responseSchema = z.object({ error: z.object({ code: z.number() }).optional() });
+    const read = responseSchema.parse(
+      await rawRequest(sidecar, {
+        method: 'workspace.readFile',
+        params: { projectId: project.id, path: workspaceRelativePathSchema.parse('missing.txt') },
+      }),
+    );
+    const run = responseSchema.parse(
+      await rawRequest(sidecar, {
+        method: 'workspace.runCommand',
+        params: { projectId: project.id, kind: 'build' },
+      }),
+    );
+    expect(read.error?.code).toBe(-32601);
+    expect(Object.hasOwn(rpcParamsSchemas, 'workspace.readFile')).toBe(false);
+    expect(Object.hasOwn(rpcResultSchemas, 'workspace.readFile')).toBe(false);
+    expect(run.error?.code).toBe(-32601);
+    expect(Object.hasOwn(rpcParamsSchemas, 'workspace.runCommand')).toBe(false);
+    expect(Object.hasOwn(rpcResultSchemas, 'workspace.runCommand')).toBe(false);
+  }, 30_000);
 
   it('BRK-S03 passes shell metacharacters as arguments in pipeline validation', async () => {
     const taskSpec = {

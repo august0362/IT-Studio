@@ -30,7 +30,7 @@ const webChatBrowserSchema = z.enum([
   WebChatBrowser.CUSTOM,
 ]);
 export const webChatLayoutSchema = z
-  .object({
+  .strictObject({
     panes: z
       .array(z.custom<WebChatLinkId>((value) => typeof value === 'string' && value.length > 0))
       .min(1)
@@ -46,14 +46,14 @@ export const webChatLayoutSchema = z
       context.addIssue({ code: 'custom', path: ['sizes'], message: 'Pane sizes must total 1.' });
   }) satisfies z.ZodType<WebChatLayout>;
 export const webChatSettingsSchema = z
-  .object({
+  .strictObject({
     browser: webChatBrowserSchema,
     customBrowserPath: z.string().nullable(),
     layout: webChatLayoutSchema.exactOptional(),
     links: z
       .array(
         z
-          .object({
+          .strictObject({
             id: z.custom<WebChatLinkId>((value) => typeof value === 'string' && value.length > 0),
             name: z.string(),
             url: z.string(),
@@ -72,9 +72,11 @@ export const webChatSettingsSchema = z
         message: issue.message,
       });
   }) satisfies z.ZodType<WebChatSettings>;
-export const budgetSettingsSchema = z.object({ hardStop: z.boolean() }).readonly() satisfies z.ZodType<BudgetSettings>;
+export const budgetSettingsSchema = z
+  .strictObject({ hardStop: z.boolean() })
+  .readonly() satisfies z.ZodType<BudgetSettings>;
 export const pricingSettingsSchema = z
-  .object({
+  .strictObject({
     autoUpdate: z.boolean(),
     updateIntervalHours: z.number(),
     maxAutoChangePercent: z.number(),
@@ -82,10 +84,10 @@ export const pricingSettingsSchema = z
   })
   .readonly() satisfies z.ZodType<PricingSettings>;
 export const fxSettingsSchema = z
-  .object({ autoUpdate: z.boolean(), manualUsdToVnd: z.number().nullable() })
+  .strictObject({ autoUpdate: z.boolean(), manualUsdToVnd: z.number().min(10_000).max(100_000).nullable() })
   .readonly() satisfies z.ZodType<FxSettings>;
 export const vscodeSettingsSchema = z
-  .object({
+  .strictObject({
     autoLaunch: z.boolean(),
     codeExecutable: z.string().nullable(),
     showDiffBeforeValidate: z.boolean(),
@@ -93,7 +95,7 @@ export const vscodeSettingsSchema = z
   })
   .readonly() satisfies z.ZodType<VSCodeSettings>;
 export const pipelineSettingsSchema = z
-  .object({
+  .strictObject({
     roleAssignment: roleAssignmentSchema,
     validationCommands: z.array(commandSpecSchema).readonly(),
     maxFixAttempts: z.literal(1),
@@ -101,7 +103,7 @@ export const pipelineSettingsSchema = z
   })
   .readonly() satisfies z.ZodType<PipelineSettings>;
 export const ragSettingsSchema = z
-  .object({
+  .strictObject({
     embedding: embeddingConfigSchema,
     chunking: chunkingConfigSchema,
     defaultTopK: z.number(),
@@ -109,13 +111,13 @@ export const ragSettingsSchema = z
   })
   .readonly() satisfies z.ZodType<RagSettings>;
 export const imageSettingsSchema = z
-  .object({ enabled: z.boolean(), providerOrder: z.array(imageProviderIdSchema).readonly() })
+  .strictObject({ enabled: z.boolean(), providerOrder: z.array(imageProviderIdSchema).readonly() })
   .readonly() satisfies z.ZodType<ImageSettings>;
 export const uiSettingsSchema = z
-  .object({ themeId: themeIdSchema, mode: z.enum(['system', 'light', 'dark']), locale: z.enum(['en', 'vi']) })
+  .strictObject({ themeId: themeIdSchema, mode: z.enum(['system', 'light', 'dark']), locale: z.enum(['en', 'vi']) })
   .readonly() satisfies z.ZodType<UiSettings>;
 export const appSettingsSchema = z
-  .object({
+  .strictObject({
     activeProjectId: projectIdSchema.nullable(),
     router: routerConfigSchema,
     budget: budgetSettingsSchema,
@@ -130,10 +132,10 @@ export const appSettingsSchema = z
   })
   .readonly() satisfies z.ZodType<AppSettings>;
 export const settingsPatchSchema = z
-  .object({
+  .strictObject({
     activeProjectId: projectIdSchema.nullable().exactOptional(),
     router: z
-      .object({
+      .strictObject({
         ladder: z.array(ladderEntrySchema).readonly().exactOptional(),
         autoFallback: z.boolean().exactOptional(),
         lockedModelKey: modelKeySchema.nullable().exactOptional(),
@@ -142,9 +144,9 @@ export const settingsPatchSchema = z
       })
       .readonly()
       .exactOptional(),
-    budget: z.object({ hardStop: z.boolean().exactOptional() }).readonly().exactOptional(),
+    budget: z.strictObject({ hardStop: z.boolean().exactOptional() }).readonly().exactOptional(),
     pricing: z
-      .object({
+      .strictObject({
         autoUpdate: z.boolean().exactOptional(),
         updateIntervalHours: z.number().exactOptional(),
         maxAutoChangePercent: z.number().exactOptional(),
@@ -153,11 +155,14 @@ export const settingsPatchSchema = z
       .readonly()
       .exactOptional(),
     fx: z
-      .object({ autoUpdate: z.boolean().exactOptional(), manualUsdToVnd: z.number().nullable().exactOptional() })
+      .strictObject({
+        autoUpdate: z.boolean().exactOptional(),
+        manualUsdToVnd: z.number().min(10_000).max(100_000).nullable().exactOptional(),
+      })
       .readonly()
       .exactOptional(),
     vscode: z
-      .object({
+      .strictObject({
         autoLaunch: z.boolean().exactOptional(),
         codeExecutable: z.string().nullable().exactOptional(),
         showDiffBeforeValidate: z.boolean().exactOptional(),
@@ -166,7 +171,7 @@ export const settingsPatchSchema = z
       .readonly()
       .exactOptional(),
     pipeline: z
-      .object({
+      .strictObject({
         roleAssignment: roleAssignmentSchema.exactOptional(),
         validationCommands: z.array(commandSpecSchema).readonly().exactOptional(),
         maxFixAttempts: z.literal(1).exactOptional(),
@@ -175,7 +180,7 @@ export const settingsPatchSchema = z
       .readonly()
       .exactOptional(),
     rag: z
-      .object({
+      .strictObject({
         embedding: embeddingConfigSchema.exactOptional(),
         chunking: chunkingConfigSchema.exactOptional(),
         defaultTopK: z.number().exactOptional(),
@@ -184,14 +189,14 @@ export const settingsPatchSchema = z
       .readonly()
       .exactOptional(),
     image: z
-      .object({
+      .strictObject({
         enabled: z.boolean().exactOptional(),
         providerOrder: z.array(imageProviderIdSchema).readonly().exactOptional(),
       })
       .readonly()
       .exactOptional(),
     ui: z
-      .object({
+      .strictObject({
         themeId: themeIdSchema.exactOptional(),
         mode: z.enum(['system', 'light', 'dark']).exactOptional(),
         locale: z.enum(['en', 'vi']).exactOptional(),
@@ -199,14 +204,14 @@ export const settingsPatchSchema = z
       .readonly()
       .exactOptional(),
     webChat: z
-      .object({
+      .strictObject({
         browser: webChatBrowserSchema.exactOptional(),
         customBrowserPath: z.string().nullable().exactOptional(),
         layout: webChatLayoutSchema.exactOptional(),
         links: z
           .array(
             z
-              .object({
+              .strictObject({
                 id: z.custom<WebChatLinkId>((value) => typeof value === 'string' && value.length > 0),
                 name: z.string(),
                 url: z.string(),

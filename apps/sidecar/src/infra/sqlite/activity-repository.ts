@@ -12,26 +12,36 @@ export class ActivityRepository {
   }
 
   insert(event: ActivityEvent): Promise<void> {
-    this.db
-      .insert(activityEvents)
-      .values({
-        id: event.id,
-        projectId: event.projectId,
-        moduleId: event.moduleId,
-        occurredAt: event.ts,
-        eventJson: JSON.stringify(event),
-      })
-      .run();
-    this.db
-      .delete(activityEvents)
-      .where(
-        and(
-          event.projectId === null ? isNull(activityEvents.projectId) : eq(activityEvents.projectId, event.projectId),
-          lt(activityEvents.occurredAt, new Date(Date.parse(event.ts) - 7 * 24 * 60 * 60 * 1000).toISOString()),
-        ),
-      )
-      .run();
-    this.pruneExcess(event.projectId);
+    return this.insertBatch([event]);
+  }
+
+  insertBatch(events: readonly ActivityEvent[]): Promise<void> {
+    if (events.length === 0) return Promise.resolve();
+    this.db.transaction((tx) => {
+      tx.insert(activityEvents)
+        .values(
+          events.map((event) => ({
+            id: event.id,
+            projectId: event.projectId,
+            moduleId: event.moduleId,
+            occurredAt: event.ts,
+            eventJson: JSON.stringify(event),
+          })),
+        )
+        .run();
+      const scopes = new Map(events.map((event) => [event.projectId, event.ts]));
+      for (const [projectId, ts] of scopes) {
+        tx.delete(activityEvents)
+          .where(
+            and(
+              projectId === null ? isNull(activityEvents.projectId) : eq(activityEvents.projectId, projectId),
+              lt(activityEvents.occurredAt, new Date(Date.parse(ts) - 7 * 24 * 60 * 60 * 1000).toISOString()),
+            ),
+          )
+          .run();
+        this.pruneExcess(projectId);
+      }
+    });
     return Promise.resolve();
   }
 

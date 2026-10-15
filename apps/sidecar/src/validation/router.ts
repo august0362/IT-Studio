@@ -51,7 +51,7 @@ export const routerAttemptSchema = z
   })
   .readonly() satisfies z.ZodType<RouterAttempt>;
 export const ladderEntrySchema = z
-  .object({
+  .strictObject({
     modelKey: modelKeySchema,
     priority: z.number().int(),
     enabled: z.boolean(),
@@ -60,10 +60,10 @@ export const ladderEntrySchema = z
   })
   .readonly();
 export const circuitBreakerConfigSchema = z
-  .object({ failureThreshold: z.number().int(), cooldownMs: z.number().int() })
+  .strictObject({ failureThreshold: z.number().int(), cooldownMs: z.number().int() })
   .readonly();
 export const routerConfigSchema = z
-  .object({
+  .strictObject({
     ladder: z.array(ladderEntrySchema).readonly(),
     autoFallback: z.boolean(),
     lockedModelKey: modelKeySchema.nullable(),
@@ -93,7 +93,11 @@ export const routerEventSchema: z.ZodType<RouterEvent> = z.discriminatedUnion('t
     })
     .readonly(),
   z
-    .object({ type: z.literal('circuit'), modelKey: modelKeySchema, status: z.enum(['open', 'half_open', 'closed']) })
+    .object({
+      type: z.literal('circuit'),
+      modelKey: modelKeySchema,
+      status: z.enum(['open', 'half_open', 'closed']),
+    })
     .readonly(),
 ]);
 export const fallbackDecisionRequestSchema = z
@@ -116,9 +120,11 @@ export const fallbackDecisionRequestSchema = z
   })
   .readonly() satisfies z.ZodType<FallbackDecisionRequest>;
 export const fallbackDecisionSchema: z.ZodType<FallbackDecision> = z.discriminatedUnion('action', [
-  z.object({ requestId: llmRequestIdSchema, action: z.literal('use_model'), modelKey: modelKeySchema }).readonly(),
-  z.object({ requestId: llmRequestIdSchema, action: z.literal('retry_same') }).readonly(),
-  z.object({ requestId: llmRequestIdSchema, action: z.literal('abort') }).readonly(),
+  z
+    .strictObject({ requestId: llmRequestIdSchema, action: z.literal('use_model'), modelKey: modelKeySchema })
+    .readonly(),
+  z.strictObject({ requestId: llmRequestIdSchema, action: z.literal('retry_same') }).readonly(),
+  z.strictObject({ requestId: llmRequestIdSchema, action: z.literal('abort') }).readonly(),
 ]);
 export const llmRequestSchema = z
   .object({

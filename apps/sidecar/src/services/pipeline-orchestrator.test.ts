@@ -805,6 +805,37 @@ describe('PipelineOrchestrator', () => {
     await expectNoUserWrites(h.fs);
   });
 
+  it('QA-BREAK-02-D06 reserves same-tick admission and releases reservations after validation failure', async () => {
+    const entered = deferred();
+    const release = deferred();
+    const h = harness([], created, {
+      beforeRole: async () => {
+        entered.resolve();
+        await release.promise;
+      },
+    });
+    await h.rootDirectory;
+    const [first, second] = await Promise.all([
+      h.orchestrator.start({ projectId, prompt: 'first' }),
+      h.orchestrator.start({ projectId, prompt: 'duplicate' }),
+    ]);
+    expect(first.ok).toBe(true);
+    expect(second).toMatchObject({ ok: false, error: { code: ErrorCode.CONFLICT } });
+    await entered.promise;
+    expect(await h.orchestrator.list({ projectId, limit: 20 })).toHaveLength(1);
+    release.resolve();
+    if (first.ok) await waitForTerminal(h.orchestrator, first.value.id);
+    const missing = harness([], created, { projectMissing: true });
+    expect(await missing.orchestrator.start({ projectId, prompt: 'missing' })).toMatchObject({
+      ok: false,
+      error: { code: ErrorCode.VALIDATION },
+    });
+    expect(await missing.orchestrator.start({ projectId, prompt: 'retry' })).toMatchObject({
+      ok: false,
+      error: { code: ErrorCode.VALIDATION },
+    });
+  });
+
   it('TC-M6-050 queues same-project runs and lists them in start order', async () => {
     const entered = deferred();
     const release = deferred();

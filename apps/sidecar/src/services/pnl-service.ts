@@ -81,6 +81,7 @@ export class PnLService {
   }
 
   private async projectRows(projectId: ProjectId, from: IsoDateTime, to: IsoDateTime): Promise<PnLProjectRows> {
+    if (from === to) return { projectId, revenue: [], ledger: [] };
     const revenue = await this.deps.revenue.list({ projectId, from, to });
     const ledger: LedgerEntry[] = [];
     let cursor: string | undefined;
@@ -135,7 +136,7 @@ export class PnLService {
 }
 
 function validateRange(from: IsoDateTime, to: IsoDateTime): Result<never> | null {
-  return from >= to ? failure(ErrorCode.VALIDATION, 'The start of the P&L range must be before its end.') : null;
+  return from > to ? failure(ErrorCode.VALIDATION, 'The start of the P&L range must not be after its end.') : null;
 }
 
 function decodeCursor(cursor: string): { readonly occurredAt: string; readonly id: string } {

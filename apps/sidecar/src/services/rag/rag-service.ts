@@ -57,6 +57,8 @@ export class RagService {
   private readonly deps: RagServiceDependencies;
   private readonly projectQueues = new Map<ProjectId, Promise<void>>();
   private readonly jobs = new Map<string, IngestJob>();
+  private readonly generations = new Map<string, number>();
+  private readonly sourceWrites = new Map<string, Promise<void>>();
 
   constructor(dependencies: RagServiceDependencies) {
     this.deps = dependencies;
@@ -67,6 +69,7 @@ export class RagService {
     readonly paths: readonly string[];
     readonly tags?: readonly string[];
   }): Promise<Result<IngestJob>> {
+    const generations = new Map(this.generations);
     const project = await this.deps.projects.get(input.projectId);
     if (project === null) return error(ErrorCode.NOT_FOUND, 'Project was not found.');
     const absolutePaths: string[] = [];
@@ -89,7 +92,7 @@ export class RagService {
     this.jobs.set(job.id, job);
     const previous = this.projectQueues.get(input.projectId) ?? Promise.resolve();
     const next = previous.then(() =>
-      this.runJob(job, project.workspaceRoot, absolutePaths, input.tags ?? [], settings.value.rag),
+      this.runJob(job, project.workspaceRoot, absolutePaths, input.tags ?? [], settings.value.rag, generations),
     );
     this.projectQueues.set(
       input.projectId,
@@ -113,9 +116,13 @@ export class RagService {
   async deleteDocument(input: { readonly documentId: DocumentId }): Promise<Result<{ readonly deleted: boolean }>> {
     const document = await this.deps.documents.get(input.documentId);
     if (document === null) return { ok: true, value: { deleted: false } };
-    const removed = await this.deps.vectors.deleteByDocument(tableName(document.projectId), document.id);
-    if (!removed.ok) return removed;
-    return { ok: true, value: { deleted: await this.deps.documents.delete(input.documentId) } };
+    const key = this.sourceKey(document.projectId, document.sourcePath);
+    this.generations.set(key, (this.generations.get(key) ?? 0) + 1);
+    return this.withSourceWrite(key, async () => {
+      const removed = await this.deps.vectors.deleteByDocument(tableName(document.projectId), document.id);
+      if (!removed.ok) return removed;
+      return { ok: true, value: { deleted: await this.deps.documents.delete(input.documentId) } };
+    });
   }
 
   private async runJob(
@@ -124,6 +131,7 @@ export class RagService {
     selectedPaths: readonly string[],
     tags: readonly string[],
     rag: RagSettings,
+    generations: ReadonlyMap<string, number>,
   ): Promise<void> {
     const existing = await this.deps.documents.list(original.projectId);
     const storedDimensions = await this.deps.documents.getEmbeddingDimensions(original.projectId);
@@ -155,7 +163,7 @@ export class RagService {
     for (const path of discovered.value) {
       let result: Result<{ readonly skipped: boolean }>;
       try {
-        result = await this.indexFile(job, path, tags, rag, dimensionChanged);
+        result = await this.indexFile(job, path, tags, rag, dimensionChanged, generations);
       } catch {
         result = internalError();
       }
@@ -198,7 +206,12 @@ export class RagService {
     tags: readonly string[],
     rag: RagSettings,
     force: boolean,
+    generations: ReadonlyMap<string, number>,
   ): Promise<Result<{ readonly skipped: boolean }>> {
+    const key = this.sourceKey(job.projectId, path);
+    const cancelled = (): boolean => (generations.get(key) ?? 0) !== (this.generations.get(key) ?? 0);
+    const skipped = { ok: true, value: { skipped: true } } as const;
+    if (cancelled()) return skipped;
     const parsed = await parseDocument(path, this.deps.fileSystem);
     if (!parsed.ok) return parsed;
     const contentHash = sha256Schema.parse(createHash('sha256').update(parsed.value.text).digest('hex'));
@@ -224,26 +237,51 @@ export class RagService {
       tags,
     }));
     const table = tableName(job.projectId);
-    const deleted = await this.deps.vectors.deleteByDocument(table, documentId);
-    if (!deleted.ok) return deleted;
-    const stored = await this.deps.vectors.upsertChunks(table, rows);
-    if (!stored.ok) return stored;
-    await this.deps.documents.upsert(
-      {
-        id: documentId,
-        projectId: job.projectId,
-        title: parsed.value.title || basename(path, extname(path)),
-        sourcePath,
-        format: parsed.value.format,
-        contentHash,
-        chunkCount: drafts.length,
-        embeddingModel: modelKeySchema.parse(rag.embedding.modelKey),
-        ingestedAt: isoDateTimeSchema.parse(this.deps.clock.now().toISOString()),
-        tags,
-      },
-      rag.embedding.dimensions,
-    );
-    return { ok: true, value: { skipped: false } };
+    return this.withSourceWrite(key, async () => {
+      if (cancelled()) return skipped;
+      const deleted = await this.deps.vectors.deleteByDocument(table, documentId);
+      if (!deleted.ok) return deleted;
+      if (cancelled()) return skipped;
+      const stored = await this.deps.vectors.upsertChunks(table, rows);
+      if (!stored.ok) return stored;
+      if (cancelled()) return skipped;
+      await this.deps.documents.upsert(
+        {
+          id: documentId,
+          projectId: job.projectId,
+          title: parsed.value.title || basename(path, extname(path)),
+          sourcePath,
+          format: parsed.value.format,
+          contentHash,
+          chunkCount: drafts.length,
+          embeddingModel: modelKeySchema.parse(rag.embedding.modelKey),
+          ingestedAt: isoDateTimeSchema.parse(this.deps.clock.now().toISOString()),
+          tags,
+        },
+        rag.embedding.dimensions,
+      );
+      return { ok: true, value: { skipped: false } };
+    });
+  }
+
+  private sourceKey(projectId: ProjectId, path: string): string {
+    return JSON.stringify([projectId, path]);
+  }
+
+  private async withSourceWrite<T>(key: string, write: () => Promise<T>): Promise<T> {
+    const previous = this.sourceWrites.get(key) ?? Promise.resolve();
+    let release = (): void => undefined;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.sourceWrites.set(key, pending);
+    await previous;
+    try {
+      return await write();
+    } finally {
+      release();
+      if (this.sourceWrites.get(key) === pending) this.sourceWrites.delete(key);
+    }
   }
 
   private finish(job: IngestJob, status: IngestJob['status'], failure?: AppError): void {

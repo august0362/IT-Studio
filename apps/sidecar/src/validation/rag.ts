@@ -56,10 +56,10 @@ export const chunkSchema = z
   })
   .readonly() satisfies z.ZodType<Chunk>;
 export const chunkingConfigSchema = z
-  .object({ targetTokens: z.number(), overlapTokens: z.number(), respectHeadings: z.boolean() })
+  .strictObject({ targetTokens: z.number(), overlapTokens: z.number(), respectHeadings: z.boolean() })
   .readonly() satisfies z.ZodType<ChunkingConfig>;
 export const embeddingConfigSchema = z
-  .object({
+  .strictObject({
     modelKey: modelKeySchema,
     dimensions: z.number(),
     batchSize: z.number(),
@@ -88,7 +88,7 @@ export const ingestJobSchema = z
   })
   .readonly() satisfies z.ZodType<IngestJob>;
 export const retrievalQuerySchema = z
-  .object({
+  .strictObject({
     projectId: projectIdSchema,
     query: z.string().trim().min(1).max(2_000),
     topK: z.number().int().min(1).max(20),

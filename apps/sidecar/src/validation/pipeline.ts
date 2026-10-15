@@ -27,7 +27,7 @@ import { moneyDisplaySchema } from './cost.js';
 import { commandRunSchema, fileOperationSchema } from './worker.js';
 export const agentRoleSchema = z.enum(['pm', 'coder', 'reviewer']);
 export const roleAssignmentSchema = z
-  .object({
+  .strictObject({
     pm: z.array(modelKeySchema).readonly(),
     coder: z.array(modelKeySchema).readonly(),
     reviewer: z.array(modelKeySchema).readonly(),
@@ -154,7 +154,11 @@ export const reviewVerdictSchema = z
 export const pipelineEventSchema: z.ZodType<PipelineEvent> = z.discriminatedUnion('type', [
   z.object({ type: z.literal('stage'), runId: pipelineRunIdSchema, stage: pipelineStageSchema }).readonly(),
   z
-    .object({ type: z.literal('clarification'), runId: pipelineRunIdSchema, status: z.enum(['required', 'answered']) })
+    .object({
+      type: z.literal('clarification'),
+      runId: pipelineRunIdSchema,
+      status: z.enum(['required', 'answered']),
+    })
     .readonly(),
   z
     .object({

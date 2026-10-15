@@ -4,7 +4,7 @@ import type { AppError, AppSettings, Result, SettingsPatch } from '@itstudio/sch
 import type { Logger } from 'pino';
 import type { IClock } from '../infra/clock.js';
 import type { ISettingsRepository } from '../ports/settings-repository.js';
-import { appSettingsSchema } from '../validation/settings.js';
+import { appSettingsSchema, settingsPatchSchema } from '../validation/settings.js';
 import { reconcileWebChatLayout } from '../domain/web-chat.js';
 
 export interface SettingsServiceDependencies {
@@ -23,6 +23,7 @@ export class SettingsService {
   private readonly themeIds: ReadonlySet<string>;
   private readonly clock: IClock;
   private readonly logger: Logger;
+  private updates: Promise<void> = Promise.resolve();
 
   constructor(dependencies: SettingsServiceDependencies) {
     this.repository = dependencies.repository;
@@ -55,7 +56,17 @@ export class SettingsService {
     return { ok: true, value: parsed.data };
   }
 
-  async update(patch: SettingsPatch): Promise<Result<AppSettings>> {
+  update(patch: SettingsPatch): Promise<Result<AppSettings>> {
+    const pending = this.updates.then(() => this.applyPatch(patch));
+    this.updates = pending.then(
+      () => undefined,
+      () => undefined,
+    );
+    return pending;
+  }
+
+  private async applyPatch(patch: SettingsPatch): Promise<Result<AppSettings>> {
+    if (!settingsPatchSchema.safeParse(patch).success) return validationError('Settings patch failed validation');
     if (patch.ui?.themeId !== undefined && !this.themeIds.has(patch.ui.themeId)) {
       return validationError('Unknown theme id');
     }

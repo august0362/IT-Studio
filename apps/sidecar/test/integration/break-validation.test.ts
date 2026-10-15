@@ -53,51 +53,47 @@ describe('adversarial input validation', () => {
     }
   }, 45_000);
 
-  it.fails(
-    'QA-BREAK-01-D02 BRK-V02 rejects unsafe money and keeps P&L integer and finite',
-    async () => {
-      sidecar = await startSidecar();
-      const project = await makeProject(sidecar);
-      for (const amount of [
-        -1,
-        0,
-        Number.NaN,
-        Number.POSITIVE_INFINITY,
-        1e308,
-        1.1234567,
-        Number.MAX_SAFE_INTEGER + 2,
-        '123',
-      ]) {
-        const response = await rawRequest(sidecar, {
-          method: 'revenue.add',
-          params: { projectId: project.id, amount, currency: 'USD', description: 'boundary' },
-        });
-        const envelope = z.object({ error: z.unknown().optional(), result: z.unknown().optional() }).parse(response);
-        if (envelope.error === undefined) {
-          const entry = z.object({ amountMicroUsd: z.number().nonnegative().int() }).parse(envelope.result);
-          expect(Number.isSafeInteger(entry.amountMicroUsd)).toBe(true);
-        }
-        const budget = await rawRequest(sidecar, {
-          method: 'budget.setUsd',
-          params: { projectId: project.id, period: 'project_lifetime', limitUsd: String(amount), warnAt: [0.8] },
-        });
-        if (z.object({ error: z.unknown().optional() }).parse(budget).error === undefined)
-          expect(JSON.stringify(budget)).not.toMatch(/NaN|Infinity/u);
-      }
-      const pnl = await rawRequest(sidecar, {
-        method: 'pnl.get',
-        params: { projectId: project.id, from: date, to: date },
+  it('QA-BREAK-01-D02 BRK-V02 rejects unsafe money and keeps P&L integer and finite', async () => {
+    sidecar = await startSidecar();
+    const project = await makeProject(sidecar);
+    for (const amount of [
+      -1,
+      0,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      1e308,
+      1.1234567,
+      Number.MAX_SAFE_INTEGER + 2,
+      '123',
+    ]) {
+      const response = await rawRequest(sidecar, {
+        method: 'revenue.add',
+        params: { projectId: project.id, amount, currency: 'USD', description: 'boundary' },
       });
-      const pnlEnvelope = z.object({ error: z.unknown().optional(), result: z.unknown().optional() }).parse(pnl);
-      expect(pnlEnvelope.error, `pnl.get returned an error: ${JSON.stringify(pnlEnvelope.error)}`).toBeUndefined();
-      expect(JSON.stringify(pnl)).not.toMatch(/NaN|Infinity/u);
-      const revenue = z
-        .object({ revenue: z.object({ microUsd: z.number().int().nonnegative() }) })
-        .parse(pnlEnvelope.result);
-      expect(Number.isSafeInteger(revenue.revenue.microUsd)).toBe(true);
-    },
-    30_000,
-  );
+      const envelope = z.object({ error: z.unknown().optional(), result: z.unknown().optional() }).parse(response);
+      if (envelope.error === undefined) {
+        const entry = z.object({ amountMicroUsd: z.number().nonnegative().int() }).parse(envelope.result);
+        expect(Number.isSafeInteger(entry.amountMicroUsd)).toBe(true);
+      }
+      const budget = await rawRequest(sidecar, {
+        method: 'budget.setUsd',
+        params: { projectId: project.id, period: 'project_lifetime', limitUsd: String(amount), warnAt: [0.8] },
+      });
+      if (z.object({ error: z.unknown().optional() }).parse(budget).error === undefined)
+        expect(JSON.stringify(budget)).not.toMatch(/NaN|Infinity/u);
+    }
+    const pnl = await rawRequest(sidecar, {
+      method: 'pnl.get',
+      params: { projectId: project.id, from: date, to: date },
+    });
+    const pnlEnvelope = z.object({ error: z.unknown().optional(), result: z.unknown().optional() }).parse(pnl);
+    expect(pnlEnvelope.error, `pnl.get returned an error: ${JSON.stringify(pnlEnvelope.error)}`).toBeUndefined();
+    expect(JSON.stringify(pnl)).not.toMatch(/NaN|Infinity/u);
+    const revenue = z
+      .object({ revenue: z.object({ microUsd: z.number().int().nonnegative() }) })
+      .parse(pnlEnvelope.result);
+    expect(Number.isSafeInteger(revenue.revenue.microUsd)).toBe(true);
+  }, 30_000);
 
   it('BRK-V03 bounds VND revenue and FX overrides without overflow', async () => {
     sidecar = await startSidecar();

@@ -1,3 +1,4 @@
+import type { Logger } from 'pino';
 import {
   WorkflowModuleId,
   type ActivityEvent,
@@ -18,6 +19,9 @@ import type { ActivityRepository } from '../infra/sqlite/activity-repository.js'
 import type { EventBus } from '../rpc/event-bus.js';
 import type { SettingsService } from './settings-service.js';
 import type { WorkflowInternalEvent, WorkflowInternalEventBus } from './workflow-internal-events.js';
+
+type ActivityStorage = Pick<ActivityRepository, 'insert' | 'query' | 'since' | 'prune'> &
+  Partial<Pick<ActivityRepository, 'insertBatch'>>;
 
 type SourceName =
   | 'router.event'
@@ -40,6 +44,9 @@ interface RequestCorrelation {
 }
 const MAX_CORRELATIONS = 5000;
 const MAX_UNCORRELATED_EVENTS = 1000;
+const MAX_QUEUED_ACTIVITY = 2000;
+const PERSIST_BATCH_SIZE = 64;
+const PERSIST_INTERVAL_MS = 100;
 const PIPELINE_MODULES: ReadonlySet<ModuleId> = new Set([
   WorkflowModuleId.PIPELINE_PM,
   WorkflowModuleId.PIPELINE_CODER,
@@ -319,7 +326,7 @@ export function mapWorkflowInternalEvent(
 
 export class ActivityRecorder {
   private readonly events: EventBus<RpcNotificationMap>;
-  private readonly repository: Pick<ActivityRepository, 'insert' | 'query' | 'since' | 'prune'>;
+  private readonly repository: ActivityStorage;
   private readonly ids: IIdGenerator;
   private readonly clock: IClock;
   private readonly settings: Pick<SettingsService, 'get'>;
@@ -335,19 +342,25 @@ export class ActivityRecorder {
   private readonly unsubscribers: (() => void)[] = [];
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly recording = new Set<Promise<void>>();
+  private stopped = false;
+  private readonly writes: ActivityEvent[] = [];
+  private writeTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly logger: Pick<Logger, 'error'> | undefined;
   private pruneTimer: ReturnType<typeof setInterval> | undefined;
 
   constructor(input: {
     events: EventBus<RpcNotificationMap>;
-    repository: Pick<ActivityRepository, 'insert' | 'query' | 'since' | 'prune'>;
+    repository: ActivityStorage;
     ids: IIdGenerator;
     clock: IClock;
     settings: Pick<SettingsService, 'get'>;
     aggregateCost: (microUsdAmount: number) => MoneyDisplay;
     vscodeBridgeAvailable: boolean;
     internalEvents?: WorkflowInternalEventBus;
+    logger?: Pick<Logger, 'error'>;
   }) {
     this.events = input.events;
+    this.logger = input.logger;
     this.repository = input.repository;
     this.ids = input.ids;
     this.clock = input.clock;
@@ -394,6 +407,12 @@ export class ActivityRecorder {
   }
 
   stop(): void {
+    this.stopped = true;
+    if (this.writeTimer !== undefined) clearTimeout(this.writeTimer);
+    this.writeTimer = undefined;
+    void this.persistWrites(this.writes.length).catch((error: unknown) => {
+      this.logger?.error({ err: error }, 'Activity persistence failed');
+    });
     for (const unsubscribe of this.unsubscribers) unsubscribe();
     for (const timer of this.timers.values()) clearTimeout(timer);
     this.timers.clear();
@@ -511,12 +530,14 @@ export class ActivityRecorder {
             : source.name === 'vscode.diagnostics'
               ? source.payload.projectId
               : null;
-    const configured = await this.settings.get();
+    const knownProject = scope ?? requestCorrelation?.projectId ?? runProjectId;
+    const configured = knownProject === undefined ? await this.settings.get() : undefined;
+    if (this.stopped) return;
     const selectedProject =
       scope ??
       requestCorrelation?.projectId ??
       runProjectId ??
-      (configured.ok ? configured.value.activeProjectId : null);
+      (configured?.ok ? configured.value.activeProjectId : null);
     const refs = requestCorrelation === undefined ? {} : { conversationId: requestCorrelation.conversationId };
     const mapped = mapWorkflowEvent(source, selectedProject, refs);
     const event: ActivityEvent = { id, ts: now, ...mapped, summary: redactLogLine(mapped.summary).slice(0, 500) };
@@ -524,7 +545,7 @@ export class ActivityRecorder {
       succeededModel === undefined
         ? event
         : { ...event, summary: redactLogLine(`Router completed on ${succeededModel}`).slice(0, 500) };
-    await this.repository.insert(storedEvent);
+    this.queueWrite(storedEvent);
     const projectKey = selectedProject ?? '*';
     const ring = this.rings.get(projectKey) ?? [];
     ring.push(storedEvent);
@@ -532,7 +553,7 @@ export class ActivityRecorder {
     const key = projectKey;
     const pending = this.pending.get(key) ?? [];
     pending.push(storedEvent);
-    this.pending.set(key, pending);
+    this.pending.set(key, pending.slice(-500));
     this.updateFlight(selectedProject, storedEvent);
     if (!this.timers.has(key))
       this.timers.set(
@@ -579,10 +600,12 @@ export class ActivityRecorder {
   }
 
   private async recordInternal(source: WorkflowInternalEvent): Promise<void> {
-    const configured = await this.settings.get();
+    const configured =
+      source.type === 'command' && source.projectId === undefined ? await this.settings.get() : undefined;
+    if (this.stopped) return;
     const projectId =
       source.type === 'command'
-        ? (source.projectId ?? (configured.ok ? configured.value.activeProjectId : null))
+        ? (source.projectId ?? (configured?.ok ? configured.value.activeProjectId : null))
         : source.projectId;
     const mapped = mapWorkflowInternalEvent(source, this.aggregateCost);
     const id = activityEventIdSchema.parse(this.ids.uuid());
@@ -594,14 +617,14 @@ export class ActivityRecorder {
       projectId,
       summary: redactLogLine(mapped.summary).slice(0, 500),
     };
-    await this.repository.insert(event);
+    this.queueWrite(event);
     const key = projectId ?? '*';
     const ring = this.rings.get(key) ?? [];
     ring.push(event);
     this.rings.set(key, ring.slice(-500));
     const pending = this.pending.get(key) ?? [];
     pending.push(event);
-    this.pending.set(key, pending);
+    this.pending.set(key, pending.slice(-500));
     this.updateFlight(projectId, event);
     if (!this.timers.has(key))
       this.timers.set(
@@ -614,6 +637,34 @@ export class ActivityRecorder {
 
   private async flushPendingRecords(): Promise<void> {
     while (this.recording.size > 0) await Promise.allSettled([...this.recording]);
+    while (this.writes.length > 0) {
+      await this.persistWrites(PERSIST_BATCH_SIZE);
+      if (this.writes.length > 0) await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+  }
+
+  private queueWrite(event: ActivityEvent): void {
+    this.writes.push(event);
+    if (this.writes.length > MAX_QUEUED_ACTIVITY) this.writes.shift();
+    this.scheduleWrites();
+  }
+
+  private scheduleWrites(): void {
+    if (this.writeTimer !== undefined || this.writes.length === 0) return;
+    this.writeTimer = setTimeout(() => {
+      this.writeTimer = undefined;
+      void this.persistWrites(PERSIST_BATCH_SIZE).catch((error: unknown) => {
+        this.logger?.error({ err: error }, 'Activity persistence failed');
+      });
+      if (this.writes.length > 0) this.scheduleWrites();
+    }, PERSIST_INTERVAL_MS);
+  }
+
+  private async persistWrites(limit: number): Promise<void> {
+    const batch = this.writes.splice(0, limit);
+    if (batch.length === 0) return;
+    if (this.repository.insertBatch !== undefined) await this.repository.insertBatch(batch);
+    else for (const event of batch) await this.repository.insert(event);
   }
 
   private remember<T>(map: Map<string, T>, id: string, value: T): void {

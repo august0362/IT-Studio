@@ -1103,8 +1103,6 @@ export interface RpcMethodMap {
   };
 
   'workspace.openInVSCode': { params: { readonly projectId: ProjectId }; result: VSCodeStatus };
-  'workspace.readFile': { params: { readonly projectId: ProjectId; readonly path: WorkspaceRelativePath }; result: { readonly content: string; readonly hash: Sha256 } };
-  'workspace.runCommand': { params: { readonly projectId: ProjectId; readonly kind: CommandKind }; result: CommandRun };
 }
 export type RpcMethod = keyof RpcMethodMap;
 

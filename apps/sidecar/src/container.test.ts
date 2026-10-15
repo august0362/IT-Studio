@@ -1,9 +1,10 @@
 import { PassThrough } from 'node:stream';
 import { Writable } from 'node:stream';
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createLogger } from './infra/logger.js';
 import { createFakeClock } from './infra/clock.js';
 import { createContainer, scriptedLlmProvider } from './container.js';
@@ -14,6 +15,11 @@ import type { IHttpClient } from './ports/http-client.js';
 import type { ProviderRequest } from './ports/llm-provider.js';
 import type { SecretHistoryEntry } from '@itstudio/schemas';
 import type { ISecretHistoryRepository } from './infra/sqlite/secret-history-repository.js';
+import { PipelineRepository } from './infra/sqlite/pipeline-repository.js';
+import { NodeFileSystem } from './infra/node-file-system.js';
+import { WriteTransactionService } from './services/write-transaction.js';
+import { pipelineRunSchema } from './validation/pipeline.js';
+import { workspaceRelativePathSchema } from './validation/brand.js';
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -37,6 +43,97 @@ const testFxHttpClient: IHttpClient = {
 };
 
 describe('sidecar container', () => {
+  it.each([false, true])(
+    'QA-BREAK-02-D09 startup rolls back files and persists the interrupted run (transaction persisted=%s)',
+    async (persisted) => {
+      const dataDir = makeDataDir();
+      const root = makeDataDir();
+      const input = new PassThrough();
+      let started = false;
+      let exitCode: number | undefined;
+      const container = createContainer(
+        { ITSTUDIO_E2E: '1' },
+        {
+          dataDir,
+          input,
+          output: new PassThrough(),
+          exit: (code) => {
+            exitCode = code;
+          },
+          fxHttpClient: testFxHttpClient,
+          secretStore: new MemorySecretStore(),
+          logger: createLogger({ streams: [] }),
+        },
+      );
+      try {
+        const project = await container.projectService.create('Recovery', root);
+        if (!project.ok) throw new Error(project.error.message);
+        const settings = await container.settingsService.get();
+        if (!settings.ok) throw new Error(settings.error.message);
+        const writer = new WriteTransactionService({
+          fileSystem: new NodeFileSystem(),
+          ids: container.ids,
+          clock: container.clock,
+        });
+        const prepared = await writer.prepare(
+          root,
+          project.value.id,
+          [{ kind: 'create', path: workspaceRelativePathSchema.parse('created.txt'), content: 'new' }],
+          ['created.txt'],
+        );
+        if (!prepared.ok) throw new Error(prepared.error.message);
+        if (persisted) expect(await prepared.value.commit()).toMatchObject({ ok: true });
+        const run = pipelineRunSchema.parse({
+          id: container.ids.uuid(),
+          projectId: project.value.id,
+          prompt: 'Interrupted',
+          stage: 'writing',
+          roleAssignment: settings.value.pipeline.roleAssignment,
+          coderOutputs: [],
+          verdicts: [],
+          fixAttempts: 0,
+          startedAt: container.clock.now().toISOString(),
+          cost: { microUsd: 0, vnd: 0, usdText: '$0.00', vndText: '0 ₫', fxAsOf: container.clock.now().toISOString() },
+          ...(persisted ? { transactionId: prepared.value.transactionId } : {}),
+        });
+        const repository = new PipelineRepository(container.database.db);
+        await repository.save(run);
+        const reports: string[] = [];
+        container.events.subscribe('pipeline.failureReport', (report) => {
+          if (report.runId !== undefined) reports.push(report.runId);
+        });
+        const ready = new Promise<void>((resolveReady) => {
+          container.events.subscribe('system.ready', () => {
+            resolveReady();
+          });
+        });
+        container.start();
+        started = true;
+        await ready;
+        const recovered = await repository.get(run.id);
+        expect(recovered).toMatchObject({
+          stage: 'rolled_back',
+          failureReport: { runId: run.id, rolledBack: true },
+        });
+        expect(Number.isFinite(Date.parse(recovered?.finishedAt ?? ''))).toBe(true);
+        expect(reports).toContain(run.id);
+        expect(readdirSync(root)).not.toContain('created.txt');
+        expect(await container.pipelineOrchestrator.get(run.id)).toMatchObject({ stage: 'rolled_back' });
+      } finally {
+        if (started) {
+          input.end();
+          await vi.waitFor(
+            () => {
+              expect(exitCode).toBe(0);
+            },
+            { timeout: 5000 },
+          );
+        }
+        container.database.client.close();
+      }
+    },
+  );
+
   it('verifies saves deletes and reads masked history through the migrated production repository', async () => {
     const store = new MemorySecretStore();
     const clock = createFakeClock(new Date('2026-10-04T00:00:00.000Z'));
@@ -168,7 +265,13 @@ describe('sidecar container', () => {
 
     container.start();
     input.write('{"jsonrpc":"2.0","id":1,"method":"system.shutdown","params":{}}\n');
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await vi.waitFor(
+      () => {
+        expect(logOutput).toContain('"msg":"sidecar exiting"');
+        expect(exits).toEqual([0]);
+      },
+      { timeout: 5000, interval: 10 },
+    );
 
     const entries = logOutput
       .trim()
@@ -205,7 +308,15 @@ describe('sidecar container', () => {
     );
     fileContainer.start();
     fileInput.write('{"jsonrpc":"2.0","id":2,"method":"system.shutdown","params":{}}\n');
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await vi.waitFor(
+      () => {
+        const files = readdirSync(join(fileDataDir, 'logs'));
+        expect(files).toHaveLength(1);
+        const contents = readFileSync(join(fileDataDir, 'logs', files[0] ?? ''), 'utf8');
+        for (const message of lifecycle) expect(contents).toContain(`"msg":"${message}"`);
+      },
+      { timeout: 5000, interval: 10 },
+    );
     const logFiles = readdirSync(join(fileDataDir, 'logs'));
     expect(logFiles).toHaveLength(1);
     const fileContents = readFileSync(join(fileDataDir, 'logs', logFiles[0] ?? ''), 'utf8');
@@ -393,6 +504,7 @@ describe('sidecar container', () => {
   });
 });
 
-afterEach(() => {
-  for (const directory of tempDirectories.splice(0)) rmSync(directory, { recursive: true, force: true });
+afterEach(async () => {
+  for (const directory of tempDirectories.splice(0))
+    await rm(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
 });

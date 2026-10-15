@@ -50,7 +50,7 @@ export const costPurposeSchema = z.enum([
   'pricing_extraction',
 ]) satisfies z.ZodType<CostPurpose>;
 export const priceEntrySchema = z
-  .object({
+  .strictObject({
     modelKey: modelKeySchema,
     inputPerMTokMicroUsd: microUsdSchema,
     outputPerMTokMicroUsd: microUsdSchema,
@@ -196,7 +196,7 @@ export const revenueRowSchema = z
   .readonly() satisfies z.ZodType<RevenueRow>;
 export const budgetPeriodSchema = z.enum(['daily', 'monthly', 'project_lifetime']) satisfies z.ZodType<BudgetPeriod>;
 export const budgetSchema = z
-  .object({
+  .strictObject({
     projectId: projectIdSchema,
     period: budgetPeriodSchema,
     limitMicroUsd: microUsdSchema,
@@ -250,7 +250,7 @@ export const portfolioPnLSchema = z
   })
   .readonly() satisfies z.ZodType<PortfolioPnL>;
 export const ledgerQuerySchema = z
-  .object({
+  .strictObject({
     projectId: projectIdSchema,
     from: isoDateTimeSchema.exactOptional(),
     to: isoDateTimeSchema.exactOptional(),

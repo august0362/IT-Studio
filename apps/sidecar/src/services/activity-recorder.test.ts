@@ -49,6 +49,53 @@ const settingsFailure: Result<AppSettings> = {
 afterEach(() => vi.useRealTimers());
 
 describe('ActivityRecorder correlations', () => {
+  it('QA-BREAK-02-D07 defers storage, limits work per flush, and bounds burst queues', async () => {
+    vi.useFakeTimers();
+    const events = new EventBus<RpcNotificationMap>();
+    const internal = new EventBus<{ activity: WorkflowInternalEvent }>();
+    const stored: ActivityEvent[] = [];
+    const insertBatch = vi.fn((batch: readonly ActivityEvent[]) => {
+      stored.push(...batch);
+      return Promise.resolve();
+    });
+    let generated = 0;
+    const recorder = new ActivityRecorder({
+      events,
+      internalEvents: {
+        publish: (event) => {
+          internal.publish('activity', event);
+        },
+        subscribe: (handler) => internal.subscribe('activity', handler),
+      },
+      repository: {
+        insert: () => Promise.resolve(),
+        insertBatch,
+        query: () => stored,
+        since: () => stored,
+        prune: () => undefined,
+      },
+      ids: { uuid: () => `00000000-0000-4000-8000-${String(++generated).padStart(12, '0')}` },
+      clock: createFakeClock(new Date(fxAsOf)),
+      settings: { get: () => Promise.resolve(settingsFailure) },
+      aggregateCost: () => money,
+      vscodeBridgeAvailable: false,
+    });
+    const batches: number[] = [];
+    events.subscribe('workflow.activity', (batch) => batches.push(batch.length));
+    for (let index = 0; index < 3000; index += 1)
+      internal.publish('activity', { type: 'retriever', phase: 'completed', projectId, hitCount: 0 });
+    expect(insertBatch).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(99);
+    expect(insertBatch).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(insertBatch).toHaveBeenCalledTimes(1);
+    expect(stored).toHaveLength(64);
+    await vi.advanceTimersByTimeAsync(150);
+    expect(batches).toEqual([500]);
+    recorder.stop();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(stored).toHaveLength(2000);
+  });
   it.each(['required', 'answered'] as const)(
     'PSTUDIO-01 maps clarification %s to a PM activity without question text',
     (status) => {
