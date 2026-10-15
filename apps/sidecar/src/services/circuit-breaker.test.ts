@@ -7,6 +7,17 @@ import { CircuitBreaker } from './circuit-breaker.js';
 const modelKey = modelKeySchema.parse('openai/test-model');
 
 describe('CircuitBreaker', () => {
+  it('OWNER-FB2-A permits only one forced half-open probe before cooldown', () => {
+    const breaker = new CircuitBreaker({ failureThreshold: 1, cooldownMs: 1000 }, createFakeClock(), () => undefined);
+    breaker.failure(modelKey, FailureKind.QUOTA_EXHAUSTED);
+    expect(breaker.acquire(modelKey)).toBe(false);
+    expect(breaker.acquire(modelKey, true)).toBe(true);
+    expect(breaker.status(modelKey)).toBe('half_open');
+    expect(breaker.acquire(modelKey, true)).toBe(false);
+    expect(breaker.acquire(modelKey)).toBe(false);
+    breaker.success(modelKey);
+    expect(breaker.status(modelKey)).toBe('closed');
+  });
   it('keeps an unknown model closed and does not emit a change for closed success', () => {
     const changes: string[] = [];
     const breaker = new CircuitBreaker({ failureThreshold: 2, cooldownMs: 100 }, createFakeClock(), (_model, status) =>

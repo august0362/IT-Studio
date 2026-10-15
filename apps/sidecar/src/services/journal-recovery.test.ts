@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import pino from 'pino';
 import { ErrorCode } from '@itstudio/schemas';
 import { createFakeClock } from '../infra/clock.js';
 import { createFakeIdGenerator } from '../infra/id.js';
@@ -32,6 +33,20 @@ async function setup(): Promise<{
 }
 
 describe('JournalRecoveryService', () => {
+  it('OWNER-FB2-A skips a missing workspace with one warning', async () => {
+    const fs = new MemoryFileSystem();
+    const logger = pino({ enabled: false });
+    const warn = vi.spyOn(logger, 'warn');
+    const error = vi.spyOn(logger, 'error');
+    expect(
+      await new JournalRecoveryService(fs, createFakeClock(), logger).recover(resolve('missing-workspace')),
+    ).toEqual({ ok: true, value: 0 });
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ svc: 'journal-recovery' }),
+      'Workspace folder missing',
+    );
+    expect(error).not.toHaveBeenCalled();
+  });
   it('TC-M6-030 and TC-M6-031 restore prepared and committed journals and return the recovered count', async () => {
     const { fs, root, clock, writer } = await setup();
     const prepared = await writer.prepare(

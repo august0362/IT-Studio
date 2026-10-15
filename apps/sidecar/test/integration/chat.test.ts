@@ -51,6 +51,28 @@ async function completed(h: Awaited<ReturnType<typeof setup>>, count = 1): Promi
 }
 
 describe('chat integration', () => {
+  it('OWNER-FB2-A exhausted chat names the real failure and Router settings', async () => {
+    const h = await setup({
+      'google/gemini-3.8-flash': ['http:503'],
+      'google/gemini-3.1-pro-preview': ['http:503'],
+    });
+    const settings = appSettingsSchema.parse((await h.sidecar.call('settings.get')).result);
+    await h.sidecar.call('router.updateConfig', {
+      config: {
+        ...settings.router,
+        ladder: [{ modelKey: h.modelA, priority: 1, enabled: true, maxRetries: 0, timeoutMs: 30_000 }],
+      },
+    });
+    await h.sidecar.call('secrets.delete', { provider: providerIdSchema.parse(h.modelB.split('/')[0]) });
+    await h.sidecar.call('chat.send', { conversationId: h.conversationId, text: 'failure reason' });
+    await waitFor(() => observed(h, 'chat.failed').length === 1);
+    const error = z
+      .object({ error: z.object({ code: z.string(), message: z.string(), remediation: z.array(z.string()) }) })
+      .parse(observed(h, 'chat.failed')[0]).error;
+    expect(error.code).toBe('LADDER_EXHAUSTED');
+    expect(error.message).toContain('Google (gemini-3.8-flash): provider unavailable (503)');
+    expect(error.remediation.join(' ')).toContain('Settings → Router');
+  });
   it('TC-M2-010 streams three deltas then completion over stdio', async () => {
     const h = await setup({ 'google/gemini-3.8-flash': ['stream:3'] }, 'three stream chunks');
     await h.sidecar.call('chat.send', { conversationId: h.conversationId, text: 'hello' });

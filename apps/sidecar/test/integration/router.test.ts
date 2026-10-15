@@ -75,6 +75,18 @@ function failedAttempts(h: Awaited<ReturnType<typeof setup>>) {
 }
 
 describe('router integration', () => {
+  it('OWNER-FB2-A Auto answers using a keyed provider outside the configured ladder', async () => {
+    const h = await setup();
+    for (const modelKey of h.ladder)
+      await h.sidecar.call('secrets.delete', { provider: providerIdSchema.parse(modelKey.split('/')[0]) });
+    await h.sidecar.call('secrets.set', { provider: 'deepseek', apiKey: 'fixture-deepseek-key' });
+    await send(h, 'xin chào');
+    await waitFor(() => params(h, 'chat.completed').length === 1);
+    expect(params<{ message: { modelKey: string } }>(h, 'chat.completed')[0]?.message.modelKey).toBe(
+      'deepseek/deepseek-v4-flash',
+    );
+    expect(h.config.ladder.some((entry) => entry.modelKey.startsWith('deepseek/'))).toBe(false);
+  });
   it('TC-M2-001 succeeds on the first model without fallback', async () => {
     const h = await setup();
     await send(h);

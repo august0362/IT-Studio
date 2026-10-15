@@ -35,6 +35,7 @@ export interface ProviderResponse {
 
 export interface ProviderFailure {
   readonly kind: FailureKind;
+  readonly providerCode?: string;
   readonly httpStatus?: number;
   readonly retryAfterMs?: number;
   readonly billed: boolean;

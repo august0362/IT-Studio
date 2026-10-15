@@ -405,7 +405,6 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     clock,
     logger,
   });
-  const projectService = new ProjectService({ repository: projectRepository, settings: settingsService, ids, clock });
   const secretStore = dependencies.secretStore ?? (e2e ? new MemorySecretStore() : new KeychainSecretStore());
   const qwenVerificationModel = loadedSeeds.value.pricing.entries
     .filter((entry) =>
@@ -805,7 +804,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     ids,
     internalEvents: workflowInternalEvents,
   });
-  const journalRecovery = new JournalRecoveryService(fileSystem, clock);
+  const journalRecovery = new JournalRecoveryService(fileSystem, clock, logger);
   const projectContext = new ProjectContextService(fileSystem);
   const browserLocator = new BrowserLocator(fileSystem, env);
   const browserLaunches: { readonly executable: string; readonly args: readonly string[] }[] = [];
@@ -888,6 +887,21 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
       return status.ok && status.value.some((item) => item.blocking);
     },
   });
+  const projectService = new ProjectService({
+    repository: projectRepository,
+    settings: settingsService,
+    ids,
+    clock,
+    fileSystem,
+    vectors: vectorStore,
+    dataDir: dataDir === ':memory:' ? resolve('.') : dataDir,
+    logger,
+    pipelineBusy: (projectId) => pipelineOrchestrator.isBusy(projectId),
+    forgetActivity: async (projectId) => {
+      pipelineOrchestrator.forgetProject(projectId);
+      await activityRecorder.forgetProject(projectId);
+    },
+  });
   const systemServiceRef: { current?: SystemService } = {};
   const serverRef: { current?: RpcServer } = {};
   const transport = new LineTransport({
@@ -935,6 +949,10 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     Promise.resolve({ ok: true, value: fallbackDecider.resolve(decision) }),
   );
   server.register('project.list', () => projectService.list());
+  server.register('project.delete', async ({ projectId }) => {
+    await startupRecovery;
+    return projectService.delete(projectId);
+  });
   server.register('project.create', ({ name, workspaceRoot }) => projectService.create(name, workspaceRoot));
   server.register('project.setActive', async ({ projectId }) => {
     const result = await projectService.setActive(projectId);
@@ -983,6 +1001,16 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   server.register('images.delete', ({ assetId }) => imageService.delete(assetId));
   server.register('pipeline.start', async (input) => {
     await startupRecovery;
+    if (projectService.isDeleting(input.projectId))
+      return {
+        ok: false,
+        error: {
+          code: ErrorCode.CONFLICT,
+          message: 'Project deletion is in progress.',
+          retryable: false,
+          remediation: ['Wait for project deletion to finish.'],
+        },
+      };
     const result = await pipelineOrchestrator.start(input);
     if (result.ok) activityRecorder.correlatePipelineRun(result.value.id, result.value.projectId);
     return result;

@@ -30,6 +30,7 @@ import { failureToAppError } from '../domain/failure.js';
 import { retryDelayMs } from '../domain/backoff.js';
 import { transition, type MachineContext, type MachineEffect, type MachineInput } from '../domain/router-machine.js';
 import { CircuitBreaker } from './circuit-breaker.js';
+import { redactLogLine } from '../domain/redact.js';
 import { isoDateTimeSchema, messageIdSchema, microUsdSchema } from '../validation/brand.js';
 
 export interface RouterCompleted {
@@ -169,6 +170,7 @@ export class LlmRouter {
   readonly completed: EventBus<{ completed: RouterCompleted }>;
   private readonly deps: LlmRouterDependencies;
   private readonly circuits = new Map<string, CircuitBreaker>();
+  private readonly lastFailures = new Map<ModelKey, RouterAttempt & { readonly timeoutMs: number }>();
 
   constructor(dependencies: LlmRouterDependencies) {
     this.deps = dependencies;
@@ -188,9 +190,43 @@ export class LlmRouter {
     const config = configResult.value;
     const started = this.deps.clock.monotonicMs();
     const candidates = makeCandidates(config, request);
+    if (
+      request.purpose === 'chat' &&
+      request.ladderOverride === undefined &&
+      request.preferredModelKey === undefined &&
+      config.lockedModelKey === null
+    ) {
+      const present = new Set(candidates.map((candidate) => candidate.modelKey));
+      for (const model of this.deps.models.list()) {
+        if (!model.enabled || !model.capabilities.includes(ModelCapability.CHAT) || present.has(model.key)) continue;
+        const key = await this.deps.secrets.get(model.provider);
+        if (key.ok && key.value !== null) {
+          candidates.push({ modelKey: model.key, maxRetries: 0, timeoutMs: 30_000, enabled: true });
+          present.add(model.key);
+        }
+      }
+    }
     const attempts: RouterAttempt[] = [];
+    const recordAttempt = (attempt: RouterAttempt, detail?: { message: string; providerCode?: string }): void => {
+      attempts.push(attempt);
+      if (attempt.outcome !== 'success')
+        this.deps.logger.warn(
+          {
+            svc: 'router',
+            requestId: request.id,
+            modelKey: attempt.modelKey,
+            outcome: attempt.outcome,
+            failure: attempt.failure,
+            ...(attempt.httpStatus === undefined ? {} : { httpStatus: attempt.httpStatus }),
+            ...detail,
+          },
+          'Model attempt unavailable',
+        );
+    };
     const eligible: Candidate[] = [];
-    const seenSkipped = new Set<ModelKey>();
+    const openCandidates: Candidate[] = [];
+    let probing: ModelKey | undefined;
+    let probeUsed = false;
     for (const candidate of candidates) {
       const model = this.deps.models.get(candidate.modelKey);
       const circuit = this.circuit(config);
@@ -200,15 +236,23 @@ export class LlmRouter {
           : this.deps.models.eligibility(candidate.modelKey, request.requiredCapabilities, () => true);
       const circuitStatus = circuit.status(candidate.modelKey);
       if (!candidate.enabled || !health.eligible || circuitStatus === 'open') {
-        const reason = circuitStatus === 'open' ? FailureKind.CIRCUIT_OPEN : FailureKind.CAPABILITY_MISMATCH;
+        const circuitKey =
+          candidate.enabled && health.eligible && circuitStatus === 'open' && model !== undefined
+            ? await this.deps.secrets.get(model.provider)
+            : undefined;
+        const hasKey = circuitKey?.ok === true && circuitKey.value !== null;
+        const onlyCircuit = candidate.enabled && health.eligible && circuitStatus === 'open' && hasKey;
+        const reason = onlyCircuit ? FailureKind.CIRCUIT_OPEN : FailureKind.CAPABILITY_MISMATCH;
         const skipReason =
-          circuitStatus === 'open'
-            ? 'circuit_open'
-            : !candidate.enabled || health.reason === 'disabled'
-              ? 'disabled'
-              : 'missing_capability';
-        attempts.push(this.skipped(candidate.modelKey, reason, skipReason));
-        seenSkipped.add(candidate.modelKey);
+          circuitKey !== undefined && !hasKey
+            ? 'no_api_key'
+            : onlyCircuit
+              ? 'circuit_open'
+              : !candidate.enabled || health.reason === 'disabled'
+                ? 'disabled'
+                : 'missing_capability';
+        recordAttempt(this.skipped(candidate.modelKey, reason, skipReason));
+        if (onlyCircuit) openCandidates.push(candidate);
       } else eligible.push(candidate);
     }
     let context: MachineContext = {
@@ -326,9 +370,33 @@ export class LlmRouter {
               'Retry the request when ready.',
             ]);
           if (effect.outcome === 'failed' && effect.error !== undefined && terminalError === undefined) {
+            const probe = candidates.find((candidate) =>
+              openCandidates.some((open) => open.modelKey === candidate.modelKey),
+            );
+            if (
+              effect.error === ErrorCode.LADDER_EXHAUSTED &&
+              !probeUsed &&
+              probe !== undefined &&
+              !options.signal?.aborted
+            ) {
+              probeUsed = true;
+              probing = probe.modelKey;
+              eligible.push({ ...probe, maxRetries: 0 });
+              context = {
+                ...context,
+                candidates: [probe.modelKey],
+                index: 0,
+                retries: 0,
+                failedModels: [],
+                maxRetries: () => 0,
+              };
+              state = RouterState.IDLE;
+              await apply({ type: 'start' });
+              continue;
+            }
             terminalError =
               effect.error === ErrorCode.LADDER_EXHAUSTED
-                ? await this.exhaustedError(attempts)
+                ? await this.exhaustedError(attempts, request)
                 : lastFailure === undefined
                   ? appError(effect.error, 'The request could not be completed.', [
                       'Review the request settings and try again.',
@@ -353,8 +421,8 @@ export class LlmRouter {
       }
       const model = this.deps.models.get(modelKey);
       const circuit = this.circuit(config);
-      if (model === undefined || !circuit.acquire(modelKey)) {
-        if (!seenSkipped.has(modelKey)) attempts.push(this.skipped(modelKey, FailureKind.CIRCUIT_OPEN, 'circuit_open'));
+      if (model === undefined) {
+        recordAttempt(this.skipped(modelKey, FailureKind.CAPABILITY_MISMATCH, 'missing_capability'));
         await apply({ type: 'failed', failure: { kind: FailureKind.CIRCUIT_OPEN } });
         return;
       }
@@ -362,7 +430,7 @@ export class LlmRouter {
       const attemptStart = this.deps.clock.monotonicMs();
       const secretResult = await this.deps.secrets.get(model.provider);
       if (!secretResult.ok || secretResult.value === null) {
-        attempts.push({
+        recordAttempt({
           modelKey,
           startedAt,
           latencyMs: Math.max(0, this.deps.clock.monotonicMs() - attemptStart),
@@ -375,7 +443,7 @@ export class LlmRouter {
       }
       const adapter = this.deps.providers.get(model.provider);
       if (adapter === undefined) {
-        attempts.push({
+        recordAttempt({
           modelKey,
           startedAt,
           latencyMs: 0,
@@ -384,6 +452,18 @@ export class LlmRouter {
           skipReason: 'missing_capability',
         });
         await apply({ type: 'failed', failure: { kind: FailureKind.CAPABILITY_MISMATCH } });
+        return;
+      }
+      if (!circuit.acquire(modelKey, probing === modelKey)) {
+        recordAttempt(this.skipped(modelKey, FailureKind.CIRCUIT_OPEN, 'circuit_open'));
+        const candidate = candidates.find((item) => item.modelKey === modelKey);
+        if (
+          candidate !== undefined &&
+          circuit.status(modelKey) === 'open' &&
+          !openCandidates.some((item) => item.modelKey === modelKey)
+        )
+          openCandidates.push(candidate);
+        await apply({ type: 'failed', failure: { kind: FailureKind.CIRCUIT_OPEN } });
         return;
       }
       const controller = new AbortController();
@@ -431,13 +511,13 @@ export class LlmRouter {
         result = request.stream
           ? await adapter.stream(providerRequest, secretResult.value, controller.signal, onDelta)
           : await adapter.complete(providerRequest, secretResult.value, controller.signal);
-      } catch {
+      } catch (error) {
         result = {
           ok: false,
           error: {
             kind: controller.signal.aborted ? FailureKind.TIMEOUT : FailureKind.SERVER_ERROR,
             billed: false,
-            message: 'Provider request failed.',
+            message: error instanceof Error ? error.message : 'Provider request failed.',
           },
         };
       } finally {
@@ -457,6 +537,7 @@ export class LlmRouter {
       if (result.ok) {
         const attempt: RouterAttempt = { modelKey, startedAt, latencyMs, outcome: 'success' };
         attempts.push(attempt);
+        this.lastFailures.delete(modelKey);
         circuit.success(modelKey);
         const conversationId = request.messages[0]?.conversationId;
         if (conversationId === undefined) {
@@ -508,7 +589,27 @@ export class LlmRouter {
           ...(failure.httpStatus === undefined ? {} : { httpStatus: failure.httpStatus }),
           ...(failure.retryAfterMs === undefined ? {} : { retryAfterMs: failure.retryAfterMs }),
         };
-        attempts.push(attempt);
+        let message = failure.message.replaceAll(secretResult.value, '[REDACTED]');
+        for (const text of [
+          request.systemPrompt,
+          ...request.messages.flatMap((item) =>
+            item.parts.flatMap((part) => (part.type === 'text' ? [part.text] : [])),
+          ),
+        ]) {
+          if (text) message = message.replaceAll(text, '[REDACTED]');
+        }
+        recordAttempt(attempt, {
+          message: redactLogLine(message).slice(0, 200),
+          ...(failure.providerCode === undefined
+            ? {}
+            : {
+                providerCode: redactLogLine(failure.providerCode.replaceAll(secretResult.value, '[REDACTED]')).slice(
+                  0,
+                  200,
+                ),
+              }),
+        });
+        this.lastFailures.set(modelKey, { ...attempt, timeoutMs: providerRequest.timeoutMs });
         this.deps.events.publish('router.event', { type: 'attempt_failed', requestId: request.id, attempt });
         circuit.failure(modelKey, failure.kind);
         lastFailure = { kind: failure.kind, provider: model.provider, model: modelKey };
@@ -547,7 +648,7 @@ export class LlmRouter {
     }
     if (response !== undefined) return { ok: true, value: response };
     if (terminalError !== undefined) return { ok: false, error: terminalError };
-    return { ok: false, error: await this.exhaustedError(attempts) };
+    return { ok: false, error: await this.exhaustedError(attempts, request) };
   }
 
   private circuit(config: RouterConfig): CircuitBreaker {
@@ -577,7 +678,7 @@ export class LlmRouter {
     };
   }
 
-  private async exhaustedError(attempts: readonly RouterAttempt[]): Promise<AppError> {
+  private async exhaustedError(attempts: readonly RouterAttempt[], request: LlmRequest): Promise<AppError> {
     const models = this.deps.models.list();
     const missingProviders = [
       ...new Set(
@@ -605,12 +706,14 @@ export class LlmRouter {
     }
     return {
       code: ErrorCode.LADDER_EXHAUSTED,
-      message: `Every model in the ladder was unavailable. ${ladderFailureSummary(attempts, models)}.`,
+      message: `Every model in the ladder was unavailable. ${ladderFailureSummary(attempts, models, this.lastFailures)}.`,
       retryable: false,
       remediation: remediationFor(ErrorCode.LADDER_EXHAUSTED, {
         modelsTried: attempts.map((attempt) => attempt.modelKey),
         missingProviders,
         suggestedModels,
+        settingsSection: request.purpose === 'chat' ? 'Router' : 'Pipeline',
+        failureSummary: ladderFailureSummary(attempts, models, this.lastFailures),
       }),
     };
   }

@@ -107,6 +107,15 @@ export class PipelineOrchestrator {
     this.deps = dependencies;
   }
 
+  isBusy(projectId: ProjectId): boolean {
+    return this.admitting.has(projectId) || this.tails.has(projectId);
+  }
+
+  forgetProject(projectId: ProjectId): void {
+    for (const [id, run] of this.runs) if (run.projectId === projectId) this.runs.delete(id);
+    this.restoredProjects.delete(projectId);
+  }
+
   async start(input: { readonly projectId: ProjectId; readonly prompt: string }): Promise<Result<PipelineRun>> {
     if (this.admitting.has(input.projectId))
       return {

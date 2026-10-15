@@ -170,29 +170,33 @@ function classifyFailure(error: unknown, apiKey: string): ProviderFailure {
     const status = typeof errorRecord.status === 'number' ? errorRecord.status : undefined;
     const code = typeof errorRecord.code === 'string' ? errorRecord.code : '';
     const type = typeof errorRecord.type === 'string' ? errorRecord.type : '';
-    const message = error.message.slice(0, 200).replaceAll(apiKey, '[redacted]');
+    const message = error.message.replaceAll(apiKey, '[redacted]').slice(0, 200);
+    const providerCode = code || type;
     if (
       status === 429 &&
       (code === 'insufficient_quota' || type === 'insufficient_quota' || /quota|billing/i.test(message))
     ) {
-      return { kind: FailureKind.QUOTA_EXHAUSTED, httpStatus: status, billed: false, message };
+      return { kind: FailureKind.QUOTA_EXHAUSTED, httpStatus: status, billed: false, message, providerCode };
     }
     if (status === 429) {
       const headers: unknown = error.headers;
       const retryAfterMs = retryAfter(headers instanceof Headers ? headers : undefined);
       return {
         kind: FailureKind.RATE_LIMITED,
+        providerCode,
         httpStatus: status,
         ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
         billed: false,
         message,
       };
     }
-    if (status === 401 || status === 403) return { kind: FailureKind.AUTH, httpStatus: status, billed: false, message };
+    if (status === 401 || status === 403)
+      return { kind: FailureKind.AUTH, httpStatus: status, billed: false, message, providerCode };
     if (status === 400 || status === 404 || status === 422)
-      return { kind: FailureKind.BAD_REQUEST, httpStatus: status, billed: false, message };
+      return { kind: FailureKind.BAD_REQUEST, httpStatus: status, billed: false, message, providerCode };
     return {
       kind: FailureKind.SERVER_ERROR,
+      providerCode,
       ...(status === undefined ? {} : { httpStatus: status }),
       billed: false,
       message,
@@ -202,7 +206,7 @@ function classifyFailure(error: unknown, apiKey: string): ProviderFailure {
   return {
     kind: FailureKind.SERVER_ERROR,
     billed: false,
-    message: message.slice(0, 200).replaceAll(apiKey, '[redacted]'),
+    message: message.replaceAll(apiKey, '[redacted]').slice(0, 200),
   };
 }
 

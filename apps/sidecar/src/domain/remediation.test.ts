@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { CommandKind, ErrorCode, ProviderId } from '@itstudio/schemas';
+import {
+  CommandKind,
+  ErrorCode,
+  FailureKind,
+  ProviderId,
+  type ModelDescriptor,
+  type RouterAttempt,
+} from '@itstudio/schemas';
+import { isoDateTimeSchema } from '../validation/brand.js';
 import { ladderFailureSummary, remediationFor } from './remediation.js';
 
 describe('remediationFor', () => {
@@ -55,6 +63,52 @@ describe('remediationFor', () => {
 });
 
 describe('UX-02 ladder remediation', () => {
+  it.each([
+    [FailureKind.AUTH, 'key rejected (401)'],
+    [FailureKind.TIMEOUT, 'timed out after 30 s'],
+    [FailureKind.SERVER_ERROR, 'provider unavailable (401)'],
+    [FailureKind.RATE_LIMITED, 'rate limited (401)'],
+    [FailureKind.QUOTA_EXHAUSTED, 'quota exhausted (401)'],
+    [FailureKind.BAD_REQUEST, 'request rejected (401)'],
+    [FailureKind.CONTENT_FILTERED, 'content filtered'],
+  ] as const)('OWNER-FB2-A retains the last %s behind a circuit skip', (failure, reason) => {
+    const model: ModelDescriptor = {
+      key: 'deepseek/deepseek-v4-flash',
+      provider: ProviderId.DEEPSEEK,
+      providerModelId: 'deepseek-v4-flash',
+      displayName: 'DeepSeek',
+      capabilities: ['chat'],
+      contextWindowTokens: 100,
+      maxOutputTokens: 10,
+      enabled: true,
+    };
+    const attempt: RouterAttempt = {
+      modelKey: model.key,
+      startedAt: isoDateTimeSchema.parse('2026-10-16T00:00:00.000Z'),
+      latencyMs: 0,
+      outcome: 'skipped',
+      failure: FailureKind.CIRCUIT_OPEN,
+      skipReason: 'circuit_open',
+    };
+    const summary = ladderFailureSummary(
+      [attempt],
+      [model],
+      new Map([
+        [
+          model.key,
+          {
+            modelKey: model.key,
+            startedAt: attempt.startedAt,
+            latencyMs: 0,
+            outcome: 'failed',
+            failure,
+            httpStatus: 401,
+          },
+        ],
+      ]),
+    );
+    expect(summary).toBe(`DeepSeek (deepseek-v4-flash): ${reason}`);
+  });
   it('TC-UX2-remediation names missing providers and caps suggestions at three', () => {
     const steps = remediationFor(ErrorCode.LADDER_EXHAUSTED, {
       missingProviders: ['Anthropic', 'OpenAI'],

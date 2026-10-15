@@ -342,6 +342,7 @@ export class ActivityRecorder {
   private readonly unsubscribers: (() => void)[] = [];
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly recording = new Set<Promise<void>>();
+  private readonly deletedProjects = new Set<ProjectId>();
   private stopped = false;
   private readonly writes: ActivityEvent[] = [];
   private writeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -426,6 +427,17 @@ export class ActivityRecorder {
   correlateRequest(requestId: string, correlation: RequestCorrelation): void {
     this.remember(this.requestCorrelations, requestId, correlation);
     this.replayUncorrelated(requestId);
+  }
+
+  async forgetProject(projectId: ProjectId): Promise<void> {
+    this.deletedProjects.add(projectId);
+    await this.flushPendingRecords();
+    const timer = this.timers.get(projectId);
+    if (timer !== undefined) clearTimeout(timer);
+    this.timers.delete(projectId);
+    this.pending.delete(projectId);
+    this.rings.delete(projectId);
+    this.inFlight.delete(projectId);
   }
 
   correlatePipelineRun(runId: string, projectId: ProjectId): void {
@@ -539,6 +551,7 @@ export class ActivityRecorder {
       runProjectId ??
       (configured?.ok ? configured.value.activeProjectId : null);
     const refs = requestCorrelation === undefined ? {} : { conversationId: requestCorrelation.conversationId };
+    if (selectedProject !== null && this.deletedProjects.has(selectedProject)) return;
     const mapped = mapWorkflowEvent(source, selectedProject, refs);
     const event: ActivityEvent = { id, ts: now, ...mapped, summary: redactLogLine(mapped.summary).slice(0, 500) };
     const storedEvent: ActivityEvent =
@@ -608,6 +621,7 @@ export class ActivityRecorder {
         ? (source.projectId ?? (configured?.ok ? configured.value.activeProjectId : null))
         : source.projectId;
     const mapped = mapWorkflowInternalEvent(source, this.aggregateCost);
+    if (projectId !== null && this.deletedProjects.has(projectId)) return;
     const id = activityEventIdSchema.parse(this.ids.uuid());
     const ts = isoDateTimeSchema.parse(this.clock.now().toISOString());
     const event: ActivityEvent = {

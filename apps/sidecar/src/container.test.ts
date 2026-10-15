@@ -450,7 +450,8 @@ describe('sidecar container', () => {
     expect(listing).toEqual([created]);
     if (!isJsonObject(created) || typeof created.id !== 'string') throw new Error('Project RPC did not return an id');
     const active = await request(5, 'project.setActive', { projectId: created.id });
-    expect(active).toEqual(created);
+    expect(active).toMatchObject(created);
+    expect(active).toHaveProperty('lastOpenedAt');
     await request(6, 'system.shutdown', {});
     await new Promise((resolve) => setTimeout(resolve, 10));
     expect(exitCodes).toEqual([0]);

@@ -16,6 +16,8 @@ export interface RemediationContext {
   readonly modelsTried?: readonly string[];
   readonly missingProviders?: readonly string[];
   readonly suggestedModels?: readonly string[];
+  readonly settingsSection?: 'Router' | 'Pipeline';
+  readonly failureSummary?: string;
   readonly budget?: { readonly spent: string; readonly limit: string };
 }
 
@@ -35,17 +37,22 @@ const remediation: Record<ErrorCodeType, RemediationSteps> = {
   [ErrorCode.PROVIDER_TIMEOUT]: () => ['Retry with a shorter prompt or choose a faster model.'],
   [ErrorCode.PROVIDER_BAD_REQUEST]: () => ['Choose a supported model or adjust the request settings.'],
   [ErrorCode.PROVIDER_CONTENT_FILTERED]: () => ['Revise the prompt to comply with provider policies, then retry.'],
-  [ErrorCode.LADDER_EXHAUSTED]: (context) =>
-    context?.missingProviders?.length
+  [ErrorCode.LADDER_EXHAUSTED]: (context) => [
+    ...(context?.failureSummary ? [context.failureSummary] : []),
+    ...(context?.missingProviders?.length
       ? [
           `Add an API key in Settings → API Keys for: ${context.missingProviders.join(', ')}.`,
-          `Or add a model from a provider you have a key for${context.suggestedModels?.length ? ` (${context.suggestedModels.slice(0, 3).join(', ')})` : ''} to this role in Settings → Pipeline.`,
+          `Or add a model from a provider you have a key for${context.suggestedModels?.length ? ` (${context.suggestedModels.slice(0, 3).join(', ')})` : ''} ${context.settingsSection === 'Router' ? 'in Settings → Router' : 'to this role in Settings → Pipeline'}.`,
         ]
       : [
           context?.modelsTried?.length
             ? `Choose an available model; these models were tried: ${context.modelsTried.join(', ')}.`
             : 'Choose another enabled model and retry.',
-        ],
+        ]),
+    ...(context?.settingsSection && !context.missingProviders?.length
+      ? [`Review model availability in Settings → ${context.settingsSection}.`]
+      : []),
+  ],
   [ErrorCode.FALLBACK_DECLINED]: () => ['Select a fallback model or cancel the request.'],
   [ErrorCode.BUDGET_HARD_STOP]: (context) => [
     context?.budget
@@ -103,7 +110,11 @@ export function providerName(provider: ProviderId): string {
 }
 
 /** Group skips by their actual cause; provider failures retain their existing detail. */
-export function ladderFailureSummary(attempts: readonly RouterAttempt[], models: readonly ModelDescriptor[]): string {
+export function ladderFailureSummary(
+  attempts: readonly RouterAttempt[],
+  models: readonly ModelDescriptor[],
+  lastFailures: ReadonlyMap<string, RouterAttempt & { readonly timeoutMs?: number }> = new Map(),
+): string {
   const labels: Record<NonNullable<RouterAttempt['skipReason']>, string> = {
     no_api_key: 'No API key',
     missing_capability: 'Missing required capability',
@@ -112,9 +123,29 @@ export function ladderFailureSummary(attempts: readonly RouterAttempt[], models:
   };
   const groups = new Map<string, Map<string, Set<string>>>();
   const failures: string[] = [];
-  for (const attempt of attempts) {
+  const latest = new Map(attempts.map((attempt) => [attempt.modelKey, attempt]));
+  for (const current of latest.values()) {
+    const attempt =
+      current.outcome === 'failed' || current.skipReason === 'circuit_open'
+        ? (lastFailures.get(current.modelKey) ?? current)
+        : current;
     if (attempt.skipReason === undefined) {
-      failures.push(`${attempt.modelKey}: ${attempt.failure ?? attempt.outcome}`);
+      const model = models.find((item) => item.key === attempt.modelKey);
+      const label =
+        model === undefined ? attempt.modelKey : `${providerName(model.provider)} (${model.providerModelId})`;
+      const status = attempt.httpStatus === undefined ? '' : ` (${String(attempt.httpStatus)})`;
+      const reasons = {
+        timeout: `timed out after ${String(('timeoutMs' in attempt && typeof attempt.timeoutMs === 'number' ? attempt.timeoutMs : 30_000) / 1000)} s`,
+        auth: `key rejected${status}`,
+        server_error: `provider unavailable${status}`,
+        quota_exhausted: `quota exhausted${status}`,
+        rate_limited: `rate limited${status}`,
+        bad_request: `request rejected${status}`,
+        content_filtered: 'content filtered',
+        circuit_open: 'circuit open',
+        capability_mismatch: 'missing required capability',
+      };
+      failures.push(`${label}: ${attempt.failure === undefined ? attempt.outcome : reasons[attempt.failure]}`);
       continue;
     }
     const label = labels[attempt.skipReason];

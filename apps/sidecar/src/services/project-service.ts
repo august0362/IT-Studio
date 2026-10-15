@@ -1,26 +1,40 @@
 import { stat } from 'node:fs/promises';
-import { dirname, isAbsolute, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { AppError, Project, ProjectId, Result } from '@itstudio/schemas';
 import type { IClock } from '../infra/clock.js';
 import type { IIdGenerator } from '../infra/id.js';
-import type { IProjectRepository } from '../ports/project-repository.js';
+import type { IProjectLifecycleRepository } from '../ports/project-repository.js';
 import type { SettingsService } from './settings-service.js';
 import { projectSchema } from '../validation/projects.js';
+import { isoDateTimeSchema } from '../validation/brand.js';
+import { resolveSafe } from '../domain/path-guard.js';
+import type { IFileSystem } from '../ports/file-system.js';
+import type { IVectorStore } from '../ports/vector-store.js';
+import type { Logger } from 'pino';
 
 export interface ProjectServiceDependencies {
-  readonly repository: IProjectRepository;
+  readonly repository: IProjectLifecycleRepository;
   readonly settings: SettingsService;
   readonly ids: IIdGenerator;
   readonly clock: IClock;
+  readonly fileSystem: IFileSystem;
+  readonly vectors: Pick<IVectorStore, 'dropTable'>;
+  readonly dataDir: string;
+  readonly logger: Pick<Logger, 'warn'>;
+  readonly pipelineBusy?: (projectId: ProjectId) => boolean;
+  readonly forgetActivity?: (projectId: ProjectId) => Promise<void>;
 }
 
 export class ProjectService {
-  private readonly repository: IProjectRepository;
+  private readonly repository: IProjectLifecycleRepository;
   private readonly settings: SettingsService;
   private readonly ids: IIdGenerator;
   private readonly clock: IClock;
+  private readonly deps: ProjectServiceDependencies;
+  private readonly deleting = new Set<ProjectId>();
 
   constructor(dependencies: ProjectServiceDependencies) {
+    this.deps = dependencies;
     this.repository = dependencies.repository;
     this.settings = dependencies.settings;
     this.ids = dependencies.ids;
@@ -56,11 +70,77 @@ export class ProjectService {
   }
 
   async setActive(projectId: ProjectId): Promise<Result<Project>> {
+    if (this.isDeleting(projectId)) return projectError('CONFLICT', 'Project deletion is in progress');
     const project = await this.repository.get(projectId);
     if (project === null) return projectError('NOT_FOUND', 'Project was not found');
     const update = await this.settings.update({ activeProjectId: projectId });
     if (!update.ok) return update;
-    return { ok: true, value: project };
+    const lastOpenedAt = isoDateTimeSchema.parse(this.clock.now().toISOString());
+    await this.repository.setLastOpenedAt(projectId, lastOpenedAt);
+    return { ok: true, value: { ...project, lastOpenedAt } };
+  }
+
+  isDeleting(projectId: ProjectId): boolean {
+    return this.deleting.has(projectId);
+  }
+
+  async delete(projectId: ProjectId): Promise<Result<{ readonly deleted: boolean }>> {
+    if (this.isDeleting(projectId)) return projectError('CONFLICT', 'Project deletion is in progress');
+    this.deleting.add(projectId);
+    try {
+      const project = await this.repository.get(projectId);
+      if (project === null) return projectError('NOT_FOUND', 'Project was not found');
+      if (this.deps.pipelineBusy?.(projectId) || (await this.repository.hasActiveRuns(projectId)))
+        return projectError('CONFLICT', 'Stop the running pipeline before deleting this project');
+      const files = await this.deleteImages(project);
+      if (!files.ok) return files;
+      const vectors = await this.deps.vectors.dropTable(projectId);
+      if (!vectors.ok) return vectors;
+      const settings = await this.settings.clearActiveProject(projectId);
+      if (!settings.ok) return settings;
+      await this.deps.forgetActivity?.(projectId);
+      return { ok: true, value: { deleted: await this.repository.delete(projectId) } };
+    } catch {
+      this.deps.logger.warn({ svc: 'projects', projectId }, 'Project deletion failed');
+      return projectError('INTERNAL', 'Project data could not be removed; retry deletion');
+    } finally {
+      this.deleting.delete(projectId);
+    }
+  }
+
+  private async deleteImages(project: Project): Promise<Result<void>> {
+    const fs = this.deps.fileSystem;
+    const folder = await resolveSafe(this.deps.dataDir, `images/${project.id}`, ['images'], fs);
+    if (!folder.ok) return folder;
+    const exists = await fs.exists(folder.value);
+    if (!exists.ok) return exists;
+    if (!exists.value) return { ok: true, value: undefined };
+    const root = await fs.realpath(project.workspaceRoot);
+    const realFolder = await fs.realpath(folder.value);
+    if (!realFolder.ok) return realFolder;
+    const workspaceRoot = root.ok ? root.value : resolve(project.workspaceRoot);
+    const isWorkspacePath = (path: string): boolean => {
+      const fromWorkspace = relative(workspaceRoot, path);
+      return (
+        fromWorkspace === '' ||
+        (fromWorkspace !== '..' && !fromWorkspace.startsWith(`..${sep}`) && !isAbsolute(fromWorkspace))
+      );
+    };
+    if (isWorkspacePath(realFolder.value))
+      return projectError('CONFLICT', 'Stored images overlap the project workspace');
+    const files = await fs.readdir(folder.value);
+    if (!files.ok) return files;
+    for (const name of files.value) {
+      const path = await resolveSafe(this.deps.dataDir, `images/${project.id}/${name}`, ['images'], fs);
+      if (!path.ok) return path;
+      const real = await fs.realpath(path.value);
+      if (!real.ok) return real;
+      if (isWorkspacePath(real.value)) return projectError('CONFLICT', 'Stored image overlaps the project workspace');
+      const removed = await fs.unlink(path.value);
+      if (!removed.ok) return removed;
+    }
+    const removed = await fs.rmdirIfEmpty(join(this.deps.dataDir, 'images', project.id));
+    return removed.ok ? { ok: true, value: undefined } : removed;
   }
 }
 

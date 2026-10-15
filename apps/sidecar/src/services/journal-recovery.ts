@@ -4,6 +4,7 @@ import { resolveSafe } from '../domain/path-guard.js';
 import type { IClock } from '../infra/clock.js';
 import type { IFileSystem } from '../ports/file-system.js';
 import { parseTransactionManifest, PreparedWriteTransaction } from './write-transaction.js';
+import type { Logger } from 'pino';
 
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -20,15 +21,24 @@ function recoveryError(message: string, remediation: readonly string[]): Result<
 export class JournalRecoveryService {
   private readonly fs: IFileSystem;
   private readonly clock: IClock;
+  private readonly logger: Pick<Logger, 'warn'> | undefined;
 
-  constructor(fileSystem: IFileSystem, clock: IClock) {
+  constructor(fileSystem: IFileSystem, clock: IClock, logger?: Pick<Logger, 'warn'>) {
     this.fs = fileSystem;
     this.clock = clock;
+    this.logger = logger;
   }
 
   async recover(projectRoot: string, onRecovered?: (transactionId: string) => void): Promise<Result<number>> {
     const realRoot = await this.fs.realpath(projectRoot);
-    if (!realRoot.ok) return recoveryError('The project folder is unavailable during journal recovery.', [projectRoot]);
+    if (!realRoot.ok) {
+      const exists = await this.fs.exists(projectRoot);
+      if (exists.ok && !exists.value) {
+        this.logger?.warn({ svc: 'journal-recovery', workspaceRoot: projectRoot }, 'Workspace folder missing');
+        return { ok: true, value: 0 };
+      }
+      return recoveryError('The project folder is unavailable during journal recovery.', [projectRoot]);
+    }
     const transactionRoot = join(realRoot.value, '.itstudio', 'tx');
     const exists = await this.fs.exists(transactionRoot);
     if (!exists.ok) return recoveryError('Could not inspect the transaction journal directory.', [transactionRoot]);

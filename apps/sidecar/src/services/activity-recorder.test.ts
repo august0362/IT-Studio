@@ -29,6 +29,7 @@ import { ActivityRecorder } from './activity-recorder.js';
 import type { WorkflowInternalEvent } from './workflow-internal-events.js';
 import { ActivityRepository } from '../infra/sqlite/activity-repository.js';
 import { openDatabase } from '../infra/sqlite/database.js';
+import { activityEvents } from '../infra/sqlite/schema.js';
 import { EventBus } from '../rpc/event-bus.js';
 import { createFakeClock } from '../infra/clock.js';
 import type { SettingsService } from './settings-service.js';
@@ -49,6 +50,35 @@ const settingsFailure: Result<AppSettings> = {
 afterEach(() => vi.useRealTimers());
 
 describe('ActivityRecorder correlations', () => {
+  it('OWNER-FB2-A forgets queued project activity and ignores late notifications after deletion', async () => {
+    vi.useFakeTimers();
+    const database = openDatabase(':memory:');
+    const repository = new ActivityRepository(database.db);
+    const events = new EventBus<RpcNotificationMap>();
+    let generated = 0;
+    const recorder = new ActivityRecorder({
+      events,
+      repository,
+      ids: { uuid: () => `00000000-0000-4000-8000-${String(++generated).padStart(12, '0')}` },
+      clock: createFakeClock(new Date(fxAsOf)),
+      settings: { get: () => Promise.resolve(settingsFailure) },
+      aggregateCost: () => money,
+      vscodeBridgeAvailable: false,
+    });
+    const delivered: ActivityEvent[] = [];
+    events.subscribe('workflow.activity', (batch) => delivered.push(...batch));
+    recorder.correlateRequest(requestId, { projectId, conversationId });
+    events.publish('router.event', { type: 'state', requestId, state: 'dispatching' });
+    await recorder.forgetProject(projectId);
+    database.db.delete(activityEvents).run();
+    events.publish('router.event', { type: 'state', requestId, state: 'failed' });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(repository.query(projectId, 10)).toEqual([]);
+    expect(recorder.activity(projectId, 10)).toEqual([]);
+    expect(delivered).toEqual([]);
+    recorder.stop();
+    database.client.close();
+  });
   it('QA-BREAK-02-D07 defers storage, limits work per flush, and bounds burst queues', async () => {
     vi.useFakeTimers();
     const events = new EventBus<RpcNotificationMap>();
