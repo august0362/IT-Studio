@@ -1,6 +1,6 @@
 # LLMPOOL-01 — LLM key pool: sidecar module, router integration, RPC
 
-Milestone: LLMPOOL add-on (CONTEXT D36) · **Do not start before the v1 sign-off** · Role: Implementer (ROLES §1.3) · Size L · **Deps pre-installed** (better-sqlite3, drizzle, existing keychain library — no new packages)
+Milestone: LLMPOOL add-on (CONTEXT D36) · **Do not start before the v1 sign-off and MOD-01/02** (paths below are pre-MOD; use the equivalent `kernel/…` / `modules/router/…` paths after MOD) · Role: Implementer (ROLES §1.3) · Size L · **Deps pre-installed** (better-sqlite3, drizzle, existing keychain library — no new packages)
 
 ## Goal
 
