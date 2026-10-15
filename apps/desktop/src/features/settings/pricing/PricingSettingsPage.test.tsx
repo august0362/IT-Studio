@@ -9,14 +9,20 @@ import { PricingSettingsPage } from './PricingSettingsPage';
 
 afterEach(cleanup);
 
-function setup({ seedRemaining = false, noKeys = false, failMethod = '' } = {}) {
+function setup({
+  seedRemaining = false,
+  noKeys = false,
+  failMethod = '',
+  initiallyOverridden = true,
+  automaticOrigin = 'seed',
+} = {}) {
   const transport = new FakeTransport();
   const client = new RpcClient(transport);
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   transport.receive(
     JSON.stringify({ jsonrpc: '2.0', method: 'system.ready', params: { version: '0.1.0', recoveredTransactions: 0 } }),
   );
-  let overridden = true;
+  let overridden = initiallyOverridden;
   let getRowsCalls = 0;
   let selectedModelKey = noKeys ? null : 'openai/test-model';
   transport.send = (line: string) => {
@@ -60,7 +66,7 @@ function setup({ seedRemaining = false, noKeys = false, failMethod = '' } = {}) 
         table: {
           version: 'manual-test',
           effectiveFrom: '2026-10-01T00:00:00.000Z',
-          origin: overridden ? 'manual_override' : 'seed',
+          origin: 'manual_override',
           entries: [
             {
               modelKey: 'openai/test-model',
@@ -86,7 +92,7 @@ function setup({ seedRemaining = false, noKeys = false, failMethod = '' } = {}) 
             output: { microUsd: 200, vnd: 1, usdText: '$0.0002', vndText: '1 ₫' },
             cachedInput: { microUsd: 50, vnd: 1, usdText: '$0.00005', vndText: '1 ₫' },
             overridden,
-            origin: overridden ? 'manual_override' : 'seed',
+            origin: overridden ? 'manual_override' : automaticOrigin,
           },
           ...(seedRemaining
             ? [
@@ -141,6 +147,14 @@ function setup({ seedRemaining = false, noKeys = false, failMethod = '' } = {}) 
           calls: 10,
         },
       };
+    } else if (request.method === 'pricing.overrideUsd') {
+      overridden = true;
+      result = {
+        version: 'manual-test',
+        effectiveFrom: '2026-10-02T00:00:00.000Z',
+        origin: 'manual_override',
+        entries: [],
+      };
     } else if (request.method === 'pricing.clearOverride') {
       overridden = false;
       result = {
@@ -183,6 +197,29 @@ function setup({ seedRemaining = false, noKeys = false, failMethod = '' } = {}) 
 }
 
 describe('PricingSettingsPage', () => {
+  it.each(['seed', 'auto_extracted'])(
+    'M9-OBS-02 changes only the edited origin and restores %s on clear',
+    async (automaticOrigin) => {
+      setup({ seedRemaining: true, initiallyOverridden: false, automaticOrigin });
+      const label = automaticOrigin === 'seed' ? 'seed (not verified)' : 'auto';
+      const row = await screen.findByRole('row', { name: /Eligible OpenAI/ });
+      const other = screen.getByRole('row', { name: /Chat without a key/ });
+      expect(within(row).getByRole('link', { name: label })).toBeVisible();
+      fireEvent.click(within(row).getByRole('button', { name: 'Override' }));
+      for (const field of ['Input per 1M tokens', 'Output per 1M tokens', 'Cached input per 1M tokens']) {
+        fireEvent.change(screen.getByLabelText(field), { target: { value: '1' } });
+      }
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(within(row).getByRole('link', { name: 'manual' })).toBeVisible());
+      expect(within(other).getByRole('link', { name: 'seed (not verified)' })).toBeVisible();
+      fireEvent.click(within(row).getByRole('button', { name: 'Clear override' }));
+      const dialog = await screen.findByRole('alertdialog');
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Clear override' }));
+      await waitFor(() => expect(within(row).getByRole('link', { name: label })).toBeVisible());
+      expect(within(other).getByRole('link', { name: 'seed (not verified)' })).toBeVisible();
+    },
+  );
+
   it('clears a confirmed manual override and refreshes the price rows', async () => {
     const { transport, getRowsCalls } = setup();
     const row = await screen.findByRole('row', { name: /Eligible OpenAI/ });

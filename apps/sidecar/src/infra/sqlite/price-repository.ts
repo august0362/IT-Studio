@@ -29,6 +29,7 @@ export class PriceRepository implements IPriceRepository {
       origin: z.enum(['seed', 'auto_extracted', 'manual_override']).parse(row.origin),
       entries: parsed.entries,
       manualOverrides: parsed.manualOverrides,
+      ...(parsed.automaticEntries === undefined ? {} : { automaticEntries: parsed.automaticEntries }),
     };
   }
 
@@ -39,7 +40,11 @@ export class PriceRepository implements IPriceRepository {
         version: table.version,
         effectiveFrom: table.effectiveFrom,
         origin: table.origin,
-        entriesJson: JSON.stringify({ entries: table.entries, manualOverrides: table.manualOverrides }),
+        entriesJson: JSON.stringify({
+          entries: table.entries,
+          manualOverrides: table.manualOverrides,
+          automaticEntries: table.automaticEntries,
+        }),
       })
       .run();
   }
@@ -48,4 +53,5 @@ export class PriceRepository implements IPriceRepository {
 const entriesMetadataSchema = z.object({
   entries: z.array(priceEntrySchema),
   manualOverrides: z.array(modelKeySchema),
+  automaticEntries: z.array(priceEntrySchema.refine((entry) => entry.origin !== 'manual_override')).optional(),
 });

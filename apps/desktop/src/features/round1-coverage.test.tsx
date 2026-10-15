@@ -372,7 +372,7 @@ describe('M4 round 1 cost, knowledge, and page coverage', () => {
         <BreakdownCharts byDay={[breakdown]} byModel={[breakdown]} byPurpose={[breakdown]} />
       </>,
     );
-    expect(screen.getByText('Alpha')).toBeVisible();
+    expect(screen.getAllByText('Alpha')).toHaveLength(2);
     expect(screen.getByText('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb')).toBeVisible();
     expect(screen.getAllByText('50.00%')).toHaveLength(2);
     expect(screen.getAllByText('openai/first').length).toBeGreaterThan(1);

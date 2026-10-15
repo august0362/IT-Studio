@@ -68,6 +68,37 @@ function openAiEntry(): PriceEntry {
 }
 
 describe('PricingService', () => {
+  it.each([100, 500])(
+    'V1-POLISH-01 restores verified price %s and row provenance after overriding and restarting',
+    (price) => {
+      const first = harness();
+      first.service.initialize();
+      first.service.applyExtracted([{ ...openAiEntry(), inputPerMTokMicroUsd: microUsdSchema.parse(price) }]);
+      first.service.override({ ...openAiEntry(), inputPerMTokMicroUsd: microUsdSchema.parse(999) });
+      // Repeated edits must never replace the saved automatic price with the manual one.
+      first.service.override({ ...openAiEntry(), inputPerMTokMicroUsd: microUsdSchema.parse(888) });
+      const second = harness(first.current);
+      second.service.initialize();
+      const fx = { usdToVnd: 25_000, asOf: initial.effectiveFrom, source: 'auto' as const };
+      expect(second.service.getRows(fx).rows.map((row) => row.origin)).toEqual(['manual_override', 'seed']);
+      expect(second.service.clearOverride('openai/test-model').ok).toBe(true);
+      expect(second.service.getRows(fx).rows.map((row) => row.origin)).toEqual(['auto_extracted', 'seed']);
+      expect(second.service.current().entries[0]?.inputPerMTokMicroUsd).toBe(price);
+    },
+  );
+
+  it('V1-POLISH-01 persists a newer fetched price while its row stays manually overridden', () => {
+    const first = harness();
+    first.service.initialize();
+    first.service.override({ ...openAiEntry(), inputPerMTokMicroUsd: microUsdSchema.parse(999) });
+    first.service.applyExtracted([{ ...openAiEntry(), inputPerMTokMicroUsd: microUsdSchema.parse(500) }]);
+    const second = harness(first.current);
+    second.service.initialize();
+    expect(second.service.current().entries[0]?.inputPerMTokMicroUsd).toBe(999);
+    expect(second.service.clearOverride('openai/test-model').ok).toBe(true);
+    expect(second.service.current().entries[0]).toMatchObject({ inputPerMTokMicroUsd: 500, origin: 'auto_extracted' });
+  });
+
   it('TC-M3-012 reports price rows with formatted values and the exact 30-day stale boundary', () => {
     const testHarness = harness();
     testHarness.service.initialize();

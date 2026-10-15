@@ -10,6 +10,7 @@ import type { JSX } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Money } from '../../components/Money';
+import { mergeActivity, openActivity } from './activity';
 
 type PanelTab = 'now' | 'recent' | 'metrics' | 'links' | 'deepLinks';
 const kinds: readonly (ActivityKind | 'all')[] = ['all', 'started', 'progress', 'completed', 'failed', 'info'];
@@ -52,34 +53,13 @@ export function ModulePanel({
       window.clearInterval(timer);
     };
   }, []);
-  const events = useMemo(
-    () =>
-      [...liveEvents, ...recentEvents].filter(
-        (event, index, all) => all.findIndex((candidate) => candidate.id === event.id) === index,
-      ),
-    [liveEvents, recentEvents],
-  );
+  const events = useMemo(() => mergeActivity([...liveEvents, ...recentEvents]), [liveEvents, recentEvents]);
   const filtered = events.filter(
     (event) =>
       (kind === 'all' || event.kind === kind) && (projectFilter === 'all' || event.projectId === projectFilter),
   );
-  const activityIdentity = (event: ActivityEvent): string =>
-    event.refs.requestId ??
-    event.refs.conversationId ??
-    event.refs.pipelineRunId ??
-    event.refs.ingestJobId ??
-    event.refs.transactionId ??
-    event.refs.commandRunId ??
-    event.moduleId;
-  const nowEvents = filtered.filter(
-    (event) =>
-      (event.kind === 'started' || event.kind === 'progress') &&
-      !filtered.some(
-        (candidate) =>
-          (candidate.kind === 'completed' || candidate.kind === 'failed') &&
-          activityIdentity(candidate) === activityIdentity(event) &&
-          Date.parse(candidate.ts) > Date.parse(event.ts),
-      ),
+  const nowEvents = openActivity(events).filter(
+    (event) => projectFilter === 'all' || event.projectId === projectFilter,
   );
   const durations = events
     .map((event) => event.durationMs)

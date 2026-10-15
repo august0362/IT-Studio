@@ -1,4 +1,13 @@
-import { Background, Controls, MiniMap, ReactFlow, ReactFlowProvider, useReactFlow, type Node } from '@xyflow/react';
+import {
+  Background,
+  Controls,
+  MiniMap,
+  ReactFlow,
+  ReactFlowProvider,
+  useNodesInitialized,
+  useReactFlow,
+  type Node,
+} from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { JSX, KeyboardEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -12,6 +21,7 @@ import './workflow.css';
 
 const nodeTypes = { module: ModuleNode };
 const edgeTypes = { activity: ActivityEdge };
+const FIT_OPTIONS = { padding: 0.2, minZoom: 0.1, maxZoom: 1 };
 
 function currentReducedMotion(): boolean {
   return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -56,9 +66,10 @@ export function WorkflowGraph({
   const flowNodes = graph.nodes.map((node): Node<ModuleNodeData, 'module'> => node);
   const wrapper = useRef<HTMLDivElement>(null);
   const api = useReactFlow();
+  const nodesInitialized = useNodesInitialized();
   useEffect(() => {
-    void api.fitView({ padding: 0.15 });
-  }, [api, graph.nodes.length, graph.edges.length]);
+    if (nodesInitialized) void api.fitView(FIT_OPTIONS);
+  }, [api, nodesInitialized, graph.nodes.length, graph.edges.length]);
 
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') return;
@@ -103,6 +114,8 @@ export function WorkflowGraph({
         edges={flowEdges}
         edgeTypes={edgeTypes}
         fitView
+        fitViewOptions={FIT_OPTIONS}
+        minZoom={FIT_OPTIONS.minZoom}
         nodes={flowNodes}
         nodeTypes={nodeTypes}
         onNodeClick={(_event, node) => {
@@ -113,7 +126,10 @@ export function WorkflowGraph({
         proOptions={{ hideAttribution: true }}
       >
         <Background color="var(--color-border)" />
-        <Controls className="!border-border !bg-surface !fill-text [&_button]:!border-border [&_button]:!bg-surface [&_button]:!text-text [&_button:hover]:!bg-surface-alt" />
+        <Controls
+          fitViewOptions={FIT_OPTIONS}
+          className="!border-border !bg-surface !fill-text [&_button]:!border-border [&_button]:!bg-surface [&_button]:!text-text [&_button:hover]:!bg-surface-alt"
+        />
         <MiniMap
           ariaLabel={t('workflow.minimapLabel')}
           bgColor="var(--color-surface)"

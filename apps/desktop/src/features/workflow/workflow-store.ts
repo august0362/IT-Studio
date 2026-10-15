@@ -1,4 +1,5 @@
 import type { ActivityEvent, WorkflowGraph } from '@itstudio/schemas';
+import { activityReference, mergeActivity, openActivity, reconcileAnonymousActivity } from './activity';
 
 export interface WorkflowState {
   readonly graph: WorkflowGraph | null;
@@ -17,6 +18,11 @@ export interface WorkflowEdgeAnimation {
 
 export type WorkflowAction =
   | { readonly type: 'graph'; readonly graph: WorkflowGraph }
+  | {
+      readonly type: 'history';
+      readonly projectId: WorkflowGraph['projectId'];
+      readonly events: readonly ActivityEvent[];
+    }
   | { readonly type: 'activity'; readonly events: readonly ActivityEvent[]; readonly now: number }
   | { readonly type: 'expire'; readonly now: number };
 
@@ -35,7 +41,12 @@ export function workflowReducer(state: WorkflowState, action: WorkflowAction): W
     if (state.graph !== null && state.graph.projectId !== action.graph.projectId) {
       return { graph: action.graph, pulses: {}, activeEdges: {}, edgeAnimations: [], events: [] };
     }
-    return { ...state, graph: action.graph };
+    return { ...state, graph: reconcileAnonymousActivity(action.graph, state.events) };
+  }
+  if (action.type === 'history') {
+    if (state.graph?.projectId !== action.projectId) return state;
+    const events = mergeActivity([...state.events, ...action.events]).slice(0, MAX_EVENTS);
+    return { ...state, events, graph: reconcileAnonymousActivity(state.graph, events) };
   }
   if (action.type === 'expire') {
     const pulses = Object.fromEntries(Object.entries(state.pulses).filter(([, until]) => until > action.now));
@@ -62,6 +73,8 @@ export function workflowReducer(state: WorkflowState, action: WorkflowAction): W
   const knownEdges = new Set(state.graph.edges.map((edge) => edge.id));
   const knownEvents: ActivityEvent[] = [];
   for (const event of action.events) {
+    if (state.events.some((known) => known.id === event.id) || knownEvents.some((known) => known.id === event.id))
+      continue;
     if (state.graph.projectId !== null && event.projectId !== state.graph.projectId) continue;
     const node = modules.get(event.moduleId);
     if (node === undefined) continue;
@@ -80,7 +93,20 @@ export function workflowReducer(state: WorkflowState, action: WorkflowAction): W
       }
     }
     const terminal = event.kind === 'completed' || event.kind === 'failed';
-    const inFlight = Math.max(0, node.inFlight + (event.kind === 'started' ? 1 : terminal ? -1 : 0));
+    const ref = activityReference(event);
+    const prior = [...knownEvents.slice(0, -1)]
+      .reverse()
+      .concat(state.events)
+      .filter(
+        (candidate) =>
+          candidate.moduleId === event.moduleId &&
+          candidate.projectId === event.projectId &&
+          activityReference(candidate) === ref,
+      );
+    const alreadyOpen = ref !== undefined && openActivity(prior).length > 0;
+    const alreadyClosed = ref !== undefined && prior.some((candidate) => candidate.kind !== 'info') && !alreadyOpen;
+    const started = event.kind === 'started' && !alreadyOpen;
+    const inFlight = Math.max(0, node.inFlight + (started ? 1 : terminal && !alreadyClosed ? -1 : 0));
     modules.set(event.moduleId, {
       ...node,
       status:
@@ -90,13 +116,16 @@ export function workflowReducer(state: WorkflowState, action: WorkflowAction): W
             ? 'error'
             : terminal && inFlight === 0
               ? 'idle'
-              : 'active',
+              : inFlight > 0
+                ? 'active'
+                : 'idle',
       inFlight,
-      calls24h: node.calls24h + (event.kind === 'started' ? 1 : 0),
+      calls24h: node.calls24h + (started ? 1 : 0),
       errors24h: node.errors24h + (event.kind === 'failed' ? 1 : 0),
     });
   }
   if (knownEvents.length === 0) return state;
-  const graph = { ...state.graph, nodes: [...modules.values()] };
-  return { graph, pulses, activeEdges, edgeAnimations, events: [...knownEvents, ...state.events].slice(0, MAX_EVENTS) };
+  const events = mergeActivity([...knownEvents].reverse().concat(state.events)).slice(0, MAX_EVENTS);
+  const graph = reconcileAnonymousActivity({ ...state.graph, nodes: [...modules.values()] }, events);
+  return { graph, pulses, activeEdges, edgeAnimations, events };
 }
