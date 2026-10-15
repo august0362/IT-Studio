@@ -39,3 +39,7 @@ PSTUDIO-01, PSTUDIO-FIX1, PSTUDIO-02, QA-BREAK-01, QA-BREAK-02, UX-02, V1-POLISH
 ## Not covered by automation (owner checklist)
 
 Real provider keys and answers, real image providers, embedded web-chat sign-in, VS Code auto-launch with a real install, visual review of all 21 themes, killing the sidecar by hand during a write.
+
+## Addendum — PROV-01 rebuild (2026-10-15 23:40)
+
+PROV-01 (DeepSeek, OpenRouter, Qwen, Mistral) landed at `caadd00`. Lean QA (owner request): typecheck, lint, unit 1 386 pass; integration `secrets`, `router`, `settings-projects`, `startup` 30/30; repo-layout 4/4; `build:app` OK; `smoke:sidecar` median 477 ms. New NSIS SHA-256: `c51491d4e2cc763eb1bff8cba4d1a8b5a64e83022f9b1bdeeddd04c738f7d395` (93 412 320 bytes). Full E2E / install smoke not re-run for this provider-only change.

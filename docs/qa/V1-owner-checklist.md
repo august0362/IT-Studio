@@ -9,7 +9,7 @@ Cách dùng:
 - Đúng thì đổi `[ ]` thành `[x]`.
 - Sai thì ghi ngay bên dưới bài đó: *đã làm gì, thấy gì*. Có ảnh chụp càng tốt.
 
-**File cài đặt:** `apps\desktop\src-tauri\target\release\bundle\nsis\IT Studio_0.1.0_x64-setup.exe` (trong thư mục project, build ngày 15/10/2026).
+**File cài đặt:** `apps\desktop\src-tauri\target\release\bundle\nsis\IT Studio_0.1.0_x64-setup.exe` (trong thư mục project, build lúc 23:40 ngày 15/10/2026, đã có DeepSeek, OpenRouter, Qwen, Mistral).
 eleaseundle
 sis\IT Studio_0.1.0_x64-setup.exe` (trong thư mục project, build ngày 15/10/2026).
 Muốn chạy thẳng từ mã nguồn thay vì cài: bấm đúp `Start-IT-Studio.bat` ở thư mục gốc của project.
@@ -46,6 +46,10 @@ Cần chuẩn bị:
 - [ ] **B2. Key đúng**
   - Làm: dán key thật, bấm *Verify & save*.
   - Phải thấy: lưu thành công, key chỉ hiện 4 ký tự cuối (để không bị lộ).
+
+- [ ] **B3. Nhà cung cấp mới (DeepSeek, OpenRouter, Qwen, Mistral)**
+  - Làm: trong *Settings → API Keys*, nhập key của hãng bạn có rồi bấm *Verify & save*. Riêng Qwen: chọn đúng **vùng** của key (mặc định là International/Singapore). Sau đó vào Chat, chọn một model của hãng đó và gửi "xin chào".
+  - Phải thấy: key được xác minh và lưu thành công; AI trả lời; chi phí hiện ra. Giá của các model mới được ghi là *chưa xác minh*. Nếu muốn giá chính xác, vào *Settings → Pricing* bấm *Update prices*.
 
 ## C. Project và Chat
 
@@ -179,4 +183,4 @@ Cần chuẩn bị:
 - Người kiểm tra: ____________ Ngày: ____________
 - Kết luận (chọn một): **Đạt** / **Đạt nhưng cần sửa thêm** / **Chưa đạt**
 
-<!-- QA: commit 50cbd1a, NSIS SHA-256 c692db41b95ba88024044e380c331cc14059cbe20bcda5bec389d5c2226fb15f, chi tiết trong docs/qa/V1-report.md -->
+<!-- QA: commit caadd00 (PROV-01), NSIS SHA-256 c51491d4e2cc763eb1bff8cba4d1a8b5a64e83022f9b1bdeeddd04c738f7d395, chi tiết trong docs/qa/V1-report.md -->
