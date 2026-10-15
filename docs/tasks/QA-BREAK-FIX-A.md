@@ -56,3 +56,41 @@ Append `## Result` per AGENTS.md §3.
 
 - Verification: Prettier was run on every changed file (Markdown and the canonical schemas file are ignored by repository configuration). Full Vitest with `npm --cache .npm-cache exec -- vitest run --project sidecar --project desktop --project vscode-ext --maxWorkers 1` passed: 157 files passed, 1 skipped; 1,269 tests passed, 4 existing desktop expected failures, 1 skipped. The three intermittently failing desktop files passed in that complete run. Direct build/release tests passed 17/17. No test assertions, timeouts, or tool configurations were relaxed. Final typecheck/lint outcomes follow below.
 - Final checks: `npm --cache .npm-cache run typecheck` passed for all workspaces and integration/E2E test types. `npm --cache .npm-cache run lint` passed, including repository-wide Prettier checking and secret scanning (Git still prints the harmless global-ignore permission warning). `git diff --check` passed. No commits were made.
+
+## QA round 1 (Architect, 2026-10-15) — test-only fixes, then update `## Result`
+
+Unit: 1 277 pass. Integration: 159 pass, 3 fail. Triage:
+
+1. **BRK-C01 / D06 — wrong expectation (test defect).** The product contract is a per-project **queue** (`pipeline-orchestrator.ts` `tails`): a second `pipeline.start` for a busy project is **accepted and queued**, then runs after the first. Rewrite the test (keep the `QA-BREAK-02-D06` name prefix, rename the rest to "queues the second same-tick pipeline start and never runs both at once"): both responses succeed with distinct run ids; capture `pipeline.event` notifications; wait until both runs are terminal; assert every `stage` event of the second run comes **after** the first run's `finished` event (no interleaving), and both runs end `completed` (or both terminal with valid stages).
+2. **BRK-D02 `mid_commit` — scenario never reaches the crash point (test defect).** With a single created file, the `mid_commit` crash hook never fires (see `pipeline.test.ts` TC-M6-031, which uses two files for `mid_commit`). For `mid_commit` make the scripted coder output create **two** files; keep `after_prepare` as is. Assertions unchanged.
+3. BRK-V03 passed when re-run alone (cold-start timeout) — no change.
+
+Scope: `apps/sidecar/test/integration/break-concurrency.test.ts`, `apps/sidecar/test/integration/break-durability.test.ts`, `break-helpers-02.ts` if needed. No product changes.
+
+## Result
+
+- Summary: Applied only the two QA round 1 integration test edits. BRK-C01 now requires two successful starts with distinct run IDs, schema-valid notifications, exactly one finished event per run, terminal persisted runs, and every second-run stage event after the first run finishes. BRK-D02 now supplies two allowed create operations for `mid_commit`; `after_prepare` and all recovery assertions are unchanged. BRK-C01 has the contract conflict documented below and is not verified passing.
+- Files changed: `apps/sidecar/test/integration/break-concurrency.test.ts`, `apps/sidecar/test/integration/break-durability.test.ts`, `docs/tasks/QA-BREAK-FIX-A.md`. Preserved the Architect's existing QA round 1 instructions.
+- Dependencies added (with reason): None; `node_modules` was present.
+- Decisions taken within scope: Retained the existing pipeline fixture and allowed valid terminal outcomes as QA requested; the repeated create can fail on the second run because the first run already created `note.txt`. No product, helper, configuration, or unrelated test changes. No commits.
+- Verification: Ran Prettier on both changed test files before checks. `npm.cmd --cache .npm-cache run typecheck` passed, including integration test types. `git diff --check` passed. Targeted BRK-C01 and both BRK-D02 scenarios were attempted but all failed before `system.ready` because tsx calls `os.userInfo()` and the Windows sandbox returns `uv_os_get_passwd ENOMEM` (ENV-1). `npm.cmd --cache .npm-cache test` stopped in pretest: four secret-scanner self-tests expect empty stderr but Git prints a permission warning for `C:\Users\admin/.config/git/ignore`. Used `npm.cmd --cache .npm-cache` because PowerShell blocks `npm.ps1`.
+- Open issues / follow-ups: QA must rerun the targeted integrations outside the sandbox. The BRK-C01 ordering requirement also needs the Architect decision below before this round can be considered complete. `npm.cmd --cache .npm-cache run lint` passed, including Prettier and secret scanning; Git printed the same global-ignore permission warning.
+
+## Blocked
+
+- BRK-C01 requirement conflict: QA round 1 requires **every** stage event of the second run to follow the first run's finished event. Existing `apps/sidecar/src/services/pipeline-orchestrator.ts:182` calls `this.publishStage(run)` during admission, immediately before reading the project's queue tail at line 183. Thus an accepted queued run announces its initial `specifying` stage before its execution turn; the requested assertion can fail even when execution is serialized correctly.
+- Tried: Implemented the exact requested event ordering assertion, checked the queue implementation and TC-M6-050, and attempted the targeted integrations (blocked at process startup by ENV-1). Typecheck passes. Left the strict assertion in place for review rather than silently excluding admission notifications or changing product code outside scope.
+- Precise Architect question: Should BRK-C01 explicitly exclude the initial admission notification when checking execution ordering, or should a separate product task defer that notification until execution begins? AGENTS.md section 4 requires stopping and documenting this blocker; QA round 1 expressly forbids product changes.
+
+## QA round 2 (Architect, 2026-10-15)
+
+D02 fixed (both crash points pass). D06 still fails: `pipeline-orchestrator.ts` `start()` calls `publishStage(run)` once at creation (stage `specifying`) **before** the run waits on the project's `tails` queue — that creation event is part of the existing contract, not execution. Execution is serialized correctly. Adjust the D06 assertion only: ignore the **first** `stage` event of the second run (its creation event); every later `stage` event of the second run must come after the first run's `finished` event. No product change.
+
+## Result
+
+- Summary: Applied only QA round 2: BRK-C01 skips the second run's first stage notification when checking execution ordering; every later stage notification must follow the first run's finished event.
+- Files changed: `apps/sidecar/test/integration/break-concurrency.test.ts`, `docs/tasks/QA-BREAK-FIX-A.md`. Preserved pre-existing QA round 1 edits, including `break-durability.test.ts`.
+- Dependencies added (with reason): None; `node_modules` was present.
+- Decisions taken within scope: Filter stage events for the second run while retaining their original notification indices, then skip exactly the first matching event. All other assertions and product code are unchanged. No commits.
+- Verification: Ran Prettier on both changed files (the task Markdown is ignored by repository configuration). `npm.cmd --cache .npm-cache run typecheck`, `npm.cmd --cache .npm-cache run lint`, and `git diff --check` passed. Lint emitted the existing Git global-ignore permission warning. Used `npm.cmd` because PowerShell blocks `npm.ps1`.
+- Open issues / follow-ups: Targeted D06 integration execution failed before `system.ready` because tsx calls `os.userInfo()` and the Windows sandbox returns `uv_os_get_passwd ENOMEM` (ENV-1). QA must rerun it outside the sandbox. `npm.cmd --cache .npm-cache test` stopped in pretest: four secret-scanner self-tests require empty stderr but Git prints a permission warning for `C:\Users\admin/.config/git/ignore`.

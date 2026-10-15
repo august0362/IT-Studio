@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { appSettingsSchema } from '../../src/validation/settings.js';
 import { ledgerEntrySchema } from '../../src/validation/cost.js';
 import { sourceDocumentSchema } from '../../src/validation/rag.js';
-import { pipelineRunSchema } from '../../src/validation/pipeline.js';
+import { pipelineEventSchema, pipelineRunSchema } from '../../src/validation/pipeline.js';
 import { activityEventSchema } from '../../src/validation/workflow.js';
 import { providerIdSchema } from '../../src/validation/common.js';
 import { llmRequestIdSchema } from '../../src/validation/brand.js';
@@ -79,21 +79,49 @@ async function setupPipeline() {
 }
 
 describe('QA-BREAK-02 adversarial concurrency and sync', () => {
-  it('QA-BREAK-02-D06 BRK-C01 rejects one of two same-tick pipeline starts and retains one active run', async () => {
+  it('QA-BREAK-02-D06 BRK-C01 queues the second same-tick pipeline start and never runs both at once', async () => {
     const { first } = await setupPipeline();
     const responses = await Promise.all([
       currentSidecar().call('pipeline.start', { projectId: first.projectId, prompt: 'first' }),
       currentSidecar().call('pipeline.start', { projectId: first.projectId, prompt: 'second' }),
     ]);
-    expect(responses.filter((response) => response.error === undefined)).toHaveLength(1);
-    expect(responses.filter((response) => response.error !== undefined)).toHaveLength(1);
+    for (const response of responses) expect(response.error).toBeUndefined();
+    const runIds = responses.map((response) => pipelineRunSchema.parse(response.result).id);
+    expect(new Set(runIds).size).toBe(2);
+    await waitFor(
+      () =>
+        runIds.every((runId) =>
+          observed(currentSidecar(), 'pipeline.event')
+            .map((event) => pipelineEventSchema.parse(event))
+            .some((event) => event.runId === runId && event.type === 'finished'),
+        ),
+      45_000,
+    );
+    const events = observed(currentSidecar(), 'pipeline.event').map((event) => pipelineEventSchema.parse(event));
+    const firstFinishedIndex = events.findIndex((event) => event.runId === runIds[0] && event.type === 'finished');
+    expect(firstFinishedIndex).toBeGreaterThanOrEqual(0);
+    for (const runId of runIds) {
+      expect(events.filter((event) => event.runId === runId && event.type === 'stage').length).toBeGreaterThan(0);
+      expect(events.filter((event) => event.runId === runId && event.type === 'finished')).toHaveLength(1);
+    }
+    // The first stage notification announces creation before the run waits on the project queue.
+    for (const [index] of [...events.entries()]
+      .filter(([, event]) => event.runId === runIds[1] && event.type === 'stage')
+      .slice(1)) {
+      expect(index).toBeGreaterThan(firstFinishedIndex);
+    }
     const list = await currentSidecar().call('pipeline.list', { projectId: first.projectId, limit: 20 });
-    expect(
-      z
-        .array(pipelineRunSchema)
-        .parse(list.result)
-        .filter((run) => run.stage !== 'completed' && run.stage !== 'failed' && run.stage !== 'rolled_back'),
-    ).toHaveLength(1);
+    expect(list.error).toBeUndefined();
+    const runs = z.array(pipelineRunSchema).parse(list.result);
+    expect(runs).toHaveLength(2);
+    for (const run of runs) {
+      expect(runIds).toContain(run.id);
+      expect(['completed', 'rolled_back', 'failed', 'cancelled']).toContain(run.stage);
+      expect(run.finishedAt).toBeDefined();
+      expect(events.find((event) => event.runId === run.id && event.type === 'finished')).toMatchObject({
+        stage: run.stage,
+      });
+    }
   }, 60_000);
 
   it('BRK-C02 attributes parallel pipeline events and ledger rows to their own projects', async () => {

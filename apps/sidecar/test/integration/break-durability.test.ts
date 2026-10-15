@@ -100,7 +100,7 @@ describe('QA-BREAK-02 adversarial crash durability and upgrade', () => {
           title: 'write',
           userStory: 'write',
           acceptanceCriteria: [],
-          allowedPaths: ['note.txt'],
+          allowedPaths: crashAt === 'mid_commit' ? ['note.txt', 'second.txt'] : ['note.txt'],
           contracts: '',
           constraints: [],
           testPlan: [],
@@ -108,7 +108,10 @@ describe('QA-BREAK-02 adversarial crash durability and upgrade', () => {
         }),
         'gpt-5.3-codex': JSON.stringify({
           summary: 'write',
-          operations: [{ kind: 'create', path: 'note.txt', content: 'created' }],
+          operations: [
+            { kind: 'create', path: 'note.txt', content: 'created' },
+            ...(crashAt === 'mid_commit' ? [{ kind: 'create', path: 'second.txt', content: 'second file' }] : []),
+          ],
           assumptions: [],
         }),
         'claude-sonnet-5-5': JSON.stringify({ approved: true, findings: [], summary: 'approved' }),
