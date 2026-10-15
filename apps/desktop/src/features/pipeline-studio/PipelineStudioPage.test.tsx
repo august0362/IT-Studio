@@ -9,7 +9,7 @@ import { pipeline, QUESTION, VALIDATED } from './test-fixtures';
 import { graphDimensions, mountStudio } from './test-support';
 
 const studioStyles = readFileSync(
-  resolve(process.cwd(), 'apps/desktop/src/features/pipeline-studio/studio.css'),
+  resolve(process.cwd(), 'apps/desktop/src/features/processes/process-viewer.css'),
   'utf8',
 );
 

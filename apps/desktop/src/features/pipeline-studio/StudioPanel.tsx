@@ -1,5 +1,5 @@
 import type { PipelineRun, RpcMethodMap } from '@itstudio/schemas';
-import { useEffect, useRef, type JSX } from 'react';
+import { useEffect, useRef, type JSX, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Money } from '../../components/Money';
 import { SafeMarkdown } from '../../components/SafeMarkdown';
@@ -57,6 +57,7 @@ export function StudioPanel({
   busy,
   onAnswer,
   onClose,
+  children,
 }: {
   readonly module: ModuleId;
   readonly status: ModuleStatus;
@@ -65,6 +66,7 @@ export function StudioPanel({
   readonly busy: boolean;
   readonly onAnswer: (answers: RpcMethodMap['pipeline.answerClarifications']['params']['answers']) => void;
   readonly onClose: () => void;
+  readonly children?: ReactNode;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
   const panel = useRef<HTMLElement>(null);
@@ -107,6 +109,7 @@ export function StudioPanel({
         </button>
       </header>
       <div className="studio-panel-body space-y-4">
+        {children}
         <p>
           {t('pipelineStudio.status')}: {t(`pipelineStudio.states.${status}`)}
         </p>

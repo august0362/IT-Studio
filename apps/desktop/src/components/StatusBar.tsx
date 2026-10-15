@@ -2,8 +2,11 @@ import type { JSX } from 'react';
 import { useRpcQuery } from '../hooks/use-rpc-query';
 import { useSidecarStatus } from '../state/sidecar-store';
 import { themeCatalog } from '../theme/catalog';
+import { ProcessCounts } from '../features/processes/ProcessCounts';
+import { useTranslation } from 'react-i18next';
 
-export function StatusBar(): JSX.Element {
+export function StatusBar({ onProcesses }: { readonly onProcesses?: () => void }): JSX.Element {
+  const { t } = useTranslation();
   const { status, fatal } = useSidecarStatus();
   const ping = useRpcQuery('system.ping', {}, { enabled: status.ready && fatal === null, retry: false });
   const settings = useRpcQuery('settings.get', {});
@@ -26,6 +29,19 @@ export function StatusBar(): JSX.Element {
       role={fatal === null ? 'status' : 'alert'}
     >
       <span className={fatal === null ? 'text-text-muted' : 'font-medium text-danger'}>{label}</span>
+      <a
+        href="#processes"
+        className="ml-4 inline-flex items-center gap-2"
+        onClick={(event) => {
+          if (onProcesses) {
+            event.preventDefault();
+            onProcesses();
+          }
+        }}
+        aria-label={t('processes.heading')}
+      >
+        <ProcessCounts />
+      </a>
     </footer>
   );
 }

@@ -1,4 +1,4 @@
-import type { AppError, WebChatLayout, WebChatSettings } from '@itstudio/schemas';
+import type { AppError, ProjectId, WebChatLayout, WebChatSettings } from '@itstudio/schemas';
 import { useQueryClient } from '@tanstack/react-query';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ import { createWebChatHost, type IWebChatHost } from './webchat-host';
 import { initialLayout, MIN_PANE_SIZE, resizePanes, withPaneCount } from './webchat-layout';
 import { useNativeWebChatPanes } from './use-native-webchat-panes';
 import { WebChatPane } from './WebChatPane';
+import { useWebChatReporting } from './useWebChatReporting';
 
 const SIGN_IN_WARNING_KEY = 'itstudio.webchat.sign-in-warning-dismissed';
 
@@ -26,6 +27,7 @@ interface WebChatPageProps {
   readonly suspended?: boolean;
   readonly layoutRevision?: string;
   readonly onSettings?: () => void;
+  readonly projectId?: ProjectId | null;
 }
 
 export function WebChatPage({
@@ -33,6 +35,7 @@ export function WebChatPage({
   suspended = false,
   layoutRevision = '',
   onSettings,
+  projectId,
 }: WebChatPageProps) {
   const { t } = useTranslation();
   const settings = useRpcQuery('settings.get', {});
@@ -47,6 +50,7 @@ export function WebChatPage({
       key={JSON.stringify(settings.data.webChat.links)}
       suspended={suspended}
       onSettings={onSettings}
+      projectId={projectId === undefined ? (settings.data.activeProjectId ?? null) : projectId}
     />
   );
 }
@@ -57,6 +61,7 @@ interface WorkspaceProps {
   readonly suspended: boolean;
   readonly layoutRevision: string;
   readonly onSettings: (() => void) | undefined;
+  readonly projectId: ProjectId | null;
 }
 
 interface DragSession {
@@ -66,12 +71,13 @@ interface DragSession {
   readonly start: WebChatLayout;
 }
 
-function WebChatWorkspace({ host, initial, suspended, layoutRevision, onSettings }: WorkspaceProps) {
+function WebChatWorkspace({ host, initial, suspended, layoutRevision, onSettings, projectId }: WorkspaceProps) {
   const { t } = useTranslation();
   const rpc = useRpcClient();
   const cache = useQueryClient();
   const [layout, setLayout] = useState(() => initialLayout(initial.links, initial.layout));
   const layoutRef = useRef(layout);
+  const reportFailed = useWebChatReporting(layout, host.available, projectId);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<AppError | null>(null);
   const [warning, setWarning] = useState(showSignInWarning);
@@ -95,6 +101,7 @@ function WebChatWorkspace({ host, initial, suspended, layoutRevision, onSettings
     paused: suspended || drag !== null,
     measureRevision: `${String(warning)}:${String(error !== null)}:${layoutRevision}`,
     onError: nativeError,
+    onLoadFailure: reportFailed,
   });
 
   const replaceLayout = useCallback((next: WebChatLayout): void => {
@@ -264,7 +271,12 @@ function WebChatWorkspace({ host, initial, suspended, layoutRevision, onSettings
                   links={links}
                   nativeAvailable={host.available}
                   onOpen={() => void openBrowser(slot)}
-                  onReload={() => void host.reload(slot).catch(nativeError)}
+                  onReload={() => {
+                    void host.reload(slot).catch(() => {
+                      reportFailed([linkId]);
+                      nativeError();
+                    });
+                  }}
                   onSelect={(selected) => {
                     void persist({
                       ...layout,

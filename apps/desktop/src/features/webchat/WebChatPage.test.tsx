@@ -74,6 +74,7 @@ function setup({ native = true, failMethod = '' } = {}) {
         settings.webChat.layout = next;
       }
     } else if (request.method === 'webchat.open') result = { opened: true, browser: 'coccoc' };
+    else if (request.method === 'process.report') result = {};
     else if (request.method !== 'settings.get') throw new Error(`Unexpected method ${request.method}`);
     transport.receive(JSON.stringify({ jsonrpc: '2.0', id: request.id, result }));
     return Promise.resolve();
@@ -99,6 +100,39 @@ function setup({ native = true, failMethod = '' } = {}) {
 }
 
 describe('WebChatPage', () => {
+  it('PROC-02 reports pane open/close with only lifecycle metadata', async () => {
+    const view = setup();
+    const reports = () =>
+      view.transport.sent
+        .filter((line) => line.includes('"method":"process.report"'))
+        .map((line) => JSON.parse(line) as { params: { event: string; kind: string; linkId: string } });
+    await waitFor(() => {
+      expect(reports().some((request) => request.params.event === 'opened')).toBe(true);
+    });
+    expect(reports().map((request) => request.params.event)).toEqual(['opened']);
+    view.unmount();
+    await waitFor(() => {
+      expect(reports().at(-1)?.params.event).toBe('closed');
+    });
+    for (const request of reports())
+      expect(request.params).toEqual({
+        kind: 'web_chat',
+        linkId: 'chatgpt',
+        event: request.params.event,
+      });
+    for (const request of reports()) expect(['opened', 'closed']).toContain(request.params.event);
+  });
+  it('PROC-02 reports reload failures without page content', async () => {
+    const view = setup();
+    await waitFor(() => {
+      expect(view.sync).toHaveBeenCalled();
+    });
+    view.reload.mockRejectedValueOnce(new Error('Load failed'));
+    fireEvent.click(screen.getByRole('button', { name: /Reload/ }));
+    await waitFor(() => {
+      expect(view.transport.sent.some((line) => line.includes('"event":"failed"'))).toBe(true);
+    });
+  });
   it('remeasures native pane positions when a shell banner changes layout', async () => {
     const { sync, rerender, page } = setup();
     await waitFor(() => {

@@ -1,4 +1,4 @@
-import type { WebChatLayout, WebChatLink, WebChatPaneRequest } from '@itstudio/schemas';
+import type { WebChatLayout, WebChatLink, WebChatLinkId, WebChatPaneRequest } from '@itstudio/schemas';
 import { useEffect, type RefObject } from 'react';
 import type { IWebChatHost } from './webchat-host';
 
@@ -10,6 +10,7 @@ interface NativePaneOptions {
   readonly paused: boolean;
   readonly measureRevision: string;
   readonly onError: () => void;
+  readonly onLoadFailure: (linkIds: readonly WebChatLinkId[]) => void;
 }
 
 export function useNativeWebChatPanes({
@@ -20,6 +21,7 @@ export function useNativeWebChatPanes({
   paused,
   measureRevision,
   onError,
+  onLoadFailure,
 }: NativePaneOptions): void {
   useEffect(() => {
     return () => {
@@ -61,10 +63,15 @@ export function useNativeWebChatPanes({
             layout.panes.map((_, slot) => slot),
           )
           .then(() => {
-            if (active) return host.setVisible(true);
+            if (active) {
+              return host.setVisible(true);
+            }
           })
           .catch(() => {
-            if (active) onError();
+            if (active) {
+              onLoadFailure(panes.map((pane) => pane.linkId));
+              onError();
+            }
           });
       });
     }
@@ -87,5 +94,5 @@ export function useNativeWebChatPanes({
       window.removeEventListener('resize', schedule);
       window.removeEventListener('scroll', schedule, true);
     };
-  }, [elements, host, layout, links, measureRevision, onError, paused]);
+  }, [elements, host, layout, links, measureRevision, onError, onLoadFailure, paused]);
 }

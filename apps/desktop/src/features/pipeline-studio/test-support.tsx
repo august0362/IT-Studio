@@ -68,6 +68,7 @@ export function mountStudio(ui: ReactNode, initialRuns: readonly PipelineRun[] =
     const params = isRecord(request.params) ? request.params : {};
     let result: unknown = undefined;
     if (request.method === 'pipeline.list') result = runs;
+    if (request.method === 'process.list') result = [];
     if (request.method === 'pipeline.get') result = runs.find((run) => run.id === params.runId) ?? pipeline();
     if (request.method === 'pipeline.start') {
       const run = pipeline({
