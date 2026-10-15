@@ -18,6 +18,7 @@ CONTEXT D35: before writing the spec, the PM may ask the user up to 5 clarificat
 - `apps/desktop/src/features/settings/pipeline/**` (+ tests)
 - `apps/desktop/src/i18n/{en,vi}.json` (new keys only)
 - This task file (`## Result`)
+- **Scope amendment (Architect, 2026-10-15, answers `## Blocked`):** also allowed — `apps/sidecar/src/services/{role-caller,activity-recorder,settings-service}.ts`, `apps/sidecar/src/validation/{pipeline,settings,ipc}.ts`, `apps/sidecar/src/container.ts` (+ their tests), and settings fixtures in existing tests that only need the new `autoClarify` field (e.g. `apps/desktop/src/features/round1-coverage.test.tsx`, `apps/sidecar/src/services/web-chat-service.test.ts`). Fix the review findings recorded under `## Blocked` (exact optional props, RoleCaller typing, orchestrator narrowing, hydrating `clarifying` runs and queue gates after restart, clarification tests).
 
 ## Schema additions (`src/types/schemas.ts`)
 
