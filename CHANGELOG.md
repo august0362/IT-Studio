@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add Processes: every chat, pipeline, knowledge ingest, image, price update, key check, VS Code launch and web-chat pane is a process with a coloured status dot, retry/cancel/dismiss, and a full-screen module pipeline viewer ([PROC-01](docs/tasks/PROC-01.md), [PROC-02](docs/tasks/PROC-02.md))
 - Add a folder picker for new projects, a Projects page (history, open, delete without touching files), tab restore and a chat thinking indicator ([OWNER-FB2-B](docs/tasks/OWNER-FB2-B.md))
 - Move all configuration into one searchable Settings page; the sidebar keeps the main features ([UX-03](docs/tasks/UX-03.md))
 - Add DeepSeek, OpenRouter, Qwen (region endpoint) and Mistral API keys and models through the OpenAI-compatible adapter; seed prices stay unverified until Update prices ([PROV-01](docs/tasks/PROV-01.md))

@@ -201,8 +201,9 @@ Work order and QA verdict: `docs/tasks/OWNER-FB1.md`.
 
 ## PROC — Processes *(D40)*
 
-- [ ] **PROC-01** (C) Sidecar process registry, module graphs per kind, instrumentation, retention 20, retry/cancel/dismiss, restart sweep.
-- [ ] **PROC-02** (C) Processes page with coloured dots + generic full-screen process viewer (Pipeline Studio look), status-bar counts, web-chat reporting.
+- [x] **PROC-01** (C) Sidecar process registry, module graphs per kind, instrumentation, retention 20, retry/cancel/dismiss, restart sweep.
+- [x] **PROC-02** (C) Processes page with coloured dots + generic full-screen process viewer (Pipeline Studio look), status-bar counts, web-chat reporting.
+- [ ] **PROC-04** (C) Native web-chat page-loaded signal for web-chat processes (Rust child webview event).
 - [ ] **PROC-03** *(later, on owner request)* User-built n8n-style workflows (drag modules from a library, connect, save, run).
 
 ## MOD — Sidecar feature modules *(D37; after v1 sign-off, before LLMPOOL)*
