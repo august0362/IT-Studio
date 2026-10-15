@@ -1,7 +1,9 @@
 import type { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
+import { PIPELINE_STUDIO_ENABLED, PipelineStudioNavButton } from '../features/pipeline-studio';
 
 export type ShellRoute =
+  | 'pipeline-studio'
   | 'chat'
   | 'webchat'
   | 'code'
@@ -147,6 +149,13 @@ export function MainNav({
         >
           {links[4]?.label}
         </a>
+        {PIPELINE_STUDIO_ENABLED ? (
+          <PipelineStudioNavButton
+            onOpen={() => {
+              navigate('pipeline-studio');
+            }}
+          />
+        ) : null}
       </div>
     </nav>
   );
