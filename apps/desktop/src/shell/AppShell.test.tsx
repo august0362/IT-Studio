@@ -108,20 +108,22 @@ function setup({ history = false, empty = false, conflict = false, delayed = fal
 describe('AppShell', () => {
   it('keeps the main navigation in keyboard order and enables Gallery', () => {
     setup();
-    const links = screen.getAllByRole('link');
-    expect(links.slice(0, 9).map((link) => link.getAttribute('href'))).toEqual([
+    const links = within(screen.getByRole('navigation', { name: 'Main navigation' })).getAllByRole('link');
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
       '#projects',
       '#chat',
+      '#webchat',
       '#code',
       '#knowledge',
-      '#webchat',
       '#gallery',
       '#cost',
-      '#settings-api-keys',
-      '#settings-theme',
+      '#workflow',
+      '#settings',
     ]);
     expect(screen.getByRole('link', { name: 'Gallery' })).toHaveAttribute('href', '#gallery');
-    expect(screen.getByRole('link', { name: 'Web chat' })).toHaveAttribute('href', '#webchat');
+    expect(
+      within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('link', { name: 'Web chat' }),
+    ).toHaveAttribute('href', '#webchat');
     expect(document.querySelector('footer[role="status"]')).toBeVisible();
   });
 
@@ -138,7 +140,9 @@ describe('AppShell', () => {
 
   it('opens the internal Web chat page through main navigation', async () => {
     setup();
-    fireEvent.click(screen.getByRole('link', { name: 'Web chat' }));
+    fireEvent.click(
+      within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('link', { name: 'Web chat' }),
+    );
     expect(await screen.findByRole('heading', { name: 'Web chat' })).toBeVisible();
     expect(screen.getByRole('combobox', { name: 'Panes' })).toBeVisible();
     expect(window.location.hash).toBe('#webchat');

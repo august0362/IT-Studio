@@ -255,6 +255,24 @@
     "retryStart": "Khắc phục sự cố rồi chạy lại pipeline."
   },
   "settings": {
+    "search": "Tìm cài đặt",
+    "section": "Mục cài đặt",
+    "chooseSection": "Chọn một mục",
+    "noMatches": "Không có mục cài đặt nào khớp với tìm kiếm.",
+    "sectionHeading": "Cài đặt — {{section}}",
+    "sections": {
+      "api-keys": "Khóa API",
+      "router": "Bộ định tuyến",
+      "pipeline": "Quy trình",
+      "budget": "Ngân sách",
+      "pricing": "Giá",
+      "fx": "Tiền tệ (FX)",
+      "images": "Hình ảnh",
+      "web-chat": "Trò chuyện web",
+      "vscode": "VS Code",
+      "theme": "Giao diện & ngôn ngữ",
+      "labs": "Thử nghiệm"
+    },
     "nav": {
       "router": "Bộ định tuyến",
       "budget": "Ngân sách",

@@ -255,6 +255,24 @@
     "retryStart": "Resolve the issue and run the pipeline again."
   },
   "settings": {
+    "search": "Search settings",
+    "section": "Settings section",
+    "chooseSection": "Choose a section",
+    "noMatches": "No settings sections match your search.",
+    "sectionHeading": "Settings — {{section}}",
+    "sections": {
+      "api-keys": "API keys",
+      "router": "Router",
+      "pipeline": "Pipeline",
+      "budget": "Budget",
+      "pricing": "Pricing",
+      "fx": "Currency (FX)",
+      "images": "Images",
+      "web-chat": "Web chat",
+      "vscode": "VS Code",
+      "theme": "Appearance & language",
+      "labs": "Labs"
+    },
     "nav": {
       "router": "Router",
       "budget": "Budget",
