@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { mkdir, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { parse, resolve } from 'node:path';
 import { appSettingsSchema } from '../../src/validation/settings.js';
 import { settings } from '../../src/infra/sqlite/schema.js';
@@ -15,6 +15,37 @@ afterEach(async () => {
 });
 
 describe('settings and project integration', () => {
+  it('OWNER-FB2-A orders project history and deletes app data while keeping workspace files', async () => {
+    sidecar = await startSidecar();
+    const firstRoot = resolve(sidecar.dataDir, 'first-workspace');
+    const secondRoot = resolve(sidecar.dataDir, 'second-workspace');
+    await mkdir(firstRoot);
+    await mkdir(secondRoot);
+    const preserved = resolve(firstRoot, 'keep.txt');
+    await writeFile(preserved, 'keep workspace');
+    const first = projectSchema.parse(
+      (await sidecar.call('project.create', { name: 'First', workspaceRoot: firstRoot })).result,
+    );
+    const second = projectSchema.parse(
+      (await sidecar.call('project.create', { name: 'Second', workspaceRoot: secondRoot })).result,
+    );
+    const active = projectSchema.parse((await sidecar.call('project.setActive', { projectId: first.id })).result);
+    expect(active.lastOpenedAt).toBeDefined();
+    const projects = projectSchema.array().parse((await sidecar.call('project.list')).result);
+    expect(projects.map((project) => project.id)).toEqual([first.id, second.id]);
+    expect((await sidecar.call('project.delete', { projectId: first.id })).result).toEqual({ deleted: true });
+    expect(
+      projectSchema
+        .array()
+        .parse((await sidecar.call('project.list')).result)
+        .map((project) => project.id),
+    ).toEqual([second.id]);
+    expect(appSettingsSchema.parse((await sidecar.call('settings.get')).result).activeProjectId).toBeNull();
+    expect(await readFile(preserved, 'utf8')).toBe('keep workspace');
+    expect((await sidecar.call('project.delete', { projectId: first.id })).error?.data).toMatchObject({
+      code: 'NOT_FOUND',
+    });
+  });
   it('TC-M1-020 returns schema-valid defaults on first run', async () => {
     sidecar = await startSidecar();
     const response = await sidecar.call('settings.get');

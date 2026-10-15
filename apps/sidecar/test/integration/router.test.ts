@@ -75,6 +75,18 @@ function failedAttempts(h: Awaited<ReturnType<typeof setup>>) {
 }
 
 describe('router integration', () => {
+  it('OWNER-FB2-A Auto answers using a keyed provider outside the configured ladder', async () => {
+    const h = await setup();
+    for (const modelKey of h.ladder)
+      await h.sidecar.call('secrets.delete', { provider: providerIdSchema.parse(modelKey.split('/')[0]) });
+    await h.sidecar.call('secrets.set', { provider: 'deepseek', apiKey: 'fixture-deepseek-key' });
+    await send(h, 'xin chào');
+    await waitFor(() => params(h, 'chat.completed').length === 1);
+    expect(params<{ message: { modelKey: string } }>(h, 'chat.completed')[0]?.message.modelKey).toBe(
+      'deepseek/deepseek-v4-flash',
+    );
+    expect(h.config.ladder.some((entry) => entry.modelKey.startsWith('deepseek/'))).toBe(false);
+  });
   it('TC-M2-001 succeeds on the first model without fallback', async () => {
     const h = await setup();
     await send(h);
@@ -163,6 +175,9 @@ describe('router integration', () => {
     const h = await setup({
       [hModel('google/gemini-3.8-flash')]: ['http:503:0', 'http:503:0', 'http:503:0'],
       [hModel('groq/llama-3.3-70b-versatile')]: ['http:503:0', 'http:503:0', 'http:503:0'],
+      // Auto also appends enabled chat models from these keyed providers.
+      [hModel('google/gemini-3.1-pro-preview')]: ['http:503:0'],
+      [hModel('groq/llama-3.1-8b-instant')]: ['http:503:0'],
     });
     const config = { ...h.config, ladder: h.config.ladder.map((entry) => ({ ...entry, maxRetries: 2 })) };
     await h.sidecar.call('router.updateConfig', { config });

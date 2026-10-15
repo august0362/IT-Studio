@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { AppError, AppSettings, Result, SettingsPatch } from '@itstudio/schemas';
+import type { AppError, AppSettings, ProjectId, Result, SettingsPatch } from '@itstudio/schemas';
 import type { Logger } from 'pino';
 import type { IClock } from '../infra/clock.js';
 import type { ISettingsRepository } from '../ports/settings-repository.js';
@@ -58,6 +58,19 @@ export class SettingsService {
 
   update(patch: SettingsPatch): Promise<Result<AppSettings>> {
     const pending = this.updates.then(() => this.applyPatch(patch));
+    this.updates = pending.then(
+      () => undefined,
+      () => undefined,
+    );
+    return pending;
+  }
+
+  clearActiveProject(projectId: ProjectId): Promise<Result<AppSettings>> {
+    const pending = this.updates.then(async () => {
+      const current = await this.get();
+      if (!current.ok || current.value.activeProjectId !== projectId) return current;
+      return this.applyPatch({ activeProjectId: null });
+    });
     this.updates = pending.then(
       () => undefined,
       () => undefined,

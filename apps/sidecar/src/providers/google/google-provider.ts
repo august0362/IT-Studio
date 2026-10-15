@@ -104,11 +104,12 @@ export class GoogleProvider implements ILlmProvider {
 
 function classifyFailure(error: unknown, apiKey: string): ProviderFailure {
   const details = getErrorDetails(error);
-  const message = details.message.slice(0, 240).replaceAll(apiKey, '[redacted]');
+  const message = details.message.replaceAll(apiKey, '[redacted]').slice(0, 240);
   const dailyQuota = /per day|daily|billing|quota exceeded for quota metric.*per day/i.test(details.message);
   if ((details.status === 429 || details.code === 'RESOURCE_EXHAUSTED') && dailyQuota)
     return {
       kind: FailureKind.QUOTA_EXHAUSTED,
+      providerCode: details.code,
       ...(details.status === undefined ? {} : { httpStatus: details.status }),
       billed: false,
       message,
@@ -116,6 +117,7 @@ function classifyFailure(error: unknown, apiKey: string): ProviderFailure {
   if (details.status === 429 || details.code === 'RESOURCE_EXHAUSTED')
     return {
       kind: FailureKind.RATE_LIMITED,
+      providerCode: details.code,
       ...(details.status === undefined ? {} : { httpStatus: details.status }),
       ...(details.retryAfterMs === undefined ? {} : { retryAfterMs: details.retryAfterMs }),
       billed: false,
@@ -127,6 +129,7 @@ function classifyFailure(error: unknown, apiKey: string): ProviderFailure {
   )
     return {
       kind: FailureKind.AUTH,
+      providerCode: details.code,
       ...(details.status === undefined ? {} : { httpStatus: details.status }),
       billed: false,
       message,
@@ -134,6 +137,7 @@ function classifyFailure(error: unknown, apiKey: string): ProviderFailure {
   if ([400, 404].includes(details.status ?? 0) || details.code === 'INVALID_ARGUMENT')
     return {
       kind: FailureKind.BAD_REQUEST,
+      providerCode: details.code,
       ...(details.status === undefined ? {} : { httpStatus: details.status }),
       billed: false,
       message,
@@ -141,6 +145,7 @@ function classifyFailure(error: unknown, apiKey: string): ProviderFailure {
   if ([500, 503].includes(details.status ?? 0) || ['UNAVAILABLE', 'INTERNAL'].includes(details.code))
     return {
       kind: FailureKind.SERVER_ERROR,
+      providerCode: details.code,
       ...(details.status === undefined ? {} : { httpStatus: details.status }),
       billed: false,
       message,
@@ -149,6 +154,7 @@ function classifyFailure(error: unknown, apiKey: string): ProviderFailure {
     return { kind: FailureKind.TIMEOUT, billed: false, message: 'The provider request timed out.' };
   return {
     kind: FailureKind.SERVER_ERROR,
+    providerCode: details.code,
     ...(details.status === undefined ? {} : { httpStatus: details.status }),
     billed: false,
     message: message || 'The provider request failed.',

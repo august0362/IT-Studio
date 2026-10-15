@@ -6,6 +6,7 @@ export const projects = sqliteTable('projects', {
   name: text('name').notNull(),
   workspaceRoot: text('workspace_root').notNull().unique(),
   createdAt: text('created_at').notNull(),
+  lastOpenedAt: text('last_opened_at'),
   archived: integer('archived').notNull().default(0),
 });
 

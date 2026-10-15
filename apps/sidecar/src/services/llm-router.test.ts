@@ -9,6 +9,7 @@ import {
   type Result,
 } from '@itstudio/schemas';
 import pino from 'pino';
+import { z } from 'zod';
 import { describe, expect, it, vi } from 'vitest';
 import { createFakeClock } from '../infra/clock.js';
 import { createFakeIdGenerator } from '../infra/id.js';
@@ -131,6 +132,7 @@ function setup(
     readonly estimate?: number;
     readonly fallbackDecider?: IFallbackDecider;
     readonly configFailure?: boolean;
+    readonly ladder?: readonly ModelKey[];
   } = {},
 ) {
   const first = options.first ?? new FakeLlmProvider();
@@ -152,12 +154,14 @@ function setup(
         timeoutMs: 50,
       },
       { modelKey: modelB, priority: 2, enabled: options.disabledModelKey !== modelB, maxRetries: 0, timeoutMs: 50 },
-    ],
+    ].filter((entry) => options.ladder === undefined || options.ladder.includes(entry.modelKey)),
     autoFallback: options.autoFallback ?? true,
     lockedModelKey: options.lockedModelKey ?? null,
     circuitBreaker: { failureThreshold: options.failureThreshold ?? 1, cooldownMs: 100 },
     userDecisionTimeoutMs: 10,
   } as const;
+  const logger = pino({ enabled: false });
+  const clock = createFakeClock(new Date('2026-10-02T00:00:00.000Z'));
   const router = new LlmRouter({
     models,
     providers,
@@ -178,21 +182,177 @@ function setup(
             }
           : { ok: true as const, value: config },
       ),
-    clock: createFakeClock(new Date('2026-10-02T00:00:00.000Z')),
+    clock,
     ids: createFakeIdGenerator(
       Array.from({ length: 100 }, (_, index) => `00000000-0000-4000-8000-${index.toString(16).padStart(12, '0')}`),
     ),
-    logger: pino({ enabled: false }),
+    logger,
     events,
     completed,
     ...(options.fallbackDecider === undefined ? {} : { fallbackDecider: options.fallbackDecider }),
     sleep: options.sleep ?? (() => Promise.resolve()),
     random: () => 0.5,
   });
-  return { router, events, completed, first, second, secrets };
+  return { router, events, completed, first, second, secrets, logger, clock };
 }
 
 describe('LlmRouter', () => {
+  it('OWNER-FB2-A augments Auto in seed order with keyed enabled chat models exactly once', async () => {
+    const base = modelDescriptors[0];
+    if (base === undefined) throw new Error('Missing descriptor');
+    const first = new ScriptedProvider(ProviderId.OPENAI, [
+      providerFailure(FailureKind.QUOTA_EXHAUSTED),
+      providerFailure(FailureKind.QUOTA_EXHAUSTED),
+    ]);
+    const h = setup({
+      first,
+      ladder: [modelA],
+      descriptors: [
+        ...modelDescriptors,
+        { ...base, key: 'openai/disabled', providerModelId: 'disabled', enabled: false },
+        { ...base, key: 'openai/embedding', providerModelId: 'embedding', capabilities: [ModelCapability.EMBEDDING] },
+        { ...base, key: 'openai/extra-c', providerModelId: 'extra-c' },
+        { ...base, key: 'openai/extra-d', providerModelId: 'extra-d' },
+      ],
+    });
+    await h.secrets.delete(ProviderId.ANTHROPIC);
+    const result = await h.router.dispatch(baseRequest);
+    expect(result.ok && result.value.modelKey).toBe('openai/extra-d');
+    expect(first.calls).toEqual(['model-a', 'extra-c', 'extra-d']);
+  });
+
+  it.each(['explicit', 'pipeline', 'locked'] as const)('OWNER-FB2-A does not augment %s ladders', async (mode) => {
+    const first = new ScriptedProvider(ProviderId.OPENAI, [providerFailure(FailureKind.QUOTA_EXHAUSTED)]);
+    const second = new ScriptedProvider(ProviderId.ANTHROPIC, []);
+    const h = setup({ first, second, ladder: [modelA], ...(mode === 'locked' ? { lockedModelKey: modelA } : {}) });
+    const result = await h.router.dispatch({
+      ...baseRequest,
+      ...(mode === 'explicit' ? { preferredModelKey: modelA } : {}),
+      ...(mode === 'pipeline' ? ({ purpose: 'pipeline_pm', ladderOverride: [modelA] } as const) : {}),
+    });
+    expect(result).toMatchObject({ ok: false, error: { code: ErrorCode.LADDER_EXHAUSTED } });
+    expect(second.calls).toEqual([]);
+  });
+
+  it('OWNER-FB2-A makes one preferred half-open probe after all other candidates fail', async () => {
+    const failure = providerFailure(FailureKind.QUOTA_EXHAUSTED, { httpStatus: 429 });
+    const first = new ScriptedProvider(ProviderId.OPENAI, [failure, failure]);
+    const second = new ScriptedProvider(ProviderId.ANTHROPIC, [failure]);
+    const h = setup({ first, second });
+    await h.router.dispatch(baseRequest);
+    const result = await h.router.dispatch(baseRequest);
+    expect(result).toMatchObject({ ok: false, error: { code: ErrorCode.LADDER_EXHAUSTED } });
+    expect(first.calls).toEqual(['model-a', 'model-a']);
+    expect(second.calls).toEqual(['model-b']);
+    expect(result.ok ? '' : result.error.message).toContain('OpenAI (model-a): quota exhausted (429)');
+    expect(result.ok ? '' : result.error.message).toContain('Anthropic (model-b): quota exhausted (429)');
+    expect((await h.router.dispatch(baseRequest)).ok).toBe(true);
+  });
+
+  it('OWNER-FB2-A probes the preferred open model after the remaining model fails', async () => {
+    const failure = providerFailure(FailureKind.QUOTA_EXHAUSTED);
+    const first = new ScriptedProvider(ProviderId.OPENAI, [failure]);
+    const second = new ScriptedProvider(ProviderId.ANTHROPIC, [
+      { ok: true, value: responseFor(fakeProviderRequest('model-b'), 'answer') },
+      failure,
+    ]);
+    const h = setup({ first, second });
+    expect((await h.router.dispatch(baseRequest)).ok).toBe(true);
+    const result = await h.router.dispatch(baseRequest);
+    expect(result.ok && result.value.modelKey).toBe(modelA);
+    expect(first.calls).toEqual(['model-a', 'model-a']);
+    expect(second.calls).toEqual(['model-b', 'model-b']);
+  });
+
+  it('OWNER-FB2-A probes once when a retry is skipped by a newly opened circuit', async () => {
+    const first = new ScriptedProvider(ProviderId.OPENAI, [providerFailure(FailureKind.SERVER_ERROR)]);
+    const h = setup({ first, maxRetries: 1, ladder: [modelA] });
+    await h.secrets.delete(ProviderId.ANTHROPIC);
+    const result = await h.router.dispatch(baseRequest);
+    expect(result.ok && result.value.modelKey).toBe(modelA);
+    expect(first.calls).toEqual(['model-a', 'model-a']);
+  });
+
+  it('OWNER-FB2-A never probes an unkeyed open circuit', async () => {
+    const first = new ScriptedProvider(ProviderId.OPENAI, [providerFailure(FailureKind.QUOTA_EXHAUSTED)]);
+    const h = setup({ first, ladder: [modelA] });
+    await h.secrets.delete(ProviderId.ANTHROPIC);
+    await h.router.dispatch(baseRequest);
+    await h.secrets.delete(ProviderId.OPENAI);
+    expect(await h.router.dispatch(baseRequest)).toMatchObject({
+      ok: false,
+      error: { code: ErrorCode.LADDER_EXHAUSTED },
+    });
+    expect(first.calls).toEqual(['model-a']);
+  });
+
+  it('OWNER-FB2-A logs failed and skipped attempts at warn with bounded redacted diagnostics', async () => {
+    const keyLike = ['sk', 'a'.repeat(30)].join('-');
+    const first = new ScriptedProvider(ProviderId.OPENAI, [
+      {
+        ok: false,
+        error: {
+          kind: FailureKind.SERVER_ERROR,
+          billed: false,
+          httpStatus: 503,
+          providerCode: 'UNAVAILABLE',
+          message: `Provider failed secret-a ${keyLike} hello ${'x'.repeat(300)}`,
+        },
+      },
+    ]);
+    const h = setup({ first });
+    await h.secrets.delete(ProviderId.ANTHROPIC);
+    const warn = vi.spyOn(h.logger, 'warn');
+    const result = await h.router.dispatch(baseRequest);
+    expect(result.ok).toBe(false);
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        svc: 'router',
+        requestId: baseRequest.id,
+        modelKey: modelA,
+        outcome: 'failed',
+        failure: FailureKind.SERVER_ERROR,
+        httpStatus: 503,
+        providerCode: 'UNAVAILABLE',
+      }),
+      expect.any(String),
+    );
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        svc: 'router',
+        requestId: baseRequest.id,
+        modelKey: modelB,
+        outcome: 'skipped',
+        failure: FailureKind.CAPABILITY_MISMATCH,
+      }),
+      expect.any(String),
+    );
+    const logged = JSON.stringify(warn.mock.calls);
+    expect(logged).not.toContain('secret-a');
+    expect(logged).not.toContain(keyLike);
+    expect(logged).not.toContain('hello');
+    for (const call of warn.mock.calls) {
+      const parsed = z.object({ message: z.string().optional() }).parse(call[0]);
+      if (parsed.message !== undefined) expect(parsed.message.length).toBeLessThanOrEqual(200);
+    }
+  });
+
+  it.each(['chat', 'pipeline_pm'] as const)(
+    'OWNER-FB2-A gives %s the last timeout and correct Settings destination',
+    async (purpose) => {
+      const first = new ScriptedProvider(ProviderId.OPENAI, [providerFailure(FailureKind.TIMEOUT)]);
+      const h = setup({ first, ladder: [modelA] });
+      await h.secrets.delete(ProviderId.ANTHROPIC);
+      const result = await h.router.dispatch({ ...baseRequest, purpose });
+      expect(result.ok ? '' : result.error.remediation?.join(' ')).toContain(
+        'OpenAI (model-a): timed out after 0.05 s',
+      );
+      expect(result.ok ? '' : result.error.remediation?.join(' ')).toContain(
+        `Settings → ${purpose === 'chat' ? 'Router' : 'Pipeline'}`,
+      );
+    },
+  );
+
   it.each(['no_api_key', 'missing_capability', 'disabled'] as const)(
     'TC-UX2-router records %s without changing fallback',
     async (skipReason) => {
@@ -243,13 +403,14 @@ describe('LlmRouter', () => {
       ],
     });
     await h.secrets.delete(ProviderId.OPENAI);
-    const result = await h.router.dispatch({ ...baseRequest, ladderOverride: [modelA, extra] });
+    const result = await h.router.dispatch({ ...baseRequest, purpose: 'pipeline_pm', ladderOverride: [modelA, extra] });
     expect(result).toMatchObject({
       ok: false,
       error: {
         code: ErrorCode.LADDER_EXHAUSTED,
         message: 'Every model in the ladder was unavailable. No API key: OpenAI (model-a, model-c).',
         remediation: [
+          'No API key: OpenAI (model-a, model-c)',
           'Add an API key in Settings \u2192 API Keys for: OpenAI.',
           'Or add a model from a provider you have a key for (Anthropic: B) to this role in Settings \u2192 Pipeline.',
         ],
@@ -267,8 +428,9 @@ describe('LlmRouter', () => {
       error: {
         message: 'Every model in the ladder was unavailable. No API key: OpenAI (model-a), Anthropic (model-b).',
         remediation: [
+          'No API key: OpenAI (model-a), Anthropic (model-b)',
           'Add an API key in Settings \u2192 API Keys for: OpenAI, Anthropic.',
-          'Or add a model from a provider you have a key for to this role in Settings \u2192 Pipeline.',
+          'Or add a model from a provider you have a key for in Settings \u2192 Router.',
         ],
       },
     });
@@ -940,7 +1102,7 @@ describe('LlmRouter', () => {
     const h = setup({ first, second });
     const result = await h.router.dispatch(baseRequest);
     expect(result.ok ? '' : result.error.code).toBe(ErrorCode.LADDER_EXHAUSTED);
-    expect(result.ok ? '' : result.error.message).toContain(`${modelB}: quota_exhausted`);
+    expect(result.ok ? '' : result.error.message).toContain('Anthropic (model-b): quota exhausted');
   });
 
   it('fetches secrets per attempt and never publishes their values', async () => {

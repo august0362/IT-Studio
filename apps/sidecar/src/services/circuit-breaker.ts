@@ -31,11 +31,11 @@ export class CircuitBreaker {
     this.onChange = onChange;
   }
 
-  acquire(modelKey: ModelKey): boolean {
+  acquire(modelKey: ModelKey, forceProbe = false): boolean {
     const state = this.states.get(modelKey);
     if (state === undefined || state.status === 'closed') return true;
     if (state.status === 'open') {
-      if (this.clock.monotonicMs() - state.openedAt < this.cooldown(state)) return false;
+      if (!forceProbe && this.clock.monotonicMs() - state.openedAt < this.cooldown(state)) return false;
       state.status = 'half_open';
       this.onChange(modelKey, 'half_open');
     }

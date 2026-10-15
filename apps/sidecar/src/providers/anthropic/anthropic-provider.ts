@@ -86,12 +86,13 @@ function classifyFailure(error: unknown, apiKey: string): ProviderFailure {
     const providerType = error.type ?? '';
     const providerMessage = safeProviderMessage(error.error);
     const message = `${providerType}${providerMessage ? `: ${providerMessage}` : ''}`
-      .slice(0, 240)
-      .replaceAll(apiKey, '[redacted]');
+      .replaceAll(apiKey, '[redacted]')
+      .slice(0, 240);
     if (status === 429 && providerType === 'rate_limit_error') {
       const retryAfterMs = parseRetryAfter(error.headers?.get('retry-after'), Date.now());
       return {
         kind: FailureKind.RATE_LIMITED,
+        providerCode: providerType,
         httpStatus: status,
         ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
         billed: false,
@@ -99,12 +100,20 @@ function classifyFailure(error: unknown, apiKey: string): ProviderFailure {
       };
     }
     if ((status === 400 || status === 402) && /credit balance|billing|quota/i.test(providerMessage)) {
-      return { kind: FailureKind.QUOTA_EXHAUSTED, httpStatus: status, billed: false, message };
+      return {
+        kind: FailureKind.QUOTA_EXHAUSTED,
+        httpStatus: status,
+        billed: false,
+        message,
+        providerCode: providerType,
+      };
     }
-    if (status === 401 || status === 403) return { kind: FailureKind.AUTH, httpStatus: status, billed: false, message };
+    if (status === 401 || status === 403)
+      return { kind: FailureKind.AUTH, httpStatus: status, billed: false, message, providerCode: providerType };
     if ([400, 404, 413, 422].includes(status ?? 0)) {
       return {
         kind: FailureKind.BAD_REQUEST,
+        providerCode: providerType,
         ...(status === undefined ? {} : { httpStatus: status }),
         billed: false,
         message,
@@ -113,6 +122,7 @@ function classifyFailure(error: unknown, apiKey: string): ProviderFailure {
     if ([500, 502, 503, 504, 529].includes(status ?? 0) || providerType === 'overloaded_error') {
       return {
         kind: FailureKind.SERVER_ERROR,
+        providerCode: providerType,
         ...(status === undefined ? {} : { httpStatus: status }),
         billed: false,
         message,
@@ -120,6 +130,7 @@ function classifyFailure(error: unknown, apiKey: string): ProviderFailure {
     }
     return {
       kind: FailureKind.SERVER_ERROR,
+      providerCode: providerType,
       ...(status === undefined ? {} : { httpStatus: status }),
       billed: false,
       message,
@@ -129,7 +140,7 @@ function classifyFailure(error: unknown, apiKey: string): ProviderFailure {
   return {
     kind: FailureKind.SERVER_ERROR,
     billed: false,
-    message: raw.slice(0, 200).replaceAll(apiKey, '[redacted]'),
+    message: raw.replaceAll(apiKey, '[redacted]').slice(0, 200),
   };
 }
 
