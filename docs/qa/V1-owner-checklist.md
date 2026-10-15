@@ -1,101 +1,175 @@
-# IT Studio v1 — Checklist nghiệm thu cho chủ sản phẩm
+# Danh sách việc bạn cần tự kiểm tra trên IT Studio v1
 
-> Trạng thái: **BẢN NHÁP**. Khi chạy V1-QA, tôi sẽ điền mã hash bản build, đường dẫn bộ cài và kết quả test tự động vào mục 0. Làm xong bước nào thì đánh dấu ☑ ở bước đó. Nếu thấy gì sai, ghi vào cột *Ghi chú*.
+## File này dùng để làm gì?
 
-## 0. Trước khi bắt đầu
+Máy đã tự chạy hơn 1.000 bài test, nhưng có những thứ máy không tự kiểm được: dùng API key thật, nhìn giao diện có đẹp và dễ hiểu không, cài đặt trên Windows, mở VS Code… Những bài dưới đây là phần **bạn tự bấm thử bằng tay**.
 
-- Bản build cần kiểm tra: `<V1-QA điền: tên file bộ cài, SHA-256, commit>`
-- Kết quả test tự động của bản này: `<V1-QA điền: số test unit / integration / E2E / smoke>`
-- Cần chuẩn bị: ít nhất **hai** API key của hai nhà cung cấp khác nhau (ví dụ OpenAI + Anthropic hoặc Google), một thư mục trống để làm workspace thử, khoảng 45 phút.
-- Báo lỗi theo mẫu: *mục · bước · bạn đã làm gì · mong đợi gì · thực tế ra sao* (kèm ảnh chụp nếu có).
-- Mức độ lỗi:
-  - **S1**: mất dữ liệu, app crash hoặc lộ key
-  - **S2**: tính năng hỏng
-  - **S3**: sai nhưng vẫn dùng được
-  - **S4**: lỗi hiển thị
+Cách dùng:
+- Đọc từng bài, **làm** theo dòng "Làm", rồi xem có **thấy** đúng như dòng "Phải thấy" không.
+- Đúng thì đổi `[ ]` thành `[x]`.
+- Sai thì ghi ngay bên dưới bài đó: *đã làm gì, thấy gì*. Có ảnh chụp càng tốt.
 
-## 1. Cài đặt và khởi động
+Cần chuẩn bị:
+- API key của **2 hãng AI khác nhau** (ví dụ OpenAI và Google).
+- Một thư mục trống trên máy để làm project thử.
+- Khoảng 45 phút.
 
-| ✓ | Bước | Kết quả mong đợi | Ghi chú |
-|---|---|---|---|
-| ☐ | Chạy bộ cài NSIS (nếu SmartScreen cảnh báo thì chọn More info → Run anyway) | Cài xong, có mục "IT Studio" trong Start menu | |
-| ☐ | Mở app | Thanh trạng thái chuyển *Connecting…* → *Ready* trong khoảng 3 giây, không có banner đỏ | |
-| ☐ | Đóng app rồi mở lại | Project và cài đặt vẫn như cũ, lại lên *Ready* | |
+---
 
-## 2. API key và router
+## A. Cài và mở app
 
-| ✓ | Bước | Kết quả mong đợi | Ghi chú |
-|---|---|---|---|
-| ☐ | Settings → API Keys: dán một key **sai** → Verify & save | Bị từ chối, có thông báo rõ ràng, không lưu gì | |
-| ☐ | Dán key thật → Verify & save | Lưu thành công, chỉ hiện 4 ký tự cuối | |
-| ☐ | Settings → Router: tắt Auto Fallback, rồi chat với model chưa có key | App hỏi bạn muốn làm gì (dùng model khác / thử lại / huỷ) | |
+- [ ] **A1. Cài app**
+  - Làm: chạy file cài đặt tôi gửi. Nếu Windows hiện cảnh báo màu xanh, bấm *More info* rồi *Run anyway* (app chưa có chữ ký số, chuyện bình thường).
+  - Phải thấy: cài xong, trong menu Start có "IT Studio".
 
-## 3. Project và Chat
+- [ ] **A2. Mở app**
+  - Làm: mở IT Studio.
+  - Phải thấy: góc dưới hiện chữ *Connecting…* rồi chuyển sang *Ready* trong vài giây. Không có thanh báo lỗi màu đỏ.
 
-| ✓ | Bước | Kết quả mong đợi | Ghi chú |
-|---|---|---|---|
-| ☐ | Bấm + để tạo project với thư mục thử | Xuất hiện tab project mới | |
-| ☐ | Chat → New chat → Auto → gõ "xin chào" | Câu trả lời hiện dần, có chi phí bằng USD và VND | |
-| ☐ | Tạo project thứ hai, chuyển qua lại giữa hai project thật nhanh | Mỗi project chỉ hiện hội thoại của chính nó, không bao giờ gửi nhầm tin sang hội thoại của project kia | |
+- [ ] **A3. Mở lại**
+  - Làm: tắt app rồi mở lại.
+  - Phải thấy: mọi thứ vẫn như lúc trước khi tắt.
 
-## 4. Pipeline Code — bước hỏi làm rõ (mới)
+## B. Nhập API key
 
-| ✓ | Bước | Kết quả mong đợi | Ghi chú |
-|---|---|---|---|
-| ☐ | Settings → Pipeline: **tắt** "Auto-answer clarifying questions". Vào Code, nhập một yêu cầu mơ hồ ("thêm đăng nhập") → Run | Pipeline có thể dừng ở bước **Clarify** với tối đa 5 câu hỏi. Mỗi câu có các lựa chọn, một lựa chọn gắn nhãn **Recommended** kèm lý do | |
-| ☐ | Tự gõ câu trả lời cho một câu, các câu còn lại chọn theo đề xuất → Submit | Run chạy tiếp: Spec → Code → Review → Write → Validate | |
-| ☐ | **Bật** Auto-answer, chạy một yêu cầu mơ hồ khác | Không dừng lại chờ. Các câu hỏi hiện trong run với nhãn **Auto-chosen** | |
-| ☐ | Xoá key của provider mà các role pipeline đang dùng (hoặc gán một role sang provider chưa có key) → Run | Run **không** bắt đầu. Thông báo nêu rõ thiếu key của provider nào, có nút mở Settings → Pipeline | |
-| ☐ | Một run bị lỗi trước bước ghi file | Báo cáo ghi **"Chưa có thay đổi nào được ghi vào dự án."** | |
-| ☐ | Một run bị lỗi ở bước kiểm chứng (validate) | File được hoàn tác, có báo cáo kèm các bước nên làm tiếp | |
+- [ ] **B1. Key sai**
+  - Làm: vào *Settings → API Keys*, dán một key bịa ra, bấm *Verify & save*.
+  - Phải thấy: app báo key sai và không lưu.
 
-## 5. Pipeline Studio (module thêm mới)
+- [ ] **B2. Key đúng**
+  - Làm: dán key thật, bấm *Verify & save*.
+  - Phải thấy: lưu thành công, key chỉ hiện 4 ký tự cuối (để không bị lộ).
 
-| ✓ | Bước | Kết quả mong đợi | Ghi chú |
-|---|---|---|---|
-| ☐ | Cuối mục Settings → bấm **Pipeline Studio** | Trang đen toàn màn hình, không có thanh điều hướng. Các module theo thứ tự: Yêu cầu → Làm rõ → Đặc tả → Lập trình → Đánh giá → (Sửa lỗi → Đánh giá lại) → Ghi tệp → Kiểm chứng → Hoàn tất | |
-| ☐ | Gõ yêu cầu ở ô **Yêu cầu mới** trên trang này rồi chạy | Chấm sáng chạy từ module này sang module kia, module đang chạy nhấp nháy, module xong hiện ✓ | |
-| ☐ | Chạy một run có câu hỏi (Auto-answer đang tắt) | Module Làm rõ hiện **?**. Bấm vào, trả lời trong panel, run chạy tiếp | |
-| ☐ | Kéo các module sang chỗ khác, thoát ra rồi vào lại | Vị trí vẫn giữ nguyên. Bấm **Đặt lại bố cục** thì về như cũ | |
-| ☐ | Bấm vào từng module | Panel bên phải hiện đủ thông tin của module đó: yêu cầu, câu hỏi, spec, file, nhận xét review, lệnh kiểm chứng, kết quả, chi phí | |
-| ☐ | Một run bị lỗi | Module bị lỗi hiện ✕, module Hoàn tất giữ màu xám | |
-| ☐ | Bấm Esc hoặc ← Quay lại | Lần đầu đóng panel, lần sau quay về trang trước | |
-| ☐ | (Tuỳ chọn) Đặt `PIPELINE_STUDIO_ENABLED = false` trong `apps/desktop/src/features/pipeline-studio/index.ts` rồi build lại | Nút Pipeline Studio biến mất, app vẫn chạy bình thường | |
+## C. Project và Chat
 
-## 6. Knowledge, Workflow, Ảnh, Web chat
+- [ ] **C1. Tạo project**
+  - Làm: bấm dấu **+** ở trên cùng, đặt tên và chọn thư mục trống đã chuẩn bị.
+  - Phải thấy: có thêm một tab mang tên project đó.
 
-| ✓ | Bước | Kết quả mong đợi | Ghi chú |
-|---|---|---|---|
-| ☐ | Knowledge → thêm một thư mục → chờ "Indexed" → thử truy vấn | Ra kết quả liên quan. Trong Chat bật *Use knowledge* thì câu trả lời có trích dẫn `[1]` | |
-| ☐ | Xoá một nguồn trong lúc nó đang được index lại | Nguồn đó bị xoá hẳn, không tự xuất hiện lại | |
-| ☐ | Workflow → mở sơ đồ, bấm Fit view ở cỡ cửa sổ bạn hay dùng | Thấy đủ mọi node. Module đã xong việc không còn hiện "Active" | |
-| ☐ | Settings → Images → bật một provider → nhờ Chat vẽ một ảnh | Ảnh hiện trong chat. Gallery có ảnh đó kèm prompt và chi phí | |
-| ☐ | Web chat → mở 2 khung; bấm Open in browser | Các khung tải được trang, hoặc hiện nút Open in browser. Trình duyệt ngoài mở đúng trang | |
+- [ ] **C2. Chat thử**
+  - Làm: vào *Chat → New chat*, chọn *Auto*, gõ "xin chào".
+  - Phải thấy: AI trả lời, chữ hiện dần ra, bên dưới có chi phí bằng USD và VND.
 
-## 7. Chi phí, ngân sách, bảng giá
+- [ ] **C3. Hai project không lẫn nhau**
+  - Làm: tạo thêm một project thứ hai, bấm chuyển qua lại giữa hai tab thật nhanh.
+  - Phải thấy: mỗi project chỉ hiện cuộc chat của riêng nó. Không bao giờ gửi nhầm tin sang project kia.
 
-| ✓ | Bước | Kết quả mong đợi | Ghi chú |
-|---|---|---|---|
-| ☐ | Cost → Add revenue, bấm Add liên tục thật nhanh | Chỉ có **một** dòng doanh thu được thêm | |
-| ☐ | Chế độ All projects → mục Top spend by project | Hiện **tên** project, không phải mã id | |
-| ☐ | Settings → Budget → bật Hard Stop với ngân sách rất nhỏ → gửi một tin chat | Lệnh gọi trả phí bị chặn, có thông báo rõ ràng | |
-| ☐ | Settings → Pricing: đặt giá tay cho một model rồi xoá đi; khởi động lại app rồi đặt và xoá lại một lần nữa | Chỉ nhãn Origin của đúng dòng đó thay đổi. Sau khi khởi động lại, xoá giá tay sẽ trả về giá đã cập nhật hoặc đã xác minh gần nhất, không phải giá mặc định ban đầu | |
+## D. Viết code tự động (Pipeline) — có bước hỏi lại mới
 
-## 8. VS Code (nếu máy có cài)
+"Pipeline" là chức năng bạn gõ yêu cầu, AI tự lên kế hoạch, viết code, tự review, rồi ghi file vào thư mục project.
 
-| ✓ | Bước | Kết quả mong đợi | Ghi chú |
-|---|---|---|---|
-| ☐ | Settings → VS Code → bật Auto launch → chạy một pipeline có ghi file | VS Code mở project và đánh dấu các file vừa thay đổi | |
+- [ ] **D1. AI hỏi lại khi yêu cầu chưa rõ**
+  - Làm: vào *Settings → Pipeline*, **tắt** ô "Auto-answer clarifying questions". Sau đó vào tab *Code*, gõ một yêu cầu mơ hồ như "thêm đăng nhập", bấm *Run*.
+  - Phải thấy: AI có thể dừng lại và hỏi bạn tối đa 5 câu. Mỗi câu có vài lựa chọn, một lựa chọn được AI **đề xuất** (nhãn *Recommended*) kèm lý do.
 
-## 9. Kiểm tra an toàn nhanh
+- [ ] **D2. Trả lời câu hỏi**
+  - Làm: một câu tự gõ câu trả lời, các câu còn lại chọn theo đề xuất, rồi bấm *Submit*.
+  - Phải thấy: AI chạy tiếp các bước còn lại cho đến khi xong.
 
-| ✓ | Bước | Kết quả mong đợi | Ghi chú |
-|---|---|---|---|
-| ☐ | Mở `%APPDATA%\com.itstudio.app\logs\sidecar-*.log` | Không có API key, không có nội dung prompt | |
-| ☐ | Mở Task Manager, kill tiến trình sidecar của IT Studio trong lúc pipeline đang ghi file, rồi mở lại app | Workspace được khôi phục như trước. Run hiện trạng thái đã hoàn tác, kèm báo cáo | |
+- [ ] **D3. Chế độ tự trả lời**
+  - Làm: quay lại *Settings → Pipeline*, **bật** "Auto-answer", rồi chạy một yêu cầu mơ hồ khác.
+  - Phải thấy: AI không dừng lại hỏi, tự chọn theo đề xuất (ghi là *Auto-chosen*), nhưng bạn vẫn xem lại được các câu hỏi đó.
 
-## 10. Ký nghiệm thu
+- [ ] **D4. Thiếu key thì không chạy**
+  - Làm: xoá hết key ở *Settings → API Keys*, rồi bấm *Run* một pipeline.
+  - Phải thấy: app **không chạy**, báo rõ là thiếu key của hãng nào và chỉ chỗ để thêm.
 
-- ☐ Tất cả các mục đều đạt, hoặc mọi lỗi đã được báo kèm mức độ.
+- [ ] **D5. Lỗi thì không làm hỏng thư mục**
+  - Làm: để ý những lần pipeline bị lỗi.
+  - Phải thấy: nếu lỗi trước khi ghi file thì app báo "Chưa có thay đổi nào được ghi vào dự án". Nếu lỗi sau khi ghi thì file được trả về như cũ, kèm hướng dẫn nên làm gì tiếp.
+
+## E. Pipeline Studio — màn hình đen xem pipeline chạy (mới)
+
+- [ ] **E1. Mở màn hình**
+  - Làm: ở menu bên trái, kéo xuống cuối phần *Settings*, bấm **Pipeline Studio**.
+  - Phải thấy: một trang đen toàn màn hình, các ô (module) nối nhau theo thứ tự Yêu cầu → Làm rõ → Đặc tả → Lập trình → Đánh giá → Ghi tệp → Kiểm chứng → Hoàn tất.
+
+- [ ] **E2. Xem chạy trực tiếp**
+  - Làm: gõ yêu cầu vào ô **Yêu cầu mới** ngay trên trang đó, rồi bấm chạy.
+  - Phải thấy: một chấm sáng chạy từ ô này sang ô kia, ô đang làm thì sáng nhấp nháy, ô làm xong hiện dấu **✓**.
+
+- [ ] **E3. Dấu ? khi cần bạn trả lời**
+  - Làm: tắt "Auto-answer" (như bài D1), rồi chạy một yêu cầu mơ hồ.
+  - Phải thấy: ô *Làm rõ* hiện dấu **?**. Bấm vào ô đó thì trả lời được luôn, xong thì pipeline chạy tiếp.
+
+- [ ] **E4. Kéo thả**
+  - Làm: kéo vài ô sang chỗ khác, thoát ra rồi vào lại.
+  - Phải thấy: các ô vẫn ở chỗ bạn đã kéo. Bấm *Đặt lại bố cục* thì chúng về như cũ.
+
+- [ ] **E5. Xem chi tiết**
+  - Làm: bấm vào từng ô.
+  - Phải thấy: bên phải mở ra một bảng với đầy đủ thông tin của bước đó.
+
+- [ ] **E6. Khi bị lỗi**
+  - Làm: xem một lần chạy bị lỗi.
+  - Phải thấy: ô bị lỗi hiện dấu **✕** màu đỏ, ô *Hoàn tất* vẫn để màu xám.
+
+- [ ] **E7. Thoát**
+  - Làm: bấm phím Esc hoặc nút *← Quay lại*.
+  - Phải thấy: lần đầu đóng bảng chi tiết, lần sau quay về trang trước.
+
+## F. Các chức năng khác
+
+- [ ] **F1. Kho tài liệu (Knowledge)**
+  - Làm: vào *Knowledge*, thêm một thư mục có tài liệu, chờ đến khi hiện "Indexed", rồi gõ thử một câu hỏi.
+  - Phải thấy: tìm ra đúng đoạn liên quan. Khi chat có bật *Use knowledge*, câu trả lời có ghi nguồn dạng `[1]`.
+
+- [ ] **F2. Xoá tài liệu**
+  - Làm: xoá một tài liệu trong *Knowledge*.
+  - Phải thấy: tài liệu đó biến mất hẳn và không tự xuất hiện lại.
+
+- [ ] **F3. Sơ đồ Workflow**
+  - Làm: mở tab *Workflow*, bấm nút *Fit view*.
+  - Phải thấy: thấy đủ mọi ô trên màn hình. Ô nào đã làm xong thì không còn hiện "Active".
+
+- [ ] **F4. Tạo ảnh**
+  - Làm: vào *Settings → Images*, bật một hãng tạo ảnh, rồi nhờ Chat vẽ một bức ảnh.
+  - Phải thấy: ảnh hiện trong khung chat, và có trong tab *Gallery*.
+
+- [ ] **F5. Web chat**
+  - Làm: mở *Web chat*, chọn 2 trang để mở cạnh nhau.
+  - Phải thấy: hai trang hiện ra; trang nào không cho đăng nhập bên trong app thì có nút *Open in browser* để mở bằng trình duyệt.
+
+## G. Chi phí và ngân sách
+
+- [ ] **G1. Không bị cộng trùng doanh thu**
+  - Làm: vào *Cost*, nhập một khoản doanh thu, bấm nút *Add* liền 2–3 lần thật nhanh.
+  - Phải thấy: chỉ có **một** dòng được thêm.
+
+- [ ] **G2. Tên project**
+  - Làm: chọn *All projects*, xem mục chi tiêu nhiều nhất.
+  - Phải thấy: hiện **tên** project, không phải một dãy mã khó hiểu.
+
+- [ ] **G3. Chặn khi hết ngân sách**
+  - Làm: vào *Settings → Budget*, đặt ngân sách thật nhỏ và bật *Hard Stop*, rồi gửi một tin chat.
+  - Phải thấy: app không cho gọi AI nữa và báo lý do rõ ràng.
+
+- [ ] **G4. Giá tự đặt**
+  - Làm: vào *Settings → Pricing*, tự đặt giá cho một model rồi xoá đi. Tắt app, mở lại, làm lại một lần nữa.
+  - Phải thấy: chỉ dòng của model đó thay đổi. Sau khi xoá giá tự đặt, giá quay về giá cập nhật gần nhất chứ không về giá mặc định ban đầu.
+
+## H. VS Code (chỉ khi máy có cài VS Code)
+
+- [ ] **H1. Tự mở VS Code**
+  - Làm: vào *Settings → VS Code*, bật *Auto launch*, rồi chạy một pipeline có ghi file.
+  - Phải thấy: VS Code tự mở project và đánh dấu những file vừa bị sửa.
+
+## I. An toàn
+
+- [ ] **I1. Nhật ký không lộ key**
+  - Làm: mở thư mục `%APPDATA%\com.itstudio.app\logs` (dán đường dẫn này vào thanh địa chỉ của File Explorer), mở file log mới nhất.
+  - Phải thấy: trong file không có API key, không có nội dung bạn đã chat.
+
+- [ ] **I2. App bị tắt đột ngột**
+  - Làm: trong lúc pipeline đang ghi file, mở Task Manager và tắt hẳn IT Studio. Sau đó mở lại app.
+  - Phải thấy: thư mục project được trả về như trước khi chạy, lần chạy đó hiện là đã hoàn tác.
+
+---
+
+## Kết luận
+
+- [ ] Đã làm hết các bài trên (bài nào sai đều đã ghi chú).
 - Người kiểm tra: ____________ Ngày: ____________
-- Kết luận: **chấp nhận / chấp nhận kèm việc cần làm tiếp / không chấp nhận**
+- Kết luận (chọn một): **Đạt** / **Đạt nhưng cần sửa thêm** / **Chưa đạt**
+
+<!-- Phần dành cho QA (V1-QA điền): bản build, SHA-256, commit, kết quả test tự động. -->
