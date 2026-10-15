@@ -215,7 +215,7 @@ export class PricingUpdater {
     let extractionError: AppError | undefined;
 
     for (const [provider, pages] of pagesByProvider) {
-      const providerModels = this.deps.models.filter((model) => model.key.split('/')[0] === provider);
+      const providerModels = this.deps.models.filter((model) => model.provider === provider);
       if (pages.length === 0) continue;
       if (providerModels.length === 0) {
         providerOutcomes.push(outcome(provider, 'no_change', 'No known models are configured for this provider.'));

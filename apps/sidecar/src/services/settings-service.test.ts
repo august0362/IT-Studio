@@ -35,6 +35,46 @@ afterEach(() => {
 });
 
 describe('SettingsService', () => {
+  it('PROV-01 upgrades legacy settings and persists Qwen endpoints without losing other settings', async () => {
+    const { opened, service, loaded } = createService();
+    try {
+      const legacy = Object.fromEntries(
+        Object.entries(buildDefaultSettings(loaded.value)).filter(([key]) => key !== 'providers'),
+      );
+      const repository = new SettingsRepository(opened.db);
+      await repository.save(JSON.stringify({ ...legacy, budget: { hardStop: true } }), '2026-01-01T00:00:00.000Z');
+      expect(await service.get()).toMatchObject({
+        ok: true,
+        value: {
+          providers: { qwen: { baseUrl: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1' } },
+          budget: { hardStop: true },
+        },
+      });
+      const baseUrl = 'https://workspace.example/compatible-mode/v1';
+      expect(await service.update({ providers: { qwen: { baseUrl } } })).toMatchObject({ ok: true });
+      expect(await service.update({ providers: {} })).toMatchObject({
+        ok: true,
+        value: { providers: { qwen: { baseUrl } } },
+      });
+      expect(await service.get()).toMatchObject({
+        ok: true,
+        value: { providers: { qwen: { baseUrl } }, budget: { hardStop: true } },
+      });
+      for (const invalid of ['http://workspace.example/v1', 'invalid', 'https://' + 'a'.repeat(301)]) {
+        expect(await service.update({ providers: { qwen: { baseUrl: invalid } } })).toMatchObject({
+          ok: false,
+          error: { code: 'VALIDATION' },
+        });
+      }
+      expect(await service.get()).toMatchObject({ ok: true, value: { providers: { qwen: { baseUrl } } } });
+      const boundary = 'https://example.com/' + 'a'.repeat(280);
+      expect(boundary).toHaveLength(300);
+      expect(await service.update({ providers: { qwen: { baseUrl: boundary } } })).toMatchObject({ ok: true });
+      expect(await service.update({ providers: { qwen: { baseUrl: boundary + 'a' } } })).toMatchObject({ ok: false });
+    } finally {
+      opened.client.close();
+    }
+  });
   it('QA-BREAK-02-D08 merges simultaneous patches against the latest persisted settings', async () => {
     const { opened, service } = createService();
     try {

@@ -5,6 +5,28 @@ import { describe, expect, it } from 'vitest';
 import { loadSeeds } from './load-seeds.js';
 
 describe('loadSeeds', () => {
+  it('PROV-01 loads ten enabled provider models with unverified prices and preserves default ladders', () => {
+    const loaded = loadSeeds('config');
+    if (!loaded.ok) throw new Error(loaded.error.message);
+    const providers = ['deepseek', 'openrouter', 'qwen', 'mistral'];
+    const added = loaded.value.models.filter((model) => providers.includes(model.provider));
+    expect(added).toHaveLength(10);
+    expect(loaded.value.pricing.origin).toBe('seed');
+    for (const model of loaded.value.models) {
+      expect(loaded.value.pricing.entries.some((entry) => entry.modelKey === model.key)).toBe(true);
+    }
+    for (const model of added) {
+      expect(model.enabled).toBe(true);
+      expect(model.key).toBe(model.provider + '/' + model.providerModelId);
+      expect(loaded.value.pricingSources[model.provider]?.length).toBeGreaterThan(0);
+      expect(loaded.value.defaultLadder.some((entry) => entry.modelKey === model.key)).toBe(false);
+      expect(Object.values(loaded.value.defaultRoleAssignment).flat()).not.toContain(model.key);
+    }
+    expect(added.find((model) => model.key === 'openrouter/deepseek/deepseek-v4-flash')).toMatchObject({
+      provider: 'openrouter',
+      providerModelId: 'deepseek/deepseek-v4-flash',
+    });
+  });
   it('loads committed config and rejects a bad ladder model key', async () => {
     const loaded = loadSeeds(join(process.cwd(), 'config'));
     expect(loaded.ok).toBe(true);

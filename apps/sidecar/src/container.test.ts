@@ -43,6 +43,29 @@ const testFxHttpClient: IHttpClient = {
 };
 
 describe('sidecar container', () => {
+  it.each([false, true])('PROV-01 registers all four providers and nested model IDs (fake=%s)', (fake) => {
+    const container = createContainer(fake ? { ITSTUDIO_E2E: '1' } : {}, {
+      dataDir: makeDataDir(),
+      secretStore: new MemorySecretStore(),
+      fxHttpClient: testFxHttpClient,
+      logger: createLogger({ streams: [] }),
+    });
+    try {
+      for (const provider of [ProviderId.DEEPSEEK, ProviderId.OPENROUTER, ProviderId.QWEN, ProviderId.MISTRAL]) {
+        expect(container.providers.get(provider)?.id).toBe(provider);
+        const models = container.modelRegistry.list().filter((model) => model.provider === provider);
+        expect(models.length).toBeGreaterThan(0);
+        for (const model of models)
+          expect(container.modelRegistry.eligibility(model.key, ['chat'], () => true)).toEqual({ eligible: true });
+      }
+      expect(container.modelRegistry.get('openrouter/deepseek/deepseek-v4-flash')).toMatchObject({
+        provider: 'openrouter',
+        providerModelId: 'deepseek/deepseek-v4-flash',
+      });
+    } finally {
+      container.database.client.close();
+    }
+  });
   it.each([false, true])(
     'QA-BREAK-02-D09 startup rolls back files and persists the interrupted run (transaction persisted=%s)',
     async (persisted) => {

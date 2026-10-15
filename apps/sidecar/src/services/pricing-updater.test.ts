@@ -141,6 +141,24 @@ function harness(
 }
 
 describe('PricingUpdater', () => {
+  it('PROV-01 refreshes nested OpenRouter model prices with the full model key', async () => {
+    const seeds = harness();
+    const entry = seeds.loaded.value.pricing.entries.find(
+      (item) => item.modelKey === 'openrouter/deepseek/deepseek-v4-flash',
+    );
+    if (entry === undefined) throw new Error('Missing OpenRouter seed price');
+    const h = harness({
+      sources: { openrouter: ['https://example.invalid/openrouter'] },
+      replies: [JSON.stringify({ entries: [entry] })],
+    });
+    const result = await h.updater.refresh();
+    expect(result).toMatchObject({ ok: true, value: { status: 'no_change' } });
+    expect(h.pricing.current().entries.find((item) => item.modelKey === entry.modelKey)).toMatchObject({
+      ...entry,
+      origin: 'auto_extracted',
+    });
+    expect(JSON.stringify(h.requests)).toContain('openrouter/deepseek/deepseek-v4-flash');
+  });
   it('TC-M3-022 fails with VALIDATION before fetching when no active project exists', async () => {
     let fetches = 0;
     const h = harness({

@@ -411,6 +411,13 @@
     "dismiss": "Đóng thông báo"
   },
   "api": {
+    "qwenEndpoint": "Khu v?c / ?i?m cu?i",
+    "qwenInternational": "Qu?c t? (Singapore)",
+    "qwenUs": "Hoa K? (Virginia)",
+    "qwenChina": "Trung Qu?c (B?c Kinh)",
+    "qwenCustom": "T?y ch?nh?",
+    "qwenCustomUrl": "?i?m cu?i HTTPS t?y ch?nh",
+    "qwenInvalid": "Nh?p URL HTTPS h?p l? (t?i ?a 300 k? t?).",
     "heading": "Khóa API",
     "description": "Khóa được lưu an toàn và không bao giờ hiển thị đầy đủ.",
     "invalid": "Không hợp lệ",

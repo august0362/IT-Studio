@@ -122,6 +122,11 @@ function mergeSettings(current: AppSettings, patch: SettingsPatch): AppSettings 
   return {
     ...current,
     ...patch,
+    providers: {
+      ...current.providers,
+      ...patch.providers,
+      qwen: { ...current.providers?.qwen, ...patch.providers?.qwen },
+    },
     router: { ...current.router, ...patch.router },
     budget: { ...current.budget, ...patch.budget },
     pricing: { ...current.pricing, ...patch.pricing },

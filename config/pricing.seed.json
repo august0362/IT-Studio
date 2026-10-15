@@ -20,6 +20,16 @@
     { "modelKey": "xai/grok-4.1-fast", "inputPerMTokMicroUsd": 200000, "outputPerMTokMicroUsd": 500000, "cachedInputPerMTokMicroUsd": 50000, "freeTier": false, "sourceUrl": "https://docs.x.ai/docs/models" },
 
     { "modelKey": "groq/llama-3.3-70b-versatile", "inputPerMTokMicroUsd": 590000, "outputPerMTokMicroUsd": 790000, "cachedInputPerMTokMicroUsd": 590000, "freeTier": false, "sourceUrl": "https://groq.com/pricing" },
-    { "modelKey": "groq/llama-3.1-8b-instant", "inputPerMTokMicroUsd": 50000, "outputPerMTokMicroUsd": 80000, "cachedInputPerMTokMicroUsd": 50000, "freeTier": false, "sourceUrl": "https://groq.com/pricing" }
+    { "modelKey": "groq/llama-3.1-8b-instant", "inputPerMTokMicroUsd": 50000, "outputPerMTokMicroUsd": 80000, "cachedInputPerMTokMicroUsd": 50000, "freeTier": false, "sourceUrl": "https://groq.com/pricing" },
+    { "modelKey": "deepseek/deepseek-v4-flash", "inputPerMTokMicroUsd": 140000, "outputPerMTokMicroUsd": 280000, "cachedInputPerMTokMicroUsd": 2800, "freeTier": false, "sourceUrl": "https://api-docs.deepseek.com/quick_start/pricing" },
+    { "modelKey": "deepseek/deepseek-v4-pro", "inputPerMTokMicroUsd": 1740000, "outputPerMTokMicroUsd": 3480000, "cachedInputPerMTokMicroUsd": 1740000, "freeTier": false, "sourceUrl": "https://api-docs.deepseek.com/quick_start/pricing" },
+    { "modelKey": "mistral/mistral-large-latest", "inputPerMTokMicroUsd": 500000, "outputPerMTokMicroUsd": 1500000, "cachedInputPerMTokMicroUsd": 500000, "freeTier": false, "sourceUrl": "https://mistral.ai/pricing" },
+    { "modelKey": "mistral/mistral-medium-latest", "inputPerMTokMicroUsd": 1500000, "outputPerMTokMicroUsd": 7500000, "cachedInputPerMTokMicroUsd": 1500000, "freeTier": false, "sourceUrl": "https://mistral.ai/pricing" },
+    { "modelKey": "mistral/mistral-small-latest", "inputPerMTokMicroUsd": 150000, "outputPerMTokMicroUsd": 600000, "cachedInputPerMTokMicroUsd": 150000, "freeTier": false, "sourceUrl": "https://mistral.ai/pricing" },
+    { "modelKey": "qwen/qwen-max", "inputPerMTokMicroUsd": 1600000, "outputPerMTokMicroUsd": 6400000, "cachedInputPerMTokMicroUsd": 1600000, "freeTier": false, "sourceUrl": "https://www.alibabacloud.com/help/en/model-studio/models" },
+    { "modelKey": "qwen/qwen-plus", "inputPerMTokMicroUsd": 400000, "outputPerMTokMicroUsd": 1200000, "cachedInputPerMTokMicroUsd": 400000, "freeTier": false, "sourceUrl": "https://www.alibabacloud.com/help/en/model-studio/models" },
+    { "modelKey": "qwen/qwen-flash", "inputPerMTokMicroUsd": 50000, "outputPerMTokMicroUsd": 400000, "cachedInputPerMTokMicroUsd": 50000, "freeTier": false, "sourceUrl": "https://www.alibabacloud.com/help/en/model-studio/models" },
+    { "modelKey": "openrouter/openrouter/auto", "inputPerMTokMicroUsd": 1000000, "outputPerMTokMicroUsd": 4000000, "cachedInputPerMTokMicroUsd": 1000000, "freeTier": false, "sourceUrl": "https://openrouter.ai/models" },
+    { "modelKey": "openrouter/deepseek/deepseek-v4-flash", "inputPerMTokMicroUsd": 140000, "outputPerMTokMicroUsd": 280000, "cachedInputPerMTokMicroUsd": 140000, "freeTier": false, "sourceUrl": "https://openrouter.ai/deepseek" }
   ]
 }

@@ -1,4 +1,5 @@
-import { ErrorCode, type AppError, type ProviderId, type Result } from '@itstudio/schemas';
+import { ErrorCode, type AppSettings, type AppError, type ProviderId, type Result } from '@itstudio/schemas';
+import { compatibleBaseUrl, compatibleHeaders } from '../../domain/provider-endpoints.js';
 import type { IHttpClient } from '../../ports/http-client.js';
 
 export interface IProviderKeyVerifier {
@@ -6,19 +7,27 @@ export interface IProviderKeyVerifier {
 }
 
 const TIMEOUT_MS = 25_000;
-const OPENAI_COMPATIBLE_BASES: Partial<Record<ProviderId, string>> = {
-  openai: 'https://api.openai.com/v1',
-  xai: 'https://api.x.ai/v1',
-  groq: 'https://api.groq.com/openai/v1',
-  together: 'https://api.together.xyz/v1',
-};
 
 function providerRequest(
   provider: ProviderId,
   key: string,
-): { readonly url: string; readonly headers: Readonly<Record<string, string>> } {
-  const base = OPENAI_COMPATIBLE_BASES[provider];
-  if (base !== undefined) return { url: `${base}/models`, headers: { authorization: `Bearer ${key}` } };
+  settings?: AppSettings,
+  qwenModelId?: string,
+): { readonly url: string; readonly headers: Readonly<Record<string, string>>; readonly body?: string } {
+  const base = compatibleBaseUrl(provider, settings);
+  if (provider === 'qwen') {
+    if (qwenModelId === undefined || base === undefined) throw new Error('Qwen verification model is unavailable.');
+    return {
+      url: base.replace(/\/$/, '') + '/chat/completions',
+      headers: { authorization: 'Bearer ' + key, 'content-type': 'application/json' },
+      body: JSON.stringify({ model: qwenModelId, messages: [{ role: 'user', content: 'Hi' }], max_tokens: 1 }),
+    };
+  }
+  if (base !== undefined)
+    return {
+      url: `${base.replace(/\/$/, '')}/${provider === 'openrouter' ? 'key' : 'models'}`,
+      headers: { ...compatibleHeaders(provider), authorization: `Bearer ${key}` },
+    };
   switch (provider) {
     case 'anthropic':
       return {
@@ -36,6 +45,9 @@ function providerRequest(
     case 'xai':
     case 'groq':
     case 'together':
+    case 'deepseek':
+    case 'openrouter':
+    case 'mistral':
       return { url: '', headers: {} };
   }
 }
@@ -62,15 +74,24 @@ export class FetchHttpClient implements IHttpClient {
 export class ProviderKeyVerifier implements IProviderKeyVerifier {
   private readonly http: IHttpClient;
 
-  constructor(http: IHttpClient) {
+  private readonly settings: (() => Promise<Result<AppSettings>>) | undefined;
+
+  private readonly qwenModelId: string | undefined;
+
+  constructor(http: IHttpClient, settings?: () => Promise<Result<AppSettings>>, qwenModelId?: string) {
+    this.qwenModelId = qwenModelId;
+    this.settings = settings;
     this.http = http;
   }
 
   async verify(provider: ProviderId, key: string): Promise<Result<void>> {
-    const request = providerRequest(provider, key);
     try {
+      const settings = await this.settings?.();
+      if (settings !== undefined && !settings.ok) return settings;
+      const request = providerRequest(provider, key, settings?.value, this.qwenModelId);
       const response = await this.http.request(request.url, {
-        method: 'GET',
+        method: request.body === undefined ? 'GET' : 'POST',
+        ...(request.body === undefined ? {} : { body: request.body }),
         headers: request.headers,
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });

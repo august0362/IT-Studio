@@ -116,8 +116,23 @@ export const imageSettingsSchema = z
 export const uiSettingsSchema = z
   .strictObject({ themeId: themeIdSchema, mode: z.enum(['system', 'light', 'dark']), locale: z.enum(['en', 'vi']) })
   .readonly() satisfies z.ZodType<UiSettings>;
+const providersSettingsSchema = z
+  .strictObject({
+    qwen: z
+      .strictObject({
+        baseUrl: z
+          .url({ protocol: /^https$/ })
+          .max(300)
+          .exactOptional(),
+      })
+      .readonly()
+      .exactOptional(),
+  })
+  .readonly();
+
 export const appSettingsSchema = z
   .strictObject({
+    providers: providersSettingsSchema.exactOptional(),
     activeProjectId: projectIdSchema.nullable(),
     router: routerConfigSchema,
     budget: budgetSettingsSchema,
@@ -133,6 +148,7 @@ export const appSettingsSchema = z
   .readonly() satisfies z.ZodType<AppSettings>;
 export const settingsPatchSchema = z
   .strictObject({
+    providers: providersSettingsSchema.exactOptional(),
     activeProjectId: projectIdSchema.nullable().exactOptional(),
     router: z
       .strictObject({

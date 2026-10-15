@@ -59,7 +59,7 @@ export function validatePriceEntries(
       unknownModels.push(entry.modelKey);
       continue;
     }
-    if (entry.modelKey.split('/')[0] !== provider) continue;
+    if (entry.modelKey.slice(0, entry.modelKey.indexOf('/')) !== provider) continue;
     if (seen.has(entry.modelKey)) {
       valid = false;
       continue;

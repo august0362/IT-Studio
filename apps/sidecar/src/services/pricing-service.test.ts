@@ -68,6 +68,31 @@ function openAiEntry(): PriceEntry {
 }
 
 describe('PricingService', () => {
+  it('PROV-01 adds missing seed prices on upgrade without changing existing prices, provenance or overrides', () => {
+    const overridden = {
+      ...openAiEntry(),
+      inputPerMTokMicroUsd: microUsdSchema.parse(999),
+      origin: 'manual_override' as const,
+    };
+    const stored: StoredPriceTable = {
+      ...initial,
+      origin: 'manual_override',
+      entries: [overridden],
+      manualOverrides: ['openai/test-model'],
+      automaticEntries: [openAiEntry()],
+    };
+    const { service } = harness(stored);
+    service.initialize();
+    expect(service.current().entries).toEqual([overridden, { ...initial.entries[1], origin: 'seed' }]);
+    expect(service.manualOverrides()).toEqual(new Set(['openai/test-model']));
+    expect(stored.entries).toEqual([overridden]);
+    const version = service.current().version;
+    service.initialize();
+    expect(service.current().version).toBe(version);
+    expect(service.current().effectiveFrom).toBe('2026-10-01T00:00:00.001Z');
+    expect(service.clearOverride('openai/test-model')).toMatchObject({ ok: true });
+    expect(service.current().entries[0]).toEqual(openAiEntry());
+  });
   it.each([100, 500])(
     'V1-POLISH-01 restores verified price %s and row provenance after overriding and restarting',
     (price) => {

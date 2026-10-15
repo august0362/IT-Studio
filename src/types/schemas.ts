@@ -124,6 +124,10 @@ export const ProviderId = {
   GROQ: 'groq',
   TOGETHER: 'together',
   REPLICATE: 'replicate',
+  DEEPSEEK: 'deepseek',
+  OPENROUTER: 'openrouter',
+  QWEN: 'qwen',
+  MISTRAL: 'mistral',
 } as const;
 export type ProviderId = (typeof ProviderId)[keyof typeof ProviderId];
 
@@ -1228,6 +1232,7 @@ export interface UiSettings {
 }
 
 export interface AppSettings {
+  readonly providers?: { readonly qwen?: { readonly baseUrl?: string } };
   readonly activeProjectId: ProjectId | null;
   readonly router: RouterConfig;
   readonly budget: BudgetSettings;

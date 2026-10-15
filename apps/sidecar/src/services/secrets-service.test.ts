@@ -69,7 +69,7 @@ describe('SecretsService', () => {
     await secrets.set(ProviderId.GOOGLE, 'google-key');
     const status = await secrets.status();
     if (!status.ok) throw new Error('Could not read secret status');
-    expect(status.value).toHaveLength(7);
+    expect(status.value).toHaveLength(11);
     expect(status.value.find((item) => item.provider === ProviderId.GOOGLE)).toEqual({
       provider: ProviderId.GOOGLE,
       configured: true,

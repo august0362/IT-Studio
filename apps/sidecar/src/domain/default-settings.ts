@@ -8,6 +8,7 @@ import type {
   RoleAssignment,
   ThemeCatalog,
 } from '@itstudio/schemas';
+import { OPENAI_COMPATIBLE_BASE_URLS } from './provider-endpoints.js';
 import { DEFAULT_WEB_CHAT_SETTINGS } from './web-chat.js';
 
 export interface Seeds {
@@ -24,6 +25,7 @@ const IMAGE_PROVIDER_ORDER: readonly ImageProviderId[] = ['openai_dalle3', 'flux
 export function buildDefaultSettings(seeds: Seeds): AppSettings {
   return {
     activeProjectId: null,
+    providers: { qwen: { baseUrl: OPENAI_COMPATIBLE_BASE_URLS.qwen } },
     router: {
       ladder: [...seeds.defaultLadder],
       autoFallback: true,

@@ -411,6 +411,13 @@
     "dismiss": "Dismiss"
   },
   "api": {
+    "qwenEndpoint": "Region / endpoint",
+    "qwenInternational": "International (Singapore)",
+    "qwenUs": "United States (Virginia)",
+    "qwenChina": "China (Beijing)",
+    "qwenCustom": "Custom?",
+    "qwenCustomUrl": "Custom HTTPS endpoint",
+    "qwenInvalid": "Enter a valid HTTPS URL (up to 300 characters).",
     "heading": "API keys",
     "description": "Keys are stored securely and never displayed in full.",
     "invalid": "Invalid",
