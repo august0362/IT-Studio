@@ -6,6 +6,9 @@ import {
   type ProjectId,
   type Result,
   type CommandRun,
+  type RoleAssignment,
+  ModelCapability,
+  ProviderId,
 } from '@itstudio/schemas';
 import { describe, expect, it, vi } from 'vitest';
 import { createFakeClock } from '../infra/clock.js';
@@ -19,6 +22,7 @@ import { ProjectContextService } from './project-context.js';
 import { FailureReportBuilder } from './failure-report-builder.js';
 import { WriteTransactionService } from './write-transaction.js';
 import { PipelineOrchestrator, type PipelineOrchestratorDependencies } from './pipeline-orchestrator.js';
+import type { IPipelineEligibility } from './pipeline-orchestrator.js';
 import type { RoleOutput, RoleInputs, RoleCallOptions } from './role-caller.js';
 import type { PipelineEvent, FailureReport, TaskSpec, CoderOutput, ReviewVerdict, Project } from '@itstudio/schemas';
 import { toMoneyDisplay, microUsd } from '../domain/money.js';
@@ -73,6 +77,8 @@ const askOnce = (inputs: RoleInputs): Extract<RoleOutput, { readonly kind: strin
   'clarifications' in inputs ? { kind: 'spec', spec } : { kind: 'questions', questions };
 
 interface HarnessOptions {
+  readonly eligibility?: IPipelineEligibility;
+  readonly assignment?: RoleAssignment;
   readonly commandResult?: () => Promise<Result<CommandRun>>;
   readonly beforeRole?: (role: 'pm' | 'coder' | 'reviewer') => Promise<void>;
   readonly beforeCommit?: () => Promise<void>;
@@ -146,6 +152,17 @@ function harness(
   const events = new EventBus<{ 'pipeline.event': PipelineEvent; 'pipeline.failureReport': FailureReport }>();
   const fx = { usdToVnd: 25000, asOf: isoDateTimeSchema.parse('2026-01-01T00:00:00.000Z'), source: 'auto' as const };
   const dependencies: PipelineOrchestratorDependencies = {
+    eligibility: options.eligibility ?? {
+      load: () =>
+        Promise.resolve({
+          ok: true,
+          value: {
+            models: [],
+            configuredProviders: [ProviderId.OPENAI],
+            eligibleModelKeys: ladder,
+          },
+        }),
+    },
     repository,
     projects: {
       get: async (id) => {
@@ -167,7 +184,14 @@ function harness(
                 remediation: ['Retry the pipeline.'],
               },
             }
-          : { ok: true as const, value: { ...settings, autoClarify: options.autoClarify ?? false } },
+          : {
+              ok: true as const,
+              value: {
+                ...settings,
+                roleAssignment: options.assignment ?? roleAssignment,
+                autoClarify: options.autoClarify ?? false,
+              },
+            },
       );
     },
     context: new ProjectContextService(fs),
@@ -259,6 +283,15 @@ function harness(
   };
 }
 
+async function startRun(
+  orchestrator: PipelineOrchestrator,
+  input: Parameters<PipelineOrchestrator['start']>[0],
+): Promise<PipelineRun> {
+  const result = await orchestrator.start(input);
+  if (!result.ok) throw new Error(result.error.message);
+  return result.value;
+}
+
 function deferred(): { readonly promise: Promise<void>; readonly resolve: () => void } {
   let resolve = (): void => undefined;
   const promise = new Promise<void>((done) => {
@@ -291,6 +324,94 @@ async function waitForTerminal(orchestrator: PipelineOrchestrator, id: PipelineR
 }
 
 describe('PipelineOrchestrator', () => {
+  const pm = modelKeySchema.parse('anthropic/pm');
+  const coder = modelKeySchema.parse('openai/coder');
+  const reviewer = modelKeySchema.parse('anthropic/reviewer');
+  const google = modelKeySchema.parse('google/available');
+  const assignment = { pm: [pm, google], coder: [coder, google], reviewer: [reviewer, google] };
+  const models = [pm, coder, reviewer, google].map((key) => ({
+    key,
+    provider: key === google ? ProviderId.GOOGLE : key === coder ? ProviderId.OPENAI : ProviderId.ANTHROPIC,
+    providerModelId: key.slice(key.indexOf('/') + 1),
+    displayName: key === google ? 'Gemini' : key,
+    capabilities: [ModelCapability.CHAT, ModelCapability.JSON_MODE],
+    enabled: true,
+    contextWindowTokens: 1000,
+    maxOutputTokens: 100,
+  }));
+  it.each(['pm', 'coder', 'reviewer', 'all'] as const)(
+    'TC-UX2-preflight rejects %s before creating a run or calling a role',
+    async (role) => {
+      const unavailable = role === 'all' ? (['pm', 'coder', 'reviewer'] as const) : [role];
+      const h = harness([accepted], created, {
+        assignment: { pm: [pm], coder: [coder], reviewer: [reviewer] },
+        eligibility: {
+          load: () =>
+            Promise.resolve({
+              ok: true,
+              value: {
+                models,
+                configuredProviders: [ProviderId.GOOGLE],
+                eligibleModelKeys: [
+                  google,
+                  ...(['pm', 'coder', 'reviewer'] as const)
+                    .filter((item) => !unavailable.includes(item))
+                    .flatMap((item) => assignment[item].slice(0, 1)),
+                ],
+              },
+            }),
+        },
+      });
+      const result = await h.orchestrator.start({ projectId, prompt: 'Build' });
+      expect(result).toMatchObject({ ok: false, error: { code: ErrorCode.VALIDATION } });
+      if (result.ok) throw new Error('Expected preflight rejection');
+      for (const name of unavailable) expect(result.error.message).toContain(name);
+      expect(result.error.remediation?.join(' ')).toContain('Google: Gemini');
+      expect(result.error.remediation?.join(' ')).toContain('Settings \u2192 API Keys');
+      expect(h.rows.size).toBe(0);
+      expect(h.calls).toHaveLength(0);
+    },
+  );
+  it('TC-UX2-preflight accepts one usable model per role while other candidates are unusable', async () => {
+    const h = harness([accepted], created, {
+      assignment,
+      eligibility: {
+        load: () =>
+          Promise.resolve({
+            ok: true,
+            value: {
+              models,
+              configuredProviders: [ProviderId.GOOGLE],
+              eligibleModelKeys: [google],
+            },
+          }),
+      },
+    });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Build' });
+    expect((await waitForTerminal(h.orchestrator, run.id)).stage).toBe(PipelineStage.COMPLETED);
+    expect(h.calls).toHaveLength(3);
+  });
+  it('TC-UX2-preflight rejects empty ladders and propagates eligibility errors without side effects', async () => {
+    const empty = harness([accepted], created, { assignment: { pm: [], coder: [], reviewer: [] } });
+    const result = await empty.orchestrator.start({ projectId, prompt: 'Build' });
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('Expected preflight rejection');
+    expect(result.error.message).toContain('pm, coder, reviewer');
+    expect(result.error.remediation?.[0]).toContain('chat and JSON');
+    const failure = {
+      code: ErrorCode.INTERNAL,
+      message: 'Secret store unavailable',
+      retryable: false,
+      remediation: ['Unlock the credential store.'],
+    };
+    const h = harness([accepted], created, {
+      eligibility: { load: () => Promise.resolve({ ok: false, error: failure }) },
+    });
+    expect(await h.orchestrator.start({ projectId, prompt: 'Build' })).toEqual({ ok: false, error: failure });
+    expect(h.rows.size).toBe(0);
+    expect(h.calls).toHaveLength(0);
+  });
+
   it.each([false, true])(
     'PSTUDIO-01 honours cancellation at the clarification stage (auto=%s)',
     async (autoClarify) => {
@@ -298,7 +419,7 @@ describe('PipelineOrchestrator', () => {
       h.events.subscribe('pipeline.event', (event) => {
         if (event.type === 'stage' && event.stage === PipelineStage.CLARIFYING) void h.orchestrator.cancel(event.runId);
       });
-      const run = await h.orchestrator.start({ projectId, prompt: 'First' });
+      const run = await startRun(h.orchestrator, { projectId, prompt: 'First' });
       expect((await waitForTerminal(h.orchestrator, run.id)).stage).toBe(PipelineStage.CANCELLED);
       expect(h.calls.filter((call) => call.role === 'coder')).toHaveLength(0);
     },
@@ -306,7 +427,7 @@ describe('PipelineOrchestrator', () => {
 
   it('PSTUDIO-01 honours cancellation racing an invalid answer submission', async () => {
     const h = harness([accepted], created, { pmOutput: askOnce });
-    const run = await h.orchestrator.start({ projectId, prompt: 'First' });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'First' });
     await vi.waitFor(() => {
       expect(h.rows.get(run.id)?.stage).toBe(PipelineStage.CLARIFYING);
     });
@@ -336,7 +457,7 @@ describe('PipelineOrchestrator', () => {
     { name: 'long text', answers: [{ questionId: 'storage', freeText: 'x'.repeat(2001) }] },
   ])('PSTUDIO-01 RPC rejects $name without resuming', async ({ stage, answers }) => {
     const h = harness([accepted], created, { pmOutput: askOnce });
-    const run = await h.orchestrator.start({ projectId, prompt: 'Build storage' });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Build storage' });
     await vi.waitFor(() => {
       expect(h.rows.get(run.id)?.stage).toBe(PipelineStage.CLARIFYING);
     });
@@ -363,7 +484,7 @@ describe('PipelineOrchestrator', () => {
 
   it.each([1, 2000])('PSTUDIO-01 accepts free-text boundary of %s characters after restart', async (length) => {
     const h = harness([accepted], created, { pmOutput: askOnce });
-    const run = await h.orchestrator.start({ projectId, prompt: 'Build storage' });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Build storage' });
     await vi.waitFor(() => {
       expect(h.rows.get(run.id)?.stage).toBe(PipelineStage.CLARIFYING);
     });
@@ -379,7 +500,7 @@ describe('PipelineOrchestrator', () => {
     const h = harness([accepted], created, { pmOutput: askOnce });
     const events: PipelineEvent[] = [];
     h.events.subscribe('pipeline.event', (event) => events.push(event));
-    const run = await h.orchestrator.start({ projectId, prompt: 'Build storage' });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Build storage' });
     await vi.waitFor(() => {
       expect(h.rows.get(run.id)?.stage).toBe(PipelineStage.CLARIFYING);
     });
@@ -406,7 +527,7 @@ describe('PipelineOrchestrator', () => {
     const h = harness([accepted], created, { pmOutput: askOnce, autoClarify: true });
     const events: PipelineEvent[] = [];
     h.events.subscribe('pipeline.event', (event) => events.push(event));
-    const run = await h.orchestrator.start({ projectId, prompt: 'Build storage' });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Build storage' });
     const completed = await waitForTerminal(h.orchestrator, run.id);
     expect(completed.stage).toBe(PipelineStage.COMPLETED);
     expect(completed.clarifications?.[0]?.answer).toEqual({ optionId: 'local', by: 'auto', at: run.startedAt });
@@ -422,7 +543,7 @@ describe('PipelineOrchestrator', () => {
 
   it('PSTUDIO-01 rejects a second question round without workspace writes', async () => {
     const h = harness([accepted], created, { autoClarify: true, pmOutput: () => ({ kind: 'questions', questions }) });
-    const run = await h.orchestrator.start({ projectId, prompt: 'Build storage' });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Build storage' });
     const failed = await waitForTerminal(h.orchestrator, run.id);
     expect(failed.stage).toBe(PipelineStage.FAILED);
     expect(failed.failureReport?.error.code).toBe(ErrorCode.VALIDATION);
@@ -444,14 +565,14 @@ describe('PipelineOrchestrator', () => {
           }
         },
       });
-      const first = await h.orchestrator.start({ projectId, prompt: 'First' });
+      const first = await startRun(h.orchestrator, { projectId, prompt: 'First' });
       await vi.waitFor(() => {
         expect(h.rows.get(first.id)?.stage).toBe(PipelineStage.CLARIFYING);
       });
       const orchestrator = restart ? h.restart() : h.orchestrator;
       // No get/list before start: discovering the waiting row must restore its queue gate.
-      const second = await orchestrator.start({ projectId, prompt: 'Second' });
-      const third = await orchestrator.start({ projectId, prompt: 'Third' });
+      const second = await startRun(orchestrator, { projectId, prompt: 'Second' });
+      const third = await startRun(orchestrator, { projectId, prompt: 'Third' });
       await new Promise((resolve) => setTimeout(resolve, 10));
       expect(h.calls).toHaveLength(1);
       expect(await orchestrator.get(first.id)).toMatchObject({ stage: PipelineStage.CLARIFYING });
@@ -484,12 +605,12 @@ describe('PipelineOrchestrator', () => {
 
   it('PSTUDIO-01 cancels a waiting run after restart and unblocks its project', async () => {
     const h = harness([accepted], created, { pmOutput: askOnce });
-    const first = await h.orchestrator.start({ projectId, prompt: 'First' });
+    const first = await startRun(h.orchestrator, { projectId, prompt: 'First' });
     await vi.waitFor(() => {
       expect(h.rows.get(first.id)?.stage).toBe(PipelineStage.CLARIFYING);
     });
     const restarted = h.restart();
-    const second = await restarted.start({ projectId, prompt: 'Second' });
+    const second = await startRun(restarted, { projectId, prompt: 'Second' });
     expect(await restarted.cancel(first.id)).toMatchObject({ stage: PipelineStage.CANCELLED });
     await vi.waitFor(() => {
       expect(h.rows.get(second.id)?.stage).toBe(PipelineStage.CLARIFYING);
@@ -508,7 +629,7 @@ describe('PipelineOrchestrator', () => {
         await release.promise;
       },
     });
-    const run = await h.orchestrator.start({ projectId, prompt: 'First' });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'First' });
     await entered.promise;
     await h.orchestrator.cancel(run.id);
     release.resolve();
@@ -517,7 +638,7 @@ describe('PipelineOrchestrator', () => {
   it('updates pipeline cost after each role call and at completion', async () => {
     const h = harness();
     await h.rootDirectory;
-    const run = await h.orchestrator.start({ projectId, prompt: 'Create greeting' });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Create greeting' });
     expect(run.stage).toBe(PipelineStage.SPECIFYING);
     const completed = await waitForTerminal(h.orchestrator, run.id);
     expect(completed.stage, JSON.stringify(completed.failureReport)).toBe(PipelineStage.COMPLETED);
@@ -543,7 +664,7 @@ describe('PipelineOrchestrator', () => {
     };
     const h = harness([rejected, rejected]);
     await h.rootDirectory;
-    const run = await h.orchestrator.start({ projectId, prompt: 'Create greeting' });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Create greeting' });
     const failed = await waitForTerminal(h.orchestrator, run.id);
     expect(failed.stage).toBe(PipelineStage.FAILED);
     expect(failed.fixAttempts).toBe(1);
@@ -567,7 +688,7 @@ describe('PipelineOrchestrator', () => {
     };
     const h = harness([rejected, accepted]);
     await h.rootDirectory;
-    const run = await h.orchestrator.start({ projectId, prompt: 'Create greeting' });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Create greeting' });
     const result = await waitForTerminal(h.orchestrator, run.id);
     expect(result.stage).toBe(PipelineStage.COMPLETED);
     expect(result.fixAttempts).toBe(1);
@@ -580,7 +701,7 @@ describe('PipelineOrchestrator', () => {
       operations: [{ kind: 'create', path: workspaceRelativePathSchema.parse('outside.txt'), content: 'no' }],
     });
     await h.rootDirectory;
-    const run = await h.orchestrator.start({ projectId, prompt: 'Create greeting' });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Create greeting' });
     const result = await waitForTerminal(h.orchestrator, run.id);
     expect(result.stage).toBe(PipelineStage.FAILED);
     expect(result.failureReport?.error.code).toBe(ErrorCode.PATH_OUTSIDE_WORKSPACE);
@@ -607,7 +728,7 @@ describe('PipelineOrchestrator', () => {
     await h.fs.writeFile(`${root}/keep.txt`, new Uint8Array([0, 1, 255, 10]));
     const before = await h.fs.readFile(`${root}/keep.txt`);
     expect(before.ok).toBe(true);
-    const run = await h.orchestrator.start({ projectId, prompt: 'Create greeting' });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Create greeting' });
     const result = await waitForTerminal(h.orchestrator, run.id);
     const after = await h.fs.readFile(`${root}/keep.txt`);
     expect(result.stage).toBe(PipelineStage.ROLLED_BACK);
@@ -627,7 +748,7 @@ describe('PipelineOrchestrator', () => {
       },
     });
     await h.rootDirectory;
-    const run = await h.orchestrator.start({ projectId, prompt: 'Create greeting' });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Create greeting' });
     await entered.promise;
     await h.orchestrator.cancel(run.id);
     release.resolve();
@@ -658,7 +779,7 @@ describe('PipelineOrchestrator', () => {
       },
     });
     await h.rootDirectory;
-    const run = await h.orchestrator.start({ projectId, prompt: 'Create greeting' });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Create greeting' });
     await entered.promise;
     await h.orchestrator.cancel(run.id);
     release.resolve();
@@ -676,7 +797,7 @@ describe('PipelineOrchestrator', () => {
       },
     });
     await h.rootDirectory;
-    const run = await h.orchestrator.start({ projectId, prompt: 'Create greeting' });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Create greeting' });
     await entered.promise;
     await h.orchestrator.cancel(run.id);
     release.resolve();
@@ -712,9 +833,9 @@ describe('PipelineOrchestrator', () => {
       },
     });
     await h.rootDirectory;
-    const first = await h.orchestrator.start({ projectId, prompt: 'first' });
+    const first = await startRun(h.orchestrator, { projectId, prompt: 'first' });
     await entered.promise;
-    const second = await h.orchestrator.start({ projectId, prompt: 'second' });
+    const second = await startRun(h.orchestrator, { projectId, prompt: 'second' });
     expect(pmCalls).toBe(1);
     expect((await h.orchestrator.list({ projectId, limit: 10 })).map((run) => run.id)).toEqual([first.id, second.id]);
     release.resolve();
@@ -740,9 +861,9 @@ describe('PipelineOrchestrator', () => {
       },
     });
     await h.rootDirectory;
-    const first = await h.orchestrator.start({ projectId, prompt: 'first' });
+    const first = await startRun(h.orchestrator, { projectId, prompt: 'first' });
     await firstEntered.promise;
-    const second = await h.orchestrator.start({ projectId: secondProjectId, prompt: 'second' });
+    const second = await startRun(h.orchestrator, { projectId: secondProjectId, prompt: 'second' });
     await secondEntered.promise;
     release.resolve();
     expect((await waitForTerminal(h.orchestrator, first.id)).stage).toBe(PipelineStage.COMPLETED);
@@ -753,7 +874,7 @@ describe('PipelineOrchestrator', () => {
   it('TC-M6-051 stops at the pre-write budget boundary without writing', async () => {
     const h = harness([accepted], created, { hardStop: () => Promise.resolve(true) });
     await h.rootDirectory;
-    const run = await h.orchestrator.start({ projectId, prompt: 'Create greeting' });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Create greeting' });
     const result = await waitForTerminal(h.orchestrator, run.id);
     expect(result.stage).toBe(PipelineStage.FAILED);
     expect(result.failureReport?.error.code).toBe(ErrorCode.BUDGET_HARD_STOP);
@@ -766,7 +887,7 @@ describe('PipelineOrchestrator', () => {
       hardStop: () => Promise.resolve(++checks >= 5),
     });
     await h.rootDirectory;
-    const run = await h.orchestrator.start({ projectId, prompt: 'Create greeting' });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Create greeting' });
     const result = await waitForTerminal(h.orchestrator, run.id);
     expect(result.stage).toBe(PipelineStage.ROLLED_BACK);
     expect(result.failureReport?.error.code).toBe(ErrorCode.BUDGET_HARD_STOP);
@@ -780,7 +901,7 @@ describe('PipelineOrchestrator', () => {
       reports += 1;
     });
     await h.rootDirectory;
-    const run = await h.orchestrator.start({ projectId, prompt: 'Create greeting' });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Create greeting' });
     const result = await waitForTerminal(h.orchestrator, run.id);
     expect(result.stage).toBe(PipelineStage.ROLLED_BACK);
     expect(result.failureReport).toBeDefined();
@@ -791,26 +912,28 @@ describe('PipelineOrchestrator', () => {
   it.each(['pm', 'coder', 'reviewer'] as const)('reports a %s role failure before writing', async (role) => {
     const h = harness([accepted], created, { roleFailure: role });
     await h.rootDirectory;
-    const run = await h.orchestrator.start({ projectId, prompt: 'Create greeting' });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Create greeting' });
     expect((await waitForTerminal(h.orchestrator, run.id)).stage).toBe(PipelineStage.FAILED);
     await expectNoUserWrites(h.fs);
   });
 
   it('reports an invalid project or settings result from start', async () => {
     const missingProject = harness([accepted], created, { projectMissing: true });
-    await expect(missingProject.orchestrator.start({ projectId, prompt: 'Missing' })).rejects.toThrow(
-      'project does not exist',
-    );
+    expect(await missingProject.orchestrator.start({ projectId, prompt: 'Missing' })).toMatchObject({
+      ok: false,
+      error: { code: ErrorCode.VALIDATION, message: 'The project does not exist.' },
+    });
     const failingSettings = harness([accepted], created, { settingsFailureCall: 1 });
-    await expect(failingSettings.orchestrator.start({ projectId, prompt: 'No settings' })).rejects.toThrow(
-      'Injected settings failure',
-    );
+    expect(await failingSettings.orchestrator.start({ projectId, prompt: 'No settings' })).toMatchObject({
+      ok: false,
+      error: { message: 'Injected settings failure.' },
+    });
   });
 
   it('rolls back when validation settings cannot be reloaded', async () => {
     const h = harness([accepted], created, { settingsFailureCall: 2 });
     await h.rootDirectory;
-    const run = await h.orchestrator.start({ projectId, prompt: 'Create greeting' });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Create greeting' });
     expect((await waitForTerminal(h.orchestrator, run.id)).stage).toBe(PipelineStage.ROLLED_BACK);
     await expectNoUserWrites(h.fs);
   });
@@ -829,7 +952,7 @@ describe('PipelineOrchestrator', () => {
         }),
     });
     await h.rootDirectory;
-    const run = await h.orchestrator.start({ projectId, prompt: 'Create greeting' });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Create greeting' });
     expect((await waitForTerminal(h.orchestrator, run.id)).stage).toBe(PipelineStage.ROLLED_BACK);
     await expectNoUserWrites(h.fs);
   });
@@ -837,7 +960,7 @@ describe('PipelineOrchestrator', () => {
   it('reports prepare errors without treating them as committed writes', async () => {
     const h = harness([accepted], created, { prepareFailure: true });
     await h.rootDirectory;
-    const run = await h.orchestrator.start({ projectId, prompt: 'Create greeting' });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Create greeting' });
     const result = await waitForTerminal(h.orchestrator, run.id);
     expect(result.stage).toBe(PipelineStage.ROLLED_BACK);
     expect(result.failureReport?.rolledBack).toBe(false);
@@ -847,7 +970,7 @@ describe('PipelineOrchestrator', () => {
   it('rolls back when the transaction cannot be marked validated', async () => {
     const h = harness([accepted], created, { markValidatedFailure: true });
     await h.rootDirectory;
-    const run = await h.orchestrator.start({ projectId, prompt: 'Create greeting' });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Create greeting' });
     expect((await waitForTerminal(h.orchestrator, run.id)).stage).toBe(PipelineStage.ROLLED_BACK);
     await expectNoUserWrites(h.fs);
   });

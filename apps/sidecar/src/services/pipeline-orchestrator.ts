@@ -17,6 +17,9 @@ import {
   type TaskSpec,
   type ClarificationQuestion,
   type RpcMethodMap,
+  type ModelDescriptor,
+  type ModelKey,
+  type ProviderId,
 } from '@itstudio/schemas';
 import { PIPELINE_TRANSITIONS, transitionPipelineStage } from '../domain/pipeline-machine.js';
 import type { IClock } from '../infra/clock.js';
@@ -31,9 +34,21 @@ import type { FailureReportBuilder } from './failure-report-builder.js';
 import type { IPipelineRepository } from '../infra/sqlite/pipeline-repository.js';
 import { isoDateTimeSchema, microUsdSchema, pipelineRunIdSchema, transactionIdSchema } from '../validation/brand.js';
 import { normalizeRelative, isForbidden, isWithinAllowed } from '../domain/path-guard.js';
+import { providerName, remediationFor } from '../domain/remediation.js';
 import { renderPipelineDiffs } from '../domain/pipeline-diff.js';
 
+export interface IPipelineEligibility {
+  load(): Promise<
+    Result<{
+      readonly models: readonly ModelDescriptor[];
+      readonly configuredProviders: readonly ProviderId[];
+      readonly eligibleModelKeys: readonly ModelKey[];
+    }>
+  >;
+}
+
 export interface PipelineOrchestratorDependencies {
+  readonly eligibility: IPipelineEligibility;
   readonly repository: IPipelineRepository;
   readonly projects: { get(id: ProjectId): Promise<Project | null> };
   readonly settings: () => Promise<Result<PipelineSettings>>;
@@ -91,11 +106,49 @@ export class PipelineOrchestrator {
     this.deps = dependencies;
   }
 
-  async start(input: { readonly projectId: ProjectId; readonly prompt: string }): Promise<PipelineRun> {
+  async start(input: { readonly projectId: ProjectId; readonly prompt: string }): Promise<Result<PipelineRun>> {
     const project = await this.deps.projects.get(input.projectId);
-    if (project === null) throw new Error('The project does not exist.');
+    if (project === null) return { ok: false, error: appError('The project does not exist.', ErrorCode.VALIDATION) };
     const settings = await this.deps.settings();
-    if (!settings.ok) throw new Error(settings.error.message);
+    if (!settings.ok) return settings;
+    const eligibility = await this.deps.eligibility.load();
+    if (!eligibility.ok) return eligibility;
+    const { models, configuredProviders, eligibleModelKeys } = eligibility.value;
+    const unavailableRoles = (['pm', 'coder', 'reviewer'] as const).filter(
+      (role) => !settings.value.roleAssignment[role].some((key) => eligibleModelKeys.includes(key)),
+    );
+    if (unavailableRoles.length > 0) {
+      const missingProviders = [
+        ...new Set(
+          unavailableRoles.flatMap((role) =>
+            settings.value.roleAssignment[role].flatMap((key) => {
+              const model = models.find((item) => item.key === key);
+              return model !== undefined && !configuredProviders.includes(model.provider)
+                ? [providerName(model.provider)]
+                : [];
+            }),
+          ),
+        ),
+      ];
+      const suggestedModels = models
+        .filter((model) => eligibleModelKeys.includes(model.key))
+        .slice(0, 3)
+        .map((model) => `${providerName(model.provider)}: ${model.displayName}`);
+      return {
+        ok: false,
+        error: {
+          code: ErrorCode.VALIDATION,
+          message: `No usable model for pipeline role(s): ${unavailableRoles.join(', ')}.`,
+          retryable: false,
+          remediation:
+            missingProviders.length > 0
+              ? remediationFor(ErrorCode.LADDER_EXHAUSTED, { missingProviders, suggestedModels })
+              : [
+                  `Add an enabled model with chat and JSON capabilities to each unavailable role in Settings → Pipeline.${suggestedModels.length ? ` Available models: ${suggestedModels.join(', ')}.` : ''}`,
+                ],
+        },
+      };
+    }
     await this.restoreWaitingRuns(input.projectId);
     const run: PipelineRun = {
       id: pipelineRunIdSchema.parse(this.deps.ids.uuid()),
@@ -129,7 +182,7 @@ export class PipelineOrchestrator {
     void current.finally(() => {
       if (this.tails.get(input.projectId) === tail) this.tails.delete(input.projectId);
     });
-    return run;
+    return { ok: true, value: run };
   }
 
   async get(runId: PipelineRunId): Promise<PipelineRun | null> {

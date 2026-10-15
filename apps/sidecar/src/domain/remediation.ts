@@ -3,6 +3,8 @@ import {
   type CommandKind as CommandKindType,
   type ErrorCode as ErrorCodeType,
   type ProviderId,
+  type ModelDescriptor,
+  type RouterAttempt,
 } from '@itstudio/schemas';
 
 export interface RemediationContext {
@@ -12,6 +14,8 @@ export interface RemediationContext {
   readonly journalPath?: string;
   readonly provider?: ProviderId;
   readonly modelsTried?: readonly string[];
+  readonly missingProviders?: readonly string[];
+  readonly suggestedModels?: readonly string[];
   readonly budget?: { readonly spent: string; readonly limit: string };
 }
 
@@ -31,11 +35,17 @@ const remediation: Record<ErrorCodeType, RemediationSteps> = {
   [ErrorCode.PROVIDER_TIMEOUT]: () => ['Retry with a shorter prompt or choose a faster model.'],
   [ErrorCode.PROVIDER_BAD_REQUEST]: () => ['Choose a supported model or adjust the request settings.'],
   [ErrorCode.PROVIDER_CONTENT_FILTERED]: () => ['Revise the prompt to comply with provider policies, then retry.'],
-  [ErrorCode.LADDER_EXHAUSTED]: (context) => [
-    context?.modelsTried?.length
-      ? `Choose an available model; these models were tried: ${context.modelsTried.join(', ')}.`
-      : 'Choose another enabled model and retry.',
-  ],
+  [ErrorCode.LADDER_EXHAUSTED]: (context) =>
+    context?.missingProviders?.length
+      ? [
+          `Add an API key in Settings → API Keys for: ${context.missingProviders.join(', ')}.`,
+          `Or add a model from a provider you have a key for${context.suggestedModels?.length ? ` (${context.suggestedModels.slice(0, 3).join(', ')})` : ''} to this role in Settings → Pipeline.`,
+        ]
+      : [
+          context?.modelsTried?.length
+            ? `Choose an available model; these models were tried: ${context.modelsTried.join(', ')}.`
+            : 'Choose another enabled model and retry.',
+        ],
   [ErrorCode.FALLBACK_DECLINED]: () => ['Select a fallback model or cancel the request.'],
   [ErrorCode.BUDGET_HARD_STOP]: (context) => [
     context?.budget
@@ -72,4 +82,53 @@ const remediation: Record<ErrorCodeType, RemediationSteps> = {
 
 export function remediationFor(code: ErrorCodeType, context?: RemediationContext): readonly string[] {
   return remediation[code](context);
+}
+
+const providerNames: Record<ProviderId, string> = {
+  anthropic: 'Anthropic',
+  openai: 'OpenAI',
+  google: 'Google',
+  xai: 'xAI',
+  groq: 'Groq',
+  together: 'Together',
+  replicate: 'Replicate',
+};
+
+export function providerName(provider: ProviderId): string {
+  return providerNames[provider];
+}
+
+/** Group skips by their actual cause; provider failures retain their existing detail. */
+export function ladderFailureSummary(attempts: readonly RouterAttempt[], models: readonly ModelDescriptor[]): string {
+  const labels: Record<NonNullable<RouterAttempt['skipReason']>, string> = {
+    no_api_key: 'No API key',
+    missing_capability: 'Missing required capability',
+    disabled: 'Disabled',
+    circuit_open: 'Circuit open',
+  };
+  const groups = new Map<string, Map<string, Set<string>>>();
+  const failures: string[] = [];
+  for (const attempt of attempts) {
+    if (attempt.skipReason === undefined) {
+      failures.push(`${attempt.modelKey}: ${attempt.failure ?? attempt.outcome}`);
+      continue;
+    }
+    const label = labels[attempt.skipReason];
+    const model = models.find((item) => item.key === attempt.modelKey);
+    const provider = model === undefined ? 'Unknown provider' : providerName(model.provider);
+    const providers = groups.get(label) ?? new Map<string, Set<string>>();
+    const names = providers.get(provider) ?? new Set<string>();
+    names.add(model?.providerModelId ?? attempt.modelKey);
+    providers.set(provider, names);
+    groups.set(label, providers);
+  }
+  return (
+    [
+      ...[...groups].map(
+        ([label, providers]) =>
+          `${label}: ${[...providers].map(([provider, names]) => `${provider} (${[...names].join(', ')})`).join(', ')}`,
+      ),
+      ...failures,
+    ].join('; ') || 'No models configured'
+  );
 }
