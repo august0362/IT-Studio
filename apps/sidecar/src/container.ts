@@ -69,7 +69,7 @@ import { FxDailyJob } from './scheduler/daily-job.js';
 import type { IHttpClient } from './ports/http-client.js';
 import { PricingService } from './services/pricing-service.js';
 import { PricingUpdater } from './services/pricing-updater.js';
-import { readFileSync } from 'node:fs';
+import { appendFileSync, readFileSync } from 'node:fs';
 import { readdirSync } from 'node:fs';
 import { ErrorCode, type AppError, type Result } from '@itstudio/schemas';
 import { z } from 'zod';
@@ -200,6 +200,7 @@ export function scriptedLlmProvider(
   texts: string | Readonly<Record<string, string>>,
   scripts: Readonly<Record<string, readonly string[]>>,
   cursors: Map<string, number>,
+  capturePath?: string,
 ): ILlmProvider {
   const outputText = (request: ProviderRequest): string =>
     typeof texts === 'string' ? texts : (texts[request.modelId] ?? '{}');
@@ -282,6 +283,12 @@ export function scriptedLlmProvider(
     signal: AbortSignal,
     onDelta?: (chunk: string) => void,
   ): Promise<Result<ProviderResponse, ProviderFailure>> => {
+    if (capturePath !== undefined)
+      appendFileSync(
+        capturePath,
+        `${JSON.stringify({ ...(request.system === undefined ? {} : { system: request.system }), messages: request.messages })}\n`,
+        'utf8',
+      );
     const outcome = next(request);
     const delay = /^delay:(\d+)$/u.exec(outcome);
     if (delay !== null && !(await wait(Number(delay[1]), signal)))
@@ -358,6 +365,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const imageScriptCursors = new Map<string, number>();
   const embeddingScriptCursors = new Map<string, number>();
   const configuredLlmText = env.ITSTUDIO_E2E_LLM_TEXT ?? 'Scripted assistant reply.';
+  const llmCapturePath = e2e && env.ITSTUDIO_E2E_LLM_CAPTURE !== undefined ? env.ITSTUDIO_E2E_LLM_CAPTURE : undefined;
   let llmTexts: string | Readonly<Record<string, string>> = configuredLlmText;
   try {
     const parsedText: unknown = JSON.parse(configuredLlmText) as unknown;
@@ -425,27 +433,31 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const fxDailyJob = new FxDailyJob({ fx: fxService, settings: settingsService, clock, logger });
   const providers = new ProviderRegistry({
     [ProviderId.ANTHROPIC]: () =>
-      e2e ? scriptedLlmProvider(ProviderId.ANTHROPIC, llmTexts, llmScripts, llmScriptCursors) : new AnthropicProvider(),
+      e2e
+        ? scriptedLlmProvider(ProviderId.ANTHROPIC, llmTexts, llmScripts, llmScriptCursors, llmCapturePath)
+        : new AnthropicProvider(),
     [ProviderId.GOOGLE]: () =>
-      e2e ? scriptedLlmProvider(ProviderId.GOOGLE, llmTexts, llmScripts, llmScriptCursors) : new GoogleProvider(),
+      e2e
+        ? scriptedLlmProvider(ProviderId.GOOGLE, llmTexts, llmScripts, llmScriptCursors, llmCapturePath)
+        : new GoogleProvider(),
     [ProviderId.OPENAI]: () =>
       e2e
-        ? scriptedLlmProvider(ProviderId.OPENAI, llmTexts, llmScripts, llmScriptCursors)
+        ? scriptedLlmProvider(ProviderId.OPENAI, llmTexts, llmScripts, llmScriptCursors, llmCapturePath)
         : new OpenAiCompatibleProvider({
             id: ProviderId.OPENAI,
             baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.OPENAI],
           }),
     [ProviderId.XAI]: () =>
       e2e
-        ? scriptedLlmProvider(ProviderId.XAI, llmTexts, llmScripts, llmScriptCursors)
+        ? scriptedLlmProvider(ProviderId.XAI, llmTexts, llmScripts, llmScriptCursors, llmCapturePath)
         : new OpenAiCompatibleProvider({ id: ProviderId.XAI, baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.XAI] }),
     [ProviderId.GROQ]: () =>
       e2e
-        ? scriptedLlmProvider(ProviderId.GROQ, llmTexts, llmScripts, llmScriptCursors)
+        ? scriptedLlmProvider(ProviderId.GROQ, llmTexts, llmScripts, llmScriptCursors, llmCapturePath)
         : new OpenAiCompatibleProvider({ id: ProviderId.GROQ, baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.GROQ] }),
     [ProviderId.TOGETHER]: () =>
       e2e
-        ? scriptedLlmProvider(ProviderId.TOGETHER, llmTexts, llmScripts, llmScriptCursors)
+        ? scriptedLlmProvider(ProviderId.TOGETHER, llmTexts, llmScripts, llmScriptCursors, llmCapturePath)
         : new OpenAiCompatibleProvider({
             id: ProviderId.TOGETHER,
             baseURL: OPENAI_COMPATIBLE_BASE_URLS[ProviderId.TOGETHER],
