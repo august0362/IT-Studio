@@ -25,6 +25,7 @@ import { useNavigationIntent } from '../state/navigation-intent';
 import { ResolvedWebChatSettingsPage } from '../features/webchat/ResolvedWebChatSettingsPage';
 import { WebChatPage } from '../features/webchat/WebChatPage';
 import { createWebChatHost } from '../features/webchat/webchat-host';
+import { PIPELINE_STUDIO_ENABLED, PipelineStudioPage } from '../features/pipeline-studio';
 
 const CodePage = lazy(() => import('../features/code/CodePage').then(({ CodePage: page }) => ({ default: page })));
 const CostPage = lazy(() => import('../features/cost/CostPage').then(({ CostPage: page }) => ({ default: page })));
@@ -42,6 +43,7 @@ function asAppError(cause: unknown): AppError {
 
 function initialRoute(): ShellRoute {
   const hash = window.location.hash.slice(1);
+  if (PIPELINE_STUDIO_ENABLED && hash === 'pipeline-studio') return 'pipeline-studio';
   if (
     [
       'chat',
@@ -83,6 +85,7 @@ export function AppShell(): JSX.Element {
   const [webChatSuspended, setWebChatSuspended] = useState(false);
   const [projectError, setProjectError] = useState<AppError | null>(null);
   const navigationRevision = useRef(0);
+  const studioPreviousRoute = useRef<ShellRoute>('settings-api-keys');
   const projects = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data]);
   const validOpenIds = useMemo(
     () => openIds.filter((id) => projects.some((project) => project.id === id)),
@@ -112,6 +115,7 @@ export function AppShell(): JSX.Element {
       const revision = ++navigationRevision.current;
       const apply = (): void => {
         if (revision !== navigationRevision.current) return;
+        if (next === 'pipeline-studio' && route !== 'pipeline-studio') studioPreviousRoute.current = route;
         setRoute(next);
         setWebChatSuspended(false);
         window.history.replaceState(null, '', `#${next}`);
@@ -194,6 +198,27 @@ export function AppShell(): JSX.Element {
     const remaining = openIds.filter((openId) => openId !== id);
     setOpenIds(remaining);
     if (activeId === id) setActiveSelection({ kind: 'all' });
+  }
+
+  if (PIPELINE_STUDIO_ENABLED && route === 'pipeline-studio') {
+    const project = projects.find((item) => item.id === activeId);
+    return (
+      <Suspense
+        fallback={
+          <div className="fixed inset-0" style={{ background: 'black', color: 'white' }} role="status">
+            {t('pipelineStudio.loading')}
+          </div>
+        }
+      >
+        <PipelineStudioPage
+          projectId={project?.id ?? null}
+          projectName={project?.name}
+          onBack={() => {
+            navigate(studioPreviousRoute.current);
+          }}
+        />
+      </Suspense>
+    );
   }
 
   let content: JSX.Element;

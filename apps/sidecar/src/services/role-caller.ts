@@ -251,6 +251,10 @@ export class RoleCaller {
         }
         const validated = getSchema(role, inputs).safeParse(normalized.value);
         if (validated.success) return { ok: true, value: validated.data };
+        if (role === 'pm') {
+          const spec = taskSpecSchema.safeParse(normalized.value);
+          if (spec.success) return { ok: true, value: { kind: 'spec', spec: spec.data } };
+        }
         throw validated.error;
       } catch (error) {
         if (attempt === 0) {
