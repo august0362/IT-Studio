@@ -23,12 +23,15 @@ const rpcResponseSchema = z.object({
 
 export interface SidecarHarness {
   readonly dataDir: string;
+  readonly exitCode: number | null;
   readonly stdoutLines: string[];
   readonly stderr: string[];
   readonly notifications: EventEmitter;
   call<M extends RpcMethod>(method: M, params?: RpcMethodMap[M]['params']): Promise<RpcResponse>;
   writeLine(line: string): void;
   writeChunk(chunk: string): void;
+  writeBytes(data: Buffer): void;
+  endStdin(): void;
   kill(): Promise<void>;
   restart(env?: Readonly<Record<string, string>>): Promise<void>;
   close(): Promise<void>;
@@ -138,6 +141,7 @@ export async function startSidecar(
         }
       });
       child.stderr?.on('data', (chunk: string) => stderr.push(chunk));
+      child.once('exit', (code, signal) => notifications.emit('exit', { code, signal }));
       child.once('error', reject);
       child.once('exit', (code) => {
         if (!ready) reject(new Error(`Sidecar exited before system.ready (${String(code)}): ${stderr.join('')}`));
@@ -185,6 +189,16 @@ export async function startSidecar(
     child.stdin.write(chunk);
   };
 
+  const writeBytes = (data: Buffer): void => {
+    if (child?.stdin === null || child?.stdin === undefined) throw new Error('Sidecar stdin is unavailable');
+    child.stdin.write(data);
+  };
+
+  const endStdin = (): void => {
+    if (child?.stdin === null || child?.stdin === undefined) throw new Error('Sidecar stdin is unavailable');
+    child.stdin.end();
+  };
+
   try {
     await spawnChild();
   } catch (error) {
@@ -193,6 +207,9 @@ export async function startSidecar(
   }
   return {
     dataDir,
+    get exitCode() {
+      return child?.exitCode ?? null;
+    },
     stdoutLines,
     stderr,
     notifications,
@@ -212,6 +229,8 @@ export async function startSidecar(
     },
     writeLine,
     writeChunk,
+    writeBytes,
+    endStdin,
     async kill() {
       await kill();
     },

@@ -15,7 +15,7 @@ Fix the S3 observations left open by the M9 exploratory session (`docs/qa/M9-rep
 - `apps/desktop/src/features/cost/**` (+ tests)
 - `apps/desktop/src/features/workflow/**` (+ tests)
 - `apps/desktop/src/features/settings/pricing/**` (+ tests)
-- `apps/sidecar/src/services/pricing-service.ts` and `apps/sidecar/src/infra/sqlite/price-table-repository.ts` if it exists (+ tests); no schema shape change, no migration
+- `apps/sidecar/src/services/pricing-service.ts` and `apps/sidecar/src/infra/sqlite/price-repository.ts` and `apps/sidecar/src/ports/price-repository.ts` (scope amendment 2026-10-15: the price-table file does not exist) (+ tests); no schema shape change, no migration
 - `scripts/build/smoke-sidecar.mjs`, `scripts/build/make-icon.mjs`, `scripts/build/build-app.mjs` (+ a node test in `scripts/build/`)
 - `apps/desktop/src/i18n/{en,vi}.json` (only keys for these fixes)
 - This task file (`## Result`)

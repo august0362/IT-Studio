@@ -110,6 +110,24 @@ describe('sidecar container', () => {
     });
   });
 
+  it('captures scripted LLM request messages as JSON lines when capture is enabled', async () => {
+    const capturePath = join(makeDataDir(), 'llm-capture.jsonl');
+    const provider = scriptedLlmProvider(ProviderId.ANTHROPIC, 'Captured response.', {}, new Map(), capturePath);
+    const request: ProviderRequest = {
+      modelId: 'capture-model',
+      system: 'Captured system prompt.',
+      messages: [{ role: 'user', parts: [{ type: 'text', text: 'capture this prompt' }] }],
+      maxOutputTokens: 128,
+      responseFormat: 'text',
+      timeoutMs: 1_000,
+    };
+
+    await provider.complete(request, 'test-key', new AbortController().signal);
+
+    const captured = readFileSync(capturePath, 'utf8').trim().split('\n').map(parseLine);
+    expect(captured).toEqual([{ system: request.system, messages: request.messages }]);
+  });
+
   it('logs lifecycle events in order and creates the daily log file', async () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'itstudio-lifecycle-'));
     tempDirectories.push(dataDir);
