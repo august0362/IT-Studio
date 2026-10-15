@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import Database from 'better-sqlite3';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -88,7 +88,7 @@ describe('QA-BREAK-02 adversarial crash durability and upgrade', () => {
   }, 60_000);
 
   it.each(['after_prepare', 'mid_commit'] as const)(
-    'BRK-D02 crash point %s restores the project tree and fails the run',
+    'BRK-D02 crash point %s restores the project tree and records rollback',
     async (crashAt) => {
       const scripts = {
         'anthropic/claude-opus-5-5': ['ok'],
@@ -118,6 +118,14 @@ describe('QA-BREAK-02 adversarial crash durability and upgrade', () => {
         scripts,
       );
       sidecars.push(harness);
+      for (const provider of new Set(
+        Object.keys(scripts).map((modelKey) => providerIdSchema.parse(modelKey.split('/')[0])),
+      )) {
+        await harness.call('secrets.set', {
+          provider,
+          apiKey: `integration-only-${provider}-key`,
+        });
+      }
       const workspaceRoot = resolve(harness.dataDir, 'crash-project');
       await mkdir(workspaceRoot);
       await writeFile(resolve(workspaceRoot, 'original.txt'), 'original bytes');
@@ -127,15 +135,31 @@ describe('QA-BREAK-02 adversarial crash durability and upgrade', () => {
       const before = await projectHash(workspaceRoot);
       const started = await harness.call('pipeline.start', { projectId, prompt: 'write note' });
       expect(started.error).toBeUndefined();
+      const startedRun = pipelineRunSchema.parse(started.result);
       await waitFor(() => harness.exitCode !== null, 30_000).catch(() => undefined);
       await harness.kill();
       await harness.restart({ ITSTUDIO_E2E_CRASH_AT: '' });
+      await waitFor(() => harness.stdoutLines.some((line) => line.includes('"recoveredTransactions":1')));
+      const recoveredRun = await vi.waitFor(
+        async () => {
+          const runs = z
+            .array(pipelineRunSchema)
+            .parse((await harness.call('pipeline.list', { projectId, limit: 20 })).result);
+          const run = runs.find(
+            (entry) =>
+              entry.id === startedRun.id && ['completed', 'rolled_back', 'failed', 'cancelled'].includes(entry.stage),
+          );
+          expect(run).toBeDefined();
+          return run;
+        },
+        { timeout: 10_000, interval: 50 },
+      );
       const after = await projectHash(workspaceRoot);
       expect(after).toBe(before);
-      const runs = z
-        .array(pipelineRunSchema)
-        .parse((await harness.call('pipeline.list', { projectId, limit: 20 })).result);
-      expect(runs.some((run) => run.stage === 'failed')).toBe(true);
+      expect(
+        recoveredRun?.stage === 'rolled_back' ||
+          (recoveredRun?.stage === 'failed' && recoveredRun.failureReport?.rolledBack === true),
+      ).toBe(true);
     },
     60_000,
   );
