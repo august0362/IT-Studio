@@ -23,6 +23,7 @@ const rpcResponseSchema = z.object({
 
 export interface SidecarHarness {
   readonly dataDir: string;
+  readonly exitCode: number | null;
   readonly stdoutLines: string[];
   readonly stderr: string[];
   readonly notifications: EventEmitter;
@@ -193,6 +194,9 @@ export async function startSidecar(
   }
   return {
     dataDir,
+    get exitCode() {
+      return child?.exitCode ?? null;
+    },
     stdoutLines,
     stderr,
     notifications,
