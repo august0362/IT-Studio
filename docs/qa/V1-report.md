@@ -43,3 +43,7 @@ Real provider keys and answers, real image providers, embedded web-chat sign-in,
 ## Addendum — PROV-01 rebuild (2026-10-15 23:40)
 
 PROV-01 (DeepSeek, OpenRouter, Qwen, Mistral) landed at `caadd00`. Lean QA (owner request): typecheck, lint, unit 1 386 pass; integration `secrets`, `router`, `settings-projects`, `startup` 30/30; repo-layout 4/4; `build:app` OK; `smoke:sidecar` median 477 ms. New NSIS SHA-256: `c51491d4e2cc763eb1bff8cba4d1a8b5a64e83022f9b1bdeeddd04c738f7d395` (93 412 320 bytes). Full E2E / install smoke not re-run for this provider-only change.
+
+## Addendum — owner feedback build (2026-10-16 01:33)
+
+Landed: OWNER-FB2-A/B, UX-03, PROC-01 (+PROC-01T), PROC-02. Lean QA: typecheck, lint, unit 1 519 pass; targeted integration (router, chat, settings-projects, processes, pipeline, rag-ingest, startup) pass after fixture fixes; `smoke:sidecar` median 477 ms; `smoke:install` 7/7. NSIS SHA-256 `c97d23758041879536be9fdbd2c8eb1c9c5762f4350566c89a67711522715a1b` (93 456 372 bytes). The MSI step of `build:app` failed with `timeout: global` (bundler download); NSIS is the owner's installer. E2E not yet re-run after the navigation change (UX-03) — scheduled next.

@@ -9,12 +9,10 @@ Cách dùng:
 - Đúng thì đổi `[ ]` thành `[x]`.
 - Sai thì ghi ngay bên dưới bài đó: *đã làm gì, thấy gì*. Có ảnh chụp càng tốt.
 
-**File cài đặt:** `apps\desktop\src-tauri\target\release\bundle\nsis\IT Studio_0.1.0_x64-setup.exe` (trong thư mục project, build lúc 23:40 ngày 15/10/2026, đã có DeepSeek, OpenRouter, Qwen, Mistral).
-eleaseundle
-sis\IT Studio_0.1.0_x64-setup.exe` (trong thư mục project, build ngày 15/10/2026).
+**File cài đặt:** `apps\desktop\src-tauri\target\release\bundle\nsis\IT Studio_0.1.0_x64-setup.exe` (trong thư mục project). Bản mới nhất build ngày 16/10/2026: có thêm 4 hãng AI mới, nút Browse, trang Projects, trang Settings gộp và trang Processes. **Hãy cài lại bản này** trước khi làm tiếp từ bài B3.
 Muốn chạy thẳng từ mã nguồn thay vì cài: bấm đúp `Start-IT-Studio.bat` ở thư mục gốc của project.
 
-Máy đã tự kiểm tra trước khi giao: 1.277 bài unit, 162 bài integration, 14 bài E2E (mở app thật và tự bấm), thử cài/gỡ bản cài. Tất cả đều đạt.
+Máy đã tự kiểm tra trước khi giao: hơn 1.500 bài unit, các bài integration liên quan, build và khởi động thử bản cài. Tất cả đều đạt.
 
 Cần chuẩn bị:
 - API key của **2 hãng AI khác nhau** (ví dụ OpenAI và Google).
@@ -25,36 +23,36 @@ Cần chuẩn bị:
 
 ## A. Cài và mở app
 
-- [ ] **A1. Cài app**
+- [x] **A1. Cài app**
   - Làm: chạy file cài đặt ở đường dẫn trên. Nếu Windows hiện cảnh báo màu xanh, bấm *More info* rồi *Run anyway* (app chưa có chữ ký số, chuyện bình thường).
   - Phải thấy: cài xong, trong menu Start có "IT Studio".
 
-- [ ] **A2. Mở app**
+- [x] **A2. Mở app**
   - Làm: mở IT Studio.
   - Phải thấy: góc dưới hiện chữ *Connecting…* rồi chuyển sang *Ready* trong vài giây. Không có thanh báo lỗi màu đỏ.
 
-- [ ] **A3. Mở lại**
+- [x] **A3. Mở lại**
   - Làm: tắt app rồi mở lại.
   - Phải thấy: mọi thứ vẫn như lúc trước khi tắt.
 
 ## B. Nhập API key
 
-- [ ] **B1. Key sai**
+- [x] **B1. Key sai**
   - Làm: vào *Settings → API Keys*, dán một key bịa ra, bấm *Verify & save*.
   - Phải thấy: app báo key sai và không lưu.
 
-- [ ] **B2. Key đúng**
+- [x] **B2. Key đúng**
   - Làm: dán key thật, bấm *Verify & save*.
   - Phải thấy: lưu thành công, key chỉ hiện 4 ký tự cuối (để không bị lộ).
 
 - [ ] **B3. Nhà cung cấp mới (DeepSeek, OpenRouter, Qwen, Mistral)**
-  - Làm: trong *Settings → API Keys*, nhập key của hãng bạn có rồi bấm *Verify & save*. Riêng Qwen: chọn đúng **vùng** của key (mặc định là International/Singapore). Sau đó vào Chat, chọn một model của hãng đó và gửi "xin chào".
-  - Phải thấy: key được xác minh và lưu thành công; AI trả lời; chi phí hiện ra. Giá của các model mới được ghi là *chưa xác minh*. Nếu muốn giá chính xác, vào *Settings → Pricing* bấm *Update prices*.
+  - Làm: trong *Settings → API Keys*, nhập key của hãng bạn có rồi bấm *Verify & save*. Riêng Qwen: chọn đúng **vùng** của key (mặc định International/Singapore).
+  - Phải thấy: key được xác minh và lưu. Giá của các model mới ghi là *chưa xác minh*; muốn giá chính xác thì vào *Settings → Pricing* bấm *Update prices*.
 
 ## C. Project và Chat
 
-- [ ] **C1. Tạo project**
-  - Làm: bấm dấu **+** ở trên cùng, đặt tên và chọn thư mục trống đã chuẩn bị.
+- [x] **C1. Tạo project**
+  - Làm: bấm dấu **+** ở trên cùng, đặt tên, bấm nút **Browse…** để chọn thư mục trống đã chuẩn bị (không cần gõ tay).
   - Phải thấy: có thêm một tab mang tên project đó.
 
 - [ ] **C2. Chat thử**
@@ -64,6 +62,18 @@ Cần chuẩn bị:
 - [ ] **C3. Hai project không lẫn nhau**
   - Làm: tạo thêm một project thứ hai, bấm chuyển qua lại giữa hai tab thật nhanh.
   - Phải thấy: mỗi project chỉ hiện cuộc chat của riêng nó. Không bao giờ gửi nhầm tin sang project kia.
+
+- [ ] **C4. Lịch sử project (Projects)**
+  - Làm: bấm **Projects** ở menu trái. Thử ô tìm kiếm, bấm **Mở** một project, rồi **Xóa** project rác (thư mục `itstudio-e2e-project-…` do lần test tự động để lại).
+  - Phải thấy: thấy đủ các project kèm lần mở gần nhất; Mở thì vào đúng project; Xóa có hỏi xác nhận, chỉ xóa dữ liệu trong IT Studio, **không đụng file trong thư mục project**. Đóng tab (×) thì project vẫn còn trong Projects. Tắt app mở lại thì các tab vẫn còn.
+
+- [ ] **C5. Dấu hiệu AI đang trả lời**
+  - Làm: gửi một tin chat.
+  - Phải thấy: ngay sau khi gửi có **3 chấm chạy "Đang trả lời…"**, khi chữ bắt đầu hiện thì có con trỏ nhấp nháy; xong thì biến mất. Nếu lỗi, thông báo nói rõ từng model hỏng vì sao và chỉ tới *Settings → Router*.
+
+- [ ] **C6. Auto dùng mọi hãng có key**
+  - Làm: chỉ để key của 1–2 hãng (ví dụ Google + DeepSeek), chọn *Auto* rồi chat.
+  - Phải thấy: AI vẫn trả lời bằng model của hãng bạn có key, không còn báo "Every model in the ladder was unavailable".
 
 ## D. Viết code tự động (Pipeline) — có bước hỏi lại mới
 
@@ -92,7 +102,7 @@ Cần chuẩn bị:
 ## E. Pipeline Studio — màn hình đen xem pipeline chạy (mới)
 
 - [ ] **E1. Mở màn hình**
-  - Làm: ở menu bên trái, kéo xuống cuối phần *Settings*, bấm **Pipeline Studio**.
+  - Làm: bấm **Settings** (dưới cùng menu trái) → mục *Labs* → bấm **Pipeline Studio**.
   - Phải thấy: một trang đen toàn màn hình, các ô (module) nối nhau theo thứ tự Yêu cầu → Làm rõ → Đặc tả → Lập trình → Đánh giá → Ghi tệp → Kiểm chứng → Hoàn tất.
 
 - [ ] **E2. Xem chạy trực tiếp**
@@ -118,6 +128,26 @@ Cần chuẩn bị:
 - [ ] **E7. Thoát**
   - Làm: bấm phím Esc hoặc nút *← Quay lại*.
   - Phải thấy: lần đầu đóng bảng chi tiết, lần sau quay về trang trước.
+
+## S. Trang Settings gộp (mới)
+
+- [ ] **S1. Một chỗ cho mọi cài đặt**
+  - Làm: nhìn menu trái, rồi bấm **Settings** ở dưới cùng. Thử gõ "key", "theme" hoặc "budget" vào ô tìm kiếm của Settings.
+  - Phải thấy: menu trái chỉ còn các chức năng chính và một nút Settings. Trong Settings có menu con (API keys, Router, Pipeline, Budget, Pricing, FX, Images, Web chat, VS Code, Giao diện & ngôn ngữ, Labs); ô tìm kiếm lọc đúng mục.
+
+## P. Tiến trình (Processes, mới)
+
+- [ ] **P1. Danh sách tiến trình**
+  - Làm: chat vài tin, chạy một pipeline, nạp một thư mục vào Knowledge, rồi bấm **Processes** ở menu trái.
+  - Phải thấy: mỗi hoạt động là một dòng có chấm màu: 🟢 đang chạy, 🟡 đang chờ, 🔴 dừng giữa chừng, ⚪ đã kết thúc. Góc dưới (thanh trạng thái) có số chấm xanh/vàng/đỏ; bấm vào thì mở Processes.
+
+- [ ] **P2. Xem sơ đồ của một tiến trình**
+  - Làm: bấm **Open** ở một tiến trình chat, rồi một tiến trình Knowledge.
+  - Phải thấy: màn hình đen với các ô module nối nhau (ví dụ chat: Yêu cầu → Ngữ cảnh → Chọn model → Gọi AI → Nhận chữ → Tính tiền → Trả lời). Ô xong có ✓; kéo thả được; bấm vào ô thì thấy dữ liệu vào/ra.
+
+- [ ] **P3. Hủy / thử lại**
+  - Làm: bấm **Cancel** một tiến trình đang chạy (ví dụ đang nạp tài liệu); với tiến trình 🔴 bấm **Retry**; với tiến trình ⚪ bấm **Delete**.
+  - Phải thấy: Cancel → chuyển 🔴; Retry → tạo tiến trình mới chạy lại; Delete → dòng biến mất. Chỉ giữ khoảng 20 tiến trình ⚪ gần nhất.
 
 ## F. Các chức năng khác
 
@@ -183,4 +213,4 @@ Cần chuẩn bị:
 - Người kiểm tra: ____________ Ngày: ____________
 - Kết luận (chọn một): **Đạt** / **Đạt nhưng cần sửa thêm** / **Chưa đạt**
 
-<!-- QA: commit caadd00 (PROV-01), NSIS SHA-256 c51491d4e2cc763eb1bff8cba4d1a8b5a64e83022f9b1bdeeddd04c738f7d395, chi tiết trong docs/qa/V1-report.md -->
+<!-- QA: commit 50cbd1a, NSIS SHA-256 c692db41b95ba88024044e380c331cc14059cbe20bcda5bec389d5c2226fb15f, chi tiết trong docs/qa/V1-report.md -->
