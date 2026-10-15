@@ -2,6 +2,8 @@ import { PipelineStage, type PipelineStage as PipelineStageType } from '@itstudi
 
 export type PipelineAction =
   | 'spec_ready'
+  | 'needs_clarification'
+  | 'answered'
   | 'code_ready'
   | 'approved'
   | 'rejected'
@@ -15,7 +17,12 @@ export type PipelineAction =
 export const PIPELINE_TRANSITIONS: Readonly<
   Record<PipelineStageType, Readonly<Partial<Record<PipelineAction, PipelineStageType>>>>
 > = {
-  [PipelineStage.SPECIFYING]: { spec_ready: PipelineStage.CODING, cancel: PipelineStage.CANCELLED },
+  [PipelineStage.SPECIFYING]: {
+    spec_ready: PipelineStage.CODING,
+    needs_clarification: PipelineStage.CLARIFYING,
+    cancel: PipelineStage.CANCELLED,
+  },
+  [PipelineStage.CLARIFYING]: { answered: PipelineStage.SPECIFYING, cancel: PipelineStage.CANCELLED },
   [PipelineStage.CODING]: { code_ready: PipelineStage.REVIEWING, cancel: PipelineStage.CANCELLED },
   [PipelineStage.REVIEWING]: {
     approved: PipelineStage.WRITING,

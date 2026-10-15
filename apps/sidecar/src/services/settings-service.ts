@@ -135,6 +135,10 @@ function addMissingTopLevelDefaults(value: unknown, defaults: AppSettings): unkn
       changed = true;
     }
   }
+  if (isRecord(stored.pipeline) && !('autoClarify' in stored.pipeline)) {
+    merged.pipeline = { ...stored.pipeline, autoClarify: defaults.pipeline.autoClarify };
+    changed = true;
+  }
   return changed ? merged : value;
 }
 

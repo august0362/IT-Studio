@@ -15,6 +15,8 @@ import {
   type ReviewVerdict,
   type CommandRunId,
   type TaskSpec,
+  type ClarificationQuestion,
+  type RpcMethodMap,
 } from '@itstudio/schemas';
 import { PIPELINE_TRANSITIONS, transitionPipelineStage } from '../domain/pipeline-machine.js';
 import type { IClock } from '../infra/clock.js';
@@ -78,6 +80,12 @@ export class PipelineOrchestrator {
   private readonly validationControllers = new Map<PipelineRunId, AbortController>();
   private readonly tails = new Map<ProjectId, Promise<void>>();
   private readonly transactions = new Map<PipelineRunId, PreparedWriteTransaction>();
+  private readonly restoredProjects = new Map<ProjectId, Promise<void>>();
+  private readonly answering = new Set<PipelineRunId>();
+  private readonly clarificationGates = new Map<
+    ProjectId,
+    { readonly runId: PipelineRunId; readonly promise: Promise<void>; readonly release: () => void }
+  >();
 
   constructor(dependencies: PipelineOrchestratorDependencies) {
     this.deps = dependencies;
@@ -88,6 +96,7 @@ export class PipelineOrchestrator {
     if (project === null) throw new Error('The project does not exist.');
     const settings = await this.deps.settings();
     if (!settings.ok) throw new Error(settings.error.message);
+    await this.restoreWaitingRuns(input.projectId);
     const run: PipelineRun = {
       id: pipelineRunIdSchema.parse(this.deps.ids.uuid()),
       projectId: input.projectId,
@@ -104,7 +113,14 @@ export class PipelineOrchestrator {
     await this.deps.repository.save(run);
     this.publishStage(run);
     const previous = this.tails.get(input.projectId) ?? Promise.resolve();
-    const current = previous.catch(() => undefined).then(() => this.execute(run.id, project));
+    const current = previous
+      .catch(() => undefined)
+      .then(async () => {
+        await this.clarificationGates.get(input.projectId)?.promise;
+        await this.execute(run.id, project);
+        const gate = this.clarificationGates.get(input.projectId);
+        if (gate?.runId === run.id) await gate.promise;
+      });
     const tail = current.then(
       () => undefined,
       () => undefined,
@@ -117,7 +133,14 @@ export class PipelineOrchestrator {
   }
 
   async get(runId: PipelineRunId): Promise<PipelineRun | null> {
-    return this.runs.get(runId) ?? this.deps.repository.get(runId);
+    const cached = this.runs.get(runId);
+    if (cached !== undefined) return cached;
+    const stored = await this.deps.repository.get(runId);
+    if (stored === null) return null;
+    const run = this.runs.get(runId) ?? stored;
+    this.runs.set(runId, run);
+    if (run.stage === PipelineStage.CLARIFYING) this.blockProjectForClarification(run.projectId, run.id);
+    return run;
   }
 
   list(input: { readonly projectId: ProjectId; readonly limit: number }): Promise<readonly PipelineRun[]> {
@@ -127,9 +150,90 @@ export class PipelineOrchestrator {
   async cancel(runId: PipelineRunId): Promise<PipelineRun | null> {
     const run = await this.get(runId);
     if (run === null || isTerminal(run.stage)) return run;
+    if (
+      run.stage === PipelineStage.CLARIFYING &&
+      !this.answering.has(runId) &&
+      this.clarificationGates.get(run.projectId)?.runId === runId
+    ) {
+      const cancelled = await this.update(run, {
+        stage: transitionPipelineStage(run.stage, 'cancel'),
+        finishedAt: isoDateTimeSchema.parse(this.deps.clock.now().toISOString()),
+      });
+      this.publishStage(cancelled);
+      this.publishFinished(cancelled);
+      this.releaseClarificationGate(run.projectId, run.id);
+      this.cancelRequested.delete(runId);
+      return cancelled;
+    }
     this.cancelRequested.add(runId);
     this.validationControllers.get(runId)?.abort();
     return this.runs.get(runId) ?? run;
+  }
+
+  async answerClarifications(
+    input: RpcMethodMap['pipeline.answerClarifications']['params'],
+  ): Promise<Result<PipelineRun>> {
+    if (this.answering.has(input.runId))
+      return { ok: false, error: appError('This run is already processing answers.', ErrorCode.VALIDATION) };
+    this.answering.add(input.runId);
+    try {
+      return await this.resumeWithAnswers(input);
+    } finally {
+      this.answering.delete(input.runId);
+      const run = this.runs.get(input.runId);
+      if (run?.stage === PipelineStage.CLARIFYING && this.cancelRequested.has(run.id)) await this.cancel(run.id);
+    }
+  }
+
+  private async resumeWithAnswers(
+    input: RpcMethodMap['pipeline.answerClarifications']['params'],
+  ): Promise<Result<PipelineRun>> {
+    const run = await this.get(input.runId);
+    if (run?.stage !== PipelineStage.CLARIFYING || run.clarifications === undefined)
+      return { ok: false, error: appError('This run is not waiting for clarifications.', ErrorCode.VALIDATION) };
+    const answerMap = new Map(input.answers.map((answer) => [answer.questionId, answer]));
+    if (answerMap.size !== input.answers.length || answerMap.size !== run.clarifications.length)
+      return { ok: false, error: appError('Provide exactly one answer for every question.', ErrorCode.VALIDATION) };
+    const answered: ClarificationQuestion[] = [];
+    for (const question of run.clarifications) {
+      const answer = answerMap.get(question.id);
+      if (answer === undefined)
+        return { ok: false, error: appError('Every clarification question needs an answer.', ErrorCode.VALIDATION) };
+      const freeText = answer.freeText?.trim();
+      const hasOption =
+        answer.optionId !== undefined && question.options.some((option) => option.id === answer.optionId);
+      if (
+        (!hasOption && (freeText === undefined || freeText.length === 0 || freeText.length > 2000)) ||
+        (answer.optionId !== undefined && !hasOption) ||
+        (answer.freeText?.length ?? 0) > 2000
+      )
+        return {
+          ok: false,
+          error: appError('Choose a valid option or enter up to 2,000 characters of free text.', ErrorCode.VALIDATION),
+        };
+      answered.push({
+        ...question,
+        answer: {
+          ...(answer.optionId === undefined ? {} : { optionId: answer.optionId }),
+          ...(freeText === undefined || freeText.length === 0 ? {} : { freeText }),
+          by: 'user',
+          at: isoDateTimeSchema.parse(this.deps.clock.now().toISOString()),
+        },
+      });
+    }
+    const project = await this.deps.projects.get(run.projectId);
+    if (project === null) return { ok: false, error: appError('The project no longer exists.', ErrorCode.VALIDATION) };
+    this.blockProjectForClarification(run.projectId, run.id);
+    const resumed = await this.update(run, {
+      clarifications: answered,
+      stage: transitionPipelineStage(run.stage, 'answered'),
+    });
+    this.deps.events.publish('pipeline.event', { type: 'clarification', runId: run.id, status: 'answered' });
+    this.publishStage(resumed);
+    void this.execute(run.id, project).finally(() => {
+      this.releaseClarificationGate(run.projectId, run.id);
+    });
+    return { ok: true, value: resumed };
   }
 
   private async execute(runId: PipelineRunId, project: Project): Promise<void> {
@@ -140,9 +244,16 @@ export class PipelineOrchestrator {
         return;
       }
       const context = await this.deps.context.build(project.workspaceRoot);
+      const clarifications = run.clarifications;
       const specCall = await this.deps.roles.call(
         'pm',
-        { prompt: run.prompt, ragHits: '', tree: context.tree, conventionsSummary: context.conventionsSummary },
+        {
+          prompt: run.prompt,
+          ragHits: '',
+          tree: context.tree,
+          conventionsSummary: context.conventionsSummary,
+          ...(clarifications === undefined ? {} : { clarifications }),
+        },
         { projectId: run.projectId, pipelineRunId: run.id, ladder: run.roleAssignment.pm },
       );
       run = await this.refreshCost(run);
@@ -150,7 +261,48 @@ export class PipelineOrchestrator {
         await this.fail(run, specCall.error, false);
         return;
       }
-      const spec = specCall.value as TaskSpec;
+      if (this.isCancelled(run)) {
+        await this.finish(run, PipelineStage.CANCELLED);
+        return;
+      }
+      if (!('kind' in specCall.value)) {
+        await this.fail(run, appError('The PM returned an invalid output.', ErrorCode.VALIDATION), false);
+        return;
+      }
+      if (specCall.value.kind === 'questions') {
+        if (clarifications !== undefined) {
+          await this.fail(run, appError('The PM asked a second clarification round.', ErrorCode.VALIDATION), false);
+          return;
+        }
+        const questions = specCall.value.questions;
+        const settings = await this.deps.settings();
+        if (!settings.ok) {
+          await this.fail(run, settings.error, false);
+          return;
+        }
+        if (settings.value.autoClarify) {
+          const at = isoDateTimeSchema.parse(this.deps.clock.now().toISOString());
+          run = await this.update(run, {
+            clarifications: questions.map((question) => ({
+              ...question,
+              answer: { optionId: question.recommendedOptionId, by: 'auto', at },
+            })),
+          });
+          run = await this.move(run, 'needs_clarification');
+          this.deps.events.publish('pipeline.event', { type: 'clarification', runId: run.id, status: 'required' });
+          this.deps.events.publish('pipeline.event', { type: 'clarification', runId: run.id, status: 'answered' });
+          run = await this.move(run, 'answered');
+          await this.execute(run.id, project);
+          return;
+        }
+        this.blockProjectForClarification(run.projectId, run.id);
+        run = await this.update(run, { clarifications: questions });
+        run = await this.move(run, 'needs_clarification');
+        this.deps.events.publish('pipeline.event', { type: 'clarification', runId: run.id, status: 'required' });
+        if (this.isCancelled(run)) await this.finish(run, PipelineStage.CANCELLED);
+        return;
+      }
+      const spec = specCall.value.spec;
       run = await this.update(run, { spec });
       run = await this.move(run, 'spec_ready');
       this.artifact(run, 'spec', 0);
@@ -444,6 +596,7 @@ export class PipelineOrchestrator {
     this.publishStage(finished);
     this.deps.events.publish('pipeline.failureReport', report);
     this.publishFinished(finished);
+    this.releaseClarificationGate(run.projectId, run.id);
     this.cancelRequested.delete(run.id);
   }
 
@@ -455,6 +608,7 @@ export class PipelineOrchestrator {
     });
     this.publishStage(finished);
     this.publishFinished(finished);
+    this.releaseClarificationGate(run.projectId, run.id);
     this.cancelRequested.delete(run.id);
   }
 
@@ -462,6 +616,35 @@ export class PipelineOrchestrator {
     const run = this.runs.get(id);
     if (run === undefined) throw new Error('Pipeline run was not found.');
     return run;
+  }
+  private blockProjectForClarification(projectId: ProjectId, runId: PipelineRunId): void {
+    if (this.clarificationGates.get(projectId)?.runId === runId) return;
+    let release: () => void = () => undefined;
+    const promise = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.clarificationGates.set(projectId, { runId, promise, release });
+  }
+  private restoreWaitingRuns(projectId: ProjectId): Promise<void> {
+    let pending = this.restoredProjects.get(projectId);
+    if (pending === undefined) {
+      pending = this.deps.repository.list(projectId, Number.MAX_SAFE_INTEGER).then((runs) => {
+        for (const stored of runs) {
+          const run = this.runs.get(stored.id) ?? stored;
+          if (run.stage !== PipelineStage.CLARIFYING) continue;
+          this.runs.set(run.id, run);
+          this.blockProjectForClarification(projectId, run.id);
+        }
+      });
+      this.restoredProjects.set(projectId, pending);
+    }
+    return pending;
+  }
+  private releaseClarificationGate(projectId: ProjectId, runId: PipelineRunId): void {
+    const gate = this.clarificationGates.get(projectId);
+    if (gate?.runId !== runId) return;
+    this.clarificationGates.delete(projectId);
+    gate.release();
   }
   private publishStage(run: PipelineRun): void {
     this.deps.events.publish('pipeline.event', { type: 'stage', runId: run.id, stage: run.stage });

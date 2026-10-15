@@ -56,6 +56,7 @@ const settings = {
     roleAssignment: { pm: ['openai/first'], coder: ['google/second'], reviewer: ['openai/first'] },
     validationCommands: ['npm test'],
     maxFixAttempts: 1,
+    autoClarify: false,
   },
   vscode: { autoLaunch: true, codeExecutable: null, showDiffBeforeValidate: true, revealChangedFiles: false },
   rag: { defaultTopK: 5, minScore: 0.2 },

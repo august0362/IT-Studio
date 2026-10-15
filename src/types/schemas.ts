@@ -747,6 +747,7 @@ export type RoleAssignment = Readonly<Record<Exclude<AgentRole, 'worker'>, reado
 
 export const PipelineStage = {
   SPECIFYING: 'specifying',
+  CLARIFYING: 'clarifying',
   CODING: 'coding',
   REVIEWING: 'reviewing',
   FIXING: 'fixing',
@@ -772,6 +773,29 @@ export interface TaskSpec {
   readonly constraints: readonly string[];
   readonly testPlan: readonly string[];
   readonly outOfScope: readonly string[];
+}
+
+export interface ClarificationOption {
+  readonly id: string;
+  readonly label: string;
+  readonly detail?: string;
+}
+
+export interface ClarificationAnswer {
+  readonly optionId?: string;
+  readonly freeText?: string;
+  readonly by: 'user' | 'auto';
+  readonly at: IsoDateTime;
+}
+
+export interface ClarificationQuestion {
+  readonly id: string;
+  readonly question: string;
+  readonly why: string;
+  readonly options: readonly ClarificationOption[];
+  readonly recommendedOptionId: string;
+  readonly recommendationReason: string;
+  readonly answer?: ClarificationAnswer;
 }
 
 /** Coder output. */
@@ -827,6 +851,7 @@ export interface PipelineRun {
   readonly stage: PipelineStage;
   readonly roleAssignment: RoleAssignment;
   readonly spec?: TaskSpec;
+  readonly clarifications?: readonly ClarificationQuestion[];
   readonly coderOutputs: readonly CoderOutput[];
   readonly verdicts: readonly ReviewVerdict[];
   /** 0 or 1. Hard-capped at 1 (D5). */
@@ -841,6 +866,7 @@ export interface PipelineRun {
 
 export type PipelineEvent =
   | { readonly type: 'stage'; readonly runId: PipelineRunId; readonly stage: PipelineStage }
+  | { readonly type: 'clarification'; readonly runId: PipelineRunId; readonly status: 'required' | 'answered' }
   | { readonly type: 'artifact'; readonly runId: PipelineRunId; readonly kind: 'spec' | 'code' | 'review'; readonly index: number }
   | { readonly type: 'command_output'; readonly runId: PipelineRunId; readonly commandRunId: CommandRunId; readonly stream: 'stdout' | 'stderr'; readonly chunk: string }
   | { readonly type: 'finished'; readonly runId: PipelineRunId; readonly stage: 'completed' | 'rolled_back' | 'failed' | 'cancelled' };
@@ -1061,6 +1087,13 @@ export interface RpcMethodMap {
   'pipeline.get': { params: { readonly runId: PipelineRunId }; result: PipelineRun };
   'pipeline.list': { params: { readonly projectId: ProjectId; readonly limit: number }; result: readonly PipelineRun[] };
   'pipeline.cancel': { params: { readonly runId: PipelineRunId }; result: PipelineRun };
+  'pipeline.answerClarifications': {
+    params: {
+      readonly runId: PipelineRunId;
+      readonly answers: readonly { readonly questionId: string; readonly optionId?: string; readonly freeText?: string }[];
+    };
+    result: PipelineRun;
+  };
 
   'workflow.graph': { params: { readonly projectId: ProjectId | null }; result: WorkflowGraph };
   'workflow.activity': {
@@ -1171,6 +1204,7 @@ export interface PipelineSettings {
   readonly validationCommands: readonly CommandSpec[];
   /** Fixed at 1 per D5; present for visibility, not user-editable. */
   readonly maxFixAttempts: 1;
+  readonly autoClarify: boolean;
 }
 
 export interface RagSettings {

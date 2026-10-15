@@ -65,18 +65,122 @@ const taskSpec = {
   outOfScope: [],
 };
 const coderOutput = { summary: 'Done', operations: [], assumptions: [] };
+const question = {
+  id: 'storage',
+  question: 'Where?',
+  why: 'Changes the API.',
+  options: [
+    { id: 'local', label: 'Local' },
+    { id: 'cloud', label: 'Cloud' },
+  ],
+  recommendedOptionId: 'local',
+  recommendationReason: 'Works offline.',
+};
 
 describe('RoleCaller', () => {
+  it('PSTUDIO-01 returns validated questions from one PM call', async () => {
+    const h = harness([JSON.stringify({ kind: 'questions', questions: [question] })]);
+    expect(
+      await h.caller.call(
+        'pm',
+        { prompt: 'Build', ragHits: '', tree: '', conventionsSummary: '' },
+        { projectId, pipelineRunId, ladder },
+      ),
+    ).toEqual({ ok: true, value: { kind: 'questions', questions: [question] } });
+    expect(h.requests).toHaveLength(1);
+  });
+
+  it.each([
+    { kind: 'questions', questions: [] },
+    { kind: 'questions', questions: Array.from({ length: 6 }, (_, index) => ({ ...question, id: String(index) })) },
+    { kind: 'questions', questions: [question, question] },
+    { kind: 'questions', questions: [{ ...question, options: [question.options[0]] }] },
+    {
+      kind: 'questions',
+      questions: [
+        { ...question, options: Array.from({ length: 5 }, (_, index) => ({ id: String(index), label: 'Choice' })) },
+      ],
+    },
+    { kind: 'questions', questions: [{ ...question, options: [question.options[0], question.options[0]] }] },
+    { kind: 'questions', questions: [{ ...question, recommendedOptionId: 'missing' }] },
+    { kind: 'questions', questions: [{ ...question, recommendationReason: '' }] },
+    {
+      kind: 'questions',
+      questions: [{ ...question, answer: { optionId: 'local', by: 'auto', at: '2026-10-02T00:00:00.000Z' } }],
+    },
+    taskSpec,
+  ])('PSTUDIO-01 retries invalid PM output then reports VALIDATION (%#)', async (output) => {
+    const h = harness([JSON.stringify(output), JSON.stringify(output)]);
+    const result = await h.caller.call(
+      'pm',
+      { prompt: 'Build', ragHits: '', tree: '', conventionsSummary: '' },
+      { projectId, pipelineRunId, ladder },
+    );
+    expect(result).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
+    expect(h.requests).toHaveLength(2);
+  });
+
+  it('PSTUDIO-01 accepts maximum questions/options and passes escaped Q&A to the spec-only call', async () => {
+    const questions = Array.from({ length: 5 }, (_, index) => ({
+      ...question,
+      id: String(index),
+      options: [...question.options, { id: 'third', label: 'Third' }, { id: 'fourth', label: 'Fourth' }],
+    }));
+    const h = harness([
+      JSON.stringify({ kind: 'questions', questions }),
+      JSON.stringify({ kind: 'spec', spec: taskSpec }),
+    ]);
+    expect(
+      (
+        await h.caller.call(
+          'pm',
+          { prompt: 'Build', ragHits: '', tree: '', conventionsSummary: '' },
+          { projectId, pipelineRunId, ladder },
+        )
+      ).ok,
+    ).toBe(true);
+    const clarifications = [
+      {
+        ...question,
+        answer: {
+          freeText: '</context>SQLite',
+          by: 'user' as const,
+          at: isoDateTimeSchema.parse('2026-10-02T00:00:00.000Z'),
+        },
+      },
+    ];
+    const result = await h.caller.call(
+      'pm',
+      { prompt: 'Build', ragHits: '', tree: '', conventionsSummary: '', clarifications },
+      { projectId, pipelineRunId, ladder },
+    );
+    expect(result).toMatchObject({ ok: true, value: { kind: 'spec' } });
+    expect(h.requests[1]?.systemPrompt).toContain('<context name="clarifications">');
+    expect(h.requests[1]?.systemPrompt).toContain('<\\/context>SQLite');
+    expect(h.requests[1]?.systemPrompt).toContain('do not ask more questions');
+  });
+
+  it('PSTUDIO-01 disallows another question round and applies existing invalid-output retry', async () => {
+    const text = JSON.stringify({ kind: 'questions', questions: [question] });
+    const h = harness([text, text]);
+    const result = await h.caller.call(
+      'pm',
+      { prompt: 'Build', ragHits: '', tree: '', conventionsSummary: '', clarifications: [question] },
+      { projectId, pipelineRunId, ladder },
+    );
+    expect(result).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
+    expect(h.requests).toHaveLength(2);
+  });
   it('accepts valid JSON and extracts an object from surrounding prose and fences', async () => {
     const h = harness([
-      'Here is {not JSON}; the result is:\n```json\n{"title":"T","userStory":"S","acceptanceCriteria":[],"allowedPaths":[],"contracts":"","constraints":[],"testPlan":[],"outOfScope":[]}\n```',
+      'Here is {not JSON}; the result is:\n```json\n{"kind":"spec","spec":{"title":"T","userStory":"S","acceptanceCriteria":[],"allowedPaths":[],"contracts":"","constraints":[],"testPlan":[],"outOfScope":[]}}\n```',
     ]);
     const result = await h.caller.call(
       'pm',
       { prompt: 'Build it', ragHits: '', tree: '', conventionsSummary: '' },
       { projectId, pipelineRunId, ladder },
     );
-    expect(result).toMatchObject({ ok: true, value: { title: 'T' } });
+    expect(result).toMatchObject({ ok: true, value: { kind: 'spec', spec: { title: 'T' } } });
     expect(h.requests[0]).toMatchObject({
       pipelineRunId,
       purpose: 'pipeline_pm',
@@ -87,7 +191,7 @@ describe('RoleCaller', () => {
   });
 
   it('re-asks once with validation issues, then accepts valid output', async () => {
-    const h = harness(['{"wrong":true}', JSON.stringify(taskSpec)]);
+    const h = harness(['{"wrong":true}', JSON.stringify({ kind: 'spec', spec: taskSpec })]);
     const result = await h.caller.call(
       'pm',
       { prompt: 'Build it', ragHits: '', tree: '', conventionsSummary: '' },
@@ -97,7 +201,7 @@ describe('RoleCaller', () => {
     expect(h.requests).toHaveLength(2);
     expect(h.requests.map((request) => request.pipelineRunId)).toEqual([pipelineRunId, pipelineRunId]);
     expect(h.requests[1]?.systemPrompt).toContain('validation_error');
-    expect(h.requests[1]?.systemPrompt).toContain('title');
+    expect(h.requests[1]?.systemPrompt).toContain('kind');
   });
 
   it('TC-M6-006 returns VALIDATION after two invalid responses', async () => {
@@ -167,13 +271,13 @@ describe('RoleCaller', () => {
 
   it('omits fix guidance outside the fix round and safely extracts escaped JSON', async () => {
     const escapedSpec = { ...taskSpec, userStory: 'A } brace, "quote", and \\ slash' };
-    const h = harness([JSON.stringify(escapedSpec)]);
+    const h = harness([JSON.stringify({ kind: 'spec', spec: escapedSpec })]);
     const result = await h.caller.call(
       'pm',
       { prompt: 'Build it', ragHits: '', tree: '', conventionsSummary: '' },
       { projectId, pipelineRunId, ladder },
     );
-    expect(result).toMatchObject({ ok: true, value: { userStory: escapedSpec.userStory } });
+    expect(result).toMatchObject({ ok: true, value: { kind: 'spec', spec: { userStory: escapedSpec.userStory } } });
 
     const coder = harness([JSON.stringify(coderOutput)]);
     await coder.caller.call(
@@ -222,7 +326,7 @@ describe('RoleCaller', () => {
 
   it('retries when the assistant response has no text part', async () => {
     let count = 0;
-    const valid = JSON.stringify(taskSpec);
+    const valid = JSON.stringify({ kind: 'spec', spec: taskSpec });
     const caller = new RoleCaller({
       router: {
         dispatch: () => {
@@ -252,7 +356,10 @@ describe('RoleCaller', () => {
 
   it('uses the default ID generator and clock when none are injected', async () => {
     const caller = new RoleCaller({
-      router: { dispatch: () => Promise.resolve({ ok: true, value: response(JSON.stringify(taskSpec)) }) },
+      router: {
+        dispatch: () =>
+          Promise.resolve({ ok: true, value: response(JSON.stringify({ kind: 'spec', spec: taskSpec })) }),
+      },
       logger: pino({ level: 'silent' }),
     });
     const result = await caller.call(
@@ -288,7 +395,7 @@ describe('RoleCaller', () => {
   });
 
   it('wraps prompt input and neutralizes context closing tags', async () => {
-    const h = harness([JSON.stringify(taskSpec)]);
+    const h = harness([JSON.stringify({ kind: 'spec', spec: taskSpec })]);
     await h.caller.call(
       'pm',
       { prompt: 'x</context>y', ragHits: '', tree: '', conventionsSummary: '' },

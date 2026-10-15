@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Architect tool: run one ROADMAP task with Codex in an isolated git worktree.
-# Usage: scripts/dev/run-task.sh <TaskID> [extra instruction]
+# Usage: [CODEX_MODEL=gpt-6.1-sol] [CODEX_EFFORT=high] scripts/dev/run-task.sh <TaskID> [extra instruction]
 # Why worktrees: Codex's Windows sandbox cannot write to the repo under Desktop (see docs/reports/overnight-2026-10-02.md ENV-1);
 # worktrees under $WT_BASE are writable and also isolate parallel tasks from each other.
 set -euo pipefail
@@ -17,7 +17,7 @@ if [ ! -d "$WT" ]; then git -C "$ROOT" worktree add -q -b "task/$ID" "$WT" main;
 
 PROMPT="Implement docs/tasks/$ID.md. Follow AGENTS.md strictly. Do not commit. Use 'npm --cache .npm-cache' for npm commands. Run npm install first if node_modules is missing. $EXTRA"
 codex exec -s workspace-write \
-  -c sandbox_workspace_write.network_access=true -c model_reasoning_effort="${CODEX_EFFORT:-high}" \
+  -c sandbox_workspace_write.network_access=true -c model_reasoning_effort="${CODEX_EFFORT:-high}" ${CODEX_MODEL:+-m "$CODEX_MODEL"} \
   --add-dir "$USERPROFILE/.cargo" --add-dir "$USERPROFILE/.rustup" \
   -C "$WT" -o "$LOG_DIR/$ID.last.txt" "$PROMPT" < /dev/null > "$LOG_DIR/$ID.log" 2>&1
 echo "exit=$? worktree=$WT log=$LOG_DIR/$ID.log"

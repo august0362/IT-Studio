@@ -85,6 +85,17 @@ export function PipelineSettingsPage() {
               </ol>
             </fieldset>
           ))}
+          <label className="flex items-center gap-2 rounded border border-border bg-surface p-4">
+            <input
+              checked={settings.data?.pipeline.autoClarify ?? false}
+              disabled={form.saving || settings.data === undefined}
+              onChange={(event) => {
+                void form.save({ pipeline: { autoClarify: event.target.checked } });
+              }}
+              type="checkbox"
+            />
+            {t('settings.pipeline.autoClarify')}
+          </label>
           <p className="text-sm text-text-muted">{t('settings.pipeline.validationCommands')}</p>
           <pre className="overflow-auto rounded border border-border bg-surface p-3 text-xs">
             {JSON.stringify(settings.data?.pipeline.validationCommands ?? [], null, 2)}

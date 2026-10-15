@@ -1,11 +1,11 @@
 # HANDOFF — read this first if you are a new AI / engineer continuing IT Studio
 
-> Last updated: **2026-10-11** by the IT Studio lead engineer during M9-QA.
+> Last updated: **2026-10-14** by the Architect / QA agent (Claude) during v1 hardening.
 > Keep this file current whenever you stop. It complements — does not replace — the binding documents:
 >
 > | Document | What it is |
 > |---|---|
-> | `CONTEXT.md` | Product, glossary, **decisions D1–D33**. Wins over every other document. |
+> | `CONTEXT.md` | Product, glossary, **decisions D1–D34**. Wins over every other document. |
 > | `ARCHITECTURE.md` | Part I (v1), §13.1 Workflow map, Part II (v2 orchestration hub), Part III (v3 servers). |
 > | `src/types/schemas.ts` | All shared contracts (`@itstudio/schemas`). Additive changes only. |
 > | `ROADMAP.md` | Task checklist — **source of truth for status** (`- [x]` = done and QA-passed). |
@@ -14,7 +14,7 @@
 > | `docs/RUNNING.md` | How to run, build, install and release the app (owner-facing). |
 > | `docs/tasks/<ID>.md` | One work order per task, with Codex `## Result` and QA verdict sections. |
 > | `docs/qa/Mx-test-cases.md`, `docs/qa/Mx-report.md` | Milestone QA specs and sign-off reports. |
-> | `docs/decisions/ADR-000x-*.md` | ADR-0001 foundations, 0002 toolchain pins, 0003 v2, 0004 v3. |
+> | `docs/decisions/ADR-000x-*.md` | ADR-0001 foundations, 0002 toolchain pins, 0003 v2, 0004 v3, 0005 owner-feedback desktop integration. |
 > | `docs/specs/v2-requirements.md`, `docs/specs/v3-requirements.md` | v2 / v3 software requirements specifications (ISO/IEC/IEEE 29148 structure). |
 > | `docs/plans/v2-v3-delivery-plan.md` | v2 / v3 WBS, dependencies, estimates, risks, gates. |
 > | `docs/reports/overnight-2026-10-02.md` | Environment findings (ENV-1 … : sandbox limits). |
@@ -24,42 +24,43 @@
 ## 0. TL;DR for the next agent
 
 1. Read §3 (owner rules) and §2 (how work is done) — they are not written anywhere else.
-2. Resume the M9-QA gate in §4. Source gates and the Cost date regression pass; the final MSI rebuild timed out while downloading the WebView2 bootstrapper.
-3. Then ask the owner before starting v2 (M10). The owner wanted to stop after v1 to try the app themselves.
+2. v1 is feature-complete and every milestone gate M1–M9 is signed off. The active work is **v1 hardening** (§4): adversarial test suites, their defect fixes, UX-02 and V1-POLISH-01.
+3. Then ask the owner before starting v2 (M10). The owner wants to try v1 first.
 4. Talk to the owner in **Vietnamese**; write every repo file in **English**.
 
 ---
 
-## 1. Status per milestone (2026-10-11)
+## 1. Status per milestone (2026-10-14)
 
 | Milestone | Tasks done | Status | Notes |
 |---|---|---|---|
 | M0 env / scaffold | 8/8 | ✅ | |
-| M1 sidecar + JSON-RPC | 8/8 | ✅ | report `docs/qa/M1-report.md` |
-| M2 router + fallback | 11/11 | ✅ | |
+| M1 sidecar + JSON-RPC | 8/8 | ✅ signed off | |
+| M2 router + fallback | 11/11 | ✅ signed off | |
 | M3 ledger / pricing / P&L | 8/8 | ✅ signed off | |
 | M4 chat UI | 8/8 | ✅ | L4 regression reverified in `QA-E2E-FIX4` |
 | M5 RAG | 8/8 | ✅ | L4 regression reverified in `QA-E2E-FIX4` |
 | M6 pipeline + worker writes | 9/9 | ✅ | L4 regression reverified in `QA-E2E-FIX4` |
 | M7 VS Code companion | 6/6 | ✅ signed off | |
-| SEC-01 dependency audit | 1/1 | ✅ | `npm run audit:prod` = 0 high vulnerabilities |
-| PERF-01 startup | 1/1 | ✅ | dev sidecar 2.8 s (was 4.0 s); packaged sidecar ~0.6 s warm |
-| **MW** Workflow map (D32) | 6/6 | ✅ | `MW-QA` complete |
-| **M8** image generation | 6/6 | ✅ | `M8-QA` complete |
-| **M9** packaging | 6/7 | 🟡 | M9-QA in progress; final MSI build and installer verification remain |
-| QA tooling | 3/3 | ✅ | `QA-E2E-FIX4` and `QA-TOOL-01` complete |
+| **MW** Workflow map (D32) | 6/6 | ✅ | exploratory follow-up open |
+| **WC** Web chat (D34) | 1/1 | ✅ | |
+| **M8** image generation | 6/6 | ✅ | exploratory follow-up open |
+| **M9** packaging | 7/7 | ✅ signed off 2026-10-14 | `docs/qa/M9-report.md` |
+| **OWNER-FB1** owner feedback | 5/5 packages | ✅ landed 2026-10-14 | native web-chat / theme follow-ups open |
+| **V1 hardening** | 2/6 | 🟡 in progress | §4 |
 | **v2** M10–M14 (+ REL-V2) | 0/46 | ⏸ not started | SRS, plan and all 46 task files written (see §7) |
 | **v3** M15–M19 (+ REL-V3) | 0/37 | ⏸ not started | SRS, plan and all 37 task files written (see §7) |
 
-Current M9-QA branch evidence: 933 Vitest tests passed (one intentional skip), 15 Node tests passed, 114 integration tests passed, and 45 L4 E2E tests passed across 14 specs. Coverage is 85.55% overall statements and 97.01% domain branches; the full production-domain mutation score remains 77.53%. Final SEA package checks passed 3/3; three warm sidecar smokes passed at 452/427/528 ms after a 2,104 ms cold outlier. The final `build:app` attempt on `9dfada7b2cdfc5f7e5dffb2d00c3568772a852d3` built the release executable and ran NSIS, but MSI bundling failed downloading the WebView2 bootstrapper (`timeout: global`). The prior NSIS/MSI hashes are historical only; final install checks have not run.
+Numbers on `main` after OWNER-FB1 (2026-10-14): 1 041 unit tests (1 skipped), 115 integration tests, 28 Rust tests, 14 E2E specs. M9 artifacts: SEA sidecar 96 MB, NSIS 93 MB, MSI 148 MB; install smoke 7/7; coverage 85.55 % statements; domain mutation score 77.53 %.
 
 ---
 
 ## 2. How work is done (process)
 
 ### 2.1 Roles
-- **Lead engineer:** The owner authorized the active lead to act as Architect/PM, QA/Reviewer, and Implementer for this repository, overriding the Implementer-only restriction in `AGENTS.md` §2. The lead writes scoped tasks, tracks disjoint worktrees, reviews and tests the results, and lands them. Product decisions not settled by `CONTEXT.md`, `ARCHITECTURE.md`, or an ADR still go to admin.
-- **Implementer agents:** Follow the assigned task's exact Scope and the remaining hard rules in `AGENTS.md`. Do not edit another task's files or the owner's uncommitted work.
+- **Architect / PM / QA** (Claude): decides, writes specs (`docs/tasks/<ID>.md`), contracts (`src/types/schemas.ts`, additive only), docs and decisions; pre-installs dependencies; triages test failures (test defect vs product defect); runs the gates that the Codex sandbox cannot run; resolves merge conflicts; lands work. Does **not** write feature or test code (owner instruction, re-confirmed 2026-10-14: "dùng codex làm agent thực thi, bạn đưa ra quyết định").
+- **Implementer** (Codex CLI, following `AGENTS.md`): writes all code and tests within the task Scope.
+- History: on 2026-10-04 the owner temporarily let Codex act as lead for OWNER-FB1 and M9-QA. That arrangement ended when OWNER-FB1 landed; `AGENTS.md` and `CONTEXT.md` keep the split above.
 
 ### 2.2 Task lifecycle
 
@@ -120,7 +121,7 @@ npx wdio run e2e/wdio.conf.ts --spec e2e/specs/<area>/<file>.spec.ts   # only th
 | Job | Why / how |
 |---|---|
 | Install npm / cargo dependencies | Done once per milestone in a single commit. Tasks marked "deps pre-installed" must not touch `package.json`. |
-| Drizzle migrations | `npm run db:generate -w @itstudio/sidecar`; never hand-written; existing `0000`–`0010`. |
+| Drizzle migrations | `npm run db:generate -w @itstudio/sidecar`; never hand-written; existing `0000`–`0011`. |
 | Integration tests | Codex sandbox: `tsx` fails on `os.userInfo()` (`uv_os_get_passwd ENOMEM`). |
 | esbuild / SEA builds, installers | Codex sandbox: esbuild access denied; cargo cannot download crates (TLS). |
 | E2E (WebdriverIO, VS Code E2E) | GUI; the Architect runs them. |
@@ -131,7 +132,7 @@ npx wdio run e2e/wdio.conf.ts --spec e2e/specs/<area>/<file>.spec.ts   # only th
 ## 3. Owner's working rules (agreed in chat — not written anywhere else)
 
 1. **Language:** chat with the owner in **Vietnamese**; every file in the repo is in **English**.
-2. **Autonomy:** work fully automatically. Ask the owner only for real decisions (product scope, money, credentials, anything irreversible). Record decisions in `CONTEXT.md` (next number: **D34**).
+2. **Autonomy:** work fully automatically. Ask the owner only for real decisions (product scope, money, credentials, anything irreversible). Record decisions in `CONTEXT.md` (next number: **D35**).
 3. **Delegate:** "Giao việc cho codex, đừng làm hết". The Architect specifies, coordinates and verifies; Codex writes code and tests. Use several Codex jobs in parallel when scopes are disjoint.
 4. **Lean QA** as in §2.3: no repeated full suites, no full E2E runs unless needed.
 5. **6-attempt rule:** if the same error survives 6 fix attempts, stop fixing it. Skip it, record it in the QA report and the ROADMAP backlog, report it to the owner, and move on (or stop the session if blocked).
@@ -145,20 +146,21 @@ npx wdio run e2e/wdio.conf.ts --spec e2e/specs/<area>/<file>.spec.ts   # only th
 
 ---
 
-## 4. Current M9-QA work
+## 4. Current work: v1 hardening (2026-10-14)
 
-M8 and MW have passed their milestone gates. `QA-E2E-FIX4` reran the historical M4–M6 GUI cases in isolated app/data sessions. The current M9-QA full L4 run passed all 45 tests in 14 specs, including `TC-M9-015`.
+The owner asked for a full check that tries every way to break the app (sync, conflicts, hostile input), with Codex executing and Claude deciding.
 
-The active gate is `M9-QA` in `C:/Users/admin/itstudio-wt/M9-QA`. Its test-case document and report are `docs/qa/M9-test-cases.md` and `docs/qa/M9-report.md`. The 20-minute exploratory session completed on 2026-10-11 and found a Cost custom-date crash. The scoped fix worktrees are:
+| Task | State | Notes |
+|---|---|---|
+| `QA-BREAK-01` | Codex fix round 1 | Protocol, hostile input, security boundaries. First QA run: 15 pass, 7 fail; triage in the task file (`## QA (Claude) — round 1`). Found so far: `workspace.readFile` / `workspace.runCommand` are declared in the contracts but have no sidecar handler (S4 contract debt). |
+| `QA-BREAK-02` | Codex fix round 1 | Concurrency, crash durability, corrupt state, v0.1.0 upgrade, UI races. Round 0 was rejected (22/25 cases skipped). |
+| `QA-BREAK-FIX` | not created | One fix task for the product defects confirmed by the two suites. |
+| `UX-02` | ready | Pipeline pre-flight; scope widened to orchestrator wiring. |
+| `V1-POLISH-01` | ready | M9-OBS-02/03/05/06, clear-override-after-restart, smoke median, deterministic icon build. |
 
-- `M9-FIX6`: make an explicit per-user MSI `INSTALLDIR` override a stale HKCU path left by NSIS.
-- `M9-FIX7`: keep Cost & P&L mounted while editing incomplete or reversed custom dates; add GUI regression `TC-M9-015`.
+QA runs the adversarial suites outside the sandbox: `npx vitest run --config vitest.integration.config.ts apps/sidecar/test/integration/break-`. Defects stay as `it.fails('QA-BREAK-0x-Dnn …')` until `QA-BREAK-FIX` turns them into passing tests.
 
-Latest source gates pass: 933 Vitest + 15 Node tests, 114 integration tests, 45 L4 tests, typecheck, lint, 16 Rust tests, and coverage. The focused MSI path fix and Cost date fix both pass their regression checks. The latest `npm run build:app` failed in the MSI phase while downloading the WebView2 bootstrapper (`timeout: global`) after compiling the app and running NSIS. Do not use any artifact from that failed run as final evidence; retry the build, then capture final hashes and run the NSIS smoke plus isolated explicit-path MSI install/Ready/uninstall. Full details are in `docs/qa/M9-report.md` and `.npm-cache/m9-build-app-final.log`.
-
-On resume, retry `npm run build:app` first. If it succeeds, record exact artifact sizes/hashes; run the NSIS smoke and an isolated explicit-path MSI install/Ready/uninstall; then merge the completed QA work and run `npm run test:all` on main. Preserve the owner's uncommitted files and `%APPDATA%\com.itstudio.app` data. Mark M9 done only after `TESTING.md` §7 has 100% P1, at least 95% P2, no open S1/S2, coverage, traceability, and a committed report.
-
-The owner asked to try v1 before v2. Obtain admin's go-ahead before starting M10. V3 Doc Debt `DD-V3-01` / question `Q-09` remains undecided.
+After hardening: full `npm run test:all`, rebuild installers (`npm run build:app`, `npm run smoke:install`), then ask the owner before v2. V3 Doc Debt `DD-V3-01` / question `Q-09` remains undecided.
 
 ## 5. Follow-ups and resolved QA tooling
 
@@ -166,7 +168,9 @@ The owner asked to try v1 before v2. Obtain admin's go-ahead before starting M10
 |---|---|
 | `QA-E2E-FIX4` | Closed: per-spec isolated app/data sessions and DOM/screenshot diagnostics restored all historical M4–M6 L4 cases; full GUI suite 44/44. |
 | `QA-TOOL-01` | Closed: Stryker/Vitest integration fixed; full M9 production-domain mutation score measured at 77.53%. |
-| Pricing override after restart | Clearing a manual price override after an app restart falls back to the **seed** price, not the last fetched price, because the repository keeps only the latest table (found in M4-FIX3). |
+| Pricing override after restart | Clearing a manual price override after an app restart falls back to the **seed** price, not the last fetched price (found in M4-FIX3). Scheduled in `V1-POLISH-01`. |
+| M9 S3 observations | M9-OBS-02/03/05/06 and the cold-start outlier M9-OBS-04. Scheduled in `V1-POLISH-01`. |
+| Build leaves `icon.icns` modified | `tauri icon` regenerates a non-identical `.icns` on every `npm run build:app`. Scheduled in `V1-POLISH-01`; until then, do not commit that file after a build. |
 | `scripts/dev/measure-startup.mjs` | Closed by `QA-E2E-FIX4`: all five real Ready measurements completed and the focused regression passed. |
 | Image node in the workflow map | Image activity is mapped to Chat under the MW v1 topology; a separate image node would require an additive contract/topology follow-up. |
 | Dry-run diff cosmetics | Minor display issues in the Code tab dry-run diff (from the M6 exploratory session). |
