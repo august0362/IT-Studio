@@ -108,7 +108,7 @@ describe('RoleCaller', () => {
       kind: 'questions',
       questions: [{ ...question, answer: { optionId: 'local', by: 'auto', at: '2026-10-02T00:00:00.000Z' } }],
     },
-    taskSpec,
+    { ...taskSpec, title: 42 },
   ])('PSTUDIO-01 retries invalid PM output then reports VALIDATION (%#)', async (output) => {
     const h = harness([JSON.stringify(output), JSON.stringify(output)]);
     const result = await h.caller.call(
@@ -171,6 +171,72 @@ describe('RoleCaller', () => {
     expect(result).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
     expect(h.requests).toHaveLength(2);
   });
+
+  it.each([false, true])('PSTUDIO-FIX1 accepts a bare TaskSpec (after answers: %s)', async (afterAnswers) => {
+    const h = harness([JSON.stringify(taskSpec)]);
+    const result = await h.caller.call(
+      'pm',
+      {
+        prompt: 'Build',
+        ragHits: '',
+        tree: '',
+        conventionsSummary: '',
+        ...(afterAnswers
+          ? {
+              clarifications: [
+                {
+                  ...question,
+                  answer: {
+                    optionId: 'local',
+                    by: 'user' as const,
+                    at: isoDateTimeSchema.parse('2026-10-02T00:00:00.000Z'),
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+      { projectId, pipelineRunId, ladder },
+    );
+    expect(result).toEqual({ ok: true, value: { kind: 'spec', spec: taskSpec } });
+    expect(h.requests).toHaveLength(1);
+  });
+
+  it.each([
+    { kind: 'spec', spec: { ...taskSpec, title: 'Envelope spec' } },
+    { kind: 'questions', questions: [question] },
+  ])('PSTUDIO-FIX1 prioritizes the $kind envelope over bare TaskSpec fields', async (envelope) => {
+    const h = harness([JSON.stringify({ ...taskSpec, ...envelope })]);
+    const result = await h.caller.call(
+      'pm',
+      { prompt: 'Build', ragHits: '', tree: '', conventionsSummary: '' },
+      { projectId, pipelineRunId, ladder },
+    );
+    expect(result).toEqual({ ok: true, value: envelope });
+    expect(h.requests).toHaveLength(1);
+  });
+
+  it.each([false, true])(
+    'PSTUDIO-FIX1 retries garbage and invalid bare specs (after answers: %s)',
+    async (afterAnswers) => {
+      const h = harness(['{"wrong":true}', JSON.stringify({ ...taskSpec, allowedPaths: ['../escape.txt'] })]);
+      const result = await h.caller.call(
+        'pm',
+        {
+          prompt: 'Build',
+          ragHits: '',
+          tree: '',
+          conventionsSummary: '',
+          ...(afterAnswers ? { clarifications: [question] } : {}),
+        },
+        { projectId, pipelineRunId, ladder },
+      );
+      expect(result).toMatchObject({ ok: false, error: { code: 'VALIDATION', retryable: false } });
+      expect(h.requests).toHaveLength(2);
+      expect(h.requests[1]?.systemPrompt).toContain('validation_error');
+    },
+  );
+
   it('accepts valid JSON and extracts an object from surrounding prose and fences', async () => {
     const h = harness([
       'Here is {not JSON}; the result is:\n```json\n{"kind":"spec","spec":{"title":"T","userStory":"S","acceptanceCriteria":[],"allowedPaths":[],"contracts":"","constraints":[],"testPlan":[],"outOfScope":[]}}\n```',
