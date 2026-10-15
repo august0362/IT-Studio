@@ -9,7 +9,8 @@ Cách dùng:
 - Đúng thì đổi `[ ]` thành `[x]`.
 - Sai thì ghi ngay bên dưới bài đó: *đã làm gì, thấy gì*. Có ảnh chụp càng tốt.
 
-**File cài đặt:** `apps\desktop\src-tauri	argeteleaseundle
+**File cài đặt:** `apps\desktop\src-tauri\target\release\bundle\nsis\IT Studio_0.1.0_x64-setup.exe` (trong thư mục project, build ngày 15/10/2026).
+eleaseundle
 sis\IT Studio_0.1.0_x64-setup.exe` (trong thư mục project, build ngày 15/10/2026).
 Muốn chạy thẳng từ mã nguồn thay vì cài: bấm đúp `Start-IT-Studio.bat` ở thư mục gốc của project.
 
