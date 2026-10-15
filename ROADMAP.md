@@ -169,16 +169,16 @@ Work order and QA verdict: `docs/tasks/OWNER-FB1.md`.
 - [x] **OWNER-FB1** (C) *(landed 2026-10-14 after merging current `main`; full gates green)* P1 verify-before-save with one 25-second provider request, masked key history and migration `0011`. P5 keyed extractor fallback, per-provider refresh outcomes, persistent row provenance. P2 simplified workflow nodes with activity dots. P4 three Neon glow themes (21 in total, dark default Neon Gold) and shared UI primitives. P3 resolved Cốc Cốc default and 1–4 embedded web-chat panes.
 - **Open native follow-ups:** provider sign-in/popups inside embedded panes with real accounts; full-page/dialog visual review of the Neon themes. Unconfirmed seed prices (`xai/grok-4.1-fast`, two Groq models) stay marked unverified until an app refresh confirms them.
 - [x] **UX-01** *(superseded by OWNER-FB1 P1; not landed)* Verify saves a typed key first.
-- [ ] **UX-02** (C) Pipeline pre-flight: reject `pipeline.start` when a role has no usable model, name the real skip reason (no API key) and say "Nothing was written" for failures before WRITING. Scope widened 2026-10-14 to orchestrator wiring.
+- [x] **UX-02** (C) Pipeline pre-flight: reject `pipeline.start` when a role has no usable model, name the real skip reason (no API key) and say "Nothing was written" for failures before WRITING. Scope widened 2026-10-14 to orchestrator wiring.
 
 ## V1 hardening & polish (2026-10-14)
 
 - [x] **CLEANUP-01** (C) Share identical vector-store and Flux helpers; stage SQL migrations once in the SEA bundle.
 - [x] **QA-BREAK-01** (C) *(landed 2026-10-15; 3 product defects as `it.fails`)* Adversarial suite: protocol abuse, hostile input, security boundaries (path traversal, junctions, command injection, secret leakage, prompt injection, VS Code bridge).
 - [x] **QA-BREAK-02** (C) *(landed 2026-10-15; 8 product defects as `it.fails`)* Adversarial suite: concurrency and sync, crash durability, corrupt state, two sidecars on one data dir, upgrade from a v0.1.0 database, UI races.
-- [ ] **V1-POLISH-01** (C) Close M9-OBS-02/03/05/06, clear-override-after-restart, median-based sidecar smoke, deterministic icon generation.
-- [ ] **QA-BREAK-FIX-A** (C) Sidecar defects: 01-D01 (remove unused `workspace.*` RPCs), 01-D02, 01-D04, 02-D05…D08.
-- [ ] **QA-BREAK-FIX-B** (C) Desktop UI races 02-D01…D04 + flaky TC-MW-009.
+- [x] **V1-POLISH-01** (C) Close M9-OBS-02/03/05/06, clear-override-after-restart, median-based sidecar smoke, deterministic icon generation.
+- [x] **QA-BREAK-FIX-A** (C) Sidecar defects: 01-D01 (remove unused `workspace.*` RPCs), 01-D02, 01-D04, 02-D05…D08.
+- [x] **QA-BREAK-FIX-B** (C) Desktop UI races 02-D01…D04 + flaky TC-MW-009.
 
 ## PSTUDIO — Clarifying step + Pipeline Studio *(v1 add-on, D35)*
 
