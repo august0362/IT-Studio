@@ -194,10 +194,10 @@ Work order and QA verdict: `docs/tasks/OWNER-FB1.md`.
 
 ## OWNER-FB2 — Owner acceptance feedback (2026-10-16)
 
-- [ ] **OWNER-FB2-A** (C) Sidecar: Auto includes keyed providers, half-open probe, attempt-failure logging + real reasons in errors, `project.delete`, history order, missing-workspace warn.
-- [ ] **OWNER-FB2-B** (C) Desktop: folder picker, Projects page (history, open, delete), tab restore, chat thinking dots.
+- [x] **OWNER-FB2-A** (C) Sidecar: Auto includes keyed providers, half-open probe, attempt-failure logging + real reasons in errors, `project.delete`, history order, missing-workspace warn.
+- [x] **OWNER-FB2-B** (C) Desktop: folder picker, Projects page (history, open, delete), tab restore, chat thinking dots.
 
-- [ ] **UX-03** (C) One Settings page with searchable sub-navigation; sidebar keeps main features only (D39).
+- [x] **UX-03** (C) One Settings page with searchable sub-navigation; sidebar keeps main features only (D39).
 
 ## PROC — Processes *(D40)*
 

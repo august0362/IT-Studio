@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add a folder picker for new projects, a Projects page (history, open, delete without touching files), tab restore and a chat thinking indicator ([OWNER-FB2-B](docs/tasks/OWNER-FB2-B.md))
+- Move all configuration into one searchable Settings page; the sidebar keeps the main features ([UX-03](docs/tasks/UX-03.md))
 - Add DeepSeek, OpenRouter, Qwen (region endpoint) and Mistral API keys and models through the OpenAI-compatible adapter; seed prices stay unverified until Update prices ([PROV-01](docs/tasks/PROV-01.md))
 - Add a PM clarifying step: up to five questions with a recommended option, answer them in the Code tab or Pipeline Studio, or turn on Settings → Pipeline → Auto-answer ([PSTUDIO-01](docs/tasks/PSTUDIO-01.md))
 - Add Pipeline Studio, a removable full-screen view of a pipeline run with live data-flow animation, ?/✓/✕ module badges, draggable saved layout and full per-module details ([PSTUDIO-02](docs/tasks/PSTUDIO-02.md))
@@ -56,6 +58,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 - Add L3 sidecar integration harness and M1 integration suite ([M1-QA](docs/tasks/M1-QA.md))
 
 ### Fixed
+- Chat Auto now tries every provider you have a key for, probes an open circuit once before giving up, logs each failed attempt and names the real reason per model; chat advice points to Settings → Router ([OWNER-FB2-A](docs/tasks/OWNER-FB2-A.md))
 - Fix crash recovery leaving the interrupted run in `writing` and blocking the project's pipeline queue; recovered runs are now `rolled_back` with a report ([QA-BREAK-FIX-A](docs/tasks/QA-BREAK-FIX-A.md))
 - Reject unknown RPC parameters and unsafe money values, keep concurrent settings updates, keep deleted knowledge sources deleted during re-indexing, serialize same-project pipeline starts and keep the sidecar responsive during query bursts ([QA-BREAK-FIX-A](docs/tasks/QA-BREAK-FIX-A.md))
 - Fix duplicate revenue on fast double submit, chat/code selections leaking across projects and stale pipeline snapshots overwriting newer ones ([QA-BREAK-FIX-B](docs/tasks/QA-BREAK-FIX-B.md))
