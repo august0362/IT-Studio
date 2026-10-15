@@ -187,6 +187,12 @@ Work order and QA verdict: `docs/tasks/OWNER-FB1.md`.
 - [x] **PSTUDIO-02** (C) Pipeline Studio: removable full-screen black node view, live packets, ?/✓/✕, drag + saved layout, module panels, new request.
 - [ ] **V1-QA** (A) Final v1 gate: full unit + integration + E2E + smoke + build, visual check, owner checklist `docs/qa/V1-owner-checklist.md`.
 
+## LLMPOOL — LLM key pool *(add-on, D36; after v1 sign-off)*
+
+- [ ] **LLMPOOL-01** (C) Sidecar module `modules/llm-pool/`: own SQLite, keychain keys, per-key state machine + usage/limits, `IKeyPool` port with in-model key rotation in the router, `llmPool.*` RPC.
+- [ ] **LLMPOOL-02** (C) Desktop Key pool page: config, keys by provider, live state/countdowns, usage bars, add/verify/import, rotation toasts.
+- [ ] **LLMPOOL-03** (C) *(phase 2, on owner request)* Optional OpenAI-compatible gateway on 127.0.0.1 (node:http, bearer token, off by default).
+
 ## M8 — Image generation *(v1 feature)*
 
 Spec: ARCH §14.1, `schemas.ts` §13.
