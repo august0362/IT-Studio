@@ -174,10 +174,18 @@ Work order and QA verdict: `docs/tasks/OWNER-FB1.md`.
 ## V1 hardening & polish (2026-10-14)
 
 - [x] **CLEANUP-01** (C) Share identical vector-store and Flux helpers; stage SQL migrations once in the SEA bundle.
-- [ ] **QA-BREAK-01** (C) Adversarial suite: protocol abuse, hostile input, security boundaries (path traversal, junctions, command injection, secret leakage, prompt injection, VS Code bridge).
-- [ ] **QA-BREAK-02** (C) Adversarial suite: concurrency and sync, crash durability, corrupt state, two sidecars on one data dir, upgrade from a v0.1.0 database, UI races.
+- [x] **QA-BREAK-01** (C) *(landed 2026-10-15; 3 product defects as `it.fails`)* Adversarial suite: protocol abuse, hostile input, security boundaries (path traversal, junctions, command injection, secret leakage, prompt injection, VS Code bridge).
+- [x] **QA-BREAK-02** (C) *(landed 2026-10-15; 8 product defects as `it.fails`)* Adversarial suite: concurrency and sync, crash durability, corrupt state, two sidecars on one data dir, upgrade from a v0.1.0 database, UI races.
 - [ ] **V1-POLISH-01** (C) Close M9-OBS-02/03/05/06, clear-override-after-restart, median-based sidecar smoke, deterministic icon generation.
-- [ ] **QA-BREAK-FIX** (C) Fix the product defects found by QA-BREAK-01/02 (created after triage).
+- [ ] **QA-BREAK-FIX-A** (C) Sidecar defects: 01-D01 (remove unused `workspace.*` RPCs), 01-D02, 01-D04, 02-D05…D08.
+- [ ] **QA-BREAK-FIX-B** (C) Desktop UI races 02-D01…D04 + flaky TC-MW-009.
+
+## PSTUDIO — Clarifying step + Pipeline Studio *(v1 add-on, D35)*
+
+- [x] **PSTUDIO-01** (C) PM clarifying questions with recommendations, `pipeline.autoClarify`, `pipeline.answerClarifications`, stage `clarifying`.
+- [x] **PSTUDIO-FIX1** (C) Accept a bare TaskSpec from the PM (integration regression from PSTUDIO-01).
+- [x] **PSTUDIO-02** (C) Pipeline Studio: removable full-screen black node view, live packets, ?/✓/✕, drag + saved layout, module panels, new request.
+- [ ] **V1-QA** (A) Final v1 gate: full unit + integration + E2E + smoke + build, visual check, owner checklist `docs/qa/V1-owner-checklist.md`.
 
 ## M8 — Image generation *(v1 feature)*
 
