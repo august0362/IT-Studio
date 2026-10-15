@@ -225,7 +225,10 @@
     "confirmTitle": "Cancel this pipeline?",
     "actionError": "The pipeline action failed.",
     "passed": "Passed",
-    "failed": "Failed"
+    "failed": "Failed",
+    "nothingWritten": "Nothing was written to your project.",
+    "openPipelineSettings": "Open Settings → Pipeline",
+    "retryStart": "Resolve the issue and run the pipeline again."
   },
   "settings": {
     "nav": {

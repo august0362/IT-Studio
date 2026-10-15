@@ -360,3 +360,64 @@ describe('pipeline integration', () => {
     expect(pipelineRunSchema.parse((await sidecar?.call('pipeline.get', { runId }))?.result).stage).toBe('completed');
   }, 30_000);
 });
+
+it('TC-UX2-001 Google-only keys reject default ladders, then Google role models start a scripted run', async () => {
+  const googleModel = 'google/gemini-3.8-flash';
+  // Each role validates its own fields and ignores the other roles' fixture fields.
+  const reply = { kind: 'spec', spec: taskSpec, ...coderOutput, ...reviewVerdict };
+  sidecar = await startSidecar(
+    {
+      ITSTUDIO_E2E_LLM_TEXT: JSON.stringify({
+        'gemini-3.8-flash': JSON.stringify(reply),
+        'gemini-3.1-pro-preview': JSON.stringify(reply),
+      }),
+    },
+    { [googleModel]: ['ok', 'ok', 'ok'] },
+  );
+  const workspace = resolve(sidecar.dataDir, 'google-only-project');
+  await mkdir(workspace);
+  const projectId = projectSchema.parse(
+    (
+      await sidecar.call('project.create', {
+        name: 'Google-only project',
+        workspaceRoot: workspace,
+      })
+    ).result,
+  ).id;
+  await sidecar.call('secrets.set', { provider: 'google', apiKey: 'integration-only-google-key' });
+  const rejected = await sidecar.call('pipeline.start', { projectId, prompt: 'Write a greeting' });
+  const error = z
+    .object({ code: z.literal('VALIDATION'), message: z.string(), remediation: z.array(z.string()) })
+    .parse(rejected.error?.data);
+  expect(error.message).toContain('pm');
+  expect(error.message).toContain('coder');
+  expect(error.remediation[0]).toContain('Anthropic, OpenAI');
+  expect(error.remediation[1]).toContain('Google: Gemini 3.8 Flash');
+  expect(error.remediation[1]).toContain('Settings \u2192 Pipeline');
+  expect((await sidecar.call('pipeline.list', { projectId, limit: 20 })).result).toEqual([]);
+  expect(observed('router.event')).toHaveLength(0);
+  expect(observed('pipeline.event')).toHaveLength(0);
+  expect((await sidecar.call('ledger.query', { projectId, limit: 20 })).result).toMatchObject({ items: [] });
+  const settings = appSettingsSchema.parse((await sidecar.call('settings.get')).result);
+  await sidecar.call('settings.update', {
+    patch: {
+      pipeline: {
+        roleAssignment: {
+          pm: [...settings.pipeline.roleAssignment.pm, googleModel],
+          coder: [...settings.pipeline.roleAssignment.coder, googleModel],
+          reviewer: [...settings.pipeline.roleAssignment.reviewer, googleModel],
+        },
+        validationCommands: [],
+      },
+    },
+  });
+  const run = pipelineRunSchema.parse(
+    (await sidecar.call('pipeline.start', { projectId, prompt: 'Write a greeting' })).result,
+  );
+  expect(run.stage).toBe('specifying');
+  await waitFor(() => observed('pipeline.event').some((value) => JSON.stringify(value).includes('completed')));
+  expect(pipelineRunSchema.parse((await sidecar.call('pipeline.get', { runId: run.id })).result).stage).toBe(
+    'completed',
+  );
+  expect(await readFile(resolve(workspace, 'src/greeting.txt'), 'utf8')).toBe('hello from pipeline');
+}, 30_000);

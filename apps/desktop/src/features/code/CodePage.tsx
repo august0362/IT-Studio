@@ -1,4 +1,4 @@
-import { PipelineStage, type PipelineRun, type ProjectId, type RpcMethodMap } from '@itstudio/schemas';
+import { PipelineStage, type PipelineRun, type ProjectId, type RpcMethodMap, type AppError } from '@itstudio/schemas';
 import { Editor } from '@monaco-editor/react';
 import { useQuery } from '@tanstack/react-query';
 import type { JSX } from 'react';
@@ -7,6 +7,8 @@ import { useTranslation } from 'react-i18next';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Money } from '../../components/Money';
 import { useNotification } from '../../hooks/use-notification';
+import { ErrorPanel } from '../../components/ErrorPanel';
+import { RpcCallError } from '../../rpc/rpc-client';
 import { useRpcClient } from '../../rpc/rpc-context';
 import { CommandOutput } from './CommandOutput';
 import { ClarificationForm } from './ClarificationForm';
@@ -36,6 +38,7 @@ export function CodePage({ projectId }: { readonly projectId: ProjectId | null }
   const { t } = useTranslation();
   const rpc = useRpcClient();
   const [state, dispatch] = useReducer(pipelineReducer, initialPipelineState);
+  const [startError, setStartError] = useState<AppError | null>(null);
   const [starting, setStarting] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -106,12 +109,22 @@ export function CodePage({ projectId }: { readonly projectId: ProjectId | null }
     if (projectId === null) return;
     setStarting(true);
     setActionError(null);
+    setStartError(null);
     try {
       const run = await rpc.call('pipeline.start', { projectId, prompt });
       dispatch({ type: 'started', run });
       await history.refetch();
     } catch (error: unknown) {
-      setActionError(error instanceof Error ? error.message : t('code.actionError'));
+      setStartError(
+        error instanceof RpcCallError
+          ? error.appError
+          : {
+              code: 'INTERNAL',
+              message: error instanceof Error ? error.message : t('code.actionError'),
+              retryable: false,
+              remediation: [t('code.retryStart')],
+            },
+      );
     } finally {
       setStarting(false);
     }
@@ -157,6 +170,22 @@ export function CodePage({ projectId }: { readonly projectId: ProjectId | null }
           void start(prompt);
         }}
       />
+      {startError !== null ? (
+        <div>
+          <ErrorPanel error={startError} />
+          {startError.code === 'VALIDATION' ? (
+            <button
+              className="mt-2 rounded border border-border px-3 py-2"
+              type="button"
+              onClick={() => {
+                window.location.hash = 'settings-pipeline';
+              }}
+            >
+              {t('code.openPipelineSettings')}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {actionError !== null ? (
         <p className="text-danger" role="alert">
           {actionError}

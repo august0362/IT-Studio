@@ -225,7 +225,10 @@
     "confirmTitle": "Hủy quy trình này?",
     "actionError": "Thao tác quy trình thất bại.",
     "passed": "Đạt",
-    "failed": "Thất bại"
+    "failed": "Thất bại",
+    "nothingWritten": "Chưa có thay đổi nào được ghi vào dự án.",
+    "openPipelineSettings": "Mở Cài đặt → Pipeline",
+    "retryStart": "Khắc phục sự cố rồi chạy lại pipeline."
   },
   "settings": {
     "nav": {
