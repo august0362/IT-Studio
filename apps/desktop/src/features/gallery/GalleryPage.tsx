@@ -2,7 +2,8 @@ import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import type { AppError, ImageAsset, MoneyDisplay, PriceRow, Project, ProjectId } from '@itstudio/schemas';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { JSX } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigationIntent } from '../../state/navigation-intent';
 import { useTranslation } from 'react-i18next';
 import { Money } from '../../components/Money';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
@@ -47,6 +48,19 @@ export function GalleryPage({
   });
   const [selected, setSelected] = useState<ImageAsset | null>(null);
   const [preview, setPreview] = useState<ImageAsset | null>(null);
+  const intent = useNavigationIntent((state) => state.intent);
+  useEffect(() => {
+    if (intent?.kind !== 'image') return;
+    const asset = query.data?.find((item) => item.id === intent.id);
+    if (!asset) return;
+    const timer = window.setTimeout(() => {
+      setPreview(asset);
+      useNavigationIntent.getState().clearIntent();
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [intent, query.data]);
   const [error, setError] = useState<AppError | null>(null);
   async function remove(): Promise<void> {
     if (selected === null) return;

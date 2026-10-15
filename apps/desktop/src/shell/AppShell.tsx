@@ -1,4 +1,4 @@
-import type { AppError, ProjectId } from '@itstudio/schemas';
+import type { AppError, ProcessKind, ProcessRecord, ProjectId } from '@itstudio/schemas';
 import { useQueryClient } from '@tanstack/react-query';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,7 +18,9 @@ import { KnowledgePage } from '../features/knowledge/KnowledgePage';
 import { useNavigationIntent } from '../state/navigation-intent';
 import { WebChatPage } from '../features/webchat/WebChatPage';
 import { createWebChatHost } from '../features/webchat/webchat-host';
-import { PIPELINE_STUDIO_ENABLED, PipelineStudioNavButton, PipelineStudioPage } from '../features/pipeline-studio';
+import { PIPELINE_STUDIO_ENABLED, PipelineStudioNavButton, ProcessCodePanel } from '../features/pipeline-studio';
+import { ProcessesPage } from '../features/processes/ProcessesPage';
+import { ProcessViewer } from '../features/processes/ProcessViewer';
 
 const CodePage = lazy(() => import('../features/code/CodePage').then(({ CodePage: page }) => ({ default: page })));
 const CostPage = lazy(() => import('../features/cost/CostPage').then(({ CostPage: page }) => ({ default: page })));
@@ -39,7 +41,7 @@ function initialRoute(): ShellRoute {
   if (PIPELINE_STUDIO_ENABLED && hash === 'pipeline-studio') return 'pipeline-studio';
   if (hash === 'settings') return readLastSettingsRoute();
   if (isSettingsSectionRoute(hash)) return hash;
-  if (['projects', 'chat', 'webchat', 'code', 'knowledge', 'workflow', 'gallery', 'cost'].includes(hash))
+  if (['projects', 'chat', 'webchat', 'code', 'knowledge', 'workflow', 'processes', 'gallery', 'cost'].includes(hash))
     return hash as ShellRoute;
   return readLastSettingsRoute();
 }
@@ -62,9 +64,10 @@ export function AppShell(): JSX.Element {
   const [showNewProject, setShowNewProject] = useState(false);
   const [webChatSuspended, setWebChatSuspended] = useState(false);
   const [projectError, setProjectError] = useState<AppError | null>(null);
+  const [viewedProcess, setViewedProcess] = useState<ProcessRecord | null>(null);
+  const [processKind, setProcessKind] = useState<ProcessKind | ''>('');
   const navigationRevision = useRef(0);
   const restoredActive = useRef(false);
-  const studioPreviousRoute = useRef<ShellRoute>('settings-api-keys');
   const projects = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data]);
   const validOpenIds = useMemo(
     () => openIds.filter((id) => projects.some((project) => project.id === id)),
@@ -110,8 +113,9 @@ export function AppShell(): JSX.Element {
       const revision = ++navigationRevision.current;
       const apply = (): void => {
         if (revision !== navigationRevision.current) return;
-        if (next === 'pipeline-studio' && route !== 'pipeline-studio') studioPreviousRoute.current = route;
+        if (next === 'processes') setProcessKind('');
         setRoute(next);
+        setViewedProcess(null);
         setWebChatSuspended(false);
         window.history.replaceState(null, '', `#${next}`);
       };
@@ -198,8 +202,27 @@ export function AppShell(): JSX.Element {
     if (activeId === id) setActiveSelection({ kind: 'all' });
   }
 
-  if (PIPELINE_STUDIO_ENABLED && route === 'pipeline-studio') {
-    const project = projects.find((item) => item.id === activeId);
+  async function openProcessRef(record: ProcessRecord): Promise<void> {
+    if (!record.ref) return;
+    if (record.projectId && !(await activate(record.projectId))) return;
+    const { type, id } = record.ref;
+    if (type === 'conversation') {
+      useNavigationIntent.getState().setIntent({ kind: 'conversation', id });
+      navigate('chat');
+    } else if (type === 'pipeline_run') {
+      useNavigationIntent.getState().setIntent({ kind: 'pipelineRun', id });
+      navigate('code');
+    } else if (type === 'ingest_job') {
+      useNavigationIntent.getState().setIntent({ kind: 'ingestJob', id });
+      navigate('knowledge');
+    } else if (type === 'image') {
+      useNavigationIntent.getState().setIntent({ kind: 'image', id });
+      navigate('gallery');
+    } else if (type === 'price_run') navigate('settings-pricing');
+    else navigate('webchat');
+  }
+
+  if (viewedProcess !== null) {
     return (
       <Suspense
         fallback={
@@ -208,19 +231,41 @@ export function AppShell(): JSX.Element {
           </div>
         }
       >
-        <PipelineStudioPage
-          projectId={project?.id ?? null}
-          projectName={project?.name}
+        <ProcessViewer
+          key={viewedProcess.id}
+          initial={viewedProcess}
           onBack={() => {
-            navigate(studioPreviousRoute.current);
+            setViewedProcess(null);
           }}
+          onOpenRef={(record) => {
+            void openProcessRef(record);
+          }}
+          renderRichPanel={
+            PIPELINE_STUDIO_ENABLED && viewedProcess.kind === 'code_pipeline'
+              ? (props) => (
+                  <Suspense fallback={<p role="status">{t('pipelineStudio.loading')}</p>}>
+                    <ProcessCodePanel {...props} />
+                  </Suspense>
+                )
+              : undefined
+          }
         />
       </Suspense>
     );
   }
 
   let content: JSX.Element;
-  if (route === 'projects')
+  if (route === 'processes' || (PIPELINE_STUDIO_ENABLED && route === 'pipeline-studio'))
+    content = (
+      <ProcessesPage
+        key={`${route}:${activeId ?? 'all'}:${processKind}`}
+        projectId={projects.find((project) => project.id === activeId)?.id ?? null}
+        projects={projects}
+        initialKind={route === 'pipeline-studio' ? 'code_pipeline' : processKind}
+        onOpen={setViewedProcess}
+      />
+    );
+  else if (route === 'projects')
     content = (
       <ProjectsPage
         onDeleted={closeProject}
@@ -239,6 +284,7 @@ export function AppShell(): JSX.Element {
   else if (route === 'webchat')
     content = (
       <WebChatPage
+        projectId={projects.find((project) => project.id === activeId)?.id ?? null}
         host={webChatHost}
         layoutRevision={`${String(projectsQuery.isError)}:${projectError?.message ?? ''}:${String(showNewProject)}`}
         onSettings={() => {
@@ -311,7 +357,8 @@ export function AppShell(): JSX.Element {
           PIPELINE_STUDIO_ENABLED ? (
             <PipelineStudioNavButton
               onOpen={() => {
-                navigate('pipeline-studio');
+                navigate('processes');
+                setProcessKind('code_pipeline');
               }}
             />
           ) : null
@@ -354,7 +401,11 @@ export function AppShell(): JSX.Element {
           </main>
         </div>
       </div>
-      <StatusBar />
+      <StatusBar
+        onProcesses={() => {
+          navigate('processes');
+        }}
+      />
       {showNewProject ? (
         <NewProjectDialog
           error={projectError}

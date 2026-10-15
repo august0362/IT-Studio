@@ -39,27 +39,23 @@ function setup() {
   return view;
 }
 describe('PSTUDIO-02 shell integration', () => {
-  it('Settings button enters #pipeline-studio with no MainNav, project tabs or status bar; Back returns', async () => {
+  it('PROC-02 Labs launcher opens Processes filtered to code pipelines', async () => {
     const view = setup();
     await screen.findByRole('tab', { name: 'Project One' }, { timeout: 10000 });
     expect(screen.queryByRole('button', { name: 'Pipeline Studio' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('link', { name: 'Labs' }));
     fireEvent.click(screen.getByRole('button', { name: 'Pipeline Studio' }));
-    expect(await screen.findByRole('region', { name: 'Pipeline Studio' }, { timeout: 10000 })).toBeInTheDocument();
-    expect(window.location.hash).toBe('#pipeline-studio');
-    expect(screen.queryByRole('navigation', { name: 'Main navigation' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
-    expect(view.container.querySelector('footer')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: '← Back' }));
-    expect(await screen.findByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument();
-    expect(window.location.hash).toBe('#settings-labs');
+    expect(await screen.findByRole('heading', { name: 'Processes' }, { timeout: 10000 })).toBeInTheDocument();
+    expect(window.location.hash).toBe('#processes');
+    expect(screen.getByRole('combobox', { name: 'Kind' })).toHaveValue('code_pipeline');
+    expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument();
+    expect(view.container.querySelector('footer')).not.toBeNull();
   }, 15000);
-  it('direct hash entry works and Escape returns to the default route', async () => {
+  it('PROC-02 legacy Pipeline Studio hash opens code processes', async () => {
     window.history.replaceState(null, '', '#pipeline-studio');
     setup();
-    await screen.findByRole('region', { name: 'Pipeline Studio' }, { timeout: 10000 });
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(await screen.findByRole('heading', { name: 'API keys' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Processes' }, { timeout: 10000 })).toBeVisible();
+    expect(screen.getByRole('combobox', { name: 'Kind' })).toHaveValue('code_pipeline');
   }, 15000);
   it('flag false hides the Settings button and hash falls back to default', async () => {
     flag.enabled = false;

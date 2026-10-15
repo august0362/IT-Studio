@@ -118,6 +118,7 @@ describe('AppShell', () => {
       '#gallery',
       '#cost',
       '#workflow',
+      '#processes',
       '#settings',
     ]);
     expect(screen.getByRole('link', { name: 'Gallery' })).toHaveAttribute('href', '#gallery');

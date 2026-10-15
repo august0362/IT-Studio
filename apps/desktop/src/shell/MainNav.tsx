@@ -1,6 +1,7 @@
 import type { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SettingsSectionRoute } from '../features/settings/settings-sections';
+import { ProcessCounts } from '../features/processes/ProcessCounts';
 
 export type ShellRoute =
   | 'projects'
@@ -10,6 +11,7 @@ export type ShellRoute =
   | 'code'
   | 'knowledge'
   | 'workflow'
+  | 'processes'
   | 'gallery'
   | 'cost'
   | 'settings'
@@ -32,6 +34,7 @@ export function MainNav({
     { route: 'gallery', label: t('nav.gallery') },
     { route: 'cost', label: t('nav.cost') },
     { route: 'workflow', label: t('nav.workflow') },
+    { route: 'processes', label: t('processes.heading') },
   ];
   const linkClass =
     'block rounded px-3 py-2 hover:bg-surface-alt focus-visible:outline-2 focus-visible:outline-focus-ring';
@@ -44,6 +47,7 @@ export function MainNav({
       <div className="space-y-1">
         {links.map(({ route: target, label }) => (
           <a
+            aria-label={target === 'processes' ? label : undefined}
             aria-current={route === target ? 'page' : undefined}
             className={linkClass}
             href={`#${target}`}
@@ -54,6 +58,11 @@ export function MainNav({
             }}
           >
             {label}
+            {target === 'processes' ? (
+              <span className="ml-2">
+                <ProcessCounts />
+              </span>
+            ) : null}
           </a>
         ))}
       </div>
