@@ -202,3 +202,17 @@ export const activityEvents = sqliteTable(
   },
   (table) => [index('activity_events_project_occurred_idx').on(table.projectId, table.occurredAt)],
 );
+
+export const processes = sqliteTable(
+  'processes',
+  {
+    rowOrder: integer('row_order').primaryKey({ autoIncrement: true }),
+    id: text('id').notNull().unique(),
+    projectId: text('project_id'),
+    status: text('status').notNull(),
+    updatedAt: text('updated_at').notNull(),
+    recordJson: text('record_json').notNull(),
+    operationJson: text('operation_json'),
+  },
+  (table) => [index('processes_status_updated_idx').on(table.status, table.updatedAt)],
+);

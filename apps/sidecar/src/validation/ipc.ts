@@ -1,3 +1,10 @@
+import {
+  processRecordSchema,
+  processEventSchema,
+  processListSchema,
+  processIdentitySchema,
+  processReportSchema,
+} from './process.js';
 import type {
   RpcError,
   RpcMethod,
@@ -58,6 +65,13 @@ import {
 
 const empty = z.strictObject({}).readonly();
 export const rpcParamsSchemas = {
+  'process.list': processListSchema,
+  'process.get': processIdentitySchema,
+  'process.cancel': processIdentitySchema,
+  'process.retry': processIdentitySchema,
+  'process.dismiss': processIdentitySchema,
+  'process.delete': processIdentitySchema,
+  'process.report': processReportSchema,
   'system.ping': empty,
   'system.shutdown': empty,
   'project.list': empty,
@@ -207,6 +221,7 @@ export const rpcResponseEnvelopeSchema = z
   })
   .readonly();
 export const rpcNotificationParamsSchemas = {
+  'process.event': processEventSchema,
   'system.ready': z.object({ version: z.string(), recoveredTransactions: z.number() }).readonly(),
   'chat.delta': z.object({ requestId: llmRequestIdSchema, textDelta: z.string() }).readonly(),
   'chat.completed': z
@@ -229,6 +244,13 @@ export const rpcNotificationParamsSchemas = {
 } satisfies { [N in RpcNotificationName]: z.ZodType<RpcNotificationMap[N]> };
 
 export const rpcResultSchemas = {
+  'process.list': z.array(processRecordSchema).readonly(),
+  'process.get': processRecordSchema,
+  'process.cancel': processRecordSchema,
+  'process.retry': processRecordSchema,
+  'process.dismiss': processRecordSchema,
+  'process.delete': z.strictObject({ deleted: z.boolean() }).readonly(),
+  'process.report': processRecordSchema,
   'system.ping': z.object({ version: z.string(), uptimeMs: z.number() }).readonly(),
   'system.shutdown': z.object({ accepted: z.literal(true) }).readonly(),
   'project.list': z.array(projectSchema).readonly(),

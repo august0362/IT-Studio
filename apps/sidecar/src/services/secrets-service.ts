@@ -1,3 +1,6 @@
+import type { ProcessId } from '@itstudio/schemas';
+import type { IProcessTracker } from '../ports/process-tracker.js';
+import { trackProcess } from './process-activity.js';
 import {
   ErrorCode,
   ProviderId,
@@ -17,6 +20,7 @@ import type { ISecretStore } from '../ports/secret-store.js';
 import { isoDateTimeSchema, secretHistoryIdSchema } from '../validation/brand.js';
 
 export interface SecretsServiceDependencies {
+  readonly processes?: IProcessTracker;
   readonly store: ISecretStore;
   readonly verifier: IProviderKeyVerifier;
   readonly history: ISecretHistoryRepository;
@@ -56,6 +60,7 @@ function recoveryError(): AppError {
 }
 
 export class SecretsService {
+  private readonly processes: IProcessTracker | undefined;
   private readonly store: ISecretStore;
   private readonly verifier: IProviderKeyVerifier;
   private readonly historyRepository: ISecretHistoryRepository;
@@ -64,6 +69,7 @@ export class SecretsService {
   private readonly lastVerifiedAt = new Map<ProviderIdType, string>();
 
   constructor(dependencies: SecretsServiceDependencies) {
+    this.processes = dependencies.processes;
     this.store = dependencies.store;
     this.verifier = dependencies.verifier;
     this.historyRepository = dependencies.history;
@@ -106,7 +112,7 @@ export class SecretsService {
     if (!key.ok) return key;
     const previous = await this.store.get(provider);
     if (!previous.ok) return { ok: false, error: internalError() };
-    const verified = await this.verifier.verify(provider, key.value);
+    const verified = await this.verifyTracked(provider, key.value);
     if (!verified.ok) {
       try {
         this.historyRepository.append(
@@ -159,7 +165,7 @@ export class SecretsService {
     return { ok: true, value: statuses };
   }
 
-  async verify(provider: ProviderIdType): Promise<Result<SecretStatus>> {
+  async verify(provider: ProviderIdType, retryOf?: ProcessId): Promise<Result<SecretStatus>> {
     const stored = await this.store.get(provider);
     if (!stored.ok) return { ok: false, error: internalError() };
     if (stored.value === null) {
@@ -173,7 +179,7 @@ export class SecretsService {
         },
       };
     }
-    const verified = await this.verifier.verify(provider, stored.value);
+    const verified = await this.verifyTracked(provider, stored.value, retryOf);
     if (!verified.ok) {
       try {
         this.historyRepository.append(
@@ -193,6 +199,47 @@ export class SecretsService {
       ok: true,
       value: { provider, configured: true, hint: stored.value.slice(-4), ...this.verified(provider) },
     };
+  }
+
+  private async verifyTracked(provider: ProviderIdType, key: string, retryOf?: ProcessId): Promise<Result<void>> {
+    const controller = new AbortController();
+    const activity = trackProcess(this.processes, 'key_verify', {
+      title: 'Verify key: ' + provider,
+      operation: { kind: 'key_verify', params: { provider } },
+      cancel: () => {
+        controller.abort();
+        return Promise.resolve({ ok: true, value: undefined });
+      },
+      ...(retryOf === undefined ? {} : { retryOf }),
+    });
+    activity.done('input', 'Key ending in ****' + key.slice(-4));
+    activity.step('request', provider);
+    try {
+      const result =
+        this.processes === undefined
+          ? await this.verifier.verify(provider, key)
+          : await this.verifier.verify(provider, key, controller.signal);
+      if (controller.signal.aborted) {
+        activity.fail('Key verification was cancelled');
+        return {
+          ok: false,
+          error: {
+            code: ErrorCode.CANCELLED,
+            message: 'Key verification was cancelled.',
+            retryable: true,
+            remediation: ['Retry verification when ready.'],
+          },
+        };
+      }
+      if (result.ok) {
+        activity.step('result');
+        activity.finish('Key verified');
+      } else activity.fail(this.verificationError(provider, result.error));
+      return result;
+    } catch {
+      activity.fail('Key verification failed unexpectedly');
+      return { ok: false, error: internalError() };
+    }
   }
 
   private async restoreKeyState(provider: ProviderIdType, previous: string | null): Promise<boolean> {

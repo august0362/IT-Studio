@@ -1,3 +1,6 @@
+import type { ProcessId } from '@itstudio/schemas';
+import { NO_PROCESS_TRACKER, type IProcessTracker } from '../ports/process-tracker.js';
+import { trackProcess, ProcessActivity } from './process-activity.js';
 import {
   ErrorCode,
   PipelineStage,
@@ -48,6 +51,7 @@ export interface IPipelineEligibility {
 }
 
 export interface PipelineOrchestratorDependencies {
+  readonly processes?: IProcessTracker;
   readonly eligibility: IPipelineEligibility;
   readonly repository: IPipelineRepository;
   readonly projects: { get(id: ProjectId): Promise<Project | null> };
@@ -90,6 +94,7 @@ function safeOutput(output: CoderOutput, spec: TaskSpec): boolean {
 
 export class PipelineOrchestrator {
   private readonly deps: PipelineOrchestratorDependencies;
+  private readonly activities = new Map<PipelineRunId, ProcessActivity>();
   private readonly runs = new Map<PipelineRunId, PipelineRun>();
   private readonly cancelRequested = new Set<PipelineRunId>();
   private readonly validationControllers = new Map<PipelineRunId, AbortController>();
@@ -116,7 +121,11 @@ export class PipelineOrchestrator {
     this.restoredProjects.delete(projectId);
   }
 
-  async start(input: { readonly projectId: ProjectId; readonly prompt: string }): Promise<Result<PipelineRun>> {
+  async start(input: {
+    readonly projectId: ProjectId;
+    readonly prompt: string;
+    readonly retryOf?: ProcessId;
+  }): Promise<Result<PipelineRun>> {
     if (this.admitting.has(input.projectId))
       return {
         ok: false,
@@ -130,7 +139,11 @@ export class PipelineOrchestrator {
     }
   }
 
-  private async admit(input: { readonly projectId: ProjectId; readonly prompt: string }): Promise<Result<PipelineRun>> {
+  private async admit(input: {
+    readonly projectId: ProjectId;
+    readonly prompt: string;
+    readonly retryOf?: ProcessId;
+  }): Promise<Result<PipelineRun>> {
     const project = await this.deps.projects.get(input.projectId);
     if (project === null) return { ok: false, error: appError('The project does not exist.', ErrorCode.VALIDATION) };
     const settings = await this.deps.settings();
@@ -186,14 +199,28 @@ export class PipelineOrchestrator {
       cost: this.deps.moneyDisplay(microUsdSchema.parse(0)),
       startedAt: isoDateTimeSchema.parse(this.deps.clock.now().toISOString()),
     };
+    const activity = trackProcess(this.deps.processes, 'code_pipeline', {
+      title: 'Code: ' + input.prompt.slice(0, 60),
+      projectId: input.projectId,
+      ref: { type: 'pipeline_run', id: run.id },
+      operation: { kind: 'code_pipeline', params: { projectId: input.projectId, prompt: input.prompt } },
+      cancel: async () => ({ ok: true, value: await this.cancel(run.id) }),
+      ...(input.retryOf === undefined ? {} : { retryOf: input.retryOf }),
+    });
+    this.activities.set(run.id, activity);
+    activity.done('request', 'Build request received');
+    activity.skip('clarify');
     this.runs.set(run.id, run);
     await this.deps.repository.save(run);
     this.publishStage(run);
+    const queued = this.tails.has(input.projectId) || this.clarificationGates.has(input.projectId);
+    if (queued) activity.waiting('Queued behind another pipeline');
     const previous = this.tails.get(input.projectId) ?? Promise.resolve();
     const current = previous
       .catch(() => undefined)
       .then(async () => {
         await this.clarificationGates.get(input.projectId)?.promise;
+        this.activities.get(run.id)?.step('spec');
         await this.execute(run.id, project);
         const gate = this.clarificationGates.get(input.projectId);
         if (gate?.runId === run.id) await gate.promise;
@@ -724,6 +751,33 @@ export class PipelineOrchestrator {
     gate.release();
   }
   private publishStage(run: PipelineRun): void {
+    let activity = this.activities.get(run.id);
+    if (activity === undefined) {
+      const tracker = this.deps.processes ?? NO_PROCESS_TRACKER;
+      const id = tracker.find('code_pipeline', run.id);
+      if (id !== undefined) {
+        activity = new ProcessActivity(tracker, id, 'clarify');
+        this.activities.set(run.id, activity);
+      }
+    }
+    if (activity !== undefined) {
+      activity.annotate({ costText: run.cost.usdText + '\n' + run.cost.vndText });
+      const moduleId = PIPELINE_PROCESS_MODULE[run.stage];
+      if (run.stage === PipelineStage.COMPLETED) {
+        activity.step('done');
+        activity.finish('Project build completed');
+        this.activities.delete(run.id);
+      } else if (isTerminal(run.stage)) {
+        activity.fail(run.failureReport?.error ?? 'Pipeline ' + run.stage);
+        this.activities.delete(run.id);
+      } else if (moduleId !== undefined) {
+        activity.step(moduleId, undefined, {
+          stage: run.stage,
+          files: run.coderOutputs.at(-1)?.operations.length ?? 0,
+        });
+        if (run.stage === PipelineStage.CLARIFYING) activity.waiting('Waiting for your answers');
+      }
+    }
     this.deps.events.publish('pipeline.event', { type: 'stage', runId: run.id, stage: run.stage });
   }
   private artifact(run: PipelineRun, kind: 'spec' | 'code' | 'review', index: number): void {
@@ -766,3 +820,14 @@ function isTerminal(stage: PipelineRun['stage']): boolean {
 }
 
 export const pipelineTransitionTable = PIPELINE_TRANSITIONS;
+
+const PIPELINE_PROCESS_MODULE: Readonly<Partial<Record<PipelineRun['stage'], string>>> = {
+  specifying: 'spec',
+  clarifying: 'clarify',
+  coding: 'code',
+  reviewing: 'review',
+  fixing: 'fix',
+  re_reviewing: 're_review',
+  writing: 'write',
+  validating: 'validate',
+};

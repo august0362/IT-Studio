@@ -3,6 +3,7 @@ import type { Brand, MicroUsd, PriceTableVersion, Sha256, Vnd, WorkspaceRelative
 
 const brandedUuid = <T extends string>() => z.uuid().transform((value) => value as Brand<string, T>);
 export const projectIdSchema = brandedUuid<'ProjectId'>();
+export const processIdSchema = brandedUuid<'ProcessId'>();
 export const conversationIdSchema = brandedUuid<'ConversationId'>();
 export const messageIdSchema = brandedUuid<'MessageId'>();
 export const llmRequestIdSchema = brandedUuid<'LlmRequestId'>();

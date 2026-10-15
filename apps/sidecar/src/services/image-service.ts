@@ -1,3 +1,6 @@
+import type { ProcessId, MicroUsd } from '@itstudio/schemas';
+import type { IProcessTracker } from '../ports/process-tracker.js';
+import { trackProcess, type ProcessActivity } from './process-activity.js';
 import {
   CostPurpose,
   ErrorCode,
@@ -39,6 +42,8 @@ import { imageGenerationRequestSchema } from '../validation/image.js';
 import type { WorkflowInternalEventBus } from './workflow-internal-events.js';
 
 export interface ImageServiceDependencies {
+  readonly processes?: IProcessTracker;
+  readonly costText?: (amount: MicroUsd) => string;
   readonly repository: IImageRepository;
   readonly ledger: ILedgerRepository;
   readonly budget: IBudgetGuard;
@@ -65,6 +70,52 @@ export class ImageService {
     rawArgs: unknown,
     toolCallId: ToolCallId,
     signal: AbortSignal,
+    retryOf?: ProcessId,
+  ): Promise<Result<{ readonly assetIds: readonly ImageAssetId[] }>> {
+    const parsed = generateImageArgsSchema.safeParse(rawArgs);
+    if (!parsed.success)
+      return failure(ErrorCode.VALIDATION, 'Image generation arguments are invalid.', ['Review the image prompt.']);
+    const controller = new AbortController();
+    const activity = trackProcess(this.deps.processes, 'image', {
+      title: 'Image: ' + parsed.data.prompt.slice(0, 60),
+      projectId,
+      operation: { kind: 'image', params: { projectId, args: parsed.data } },
+      cancel: () => {
+        controller.abort();
+        return Promise.resolve({ ok: true, value: undefined });
+      },
+      ...(retryOf === undefined ? {} : { retryOf }),
+    });
+    activity.done('prompt', 'Image prompt received');
+    try {
+      const result = await this.generateTracked(
+        projectId,
+        rawArgs,
+        toolCallId,
+        AbortSignal.any([signal, controller.signal]),
+        activity,
+      );
+      if (!result.ok) activity.fail(result.error);
+      else {
+        const id = result.value.assetIds[0];
+        if (id !== undefined) activity.annotate({ ref: { type: 'image', id } });
+        activity.step('gallery');
+        activity.finish(String(result.value.assetIds.length) + ' images saved');
+      }
+      return result;
+    } catch (error) {
+      this.deps.logger.error({ svc: 'image', projectId, err: error }, 'Image generation failed');
+      activity.fail('Image generation failed unexpectedly');
+      return failure(ErrorCode.INTERNAL, 'Image generation failed unexpectedly.', ['Retry the image request.']);
+    }
+  }
+
+  private async generateTracked(
+    projectId: ProjectId,
+    rawArgs: unknown,
+    toolCallId: ToolCallId,
+    signal: AbortSignal,
+    activity: ProcessActivity,
   ): Promise<Result<{ readonly assetIds: readonly ImageAssetId[] }>> {
     const parsedArgs = generateImageArgsSchema.safeParse(rawArgs);
     if (!parsedArgs.success || parsedArgs.data.prompt.trim().length === 0)
@@ -100,6 +151,7 @@ export class ImageService {
         { projectId, provider: firstPrice?.provider.id },
         'No image price is available; checking budget at zero cost',
       );
+    activity.step('budget');
     const budget = await this.deps.budget.check(projectId, estimatedCost);
     if (!budget.ok) return budget;
     if (budget.value.blocking)
@@ -109,10 +161,16 @@ export class ImageService {
 
     let lastError: AppError | undefined;
     for (const provider of candidates) {
-      if (signal.aborted) return failure(ErrorCode.CANCELLED, 'Image generation was cancelled.', ['Retry when ready.']);
+      if (isAborted(signal))
+        return failure(ErrorCode.CANCELLED, 'Image generation was cancelled.', ['Retry when ready.']);
+      activity.step('provider', undefined, { provider: provider.id, count });
       this.deps.internalEvents?.publish({ type: 'image', phase: 'started', projectId, provider: provider.id, count });
       const response = await provider.generate(request.data, signal);
+      if (isAborted(signal))
+        return failure(ErrorCode.CANCELLED, 'Image generation was cancelled.', ['Retry when ready.']);
       if (response.ok) {
+        activity.step('download');
+        activity.done('download', String(response.value.length) + ' images downloaded');
         lastError = undefined;
         if (response.value.length === 0) {
           this.deps.internalEvents?.publish({
@@ -127,7 +185,10 @@ export class ImageService {
         }
         const price = imagePrice(priceTable.entries, provider.id);
         const assets: ImageAsset[] = [];
+        activity.step('store');
         for (const image of response.value) {
+          if (isAborted(signal))
+            return failure(ErrorCode.CANCELLED, 'Image generation was cancelled.', ['Retry when ready.']);
           const stored = await this.store(projectId, provider.id, parsedArgs.data, image, price?.perImageMicroUsd ?? 0);
           if (!stored.ok) {
             if (assets.length === 0) {
@@ -148,6 +209,8 @@ export class ImageService {
         if (assets.length > 0) {
           const totalCost = price?.perImageMicroUsd === undefined ? 0 : price.perImageMicroUsd * assets.length;
           await this.recordLedger(projectId, provider.id, assets.length, totalCost, priceTable.version);
+          const costText = this.deps.costText?.(microUsd(totalCost));
+          if (costText !== undefined) activity.annotate({ costText });
           this.deps.internalEvents?.publish({
             type: 'image',
             phase: 'completed',
@@ -336,4 +399,8 @@ function partialFailure(error: AppError, assetIds: readonly ImageAssetId[]): App
     message: `Some images were generated, but the request failed afterward. Stored asset IDs: ${assetIds.join(', ')}.`,
     details: { assetIds: [...assetIds] },
   };
+}
+
+function isAborted(signal: AbortSignal): boolean {
+  return signal.aborted;
 }

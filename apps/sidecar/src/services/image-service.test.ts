@@ -1,3 +1,5 @@
+import { createProcessProbe } from './process-test-helper.js';
+import type { IProcessTracker } from '../ports/process-tracker.js';
 import {
   FailureKind,
   type ImageAsset,
@@ -37,6 +39,7 @@ class FakeProvider implements IImageProvider {
 
 function createService(
   options: {
+    readonly processes?: IProcessTracker;
     readonly providers?: readonly IImageProvider[];
     readonly blocking?: boolean;
     readonly budgetFailure?: boolean;
@@ -150,6 +153,7 @@ function createService(
     }),
   };
   const service = new ImageService({
+    ...(options.processes === undefined ? {} : { processes: options.processes }),
     repository: repo,
     ledger,
     budget: {
@@ -198,6 +202,25 @@ function createService(
 }
 
 describe('ImageService', () => {
+  it('PROC-01 instruments image budget, provider, download, storage and gallery', async () => {
+    const probe = createProcessProbe();
+    const h = createService({ processes: probe.tracker });
+    expect(
+      await h.service.generate(
+        projectId,
+        { prompt: 'A cat' },
+        toolCallIdSchema.parse('call_process'),
+        new AbortController().signal,
+      ),
+    ).toMatchObject({ ok: true });
+    expect(probe.start).toHaveBeenCalledWith(
+      'image',
+      expect.objectContaining({ operation: { kind: 'image', params: { projectId, args: { prompt: 'A cat' } } } }),
+    );
+    for (const module of ['prompt', 'budget', 'provider', 'download', 'store', 'gallery'])
+      expect(probe.module).toHaveBeenCalledWith(expect.anything(), module, expect.objectContaining({ state: 'done' }));
+    expect(probe.end).toHaveBeenCalledOnce();
+  });
   it('validates arguments before checking budget or calling providers', async () => {
     const h = createService();
     const result = await h.service.generate(

@@ -1,3 +1,6 @@
+import type { ProcessId, MicroUsd } from '@itstudio/schemas';
+import type { IProcessTracker } from '../../ports/process-tracker.js';
+import { trackProcess, type ProcessActivity } from '../process-activity.js';
 import { createHash } from 'node:crypto';
 import { basename, extname } from 'node:path';
 import {
@@ -39,6 +42,8 @@ import {
 import { modelKeySchema } from '../../validation/common.js';
 
 export interface RagServiceDependencies {
+  readonly processes?: IProcessTracker;
+  readonly costText?: (amount: MicroUsd) => string;
   readonly projects: IProjectRepository;
   readonly documents: IDocumentRepository;
   readonly fileSystem: IFileSystem;
@@ -55,6 +60,9 @@ export interface RagServiceDependencies {
 
 export class RagService {
   private readonly deps: RagServiceDependencies;
+  private readonly activities = new Map<string, ProcessActivity>();
+  private readonly counts = new Map<string, { files: number; chunks: number; skipped: number; failed: number }>();
+  private readonly cancelledJobs = new Set<string>();
   private readonly projectQueues = new Map<ProjectId, Promise<void>>();
   private readonly jobs = new Map<string, IngestJob>();
   private readonly generations = new Map<string, number>();
@@ -68,6 +76,7 @@ export class RagService {
     readonly projectId: ProjectId;
     readonly paths: readonly string[];
     readonly tags?: readonly string[];
+    readonly retryOf?: ProcessId;
   }): Promise<Result<IngestJob>> {
     const generations = new Map(this.generations);
     const project = await this.deps.projects.get(input.projectId);
@@ -89,11 +98,41 @@ export class RagService {
       totalFiles: 0,
       cost: microUsdSchema.parse(0),
     };
+    const activity = trackProcess(this.deps.processes, 'knowledge_ingest', {
+      title: 'Knowledge ingest: ' + String(input.paths.length) + ' paths',
+      projectId: input.projectId,
+      ref: { type: 'ingest_job', id: job.id },
+      operation: {
+        kind: 'knowledge_ingest',
+        params: {
+          projectId: input.projectId,
+          paths: input.paths,
+          ...(input.tags === undefined ? {} : { tags: input.tags }),
+        },
+      },
+      cancel: () => {
+        this.cancelledJobs.add(job.id);
+        return Promise.resolve({ ok: true, value: undefined });
+      },
+      ...(input.retryOf === undefined ? {} : { retryOf: input.retryOf }),
+    });
+    this.activities.set(job.id, activity);
+    this.counts.set(job.id, { files: 0, chunks: 0, skipped: 0, failed: 0 });
+    activity.waiting('Queued for knowledge ingest');
     this.jobs.set(job.id, job);
     const previous = this.projectQueues.get(input.projectId) ?? Promise.resolve();
-    const next = previous.then(() =>
-      this.runJob(job, project.workspaceRoot, absolutePaths, input.tags ?? [], settings.value.rag, generations),
-    );
+    const next = previous
+      .then(() =>
+        this.runJob(job, project.workspaceRoot, absolutePaths, input.tags ?? [], settings.value.rag, generations),
+      )
+      .catch(() => {
+        this.finish(job, IngestStatus.FAILED, {
+          code: ErrorCode.INTERNAL,
+          message: 'Ingest failed unexpectedly.',
+          retryable: true,
+          remediation: ['Retry the ingest.'],
+        });
+      });
     this.projectQueues.set(
       input.projectId,
       next.catch(() => undefined),
@@ -133,6 +172,11 @@ export class RagService {
     rag: RagSettings,
     generations: ReadonlyMap<string, number>,
   ): Promise<void> {
+    if (this.cancelledJobs.has(original.id)) {
+      this.finish(original, IngestStatus.FAILED, cancelledError());
+      return;
+    }
+    this.activities.get(original.id)?.step('discover');
     const existing = await this.deps.documents.list(original.projectId);
     const storedDimensions = await this.deps.documents.getEmbeddingDimensions(original.projectId);
     const currentDimension = rag.embedding.dimensions;
@@ -155,17 +199,30 @@ export class RagService {
       this.finish(original, IngestStatus.FAILED, discovered.error);
       return;
     }
+    this.activities
+      .get(original.id)
+      ?.done('discover', String(discovered.value.length) + ' files discovered', { files: discovered.value.length });
     const startedAt = this.deps.clock.now().toISOString();
     let job: IngestJob = { ...original, status: IngestStatus.PARSING, totalFiles: discovered.value.length };
     this.publish(job);
     let successes = 0;
     let firstError: AppError | undefined;
     for (const path of discovered.value) {
+      if (this.cancelledJobs.has(job.id)) {
+        this.finish(job, IngestStatus.FAILED, cancelledError());
+        return;
+      }
       let result: Result<{ readonly skipped: boolean }>;
       try {
         result = await this.indexFile(job, path, tags, rag, dimensionChanged, generations);
       } catch {
         result = internalError();
+      }
+      const counts = this.counts.get(job.id);
+      if (counts !== undefined) {
+        counts.files += 1;
+        if (!result.ok) counts.failed += 1;
+        else if (result.value.skipped) counts.skipped += 1;
       }
       if (result.ok) successes += 1;
       else {
@@ -196,6 +253,10 @@ export class RagService {
     }
     const cost = (await this.deps.embeddingCost?.(job.projectId, startedAt)) ?? 0;
     job = { ...job, cost: microUsdSchema.parse(Math.max(0, Math.trunc(cost))) };
+    if (this.cancelledJobs.has(job.id)) {
+      this.finish(job, IngestStatus.FAILED, cancelledError());
+      return;
+    }
     if (successes === 0 && discovered.value.length > 0) this.finish(job, IngestStatus.FAILED, firstError);
     else this.finish(job, IngestStatus.INDEXED);
   }
@@ -209,9 +270,12 @@ export class RagService {
     generations: ReadonlyMap<string, number>,
   ): Promise<Result<{ readonly skipped: boolean }>> {
     const key = this.sourceKey(job.projectId, path);
-    const cancelled = (): boolean => (generations.get(key) ?? 0) !== (this.generations.get(key) ?? 0);
+    const cancelled = (): boolean =>
+      this.cancelledJobs.has(job.id) || (generations.get(key) ?? 0) !== (this.generations.get(key) ?? 0);
     const skipped = { ok: true, value: { skipped: true } } as const;
     if (cancelled()) return skipped;
+    const activity = this.activities.get(job.id);
+    activity?.step('parse');
     const parsed = await parseDocument(path, this.deps.fileSystem);
     if (!parsed.ok) return parsed;
     const contentHash = sha256Schema.parse(createHash('sha256').update(parsed.value.text).digest('hex'));
@@ -219,7 +283,13 @@ export class RagService {
     const previous = await this.deps.documents.getByPath(job.projectId, sourcePath);
     if (!force && previous?.contentHash === contentHash && previous.embeddingModel === rag.embedding.modelKey)
       return { ok: true, value: { skipped: true } };
+    activity?.step('chunk');
     const drafts = chunkDocument({ text: parsed.value.text, format: parsed.value.format, config: rag.chunking });
+    const counts = this.counts.get(job.id);
+    if (counts !== undefined) counts.chunks += drafts.length;
+    activity?.done('chunk', String(drafts.length) + ' chunks', { chunks: drafts.length });
+    activity?.step('embed');
+    if (cancelled()) return skipped;
     const embeddings = await this.deps.embeddings.embed(
       drafts.map((chunk) => chunk.text),
       { projectId: job.projectId, purpose: 'embedding' },
@@ -236,6 +306,7 @@ export class RagService {
       vector: embeddings.value[index] ?? [],
       tags,
     }));
+    activity?.step('store');
     const table = tableName(job.projectId);
     return this.withSourceWrite(key, async () => {
       if (cancelled()) return skipped;
@@ -286,6 +357,19 @@ export class RagService {
 
   private finish(job: IngestJob, status: IngestJob['status'], failure?: AppError): void {
     const completed = { ...job, status, ...(failure === undefined ? {} : { error: failure }) };
+    const activity = this.activities.get(job.id);
+    const counts = this.counts.get(job.id);
+    const costText = this.deps.costText?.(job.cost);
+    if (costText !== undefined) activity?.annotate({ costText });
+    if (counts !== undefined) activity?.detail('done', { ...counts });
+    if (status === IngestStatus.FAILED) activity?.fail(failure ?? 'Ingest failed');
+    else {
+      activity?.step('done');
+      activity?.finish(String(job.processedFiles) + ' files processed');
+    }
+    this.activities.delete(job.id);
+    this.counts.delete(job.id);
+    this.cancelledJobs.delete(job.id);
     this.jobs.set(job.id, completed);
     this.publish(completed);
   }
@@ -313,5 +397,14 @@ function internalError(): Result<never> {
       retryable: false,
       remediation: ['Check the document and storage permissions, then retry the ingest.'],
     },
+  };
+}
+
+function cancelledError(): AppError {
+  return {
+    code: ErrorCode.CANCELLED,
+    message: 'Knowledge ingest was cancelled.',
+    retryable: true,
+    remediation: ['Retry the ingest.'],
   };
 }

@@ -1,3 +1,5 @@
+import { createProcessProbe } from './process-test-helper.js';
+import type { IProcessTracker } from '../ports/process-tracker.js';
 import {
   ErrorCode,
   PipelineStage,
@@ -77,6 +79,7 @@ const askOnce = (inputs: RoleInputs): Extract<RoleOutput, { readonly kind: strin
   'clarifications' in inputs ? { kind: 'spec', spec } : { kind: 'questions', questions };
 
 interface HarnessOptions {
+  readonly processes?: IProcessTracker;
   readonly eligibility?: IPipelineEligibility;
   readonly assignment?: RoleAssignment;
   readonly commandResult?: () => Promise<Result<CommandRun>>;
@@ -152,6 +155,7 @@ function harness(
   const events = new EventBus<{ 'pipeline.event': PipelineEvent; 'pipeline.failureReport': FailureReport }>();
   const fx = { usdToVnd: 25000, asOf: isoDateTimeSchema.parse('2026-01-01T00:00:00.000Z'), source: 'auto' as const };
   const dependencies: PipelineOrchestratorDependencies = {
+    ...(options.processes === undefined ? {} : { processes: options.processes }),
     eligibility: options.eligibility ?? {
       load: () =>
         Promise.resolve({
@@ -324,6 +328,26 @@ async function waitForTerminal(orchestrator: PipelineOrchestrator, id: PipelineR
 }
 
 describe('PipelineOrchestrator', () => {
+  it('PROC-01 instruments pipeline stages and records cost', async () => {
+    const probe = createProcessProbe();
+    const h = harness([accepted], created, { processes: probe.tracker });
+    const started = await startRun(h.orchestrator, { projectId, prompt: 'Build a greeting' });
+    await waitForTerminal(h.orchestrator, started.id);
+    expect(probe.start).toHaveBeenCalledWith(
+      'code_pipeline',
+      expect.objectContaining({
+        projectId,
+        operation: { kind: 'code_pipeline', params: { projectId, prompt: expect.any(String) as unknown } },
+      }),
+    );
+    for (const module of ['request', 'spec', 'code', 'review', 'write', 'validate', 'done'])
+      expect(probe.module).toHaveBeenCalledWith(expect.anything(), module, expect.objectContaining({ state: 'done' }));
+    expect(probe.annotate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ costText: expect.stringContaining('$') as unknown }),
+    );
+    expect(probe.end).toHaveBeenCalledOnce();
+  });
   const pm = modelKeySchema.parse('anthropic/pm');
   const coder = modelKeySchema.parse('openai/coder');
   const reviewer = modelKeySchema.parse('anthropic/reviewer');

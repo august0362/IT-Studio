@@ -1,3 +1,5 @@
+import { createProcessProbe } from './process-test-helper.js';
+import type { IProcessTracker } from '../ports/process-tracker.js';
 import { describe, expect, it } from 'vitest';
 import pino from 'pino';
 import type {
@@ -36,6 +38,7 @@ const project = {
 
 function harness(
   options: {
+    readonly processes?: IProcessTracker;
     readonly active?: boolean;
     readonly page?: (url: string) => Promise<Response>;
     readonly replies?: readonly string[];
@@ -116,6 +119,7 @@ function harness(
   const events = new EventBus<RpcNotificationMap>();
   events.subscribe('pricing.updated', (payload) => updates.push(payload));
   const updater = new PricingUpdater({
+    ...(options.processes === undefined ? {} : { processes: options.processes }),
     settings: { get: () => Promise.resolve({ ok: true as const, value: settings }) },
     projects,
     pricing,
@@ -141,6 +145,24 @@ function harness(
 }
 
 describe('PricingUpdater', () => {
+  it('PROC-01 instruments price refresh and exposes provider outcomes', async () => {
+    const probe = createProcessProbe();
+    const h = harness({ processes: probe.tracker });
+    await h.updater.refresh();
+    expect(probe.start).toHaveBeenCalledWith(
+      'price_update',
+      expect.objectContaining({
+        operation: { kind: 'price_update', params: { projectId, modelKey: expect.any(String) as unknown } },
+      }),
+    );
+    expect(probe.module).toHaveBeenCalledWith(expect.anything(), 'fetch', expect.objectContaining({ state: 'done' }));
+    expect(probe.module).toHaveBeenCalledWith(
+      expect.anything(),
+      'validate',
+      expect.objectContaining({ detail: { outcomes: expect.any(Array) as unknown } }),
+    );
+    expect(probe.end).toHaveBeenCalledOnce();
+  });
   it('PROV-01 refreshes nested OpenRouter model prices with the full model key', async () => {
     const seeds = harness();
     const entry = seeds.loaded.value.pricing.entries.find(
