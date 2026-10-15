@@ -6,6 +6,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add a PM clarifying step: up to five questions with a recommended option, answer them in the Code tab or Pipeline Studio, or turn on Settings → Pipeline → Auto-answer ([PSTUDIO-01](docs/tasks/PSTUDIO-01.md))
+- Add Pipeline Studio, a removable full-screen view of a pipeline run with live data-flow animation, ?/✓/✕ module badges, draggable saved layout and full per-module details ([PSTUDIO-02](docs/tasks/PSTUDIO-02.md))
+- Reject a pipeline start when a role has no usable model, name the missing provider keys and say "Nothing was written" for failures before writing ([UX-02](docs/tasks/UX-02.md))
+- Add `Start-IT-Studio.bat` to start the app from source with one double-click ([REPO-01](docs/tasks/REPO-01.md))
 - Add verify-before-save API keys, localized verification progress and masked key-action history, backed by generated SQLite migration `0011` ([OWNER-FB1 P1](docs/tasks/OWNER-FB1.md))
 - Add one-to-four native web-chat panes with saved site/layout selection, keyboard/pointer splitters and a separate browser profile; restrict child navigation and keep management IPC in the main webview ([OWNER-FB1 P3](docs/tasks/OWNER-FB1.md))
 - Add Neon Gold, Neon Cyan and Neon Violet with light counterparts, optional glow/glass/gradient tokens, shared visual primitives and a frontend-designer agent; expand the catalog to 21 themes ([OWNER-FB1 P4](docs/tasks/OWNER-FB1.md))
@@ -51,6 +55,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 - Add L3 sidecar integration harness and M1 integration suite ([M1-QA](docs/tasks/M1-QA.md))
 
 ### Fixed
+- Fix crash recovery leaving the interrupted run in `writing` and blocking the project's pipeline queue; recovered runs are now `rolled_back` with a report ([QA-BREAK-FIX-A](docs/tasks/QA-BREAK-FIX-A.md))
+- Reject unknown RPC parameters and unsafe money values, keep concurrent settings updates, keep deleted knowledge sources deleted during re-indexing, serialize same-project pipeline starts and keep the sidecar responsive during query bursts ([QA-BREAK-FIX-A](docs/tasks/QA-BREAK-FIX-A.md))
+- Fix duplicate revenue on fast double submit, chat/code selections leaking across projects and stale pipeline snapshots overwriting newer ones ([QA-BREAK-FIX-B](docs/tasks/QA-BREAK-FIX-B.md))
+- Show project names in Top spend, keep price origin labels per row, restore the last fetched price after clearing an override post-restart, fit the whole workflow graph, clear finished modules from Active, median-based sidecar smoke and deterministic icon builds ([V1-POLISH-01](docs/tasks/V1-POLISH-01.md))
+- Accept a bare TaskSpec from the PM model ([PSTUDIO-FIX1](docs/tasks/PSTUDIO-FIX1.md))
 - Let the secret scanner discover Git paths directly so Windows lint avoids command-length limits; preserve deleted-file/fixture handling and add black-box regressions ([OWNER-FB1](docs/tasks/OWNER-FB1.md))
 - Keep workflow graph/history/pagination responses scoped to the selected project and retain Active status while concurrent calls remain ([OWNER-FB1 P2](docs/tasks/OWNER-FB1.md))
 - Reconcile embedded-chat layout after saved-site changes, wait for native cleanup on hash navigation, and remeasure panes after shell notices ([OWNER-FB1 P3](docs/tasks/OWNER-FB1.md))
@@ -94,6 +103,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 - Add npm-workspaces monorepo scaffold: sidecar, desktop (Tauri v2 + React 19 + Vite 8 + Tailwind 4), VS Code extension skeleton ([M0-04](docs/tasks/M0-04.md))
 
 ### Changed
+- Move project documents (CONTEXT, ARCHITECTURE, CONVENTIONS, ROADMAP, ROLES, TESTING, diagram) into `docs/`; unit tests use 15 s / 20 s timeouts ([REPO-01](docs/tasks/REPO-01.md))
+- Remove the unused `workspace.readFile` / `workspace.runCommand` RPC contracts ([QA-BREAK-FIX-A](docs/tasks/QA-BREAK-FIX-A.md))
 - Show workflow nodes as names and status labels, keep counters in the side panel, and animate queued activity dots with reduced-motion highlighting ([OWNER-FB1 P2](docs/tasks/OWNER-FB1.md))
 - Use Neon Gold as the default dark catalog theme and regenerate palette/catalog/startup data together; preserve existing theme selections ([OWNER-FB1 P4](docs/tasks/OWNER-FB1.md))
 - Refresh official pricing source URLs and record the 2026-10-04 seed audit; retain unconfirmed prices and document context-tier/time-limited caveats ([OWNER-FB1 P5](docs/tasks/OWNER-FB1.md))

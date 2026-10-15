@@ -185,8 +185,8 @@ Work order and QA verdict: `docs/tasks/OWNER-FB1.md`.
 - [x] **PSTUDIO-01** (C) PM clarifying questions with recommendations, `pipeline.autoClarify`, `pipeline.answerClarifications`, stage `clarifying`.
 - [x] **PSTUDIO-FIX1** (C) Accept a bare TaskSpec from the PM (integration regression from PSTUDIO-01).
 - [x] **PSTUDIO-02** (C) Pipeline Studio: removable full-screen black node view, live packets, ?/✓/✕, drag + saved layout, module panels, new request.
-- [ ] **REPO-01** (C) Move project docs into `docs/`, update every reference; `Start-IT-Studio.bat` one-click start from source.
-- [ ] **V1-QA** (A) Final v1 gate: full unit + integration + E2E + smoke + build, visual check, owner checklist `docs/qa/V1-owner-checklist.md`.
+- [x] **REPO-01** (C) Move project docs into `docs/`, update every reference; `Start-IT-Studio.bat` one-click start from source.
+- [x] **V1-QA** (A) *(passed 2026-10-15, `docs/qa/V1-report.md`; owner acceptance pending)* Final v1 gate: full unit + integration + E2E + smoke + build, visual check, owner checklist `docs/qa/V1-owner-checklist.md`.
 
 ## MOD — Sidecar feature modules *(D37; after v1 sign-off, before LLMPOOL)*
 

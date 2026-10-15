@@ -24,9 +24,10 @@
 ## 0. TL;DR for the next agent
 
 1. Read §3 (owner rules) and §2 (how work is done) — they are not written anywhere else.
-2. v1 is feature-complete and every milestone gate M1–M9 is signed off. The active work is **v1 hardening** (§4): adversarial test suites, their defect fixes, UX-02 and V1-POLISH-01.
-3. Then ask the owner before starting v2 (M10). The owner wants to try v1 first.
-4. Talk to the owner in **Vietnamese**; write every repo file in **English**.
+2. v1 is feature-complete, M1–M9 gates are signed off and **v1 hardening is done** (§4, V1-QA 2026-10-15). The owner is testing the build with `docs/qa/V1-owner-checklist.md`.
+3. Next, only after the owner's verdict: **MOD-01/02** (sidecar feature modules, D37) → **LLMPOOL-01/02** (key pool, D36) → ask before v2 (M10).
+4. Talk to the owner in **Vietnamese**; write repo files in **English**, except documents the owner personally uses (e.g. the owner checklist), which are Vietnamese.
+5. Project documents live in `docs/` since REPO-01; `AGENTS.md` and `CHANGELOG.md` stay at the root.
 
 ---
 
@@ -132,7 +133,7 @@ npx wdio run e2e/wdio.conf.ts --spec e2e/specs/<area>/<file>.spec.ts   # only th
 ## 3. Owner's working rules (agreed in chat — not written anywhere else)
 
 1. **Language:** chat with the owner in **Vietnamese**; every file in the repo is in **English**.
-2. **Autonomy:** work fully automatically. Ask the owner only for real decisions (product scope, money, credentials, anything irreversible). Record decisions in `CONTEXT.md` (next number: **D35**).
+2. **Autonomy:** work fully automatically. Ask the owner only for real decisions (product scope, money, credentials, anything irreversible). Record decisions in `docs/CONTEXT.md` (next number: **D38**).
 3. **Delegate:** "Giao việc cho codex, đừng làm hết". The Architect specifies, coordinates and verifies; Codex writes code and tests. Use several Codex jobs in parallel when scopes are disjoint.
 4. **Lean QA** as in §2.3: no repeated full suites, no full E2E runs unless needed.
 5. **6-attempt rule:** if the same error survives 6 fix attempts, stop fixing it. Skip it, record it in the QA report and the ROADMAP backlog, report it to the owner, and move on (or stop the session if blocked).
@@ -146,21 +147,21 @@ npx wdio run e2e/wdio.conf.ts --spec e2e/specs/<area>/<file>.spec.ts   # only th
 
 ---
 
-## 4. Current work: v1 hardening (2026-10-14)
+## 4. Current work (2026-10-15)
 
-The owner asked for a full check that tries every way to break the app (sync, conflicts, hostile input), with Codex executing and Claude deciding.
+v1 hardening is complete and V1-QA passed (`docs/qa/V1-report.md`). Landed today: PSTUDIO-01/FIX1/02 (clarifying step + Pipeline Studio, D35), QA-BREAK-01/02 (adversarial suites), UX-02, V1-POLISH-01, QA-BREAK-FIX-A/B (all 12 suite defects fixed, no `it.fails` left), REPO-01 (docs moved into `docs/`, `Start-IT-Studio.bat`, unit test timeouts).
 
-| Task | State | Notes |
+| Next | State | Notes |
 |---|---|---|
-| `QA-BREAK-01` | Codex fix round 1 | Protocol, hostile input, security boundaries. First QA run: 15 pass, 7 fail; triage in the task file (`## QA (Claude) — round 1`). Found so far: `workspace.readFile` / `workspace.runCommand` are declared in the contracts but have no sidecar handler (S4 contract debt). |
-| `QA-BREAK-02` | Codex fix round 1 | Concurrency, crash durability, corrupt state, v0.1.0 upgrade, UI races. Round 0 was rejected (22/25 cases skipped). |
-| `QA-BREAK-FIX` | not created | One fix task for the product defects confirmed by the two suites. |
-| `UX-02` | ready | Pipeline pre-flight; scope widened to orchestrator wiring. |
-| `V1-POLISH-01` | ready | M9-OBS-02/03/05/06, clear-override-after-restart, smoke median, deterministic icon build. |
+| Owner acceptance | waiting | `docs/qa/V1-owner-checklist.md` (Vietnamese). Fix reported issues before anything else. |
+| `MOD-01`, `MOD-02` | spec ready | Move-only refactor of `apps/sidecar/src` into `kernel/` + `modules/<feature>/` (D37). |
+| `LLMPOOL-01/02` | spec ready | Key pool add-on (D36); paths adapt to the MOD layout. `LLMPOOL-03` (HTTP gateway) only on owner request. |
 
-QA runs the adversarial suites outside the sandbox: `npx vitest run --config vitest.integration.config.ts apps/sidecar/test/integration/break-`. Defects stay as `it.fails('QA-BREAK-0x-Dnn …')` until `QA-BREAK-FIX` turns them into passing tests.
-
-After hardening: full `npm run test:all`, rebuild installers (`npm run build:app`, `npm run smoke:install`), then ask the owner before v2. V3 Doc Debt `DD-V3-01` / question `Q-09` remains undecided.
+QA lessons from 2026-10-15:
+- Always run the **integration** suite for sidecar changes (PSTUDIO-01 broke 10 pipeline cases that unit tests did not catch).
+- Never run gates while a Codex run is active: CPU contention produced random timeouts (fixed partly by REPO-01's 15 s unit timeout).
+- E2E (`e2e/wdio.conf.ts`) rebuilds the debug app **only if the exe is missing**; delete `apps/desktop/src-tauri/target/debug/itstudio-desktop.exe` before E2E after frontend changes (a stale exe produced 12/14 false failures). Follow-up: rebuild when sources are newer.
+- Codex's sandbox cannot run `git mv`/other git writes in a worktree; the Architect performs file moves, Codex updates references.
 
 ## 5. Follow-ups and resolved QA tooling
 

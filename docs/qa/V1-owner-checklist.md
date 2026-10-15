@@ -9,6 +9,12 @@ Cách dùng:
 - Đúng thì đổi `[ ]` thành `[x]`.
 - Sai thì ghi ngay bên dưới bài đó: *đã làm gì, thấy gì*. Có ảnh chụp càng tốt.
 
+**File cài đặt:** `apps\desktop\src-tauri	argeteleaseundle
+sis\IT Studio_0.1.0_x64-setup.exe` (trong thư mục project, build ngày 15/10/2026).
+Muốn chạy thẳng từ mã nguồn thay vì cài: bấm đúp `Start-IT-Studio.bat` ở thư mục gốc của project.
+
+Máy đã tự kiểm tra trước khi giao: 1.277 bài unit, 162 bài integration, 14 bài E2E (mở app thật và tự bấm), thử cài/gỡ bản cài. Tất cả đều đạt.
+
 Cần chuẩn bị:
 - API key của **2 hãng AI khác nhau** (ví dụ OpenAI và Google).
 - Một thư mục trống trên máy để làm project thử.
@@ -19,7 +25,7 @@ Cần chuẩn bị:
 ## A. Cài và mở app
 
 - [ ] **A1. Cài app**
-  - Làm: chạy file cài đặt tôi gửi. Nếu Windows hiện cảnh báo màu xanh, bấm *More info* rồi *Run anyway* (app chưa có chữ ký số, chuyện bình thường).
+  - Làm: chạy file cài đặt ở đường dẫn trên. Nếu Windows hiện cảnh báo màu xanh, bấm *More info* rồi *Run anyway* (app chưa có chữ ký số, chuyện bình thường).
   - Phải thấy: cài xong, trong menu Start có "IT Studio".
 
 - [ ] **A2. Mở app**
@@ -172,4 +178,4 @@ Cần chuẩn bị:
 - Người kiểm tra: ____________ Ngày: ____________
 - Kết luận (chọn một): **Đạt** / **Đạt nhưng cần sửa thêm** / **Chưa đạt**
 
-<!-- Phần dành cho QA (V1-QA điền): bản build, SHA-256, commit, kết quả test tự động. -->
+<!-- QA: commit 50cbd1a, NSIS SHA-256 c692db41b95ba88024044e380c331cc14059cbe20bcda5bec389d5c2226fb15f, chi tiết trong docs/qa/V1-report.md -->
