@@ -238,7 +238,13 @@ describe('chat integration', () => {
   });
 
   it('TC-M2-051 sanitizes provider error details before they reach chat.failed', async () => {
-    const h = await setup({ 'google/gemini-3.8-flash': ['http:503'] });
+    const h = await setup({
+      'google/gemini-3.8-flash': ['http:503'],
+      // Auto also appends enabled chat models from these keyed providers.
+      'google/gemini-3.1-pro-preview': ['http:503'],
+      'groq/llama-3.3-70b-versatile': ['http:503'],
+      'groq/llama-3.1-8b-instant': ['http:503'],
+    });
     const fakeProviderErrorKey = ['sk', 'fake', 'provider', 'error', 'body'].join('-');
     const settings = appSettingsSchema.parse((await h.sidecar.call('settings.get')).result);
     await h.sidecar.call('router.updateConfig', {

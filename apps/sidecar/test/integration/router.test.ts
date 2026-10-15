@@ -175,6 +175,9 @@ describe('router integration', () => {
     const h = await setup({
       [hModel('google/gemini-3.8-flash')]: ['http:503:0', 'http:503:0', 'http:503:0'],
       [hModel('groq/llama-3.3-70b-versatile')]: ['http:503:0', 'http:503:0', 'http:503:0'],
+      // Auto also appends enabled chat models from these keyed providers.
+      [hModel('google/gemini-3.1-pro-preview')]: ['http:503:0'],
+      [hModel('groq/llama-3.1-8b-instant')]: ['http:503:0'],
     });
     const config = { ...h.config, ladder: h.config.ladder.map((entry) => ({ ...entry, maxRetries: 2 })) };
     await h.sidecar.call('router.updateConfig', { config });
