@@ -6,7 +6,7 @@ Milestone: M1 · Depends on: M1-QA · Role: Implementer (ROLES §1.3) · **Deps 
 Test code is held to the same strict TypeScript standard as product code, and the M1 E2E specs actually run against the real Tauri app.
 
 ## Read first
-- `AGENTS.md`, `TESTING.md` §1–§2 (E2E drivers), `docs/qa/M1-test-cases.md`, `docs/tasks/M1-QA.md` (QA sign-off notes)
+- `AGENTS.md`, `../TESTING.md` §1–§2 (E2E drivers), `docs/qa/M1-test-cases.md`, `docs/tasks/M1-QA.md` (QA sign-off notes)
 
 ## Scope
 - `apps/sidecar/test/**`, `e2e/**`, root `package.json` (scripts only)

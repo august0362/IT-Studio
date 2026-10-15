@@ -54,13 +54,13 @@
 | L4 E2E (real Tauri app, WebView2 154) | **8/8** — TC-M1-001, 004, 006, 007, 030, 035, 040, 041 |
 | Exploratory (manual probe + system test) | 13/13 black-box cases + 3 system cases ✔ |
 | Coverage | 88.3 % statements · 74.3 % branches · 87.7 % functions · 91.1 % lines — all gates met |
-| Mutation (StrykerJS) | not run (report-only until M6, TESTING.md §4) |
+| Mutation (StrykerJS) | not run (report-only until M6, ../TESTING.md §4) |
 
 ## Defect summary
 
 5 defects found by the gate: **BUG-M1-004 (S1)** and **BUG-M1-005 (S3)** were real product defects missed by unit tests; BUG-M1-001 / -003 test & observability defects; BUG-M1-002 (S4) deferred improvement. All S1–S3 fixed and verified. No open S1/S2.
 
-## Exit criteria (TESTING.md §7)
+## Exit criteria (../TESTING.md §7)
 
 - [x] 100 % P1 cases pass · [x] ≥ 95 % P2 pass · [x] no open S1/S2 · [x] coverage gates · [x] traceability matrix complete · [x] report committed
 

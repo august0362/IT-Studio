@@ -1,6 +1,6 @@
 # M9-FIX4 — Separate the chunker speed check from instrumented mutation runs
 
-Milestone: M9 · Depends on: M9-QA mutation gate · Roles: Architect, Implementer, QA/Reviewer (ROLES.md §§1.1–1.3)
+Milestone: M9 · Depends on: M9-QA mutation gate · Roles: Architect, Implementer, QA/Reviewer (../ROLES.md §§1.1–1.3)
 
 ## Goal
 
@@ -8,7 +8,7 @@ Run the required Stryker mutation check over `apps/sidecar/src/domain/**` while 
 
 ## Read first
 
-- `AGENTS.md`, `CONTEXT.md`, `CONVENTIONS.md` §10, `TESTING.md` §4, `docs/tasks/M9-QA.md`.
+- `AGENTS.md`, `../CONTEXT.md`, `../CONVENTIONS.md` §10, `../TESTING.md` §4, `docs/tasks/M9-QA.md`.
 - `apps/sidecar/src/domain/chunker.test.ts` and `stryker.config.mjs`.
 
 ## Scope — files you may create/modify

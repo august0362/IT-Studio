@@ -58,7 +58,7 @@ modules/<name>/
 
 - `apps/sidecar/src/**` for: creating `kernel/` and moving the shared folders into it; modules **cost, knowledge, images, vscode, web-chat, workflow** (their RPC registration moves to `rpc.ts`, `container.ts` calls `create…Module` + `register…Rpc`).
 - `eslint.config.js` (boundaries config only), `apps/sidecar/tsconfig*.json` / `vitest.config.ts` include globs only if paths require it, `scripts/build/**` only if a bundling entry path changes (SEA/esbuild entry stays `main.ts`).
-- `docs/ARCHITECTURE.md`: **no** — the Architect updates it at QA.
+- `../ARCHITECTURE.md`: **no** — the Architect updates it at QA.
 - This task file (`## Result`).
 
 ## Tests / verification

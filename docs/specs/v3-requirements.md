@@ -1,7 +1,7 @@
 # v3 Software Requirements Specification — Agentless Infrastructure Management (M15–M19)
 
 > Structure follows ISO/IEC/IEEE 29148 (SRS). Owner: Architect (Claude). Status: **Baseline 1.0 — 2026-10-04**, approved scope = CONTEXT D24–D30, ADR-0004.
-> Binding inputs: `CONTEXT.md` §3, `ARCHITECTURE.md` Part III (§18–§24), `schemas.ts` §17.
+> Binding inputs: `../CONTEXT.md` §3, `../ARCHITECTURE.md` Part III (§18–§24), `schemas.ts` §17.
 > This document adds numbered requirements, exact contracts, data model, state machines, error codes, non-functional targets and traceability. Task files (`docs/tasks/M1x-*.md`) cite requirement IDs (`FR-SV-04`).
 > Delivery plan: `docs/plans/v2-v3-delivery-plan.md`.
 

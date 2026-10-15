@@ -6,7 +6,7 @@ Role: Implementer (ROLES §1.3) · **Deps pre-installed** · Found in the QA E2E
 `PreparedWriteTransaction.commit()` writes `<target>.itstudio-tmp` and renames it without creating the parent directory. Any `create` (or `rename` destination) inside a directory that does not exist yet fails → whole transaction rolled back → pipeline ROLLED_BACK. QA reproduction with `NodeFileSystem`: `create src/new/deep.txt` in an empty workspace → `prepare` ok, `commit` → `INTERNAL`, file absent. Masked so far because (a) the integration fixture pre-creates `src/`, (b) `MemoryFileSystem` silently creates missing parents.
 
 ## Read first
-- `AGENTS.md`, `ARCHITECTURE.md` §9.2–§9.4 (prepare / commit / rollback / crash recovery, byte-identical rollback), `apps/sidecar/src/services/{write-transaction,journal-recovery}.ts`, `apps/sidecar/src/infra/{memory-file-system,node-file-system}.ts`, `ports/file-system.ts`
+- `AGENTS.md`, `../ARCHITECTURE.md` §9.2–§9.4 (prepare / commit / rollback / crash recovery, byte-identical rollback), `apps/sidecar/src/services/{write-transaction,journal-recovery}.ts`, `apps/sidecar/src/infra/{memory-file-system,node-file-system}.ts`, `ports/file-system.ts`
 
 ## Scope
 - `apps/sidecar/src/services/write-transaction.ts` (+ test), `apps/sidecar/src/services/journal-recovery.ts` (+ test, only if the manifest format changes), `apps/sidecar/src/infra/memory-file-system.ts` (+ test), `apps/sidecar/src/infra/__contract__/**` (file-system contract), `apps/sidecar/test/integration/pipeline.test.ts` (one new case)

@@ -1,6 +1,6 @@
 # M7 — Test Case Specification (VS Code bridge, companion extension, launcher)
 
-> QA gate `M7-QA` · Author: QA (Claude) · 2026-10-02 · Strategy: `TESTING.md`
+> QA gate `M7-QA` · Author: QA (Claude) · 2026-10-02 · Strategy: `../TESTING.md`
 > Scope: M7-01…M7-05. Levels: **L1/L2** unit (extension logic with fake `EditorPort`, launcher with fake runner) · **L3** real sidecar + real WebSocket client acting as the extension (no VS Code) · **L4** `@vscode/test-electron` (downloads a VS Code build and **opens a window**) + manual check on the user's VS Code — both in the batched E2E session, with the user's permission.
 > Status: **exists** / **new**.
 

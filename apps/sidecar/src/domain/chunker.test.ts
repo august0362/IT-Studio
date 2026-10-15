@@ -119,6 +119,5 @@ describe('chunkDocument', () => {
       expect(chunk(source).length).toBeGreaterThan(1000);
       expect(performance.now() - start).toBeLessThan(1000);
     },
-    5000,
   );
 });

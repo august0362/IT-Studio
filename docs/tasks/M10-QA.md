@@ -1,7 +1,7 @@
 # M10-QA — Milestone QA gate: Agent Orchestrator
 
 Milestone: M10 · Depends on: M10-01…M10-09 · Roles: QA (Claude) designs + executes, Implementer (Codex) automates · Size M
-Process: TESTING.md §7 (lean routine, HANDOFF §2.3).
+Process: ../TESTING.md §7 (lean routine, HANDOFF §2.3).
 
 ## Step 1 — QA writes `docs/qa/M10-test-cases.md`
 Cover every M10 exit criterion and every FR-AG requirement (traceability matrix). Planned cases (IDs may be refined):

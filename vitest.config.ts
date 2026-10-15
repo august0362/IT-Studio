@@ -2,11 +2,11 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    projects: [
-      './apps/sidecar/vitest.config.ts',
-      './apps/desktop/vitest.config.ts',
-      './apps/vscode-ext/vitest.config.ts',
-    ],
+    projects: ['sidecar', 'desktop', 'vscode-ext'].map((name) => ({
+      extends: `./apps/${name}/vitest.config.ts`,
+      root: `./apps/${name}`,
+      test: { name, testTimeout: 15_000, hookTimeout: 20_000 },
+    })),
     coverage: {
       provider: 'v8',
       include: ['apps/*/src/**/*.{ts,tsx}'],

@@ -7,7 +7,7 @@ When the desktop process dies without sending `system.shutdown` (crash, kill, We
 Repro: E2E `shell.spec.ts` (creates + activates a project) followed by `shutdown.spec.ts` → orphan `node …sidecar/src/main.ts` with a dead parent survives until the run ends; `TC-M1-006` then fails because `sidecarPid()` picks the orphan.
 
 ## Read first
-- `AGENTS.md`, `ARCHITECTURE.md` §2.3 (supervision / shutdown), `apps/sidecar/src/{main,container}.ts`, `rpc/line-transport.ts`, `services/system-service.ts`, `e2e/helpers/ui.ts`, `e2e/specs/m1/shutdown.spec.ts`
+- `AGENTS.md`, `../ARCHITECTURE.md` §2.3 (supervision / shutdown), `apps/sidecar/src/{main,container}.ts`, `rpc/line-transport.ts`, `services/system-service.ts`, `e2e/helpers/ui.ts`, `e2e/specs/m1/shutdown.spec.ts`
 
 ## Scope
 - `apps/sidecar/src/rpc/line-transport.ts` (+ test)

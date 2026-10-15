@@ -10,7 +10,7 @@ Discovery sessions established the product scope and the operating model: Claude
 
 ## Decision
 
-Adopt decisions **D1–D16** exactly as listed in `CONTEXT.md` §3. Highlights:
+Adopt decisions **D1–D16** exactly as listed in `../CONTEXT.md` §3. Highlights:
 
 - Node sidecar holds all logic; Tauri relays JSON-RPC over stdio (D1).
 - Keychain-only secrets (D2).

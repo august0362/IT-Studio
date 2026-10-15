@@ -20,7 +20,7 @@
     "lint": "eslint . --max-warnings 0 && prettier --check . --log-level warn && node scripts/scan-secrets.mjs",
     "lint:selftest": "node scripts/lint-fixtures/selftest.mjs",
     "pretest": "npm run lint:selftest",
-    "test": "vitest run --project sidecar --project desktop --project vscode-ext && node --test scripts/release/*.test.mjs scripts/build/*.test.mjs",
+    "test": "vitest run --project sidecar --project desktop --project vscode-ext && node --test scripts/release/*.test.mjs scripts/build/*.test.mjs scripts/dev/*.test.mjs",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:vscode-e2e": "npm --cache .npm-cache run build -w itstudio-vscode && node apps/vscode-ext/test/e2e/run.mjs",
     "test:e2e": "node e2e/run-e2e.mjs",

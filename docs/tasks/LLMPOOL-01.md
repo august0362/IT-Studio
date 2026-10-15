@@ -10,7 +10,7 @@ A self-contained module `apps/sidecar/src/modules/llm-pool/` that manages severa
 
 **Test cases:** implement every **auto** case TC-LP-001…067 (layers U/R/I) from `docs/qa/LLMPOOL-test-cases.md`, case ID first in the test name.
 
-`AGENTS.md`, `CONVENTIONS.md`, `CONTEXT.md` D4, D7, D15, D36, `ARCHITECTURE.md` §5 (router, fallback, circuit breaker), `apps/sidecar/src/services/llm-router.ts` (key lookup at `this.deps.secrets.get(model.provider)`), `apps/sidecar/src/ports/secret-store.ts`, `apps/sidecar/src/infra/keychain-secret-store.ts`, `apps/sidecar/src/infra/sqlite/**` (Drizzle setup to mirror), `apps/sidecar/src/container.ts`.
+`AGENTS.md`, `../CONVENTIONS.md`, `../CONTEXT.md` D4, D7, D15, D36, `../ARCHITECTURE.md` §5 (router, fallback, circuit breaker), `apps/sidecar/src/services/llm-router.ts` (key lookup at `this.deps.secrets.get(model.provider)`), `apps/sidecar/src/ports/secret-store.ts`, `apps/sidecar/src/infra/keychain-secret-store.ts`, `apps/sidecar/src/infra/sqlite/**` (Drizzle setup to mirror), `apps/sidecar/src/container.ts`.
 
 ## Scope — files you may create/modify
 

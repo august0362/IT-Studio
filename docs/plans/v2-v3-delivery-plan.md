@@ -1,7 +1,7 @@
 # v2 / v3 Delivery Plan (M10–M19)
 
 > Owner: Architect / PM (Claude). Baseline 1.0 — 2026-10-04. Scope: `docs/specs/v2-requirements.md`, `docs/specs/v3-requirements.md`.
-> Status of tasks lives in `ROADMAP.md`; this file holds the plan behind it: work breakdown, dependencies, sequencing, estimates, risks, gates. Update it when the plan changes (change log at the end).
+> Status of tasks lives in `../ROADMAP.md`; this file holds the plan behind it: work breakdown, dependencies, sequencing, estimates, risks, gates. Update it when the plan changes (change log at the end).
 > **Start condition:** the owner has finished trying v1 and gives the go-ahead (HANDOFF §3 rule 7). v1 in-flight items (M8-QA, MW-04, MW-QA, M9-QA) should land first.
 
 ---

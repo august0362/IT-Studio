@@ -1,6 +1,6 @@
 # M6 — Test Case Specification (pipeline: roles, worker writes, rollback, Code tab)
 
-> QA gate `M6-QA` · Author: QA (Claude) · 2026-10-02 · Strategy: `TESTING.md`
+> QA gate `M6-QA` · Author: QA (Claude) · 2026-10-02 · Strategy: `../TESTING.md`
 > Scope: M6-01…M6-08. Levels: **L1/L2** unit · **L3** real sidecar, scripted role replies (`ITSTUDIO_E2E_LLM_TEXT` / script fixtures), real file system in a temp workspace, real child processes for validation commands (`node` scripts only) · **L4** Code tab — batched E2E session (QA).
 > Status: **exists** / **new** / **defect** (product fix required).
 
@@ -70,7 +70,7 @@ Coder output proposes writes to each path below; every one must be rejected **be
 
 | ID | Case | Expected | Level | Pri | Status |
 |---|---|---|---|---|---|
-| TC-M6-060 | File content / CONVENTIONS.md containing `</CONTEXT>` (upper/mixed case) | neutralised in every `<context>` block | L1 | P1 | **defect**: `domain/template.ts` replaces only lowercase `</context>` — fix to case-insensitive and test `</CONTEXT>`, `</Context >`, `</context\n>` |
+| TC-M6-060 | File content / ../CONVENTIONS.md containing `</CONTEXT>` (upper/mixed case) | neutralised in every `<context>` block | L1 | P1 | **defect**: `domain/template.ts` replaces only lowercase `</context>` — fix to case-insensitive and test `</CONTEXT>`, `</Context >`, `</context\n>` |
 | TC-M6-061 | Reviewer verdict JSON smuggled in coder output | ignored; reviewer verdict only from reviewer call | L2 | P2 | new |
 
 ### 1.8 Code tab (L4 — batched E2E session)

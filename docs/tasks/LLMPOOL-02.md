@@ -10,7 +10,7 @@ A React page in the app to manage the key pool and watch it live: add/remove key
 
 **Test cases:** implement every **auto** case TC-LP-100…107 from `docs/qa/LLMPOOL-test-cases.md`, case ID first in the test name.
 
-`AGENTS.md`, `CONVENTIONS.md`, `CONTEXT.md` D36, `src/types/schemas.ts` §LLM-POOL, `apps/desktop/src/features/settings/api-keys/**` (masked key + verify UX to mirror), `apps/desktop/src/shell/{AppShell,MainNav}.tsx`, shared UI primitives used by OWNER-FB1.
+`AGENTS.md`, `../CONVENTIONS.md`, `../CONTEXT.md` D36, `src/types/schemas.ts` §LLM-POOL, `apps/desktop/src/features/settings/api-keys/**` (masked key + verify UX to mirror), `apps/desktop/src/shell/{AppShell,MainNav}.tsx`, shared UI primitives used by OWNER-FB1.
 
 ## Scope
 

@@ -5,7 +5,7 @@
  *   React UI  <—JSON-RPC/Tauri—>  Node Sidecar  <—WebSocket—>  VS Code Extension
  *   Node Sidecar  <—HTTPS—>  LLM / Embedding / Image providers
  *
- * Governance (see CONVENTIONS.md §2, ARCHITECTURE.md §1):
+ * Governance (see docs/CONVENTIONS.md §2, docs/ARCHITECTURE.md §1):
  *  - Owned by the Architect role (Claude). Codex MUST NOT change existing shapes without an ADR in docs/decisions/.
  *    Additive changes (new optional field, new union member) are allowed when a task spec says so.
  *  - Zero `any`. Unknown data is `JsonValue` or `unknown` + runtime validation (zod schemas mirror these types).
@@ -242,7 +242,7 @@ export interface ToolDeclaration {
   readonly name: ToolName;
   readonly description: string;
   readonly parameters: Extract<ToolParameterSchema, { type: 'object' }>;
-  /** Deferred tools are declared but rejected at dispatch while `enabled` is false (see ARCHITECTURE.md §10). */
+  /** Deferred tools are declared but rejected at dispatch while `enabled` is false (see docs/ARCHITECTURE.md §10). */
   readonly enabled: boolean;
 }
 
@@ -331,7 +331,7 @@ export const FailureKind = {
 } as const;
 export type FailureKind = (typeof FailureKind)[keyof typeof FailureKind];
 
-/** Failure kinds that trigger fallback. AUTH/BAD_REQUEST/CONTENT_FILTERED do not (see ARCHITECTURE.md §5.3). */
+/** Failure kinds that trigger fallback. AUTH/BAD_REQUEST/CONTENT_FILTERED do not (see docs/ARCHITECTURE.md §5.3). */
 export const FALLBACK_TRIGGERS: readonly FailureKind[] = [
   FailureKind.RATE_LIMITED,
   FailureKind.QUOTA_EXHAUSTED,
@@ -1359,7 +1359,7 @@ export interface ThemeCatalog {
 }
 
 /* ============================================================================
- * §12b. WORKFLOW MAP (v1 addendum — milestone MW; ARCHITECTURE.md §13.1, D32)
+ * §12b. WORKFLOW MAP (v1 addendum — milestone MW; docs/ARCHITECTURE.md §13.1, D32)
  * Types only; RPC methods `workflow.graph`, `workflow.activity` and the notification
  * `workflow.activity` are added together with their validators by MW-01.
  * ========================================================================== */
@@ -1489,7 +1489,7 @@ export interface ImageAsset {
 }
 
 /* ============================================================================
- * §14. AGENTS (v2 — M10; ARCHITECTURE.md §15). Types only; RPC methods are added by M10 tasks.
+ * §14. AGENTS (v2 — M10; docs/ARCHITECTURE.md §15). Types only; RPC methods are added by M10 tasks.
  * ========================================================================== */
 
 export type AgentId = Brand<string, 'AgentId'>;
@@ -1585,7 +1585,7 @@ export interface AgentRun {
 }
 
 /* ============================================================================
- * §15. AGENT MEMORY (v2 — M11; ARCHITECTURE.md §16). Vectors in LanceDB; metadata in SQLite.
+ * §15. AGENT MEMORY (v2 — M11; docs/ARCHITECTURE.md §16). Vectors in LanceDB; metadata in SQLite.
  * ========================================================================== */
 
 export type MemoryId = Brand<string, 'MemoryId'>;
@@ -1628,7 +1628,7 @@ export interface MemoryRecallHit {
 }
 
 /* ============================================================================
- * §16. CHANNELS & OUTBOX (v2 — M12–M14; ARCHITECTURE.md §17)
+ * §16. CHANNELS & OUTBOX (v2 — M12–M14; docs/ARCHITECTURE.md §17)
  * ========================================================================== */
 
 export type ChannelAccountId = Brand<string, 'ChannelAccountId'>;
@@ -1717,7 +1717,7 @@ export interface OutboxItem {
 }
 
 /* ============================================================================
- * §17. INFRASTRUCTURE / SERVERS (v3 — M15–M19; ARCHITECTURE.md Part III §18–§22)
+ * §17. INFRASTRUCTURE / SERVERS (v3 — M15–M19; docs/ARCHITECTURE.md Part III §18–§22)
  * Types only; `AppSettings.monitoring` and `server.*` / `docker.*` / `sftp.*` RPC methods are added by M15 tasks.
  * ========================================================================== */
 

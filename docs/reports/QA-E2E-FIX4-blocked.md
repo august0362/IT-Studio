@@ -11,7 +11,7 @@ Date: 2026-10-11 · Status: Reopened by owner for a distinct harness approach
 
 ## Impact
 
-The historical M4–M6 sign-offs are conditional. TESTING.md §7 requires 100% P1 and at least 95% P2 pass, so M9-QA cannot claim the full prior-milestone L4 regression gate while required cases remain unverified. No further repair attempt has been made in this task.
+The historical M4–M6 sign-offs are conditional. ../TESTING.md §7 requires 100% P1 and at least 95% P2 pass, so M9-QA cannot claim the full prior-milestone L4 regression gate while required cases remain unverified. No further repair attempt has been made in this task.
 
 ## Decision needed
 
@@ -46,7 +46,7 @@ All 15 enumerated historical cases passed. The old HANDOFF count of 13 remains a
 - Scoped Prettier, full `npm run typecheck`, full `npm run lint`, and `npm test` passed on the final source. Vitest reported 922 passed and 1 skipped; the Node build/release tests reported 6/6 passed.
 - `node --test scripts/dev/measure-startup.test.mjs` passed 5/5 focused cases. The real `node scripts/dev/measure-startup.mjs` completed five Ready measurements at 3307, 3453, 4211, 4687, and 3193 ms (median 3453 ms), exit code 0. The sidecar stdin pipe stayed open until Ready and the child closed cleanly.
 
-### TESTING.md §7 impact and follow-up
+### ../TESTING.md §7 impact and follow-up
 
 The historical M4–M6 L4 omissions are resolved and the full configured prior-milestone L4 regression passes, clearing that specific obstacle to the §7 P1/P2 gate. Milestone sign-off still requires QA to check the remaining §7 exit criteria, including the traceability matrix, coverage, defect status, exploratory session, and committed report.
 

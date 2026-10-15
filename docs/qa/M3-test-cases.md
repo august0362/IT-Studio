@@ -1,6 +1,6 @@
 # M3 — Test Case Specification (cost, ledger, pricing, FX, budget, P&L)
 
-> QA gate `M3-QA` · Author: QA (Claude) · 2026-10-02 · Strategy: `TESTING.md`
+> QA gate `M3-QA` · Author: QA (Claude) · 2026-10-02 · Strategy: `../TESTING.md`
 > Scope: M3-01…M3-07 plus the M3 contract additions made in M4 (`ledger.queryRows`, `revenue.listRows`, `budget.setUsd`, `pricing.getRows`, `pricing.overrideUsd`).
 > Levels: **L1/L2** = unit (vitest) · **L3** = real sidecar over stdio with `ITSTUDIO_E2E=1` scripted LLM / fake HTTP · **L4** = UI flows for these features belong to **M4-QA** (Cost & P&L tab, Settings → Pricing/FX/Budget).
 > Status column: **exists** = already automated (keep, rename ID if noted) · **new** = Codex automates in M3-QA.
@@ -75,7 +75,7 @@ Thresholds `warnAt = [0.5, 0.8, 1.0]`, monthly limit 1 000 000 µUSD.
 | TC-M3-050 | No update/delete path | repository exposes insert + query only; price change never rewrites rows | L2 (code review + test) | P1 | new |
 | TC-M3-051 | Pagination | 250 rows, `limit` 100 → 3 pages, no duplicates/gaps, stable order | L3 | P2 | new |
 
-## 2. White-box targets (TESTING.md §3)
+## 2. White-box targets (../TESTING.md §3)
 
 | Module | Gate | Measured 2026-10-02 (branches) | Action |
 |---|---|---|---|

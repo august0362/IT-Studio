@@ -1,7 +1,7 @@
 # v2 Software Requirements Specification — Multi-Agent & Omnichannel Hub (M10–M14)
 
 > Structure follows ISO/IEC/IEEE 29148 (SRS). Owner: Architect (Claude). Status: **Baseline 1.0 — 2026-10-04**, approved scope = CONTEXT D18–D23, ADR-0003.
-> Binding inputs: `CONTEXT.md` §3, `ARCHITECTURE.md` Part II (§15–§17), `ROLES.md` §2.8–§2.9, `schemas.ts` §14–§16.
+> Binding inputs: `../CONTEXT.md` §3, `../ARCHITECTURE.md` Part II (§15–§17), `../ROLES.md` §2.8–§2.9, `schemas.ts` §14–§16.
 > This document adds what those leave open: numbered requirements, exact interface contracts, data model, state machines, error codes, non-functional targets and traceability. Task files (`docs/tasks/M1x-*.md`) cite requirements by ID (`FR-AG-03`).
 > Delivery plan (WBS, dependencies, estimates, risks): `docs/plans/v2-v3-delivery-plan.md`.
 
@@ -25,7 +25,7 @@ Out of scope: supervisor/auto-delegating agents, background polling or scheduler
 | External parties (email senders, Page customers) | Correct, approved replies; privacy of their data |
 
 ### 1.4 Definitions
-See `CONTEXT.md` §5 (Agent, Agent Memory, Channel, Outbox). Additional: **Turn** = one `AgentRun`; **External trigger** = run whose input originated in `EXTERNAL_CHANNELS`; **Untrusted content** = any text from an external channel; **Command candidate** = inbound Gmail message passing D23 sender + prefix checks (DKIM evaluated separately).
+See `../CONTEXT.md` §5 (Agent, Agent Memory, Channel, Outbox). Additional: **Turn** = one `AgentRun`; **External trigger** = run whose input originated in `EXTERNAL_CHANNELS`; **Untrusted content** = any text from an external channel; **Command candidate** = inbound Gmail message passing D23 sender + prefix checks (DKIM evaluated separately).
 
 ### 1.5 Design decisions taken in this SRS (within approved scope; no ADR needed)
 | ID | Decision | Rationale |

@@ -2,7 +2,7 @@
 
 Date: 2026-10-14 · Platform: Windows x64 · Gate: `M9-QA` · Status: **SIGNED OFF** (2026-10-14; S3 observations moved to the v1 polish backlog)
 
-This report follows `docs/qa/M9-test-cases.md` and `TESTING.md` §§7–8. A branch build is implementation evidence only; final gate evidence must come from the merged source and the same installers used by install smoke. No M9 sign-off is recorded while a P1 case is pending.
+This report follows `docs/qa/M9-test-cases.md` and `../TESTING.md` §§7–8. A branch build is implementation evidence only; final gate evidence must come from the merged source and the same installers used by install smoke. No M9 sign-off is recorded while a P1 case is pending.
 
 ## Artifact provenance
 
@@ -67,7 +67,7 @@ Evidence screenshots: `project-validation.png`, `chat-sent.png`, `pipeline-no-ke
 
 ## Defects and sign-off
 
-Exit criteria (TESTING.md §7), checked 2026-10-14 after merging current `main` into `task/M9-QA`:
+Exit criteria (../TESTING.md §7), checked 2026-10-14 after merging current `main` into `task/M9-QA`:
 
 - [x] 100 % P1 pass — TC-M9-001…012, 014, 015 pass; TC-M9-003 passes with the recorded cold-start outlier (M9-OBS-04).
 - [x] ≥ 95 % P2 pass — TC-M9-013 passes.

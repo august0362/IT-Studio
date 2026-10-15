@@ -8,7 +8,7 @@ Make the existing StrykerJS 10 / Vitest 5 setup execute relevant sidecar tests a
 
 ## Read first
 
-- `AGENTS.md`, `CONTEXT.md`, `CONVENTIONS.md`, `TESTING.md` §4, `docs/qa/M6-report.md`, `docs/tasks/M6-QA.md`.
+- `AGENTS.md`, `../CONTEXT.md`, `../CONVENTIONS.md`, `../TESTING.md` §4, `docs/qa/M6-report.md`, `docs/tasks/M6-QA.md`.
 - `stryker.config.mjs`, `vitest.config.ts`, `package.json` (read-only), and the tests for `apps/sidecar/src/domain/template.ts`.
 
 ## Scope — files you may create/modify
@@ -57,4 +57,4 @@ Append `## Result` per AGENTS.md §3, including exact commands, counts, cause, f
 ## QA review (2026-10-11)
 
 - Reviewer: Verified the committed scope contains only this task file and `stryker.config.mjs`; generated `.stryker-tmp` is absent from the staged change. `git diff --check`, `npx prettier --write stryker.config.mjs`, `npm run typecheck`, `npm run lint`, and `npm test` passed in the clean main checkout with the task merge prepared. The unit gate reported 922 passed and 1 skipped, plus 6 passing Node build/release tests.
-- Verdict: Pass for the QA tooling repair. The measured 83.98% mutation score exceeds the 70% periodic target in TESTING.md §4; surviving mutants remain a separate test-quality follow-up, not a runner failure.
+- Verdict: Pass for the QA tooling repair. The measured 83.98% mutation score exceeds the 70% periodic target in ../TESTING.md §4; surviving mutants remain a separate test-quality follow-up, not a runner failure.

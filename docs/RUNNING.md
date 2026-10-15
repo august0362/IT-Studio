@@ -28,6 +28,24 @@ npm run package -w itstudio-vscode     # builds the companion extension (.vsix) 
 
 ## 2. Start the app
 
+Double-click `Start-IT-Studio.bat` at the repository root. It checks Node.js, npm and Rust, installs dependencies when `node_modules` is missing or its lockfile is older than `package-lock.json`, then starts the app. If a prerequisite or command fails, the window stays open with an error message. The launcher uses the repository-local `.npm-cache/`.
+
+From Windows Command Prompt, including a repository path with spaces:
+
+```bat
+"C:\path with spaces\IT Studio\Start-IT-Studio.bat"
+```
+
+To use a throw-away data folder:
+
+```bat
+Start-IT-Studio.bat --data-dir "%TEMP%\itstudio-try"
+```
+
+Without `--data-dir`, the launcher uses `ITSTUDIO_DATA_DIR` if already set, otherwise the normal app-data directory. Relative folder paths resolve from the repository root. This separates the database, vectors and logs; Windows Credential Manager remains shared.
+
+Or start manually:
+
 ```bash
 npm run dev
 ```
