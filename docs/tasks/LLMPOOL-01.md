@@ -8,6 +8,8 @@ A self-contained module `apps/sidecar/src/modules/llm-pool/` that manages severa
 
 ## Read first
 
+**Test cases:** implement every **auto** case TC-LP-001…067 (layers U/R/I) from `docs/qa/LLMPOOL-test-cases.md`, case ID first in the test name.
+
 `AGENTS.md`, `CONVENTIONS.md`, `CONTEXT.md` D4, D7, D15, D36, `ARCHITECTURE.md` §5 (router, fallback, circuit breaker), `apps/sidecar/src/services/llm-router.ts` (key lookup at `this.deps.secrets.get(model.provider)`), `apps/sidecar/src/ports/secret-store.ts`, `apps/sidecar/src/infra/keychain-secret-store.ts`, `apps/sidecar/src/infra/sqlite/**` (Drizzle setup to mirror), `apps/sidecar/src/container.ts`.
 
 ## Scope — files you may create/modify
@@ -79,6 +81,46 @@ export type PoolEvent =
 // notification map
 'llmPool.event': PoolEvent;
 ```
+
+## Module layout (create exactly these; names are binding)
+
+```text
+apps/sidecar/src/modules/llm-pool/
+├── index.ts                 # facade: createLlmPoolModule(deps) → { keyPool: IKeyPool, rpc: register(server), start(), stop() }
+├── types.ts                 # module-internal types (KeyRecord, UsageCounters, Clock-dependent helpers); public types come from @itstudio/schemas
+├── pool-machine.ts          # PURE state machine: (record, event, now) → record; no I/O
+├── pool-windows.ts          # PURE window math: dayKey(now, tz), monthKey, nextDayBoundary, nextMonthBoundary, rpm sliding window
+├── pool-selector.ts         # PURE selection: (records, strategy, now, exclude) → keyId | null
+├── account-pool-manager.ts  # in-memory state + reserve/release, limits, inFlight, event publishing, batched persistence
+├── pool-secrets.ts          # keychain adapter (service 'itstudio-llm-pool'), in-memory secret cache, masking
+├── storage/schema.ts        # Drizzle tables
+├── storage/migrations/      # drizzle-kit output for this module only
+├── storage/pool-repository.ts
+├── pool-rpc.ts              # registers llmPool.* handlers on the RPC server
+├── README.md
+└── *.test.ts                # unit tests next to each file
+```
+
+## Data model (`storage/schema.ts`)
+
+| Table | Columns |
+|---|---|
+| `llm_pool_keys` | `id` text PK, `provider` text, `label` text, `masked_key` text, `priority` int, `enabled` int (0/1), `state` text, `state_reason` text null, `cooldown_until` text null, `exhausted_until` text null, `consecutive_rate_limits` int default 0, `limits_json` text, `last_used_at` text null, `created_at` text |
+| `llm_pool_usage_daily` | PK (`key_id`, `day` `YYYY-MM-DD` local), `requests` int, `input_tokens` int, `output_tokens` int, `cost_micro_usd` int; FK → keys ON DELETE CASCADE |
+| `llm_pool_config` | single row `id = 1`, `config_json` text |
+
+Month totals = SUM over `day` in the current local month (computed on load, then maintained in memory).
+
+## Algorithms (binding)
+
+- **acquire(provider, exclude)** — synchronous: (1) lazily expire COOLDOWN/EXHAUSTED whose time has passed (→ ACTIVE, emit `state`); (2) candidates = enabled keys of `provider`, state ACTIVE, not in `exclude`, `inFlight < maxConcurrent` (if set), RPM window count `< maxRequestsPerMinute` (if set), today tokens `< maxTokensPerDay`, month cost `< maxMicroUsdPerMonth`; a key failing a token/USD limit is moved to EXHAUSTED with `exhaustedUntil` = matching window boundary; (3) pick with `pool-selector`; (4) `inFlight++`, push `now` into its RPM window, set `lastUsedAt`; (5) return `{ keyId, apiKey }` from the secret cache. Cache miss → return `null` for that key and trigger an async keychain load (the request uses the next candidate or the Settings key); load the whole cache at `start()` so this is rare.
+- **release(keyId, outcome)** — `inFlight--`; success: add usage/cost to today/month, reset `consecutive_rate_limits`, emit `usage` (throttled to ≤ 1 per key per second); failure → `pool-machine` event: `RATE_LIMITED` → COOLDOWN `until = now + (retryAfterMs ?? min(30 s × 2^(n-1), 15 min))`; `QUOTA_EXHAUSTED` → EXHAUSTED until next local midnight; `AUTH` → INVALID; `SERVER_ERROR`/`TIMEOUT` → no state change (model-level circuit handles it). Mark dirty for the batched writer.
+- **Router loop change** (inside the existing per-model attempt): `tried: PoolKeyId[] = []`; loop up to `maxKeysPerRequest`: `acquire(provider, tried)` → null ⇒ break to existing behaviour (Settings key if `useSettingsKeyAsFallback` and no pool key was usable, else current failure path); call provider; if failure ∈ {RATE_LIMITED, QUOTA_EXHAUSTED, AUTH} and no delta was streamed ⇒ `release(fail)`, push attempt, emit `rotated`, continue; else release and exit the loop with the result. `AUTH` from a pool key does **not** stop the ladder (it is key-specific); `AUTH` from the Settings key keeps today's behaviour.
+- **Windows** use the app's local timezone from the OS (`Intl.DateTimeFormat().resolvedOptions().timeZone`), computed with the injected clock; tests pin the clock and the timezone.
+
+## RPC errors
+
+`VALIDATION` for bad params / verify failure / duplicate label per provider; `NOT_FOUND` for unknown `id`; `CONFLICT` when removing a key with `inFlight > 0` (UI retries after in-flight completes); keychain failure → `INTERNAL` with safe message. Never echo the key.
 
 ## Requirements
 
