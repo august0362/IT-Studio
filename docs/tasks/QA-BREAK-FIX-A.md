@@ -29,6 +29,11 @@ Turn every sidecar `it.fails('QA-BREAK-0x-Dnn …')` in `apps/sidecar/test/integ
 | QA-BREAK-02-D07 | During a 500-query `rag.query` burst ping p95 must be < 200 ms: workflow activity recording/broadcast must not block the event loop (batch/coalesce activity events, e.g. flush at most every 100 ms, bounded queue). |
 | QA-BREAK-02-D08 | Concurrent `settings.update` patches lose fields: serialize updates (single-flight mutex / queue) and apply each patch to the latest persisted state (read-modify-write inside the lock). |
 
+## Flaky test
+
+| FLAKE-3 | `apps/sidecar/src/container.test.ts` "logs lifecycle events in order and creates the daily log file" fails under full-suite load (missing last lifecycle lines, then `EPERM` removing the temp dir); passes alone. Await the log flush deterministically (wait for the expected lines with a bounded poll instead of a fixed delay) and retry temp-dir removal (`fs.rm` with `maxRetries`). |
+|---|---|
+
 ## Acceptance criteria
 
 - [ ] All seven defects fixed; their tests are plain `it(...)` and pass; no other break or integration test regresses.

@@ -9,6 +9,7 @@ Turn every desktop `it.fails('QA-BREAK-02-Dnn …')` in `apps/desktop/src/featur
 ## Scope — files you may create/modify
 
 - `apps/desktop/src/features/{cost,chat,code}/**` (+ tests)
+- `apps/desktop/src/features/pipeline-studio/PipelineStudioPage.test.tsx` (FLAKE-2 only)
 - `apps/desktop/src/features/break-ui-races.test.tsx` — only `it.fails` → `it`
 - This task file (`## Result`)
 
@@ -20,6 +21,7 @@ Turn every desktop `it.fails('QA-BREAK-02-Dnn …')` in `apps/desktop/src/featur
 | QA-BREAK-02-D02 | ChatPage: switching project clears the selected conversation; the composer can never send with another project's conversation id. |
 | QA-BREAK-02-D03 | CodePage: switching project clears the selected run / preview (project-scoped selection). |
 | QA-BREAK-02-D04 | CodePage: an older `pipeline.get` response that resolves after a newer one must be ignored (request sequence number per run, or compare a monotonic stage order / `finishedAt`). |
+| FLAKE-2 | `pipeline-studio/PipelineStudioPage.test.tsx` "has a black fullscreen root and all module names…" times out at 5 s under full-suite load; passes alone. Pre-import the lazy module in `beforeAll` and use `findBy…` with an explicit ≥ 10 s timeout for the first render. |
 | FLAKE-1 | `ChatPage.test.tsx` "TC-MW-009 opens a conversation selected by a workflow deep link" fails under full-suite load (missing heading) and passes alone. Make it deterministic (await the data the heading depends on with `findBy…` and an explicit timeout ≥ 10 s; no global timeout change). |
 
 ## Acceptance criteria
