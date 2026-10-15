@@ -2,8 +2,8 @@ import type { AppError, ProjectId } from '@itstudio/schemas';
 import { useQueryClient } from '@tanstack/react-query';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ApiKeysPage } from '../features/settings/api-keys/ApiKeysPage';
-import { ThemePage } from '../features/settings/theme/ThemePage';
+import { SettingsPage } from '../features/settings/SettingsPage';
+import { isSettingsSectionRoute, readLastSettingsRoute } from '../features/settings/settings-sections';
 import { StatusBar } from '../components/StatusBar';
 import { useRpcQuery } from '../hooks/use-rpc-query';
 import { RpcCallError } from '../rpc/rpc-client';
@@ -14,19 +14,11 @@ import { MainNav, type ShellRoute } from './MainNav';
 import { NewProjectDialog } from './NewProjectDialog';
 import { ProjectTabs } from './ProjectTabs';
 import { ChatPage } from '../features/chat/ChatPage';
-import { RouterSettingsPage } from '../features/settings/router/RouterSettingsPage';
-import { BudgetSettingsPage } from '../features/settings/budget/BudgetSettingsPage';
-import { PricingSettingsPage } from '../features/settings/pricing/PricingSettingsPage';
-import { FxSettingsPage } from '../features/settings/fx/FxSettingsPage';
-import { VSCodeSettingsPage } from '../features/settings/vscode/VSCodeSettingsPage';
-import { PipelineSettingsPage } from '../features/settings/pipeline/PipelineSettingsPage';
 import { KnowledgePage } from '../features/knowledge/KnowledgePage';
-import { ImagesSettingsPage } from '../features/settings/images/ImagesSettingsPage';
 import { useNavigationIntent } from '../state/navigation-intent';
-import { ResolvedWebChatSettingsPage } from '../features/webchat/ResolvedWebChatSettingsPage';
 import { WebChatPage } from '../features/webchat/WebChatPage';
 import { createWebChatHost } from '../features/webchat/webchat-host';
-import { PIPELINE_STUDIO_ENABLED, PipelineStudioPage } from '../features/pipeline-studio';
+import { PIPELINE_STUDIO_ENABLED, PipelineStudioNavButton, PipelineStudioPage } from '../features/pipeline-studio';
 
 const CodePage = lazy(() => import('../features/code/CodePage').then(({ CodePage: page }) => ({ default: page })));
 const CostPage = lazy(() => import('../features/cost/CostPage').then(({ CostPage: page }) => ({ default: page })));
@@ -45,30 +37,11 @@ function asAppError(cause: unknown): AppError {
 function initialRoute(): ShellRoute {
   const hash = window.location.hash.slice(1);
   if (PIPELINE_STUDIO_ENABLED && hash === 'pipeline-studio') return 'pipeline-studio';
-  if (
-    [
-      'projects',
-      'chat',
-      'webchat',
-      'code',
-      'knowledge',
-      'workflow',
-      'gallery',
-      'cost',
-      'settings-api-keys',
-      'settings-theme',
-      'settings-router',
-      'settings-budget',
-      'settings-pricing',
-      'settings-fx',
-      'settings-vscode',
-      'settings-pipeline',
-      'settings-images',
-      'settings-web-chat',
-    ].includes(hash)
-  )
+  if (hash === 'settings') return readLastSettingsRoute();
+  if (isSettingsSectionRoute(hash)) return hash;
+  if (['projects', 'chat', 'webchat', 'code', 'knowledge', 'workflow', 'gallery', 'cost'].includes(hash))
     return hash as ShellRoute;
-  return 'settings-api-keys';
+  return readLastSettingsRoute();
 }
 
 export function AppShell(): JSX.Element {
@@ -132,7 +105,8 @@ export function AppShell(): JSX.Element {
       });
   }, [activeId, configuredActiveId, projects, projectsQuery.isSuccess, queryClient, rpc, settingsQuery.isSuccess]);
   const navigate = useCallback(
-    (next: ShellRoute): void => {
+    (target: ShellRoute): void => {
+      const next = target === 'settings' ? readLastSettingsRoute() : target;
       const revision = ++navigationRevision.current;
       const apply = (): void => {
         if (revision !== navigationRevision.current) return;
@@ -327,19 +301,26 @@ export function AppShell(): JSX.Element {
         />
       </Suspense>
     );
-  else if (route === 'settings-api-keys') content = <ApiKeysPage />;
-  else if (route === 'settings-theme') content = <ThemePage />;
-  else if (route === 'settings-router') content = <RouterSettingsPage />;
-  else if (route === 'settings-budget') content = <BudgetSettingsPage />;
-  else if (route === 'settings-pricing') content = <PricingSettingsPage projectActive={activeId !== null} />;
-  else if (route === 'settings-fx') content = <FxSettingsPage />;
-  else if (route === 'settings-vscode') content = <VSCodeSettingsPage />;
-  else if (route === 'settings-images') content = <ImagesSettingsPage />;
-  else if (route === 'settings-web-chat') content = <ResolvedWebChatSettingsPage />;
-  else content = <PipelineSettingsPage />;
+  else
+    content = (
+      <SettingsPage
+        section={isSettingsSectionRoute(route) ? route : readLastSettingsRoute()}
+        navigate={navigate}
+        projectActive={activeId !== null}
+        labs={
+          PIPELINE_STUDIO_ENABLED ? (
+            <PipelineStudioNavButton
+              onOpen={() => {
+                navigate('pipeline-studio');
+              }}
+            />
+          ) : null
+        }
+      />
+    );
 
   return (
-    <div className="flex min-h-screen flex-col bg-bg text-text">
+    <div className="flex h-screen flex-col bg-bg text-text">
       <div className="flex min-h-0 flex-1">
         <MainNav navigate={navigate} route={route} />
         <div className="flex min-w-0 flex-1 flex-col">
