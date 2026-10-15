@@ -30,7 +30,13 @@ export class FailureReportBuilder {
       typeof providerValue === 'string'
         ? Object.values(ProviderId).find((providerId) => providerId === providerValue)
         : undefined;
+    const strings = (value: unknown): readonly string[] | undefined =>
+      Array.isArray(value) && value.every((item): item is string => typeof item === 'string') ? value : undefined;
+    const missingProviders = strings(details?.missingProviders);
+    const suggestedModels = strings(details?.suggestedModels);
     const context = {
+      ...(missingProviders === undefined ? {} : { missingProviders }),
+      ...(suggestedModels === undefined ? {} : { suggestedModels }),
       ...(failedCommand ? { commandKind: failedCommand.spec.kind } : {}),
       ...(firstDiagnostic
         ? { firstDiagnostic: `${firstDiagnostic.path}:${String(firstDiagnostic.line)}: ${firstDiagnostic.message}` }

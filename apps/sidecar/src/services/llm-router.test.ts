@@ -117,6 +117,7 @@ class ScriptedProvider implements ILlmProvider {
 
 function setup(
   options: {
+    readonly descriptors?: readonly ModelDescriptor[];
     readonly first?: ILlmProvider;
     readonly second?: ILlmProvider;
     readonly maxRetries?: number;
@@ -135,7 +136,7 @@ function setup(
   const first = options.first ?? new FakeLlmProvider();
   const second = options.second ?? new ScriptedProvider(ProviderId.ANTHROPIC, []);
   const providers = new ProviderRegistry({ [ProviderId.OPENAI]: () => first, [ProviderId.ANTHROPIC]: () => second });
-  const models = new ModelRegistry(modelDescriptors, providers);
+  const models = new ModelRegistry(options.descriptors ?? modelDescriptors, providers);
   const secrets = new MemorySecretStore();
   void secrets.set(ProviderId.OPENAI, 'secret-a');
   void secrets.set(ProviderId.ANTHROPIC, 'secret-b');
@@ -192,6 +193,101 @@ function setup(
 }
 
 describe('LlmRouter', () => {
+  it.each(['no_api_key', 'missing_capability', 'disabled'] as const)(
+    'TC-UX2-router records %s without changing fallback',
+    async (skipReason) => {
+      const first = new ScriptedProvider(ProviderId.OPENAI, []);
+      const h = setup({
+        first,
+        descriptors: modelDescriptors.map((model) =>
+          model.key !== modelA
+            ? model
+            : {
+                ...model,
+                enabled: skipReason !== 'disabled',
+                capabilities: skipReason === 'missing_capability' ? [] : model.capabilities,
+              },
+        ),
+      });
+      if (skipReason === 'no_api_key') await h.secrets.delete(ProviderId.OPENAI);
+      const result = await h.router.dispatch(baseRequest);
+      expect(result.ok && result.value.modelKey).toBe(modelB);
+      expect(result.ok && result.value.attempts[0]).toMatchObject({
+        modelKey: modelA,
+        outcome: 'skipped',
+        failure: FailureKind.CAPABILITY_MISMATCH,
+        skipReason,
+      });
+      expect(first.calls).toHaveLength(0);
+    },
+  );
+
+  it('TC-UX2-router records a disabled ladder entry', async () => {
+    const h = setup({ disabledModelKey: modelA });
+    const result = await h.router.dispatch(baseRequest);
+    expect(result.ok && result.value.attempts[0]).toMatchObject({ modelKey: modelA, skipReason: 'disabled' });
+    expect(result.ok && result.value.modelKey).toBe(modelB);
+  });
+
+  it('TC-UX2-router groups unavailable models by reason and names usable alternatives', async () => {
+    const extra = modelKeySchema.parse('openai/model-c');
+    const base = modelDescriptors[0];
+    if (base === undefined) throw new Error('Missing descriptor');
+    const h = setup({
+      descriptors: [
+        ...modelDescriptors.map((model) => ({
+          ...model,
+          capabilities: [ModelCapability.CHAT, ModelCapability.JSON_MODE],
+        })),
+        { ...base, key: extra, providerModelId: 'model-c', displayName: 'C' },
+      ],
+    });
+    await h.secrets.delete(ProviderId.OPENAI);
+    const result = await h.router.dispatch({ ...baseRequest, ladderOverride: [modelA, extra] });
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: ErrorCode.LADDER_EXHAUSTED,
+        message: 'Every model in the ladder was unavailable. No API key: OpenAI (model-a, model-c).',
+        remediation: [
+          'Add an API key in Settings \u2192 API Keys for: OpenAI.',
+          'Or add a model from a provider you have a key for (Anthropic: B) to this role in Settings \u2192 Pipeline.',
+        ],
+      },
+    });
+  });
+
+  it('TC-UX2-router groups multiple providers without conflating missing keys and capabilities', async () => {
+    const h = setup();
+    await h.secrets.delete(ProviderId.OPENAI);
+    await h.secrets.delete(ProviderId.ANTHROPIC);
+    const result = await h.router.dispatch(baseRequest);
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        message: 'Every model in the ladder was unavailable. No API key: OpenAI (model-a), Anthropic (model-b).',
+        remediation: [
+          'Add an API key in Settings \u2192 API Keys for: OpenAI, Anthropic.',
+          'Or add a model from a provider you have a key for to this role in Settings \u2192 Pipeline.',
+        ],
+      },
+    });
+    const unavailable = setup({
+      descriptors: modelDescriptors.map((model) => ({
+        ...model,
+        enabled: model.key !== modelA,
+        capabilities: [],
+      })),
+    });
+    expect(await unavailable.router.dispatch(baseRequest)).toMatchObject({
+      ok: false,
+      error: {
+        message:
+          'Every model in the ladder was unavailable. Disabled: OpenAI (model-a); Missing required capability: Anthropic (model-b).',
+      },
+    });
+  });
+
   it('returns a configuration error before evaluating candidates', async () => {
     const first = new ScriptedProvider(ProviderId.OPENAI, []);
     const h = setup({ first, configFailure: true });
@@ -701,7 +797,10 @@ describe('LlmRouter', () => {
     });
     expect(result.ok && result.value.modelKey).toBe(modelB);
     expect(first.calls).toHaveLength(1);
-    expect(result.ok && result.value.attempts[0]?.failure).toBe(FailureKind.CIRCUIT_OPEN);
+    expect(result.ok && result.value.attempts[0]).toMatchObject({
+      failure: FailureKind.CIRCUIT_OPEN,
+      skipReason: 'circuit_open',
+    });
     expect(events).toContainEqual({ type: 'circuit', modelKey: modelA, status: 'open' });
     expect(events).toContainEqual({
       type: 'state',

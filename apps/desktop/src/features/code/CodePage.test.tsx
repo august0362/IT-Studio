@@ -1,4 +1,4 @@
-import { PipelineStage, type PipelineRun, type ClarificationQuestion } from '@itstudio/schemas';
+import { PipelineStage, type PipelineRun, type ClarificationQuestion, type AppError } from '@itstudio/schemas';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -14,6 +14,7 @@ vi.mock('@monaco-editor/react', () => ({ Editor: () => null, DiffEditor: () => n
 
 afterEach(() => {
   cleanup();
+  window.history.replaceState(null, '', '#code');
   useNavigationIntent.getState().clearIntent();
   vi.restoreAllMocks();
   void i18n.changeLanguage('en');
@@ -46,7 +47,12 @@ function pipeline(stage: PipelineRun['stage']): PipelineRun {
   };
 }
 
-function setup(stage: PipelineRun['stage'], withRun = false, clarifications?: readonly ClarificationQuestion[]) {
+function setup(
+  stage: PipelineRun['stage'],
+  withRun = false,
+  clarifications?: readonly ClarificationQuestion[],
+  startError?: AppError,
+) {
   const transport = new FakeTransport();
   transport.setStatus({ running: true, ready: true, restarts: 0 });
   let startingRun = { ...pipeline(stage), ...(clarifications === undefined ? {} : { clarifications }) };
@@ -54,6 +60,16 @@ function setup(stage: PipelineRun['stage'], withRun = false, clarifications?: re
     transport.sent.push(line);
     const request = JSON.parse(line) as { readonly id?: number; readonly method?: string };
     if (request.id === undefined || request.method === undefined) return Promise.resolve();
+    if (request.method === 'pipeline.start' && startError !== undefined) {
+      transport.receive(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: request.id,
+          error: { code: -32000, message: startError.message, data: startError },
+        }),
+      );
+      return Promise.resolve();
+    }
     if (request.method === 'pipeline.answerClarifications')
       startingRun = {
         ...startingRun,
@@ -125,6 +141,25 @@ describe('CodePage', () => {
     expect(screen.getByText('Completed — done')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Cancel run' })).not.toBeInTheDocument();
   });
+
+  it('TC-UX2-ui displays preflight validation and remediation with Pipeline settings navigation', async () => {
+    const error: AppError = {
+      code: 'VALIDATION',
+      message: 'No usable model for pipeline role(s): pm, reviewer.',
+      retryable: false,
+      remediation: ['Add an API key for Anthropic.', 'Or add Google: Gemini in Settings \u2192 Pipeline.'],
+    };
+    setup(PipelineStage.SPECIFYING, false, undefined, error);
+    fireEvent.change(screen.getByLabelText('What should we build?'), { target: { value: 'Build a sample' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Run pipeline' }));
+    const panel = await screen.findByRole('alert');
+    expect(panel).toHaveTextContent(error.message);
+    expect(panel).toHaveTextContent('VALIDATION');
+    for (const step of error.remediation ?? []) expect(panel).toHaveTextContent(step);
+    fireEvent.click(screen.getByRole('button', { name: 'Open Settings \u2192 Pipeline' }));
+    expect(window.location.hash).toBe('#settings-pipeline');
+  });
+
   it('PSTUDIO-01 renders waiting questions before Spec, submits answers, and refetches clarification events', async () => {
     const question: ClarificationQuestion = {
       id: 'storage',

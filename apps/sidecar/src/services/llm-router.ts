@@ -1,6 +1,7 @@
 import {
   ErrorCode,
   FailureKind,
+  ModelCapability,
   RouterState,
   type AppError,
   type FallbackDecision,
@@ -24,6 +25,7 @@ import type { ProviderRegistry } from '../providers/provider-registry.js';
 import type { ModelRegistry } from './model-registry.js';
 import type { IBudgetGuard } from '../ports/budget-guard.js';
 import type { EventBus, RpcEventBus } from '../rpc/event-bus.js';
+import { ladderFailureSummary, providerName, remediationFor } from '../domain/remediation.js';
 import { failureToAppError } from '../domain/failure.js';
 import { retryDelayMs } from '../domain/backoff.js';
 import { transition, type MachineContext, type MachineEffect, type MachineInput } from '../domain/router-machine.js';
@@ -73,6 +75,7 @@ interface Candidate {
   readonly modelKey: ModelKey;
   readonly maxRetries: number;
   readonly timeoutMs: number;
+  readonly enabled: boolean;
 }
 function defaultSleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -149,10 +152,16 @@ function makeCandidates(config: RouterConfig, request: LlmRequest): Candidate[] 
   const seen = new Set<ModelKey>();
   return ordered.flatMap((entry) => {
     const isPreferred = request.preferredModelKey === entry?.modelKey;
-    if (entry === undefined || seen.has(entry.modelKey) || (!request.ladderOverride && !entry.enabled && !isPreferred))
-      return [];
+    if (entry === undefined || seen.has(entry.modelKey)) return [];
     seen.add(entry.modelKey);
-    return [{ modelKey: entry.modelKey, maxRetries: entry.maxRetries, timeoutMs: entry.timeoutMs }];
+    return [
+      {
+        modelKey: entry.modelKey,
+        maxRetries: entry.maxRetries,
+        timeoutMs: entry.timeoutMs,
+        enabled: entry.enabled || isPreferred || request.ladderOverride !== undefined,
+      },
+    ];
   });
 }
 
@@ -190,9 +199,15 @@ export class LlmRouter {
           ? { eligible: false, reason: 'unknown_model' as const }
           : this.deps.models.eligibility(candidate.modelKey, request.requiredCapabilities, () => true);
       const circuitStatus = circuit.status(candidate.modelKey);
-      if (!health.eligible || circuitStatus === 'open') {
+      if (!candidate.enabled || !health.eligible || circuitStatus === 'open') {
         const reason = circuitStatus === 'open' ? FailureKind.CIRCUIT_OPEN : FailureKind.CAPABILITY_MISMATCH;
-        attempts.push(this.skipped(candidate.modelKey, reason));
+        const skipReason =
+          circuitStatus === 'open'
+            ? 'circuit_open'
+            : !candidate.enabled || health.reason === 'disabled'
+              ? 'disabled'
+              : 'missing_capability';
+        attempts.push(this.skipped(candidate.modelKey, reason, skipReason));
         seenSkipped.add(candidate.modelKey);
       } else eligible.push(candidate);
     }
@@ -313,7 +328,7 @@ export class LlmRouter {
           if (effect.outcome === 'failed' && effect.error !== undefined && terminalError === undefined) {
             terminalError =
               effect.error === ErrorCode.LADDER_EXHAUSTED
-                ? this.exhaustedError(attempts)
+                ? await this.exhaustedError(attempts)
                 : lastFailure === undefined
                   ? appError(effect.error, 'The request could not be completed.', [
                       'Review the request settings and try again.',
@@ -339,7 +354,7 @@ export class LlmRouter {
       const model = this.deps.models.get(modelKey);
       const circuit = this.circuit(config);
       if (model === undefined || !circuit.acquire(modelKey)) {
-        if (!seenSkipped.has(modelKey)) attempts.push(this.skipped(modelKey, FailureKind.CIRCUIT_OPEN));
+        if (!seenSkipped.has(modelKey)) attempts.push(this.skipped(modelKey, FailureKind.CIRCUIT_OPEN, 'circuit_open'));
         await apply({ type: 'failed', failure: { kind: FailureKind.CIRCUIT_OPEN } });
         return;
       }
@@ -353,6 +368,7 @@ export class LlmRouter {
           latencyMs: Math.max(0, this.deps.clock.monotonicMs() - attemptStart),
           outcome: 'skipped',
           failure: FailureKind.CAPABILITY_MISMATCH,
+          skipReason: 'no_api_key',
         });
         await apply({ type: 'failed', failure: { kind: FailureKind.CAPABILITY_MISMATCH } });
         return;
@@ -365,6 +381,7 @@ export class LlmRouter {
           latencyMs: 0,
           outcome: 'skipped',
           failure: FailureKind.CAPABILITY_MISMATCH,
+          skipReason: 'missing_capability',
         });
         await apply({ type: 'failed', failure: { kind: FailureKind.CAPABILITY_MISMATCH } });
         return;
@@ -530,7 +547,7 @@ export class LlmRouter {
     }
     if (response !== undefined) return { ok: true, value: response };
     if (terminalError !== undefined) return { ok: false, error: terminalError };
-    return { ok: false, error: this.exhaustedError(attempts) };
+    return { ok: false, error: await this.exhaustedError(attempts) };
   }
 
   private circuit(config: RouterConfig): CircuitBreaker {
@@ -545,26 +562,56 @@ export class LlmRouter {
     return circuit;
   }
 
-  private skipped(modelKey: ModelKey, failure: FailureKindType): RouterAttempt {
+  private skipped(
+    modelKey: ModelKey,
+    failure: FailureKindType,
+    skipReason: RouterAttempt['skipReason'],
+  ): RouterAttempt {
     return {
       modelKey,
       startedAt: isoDateTimeSchema.parse(this.deps.clock.now().toISOString()),
       latencyMs: 0,
       outcome: 'skipped',
       failure,
+      ...(skipReason === undefined ? {} : { skipReason }),
     };
   }
 
-  private exhaustedError(attempts: readonly RouterAttempt[]): AppError {
-    const reasons = attempts.map((attempt) => `${attempt.modelKey}: ${attempt.failure ?? attempt.outcome}`);
+  private async exhaustedError(attempts: readonly RouterAttempt[]): Promise<AppError> {
+    const models = this.deps.models.list();
+    const missingProviders = [
+      ...new Set(
+        attempts
+          .filter((attempt) => attempt.skipReason === 'no_api_key')
+          .flatMap((attempt) => {
+            const model = this.deps.models.get(attempt.modelKey);
+            return model === undefined ? [] : [providerName(model.provider)];
+          }),
+      ),
+    ];
+    const suggestedModels: string[] = [];
+    if (missingProviders.length > 0) {
+      for (const provider of new Set(models.map((model) => model.provider))) {
+        const stored = await this.deps.secrets.get(provider);
+        if (!stored.ok || stored.value === null) continue;
+        for (const model of models.filter((item) => item.provider === provider)) {
+          if (
+            this.deps.models.eligibility(model.key, [ModelCapability.CHAT, ModelCapability.JSON_MODE], () => true)
+              .eligible
+          )
+            suggestedModels.push(`${providerName(provider)}: ${model.displayName}`);
+        }
+      }
+    }
     return {
       code: ErrorCode.LADDER_EXHAUSTED,
-      message: `Every model in the ladder was unavailable. Attempts: ${reasons.join('; ') || 'none'}.`,
+      message: `Every model in the ladder was unavailable. ${ladderFailureSummary(attempts, models)}.`,
       retryable: false,
-      remediation: [
-        `Attempted models and reasons: ${reasons.join('; ') || 'none'}.`,
-        'Configure an available model and provider key, then retry.',
-      ],
+      remediation: remediationFor(ErrorCode.LADDER_EXHAUSTED, {
+        modelsTried: attempts.map((attempt) => attempt.modelKey),
+        missingProviders,
+        suggestedModels,
+      }),
     };
   }
 }

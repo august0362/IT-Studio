@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CommandKind, ErrorCode, ProviderId } from '@itstudio/schemas';
-import { remediationFor } from './remediation.js';
+import { ladderFailureSummary, remediationFor } from './remediation.js';
 
 describe('remediationFor', () => {
   it('provides one to four steps for every error code', () => {
@@ -51,5 +51,24 @@ describe('remediationFor', () => {
       remediationFor(ErrorCode.LADDER_EXHAUSTED, { modelsTried: ['openai/model-a', 'google/model-b'] })[0],
     ).toContain('openai/model-a, google/model-b');
     expect(remediationFor(ErrorCode.LADDER_EXHAUSTED, { modelsTried: [] })[0]).toContain('Choose another enabled');
+  });
+});
+
+describe('UX-02 ladder remediation', () => {
+  it('TC-UX2-remediation names missing providers and caps suggestions at three', () => {
+    const steps = remediationFor(ErrorCode.LADDER_EXHAUSTED, {
+      missingProviders: ['Anthropic', 'OpenAI'],
+      suggestedModels: ['Google: One', 'Google: Two', 'Google: Three', 'Google: Four'],
+    });
+    expect(steps).toEqual([
+      'Add an API key in Settings \u2192 API Keys for: Anthropic, OpenAI.',
+      'Or add a model from a provider you have a key for (Google: One, Google: Two, Google: Three) to this role in Settings \u2192 Pipeline.',
+    ]);
+    expect(remediationFor(ErrorCode.LADDER_EXHAUSTED, { missingProviders: ['OpenAI'] })[1]).toContain(
+      'provider you have a key for',
+    );
+  });
+  it('TC-UX2-remediation handles an empty ladder without technical failure kinds', () => {
+    expect(ladderFailureSummary([], [])).toBe('No models configured');
   });
 });

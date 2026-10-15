@@ -1,5 +1,6 @@
 import {
   FailureKind,
+  ModelCapability,
   CostPurpose,
   ImageProviderId,
   ProviderId,
@@ -823,6 +824,32 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   });
   const failureReportBuilder = new FailureReportBuilder();
   const pipelineOrchestrator = new PipelineOrchestrator({
+    eligibility: {
+      load: async () => {
+        const configuredProviders: ProviderId[] = [];
+        for (const provider of new Set(modelRegistry.list().map((model) => model.provider))) {
+          const stored = await secretStore.get(provider);
+          if (!stored.ok) return stored;
+          if (stored.value !== null) configuredProviders.push(provider);
+        }
+        return {
+          ok: true,
+          value: {
+            models: modelRegistry.list(),
+            configuredProviders,
+            eligibleModelKeys: modelRegistry
+              .list()
+              .filter(
+                (model) =>
+                  modelRegistry.eligibility(model.key, [ModelCapability.CHAT, ModelCapability.JSON_MODE], (provider) =>
+                    configuredProviders.includes(provider),
+                  ).eligible,
+              )
+              .map((model) => model.key),
+          },
+        };
+      },
+    },
     repository: pipelineRepository,
     projects: projectRepository,
     settings: async () => {
@@ -939,9 +966,9 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   server.register('images.list', ({ projectId }) => imageService.list(projectId));
   server.register('images.delete', ({ assetId }) => imageService.delete(assetId));
   server.register('pipeline.start', async (input) => {
-    const run = await pipelineOrchestrator.start(input);
-    activityRecorder.correlatePipelineRun(run.id, run.projectId);
-    return { ok: true, value: run };
+    const result = await pipelineOrchestrator.start(input);
+    if (result.ok) activityRecorder.correlatePipelineRun(result.value.id, result.value.projectId);
+    return result;
   });
   server.register('pipeline.get', async ({ runId }) => {
     const run = await pipelineOrchestrator.get(runId);

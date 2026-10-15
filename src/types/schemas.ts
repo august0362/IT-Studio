@@ -347,6 +347,7 @@ export interface RouterAttempt {
   readonly latencyMs: number;
   readonly outcome: 'success' | 'failed' | 'skipped';
   readonly failure?: FailureKind;
+  readonly skipReason?: 'no_api_key' | 'missing_capability' | 'disabled' | 'circuit_open';
   readonly httpStatus?: number;
   /** Provider-suggested wait (Retry-After), if any. */
   readonly retryAfterMs?: number;

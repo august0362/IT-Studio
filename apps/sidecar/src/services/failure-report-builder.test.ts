@@ -164,3 +164,19 @@ describe('FailureReportBuilder', () => {
     expect(report.nextSteps[0]).toContain('C:/project/.itstudio/tx/tx-1');
   });
 });
+
+describe('UX-02 failure reports', () => {
+  it('TC-UX2-builder retains concrete missing-key remediation', () => {
+    const report = builder.build({
+      stage: PipelineStage.SPECIFYING,
+      rolledBack: false,
+      logLines: [],
+      error: makeError({
+        code: ErrorCode.LADDER_EXHAUSTED,
+        details: { missingProviders: ['Anthropic', 'OpenAI'], suggestedModels: ['Google: Gemini'] },
+      }),
+    });
+    expect(report.nextSteps[0]).toContain('API Keys for: Anthropic, OpenAI');
+    expect(report.nextSteps[1]).toContain('Google: Gemini');
+  });
+});
