@@ -8,6 +8,8 @@ import { SafeMarkdown } from '../../components/SafeMarkdown';
 import type { ChatBubble, FallbackInfo } from './chat-store';
 import { useState } from 'react';
 import { ChatImage } from './ChatImage';
+import { ThinkingIndicator } from './ThinkingIndicator';
+import './streaming.css';
 
 function messageText(message: ChatMessage): string {
   return message.parts
@@ -22,12 +24,14 @@ export function MessageList({
   fallbacks,
   models,
   images,
+  pending = false,
 }: {
   readonly bubbles: readonly ChatBubble[];
   readonly costs: Readonly<Record<string, MoneyDisplay>>;
   readonly fallbacks: Readonly<Record<string, FallbackInfo>>;
   readonly models: readonly ModelDescriptor[];
   readonly images: readonly ImageAsset[];
+  readonly pending?: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
   const listRef = useRef<HTMLOListElement>(null);
@@ -36,7 +40,7 @@ export function MessageList({
   useEffect(() => {
     const list = listRef.current;
     if (list !== null && atBottomRef.current) list.scrollTop = list.scrollHeight;
-  }, [bubbles]);
+  }, [bubbles, pending]);
   function modelName(key: ModelKey | undefined): string | null {
     if (key === undefined) return null;
     return models.find((model) => model.key === key)?.displayName ?? key;
@@ -60,8 +64,16 @@ export function MessageList({
           );
         if (bubble.kind === 'stream')
           return (
-            <li aria-live="polite" className="rounded bg-surface p-3" key={bubble.requestId}>
-              <SafeMarkdown source={bubble.text} />
+            <li
+              aria-live="polite"
+              className={`rounded bg-surface p-3 ${bubble.text.length > 0 && !bubble.stopped ? 'chat-streaming' : ''}`}
+              key={bubble.requestId}
+            >
+              {bubble.text.length === 0 && !bubble.stopped ? (
+                <ThinkingIndicator />
+              ) : (
+                <SafeMarkdown source={bubble.text} />
+              )}
             </li>
           );
         const { message } = bubble;
@@ -134,6 +146,11 @@ export function MessageList({
           </li>
         );
       })}
+      {pending ? (
+        <li className="rounded bg-surface p-3">
+          <ThinkingIndicator />
+        </li>
+      ) : null}
     </ol>
   );
 }

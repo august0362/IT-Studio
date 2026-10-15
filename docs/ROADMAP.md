@@ -197,6 +197,14 @@ Work order and QA verdict: `docs/tasks/OWNER-FB1.md`.
 - [ ] **OWNER-FB2-A** (C) Sidecar: Auto includes keyed providers, half-open probe, attempt-failure logging + real reasons in errors, `project.delete`, history order, missing-workspace warn.
 - [ ] **OWNER-FB2-B** (C) Desktop: folder picker, Projects page (history, open, delete), tab restore, chat thinking dots.
 
+- [ ] **UX-03** (C) One Settings page with searchable sub-navigation; sidebar keeps main features only (D39).
+
+## PROC — Processes *(D40)*
+
+- [ ] **PROC-01** (C) Sidecar process registry, module graphs per kind, instrumentation, retention 20, retry/cancel/dismiss, restart sweep.
+- [ ] **PROC-02** (C) Processes page with coloured dots + generic full-screen process viewer (Pipeline Studio look), status-bar counts, web-chat reporting.
+- [ ] **PROC-03** *(later, on owner request)* User-built n8n-style workflows (drag modules from a library, connect, save, run).
+
 ## MOD — Sidecar feature modules *(D37; after v1 sign-off, before LLMPOOL)*
 
 - [ ] **MOD-01** (C) `kernel/` + module rules (eslint boundaries) + leaf modules cost, knowledge, images, vscode, web-chat, workflow (move-only).

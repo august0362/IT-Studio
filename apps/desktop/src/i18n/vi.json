@@ -75,6 +75,7 @@
     "name": "IT Studio"
   },
   "nav": {
+    "projects": "Dự án",
     "pipelineStudio": "Pipeline Studio",
     "main": "Điều hướng chính",
     "chat": "Trò chuyện",
@@ -91,6 +92,27 @@
     "empty": "Khu vực này sẽ được bổ sung trong tác vụ sau."
   },
   "projects": {
+    "browse": "Duyệt…",
+    "pickFolder": "Chọn thư mục dự án",
+    "pickFolderError": "Không mở được hộp chọn thư mục. Hãy nhập đường dẫn hoặc thử lại.",
+    "closeTooltip": "Đóng thẻ (dự án vẫn còn trong Dự án)",
+    "search": "Tìm dự án",
+    "lastOpened": "Mở lần cuối",
+    "created": "Ngày tạo",
+    "never": "Chưa bao giờ",
+    "actions": "Thao tác",
+    "open": "Mở",
+    "openNamed": "Mở {{name}}",
+    "delete": "Xóa",
+    "deleteNamed": "Xóa {{name}}",
+    "deleteTitle": "Xóa dự án",
+    "deleteConfirm": "Xóa {{name}} khỏi IT Studio? Các cuộc trò chuyện, lượt chạy pipeline, chỉ mục kiến thức, hình ảnh và bản ghi chi phí sẽ bị xóa. Các tệp trong {{path}} không bị thay đổi.",
+    "deleteConflict": "Một pipeline đang chạy trong dự án này — hãy hủy trước",
+    "deleteError": "Không thể xóa dự án.",
+    "tryAgain": "Kiểm tra kết nối sidecar và thử lại.",
+    "empty": "Chưa có dự án. Hãy tạo dự án mới để bắt đầu.",
+    "noMatches": "Không có dự án phù hợp với tìm kiếm.",
+    "loading": "Đang tải dự án…",
     "all": "Tất cả dự án",
     "new": "Dự án mới",
     "add": "Thêm dự án",
@@ -104,6 +126,8 @@
     "loadError": "Không thể tải danh sách dự án."
   },
   "chat": {
+    "thinking": "Đang trả lời…",
+    "requestError": "Không thể hoàn tất yêu cầu trò chuyện.",
     "heading": "Trò chuyện",
     "pickProject": "Chọn tab dự án để bắt đầu trò chuyện.",
     "conversations": "Cuộc trò chuyện",

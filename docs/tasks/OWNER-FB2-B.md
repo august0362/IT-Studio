@@ -40,3 +40,13 @@ Milestone: v1 owner acceptance feedback (2026-10-16) · Role: Implementer (ROLES
 ## Hand-back
 
 Append `## Result` per AGENTS.md §3.
+
+## Result
+
+- Summary: Added native folder browsing with name prefill, searchable project history with Open/Delete and pipeline-conflict handling, persisted tabs and active selection, and accessible chat thinking dots/streaming caret with reduced-motion support. Stop removes activity indicators immediately and preserves partial text. Error remediation remains visible.
+- Files changed: `apps/desktop/src/shell/{AppShell,MainNav,NewProjectDialog,ProjectTabs}.tsx`, `shell/pick-folder.ts`, `shell/{AppShell,NewProjectDialog}.test.tsx`; new `features/projects/ProjectsPage.tsx`; `features/chat/{ChatPage,MessageList,ThinkingIndicator}.tsx`, `features/chat/chat-store.ts`, `features/chat/streaming.css`, chat page/indicator tests; `state/open-projects.ts`; `i18n/{en,vi}.json`; this task file.
+- Dependencies added (with reason): None. Restored the pre-installed dependency set with `npm.cmd --cache .npm-cache install` because `node_modules` was absent; manifests and lockfile are unchanged.
+- Decisions taken within scope: Extended the existing `state/open-projects.ts` helper under the task's broad desktop scope to persist active selection (including All projects), wait for loaded data before saving, and discard missing IDs. Preserve tab order independently of history ordering. Restore a saved active project through `project.setActive` when it differs from sidecar settings. Folder picker failures retain manual entry. A Stop before send acknowledgment cancels once the request ID arrives; late events cannot restart a stopped bubble.
+- Validation: Formatted changed files through `npm.cmd --cache .npm-cache exec -- prettier --write`; `npm.cmd --cache .npm-cache run typecheck` and `npm.cmd --cache .npm-cache run lint` passed. The complete Vitest run passed (160 files, 1,405 tests; one file/test skipped); all 26 release/build/dev script tests passed. Tests use fake RPC and a mocked folder picker.
+- Open issues / follow-ups: `npm.cmd --cache .npm-cache test` stops in pretest: four existing secret-scanner regression tests expect empty stderr, but sandbox Git prints `warning: unable to access 'C:\Users\admin/.config/git/ignore': Permission denied`. Ran the underlying complete Vitest suite and script tests separately, without modifying tooling. QA should rerun the standard command outside this sandbox.
+- Changelog draft: Add folder browsing, project history and tab restoration, and accessible chat thinking/streaming feedback (OWNER-FB2-B).

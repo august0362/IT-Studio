@@ -8,7 +8,7 @@ export interface FallbackInfo {
 
 export type ChatBubble =
   | { readonly kind: 'message'; readonly message: ChatMessage; readonly requestId?: LlmRequestId }
-  | { readonly kind: 'stream'; readonly requestId: LlmRequestId; readonly text: string }
+  | { readonly kind: 'stream'; readonly requestId: LlmRequestId; readonly text: string; readonly stopped?: boolean }
   | { readonly kind: 'failed'; readonly requestId: LlmRequestId; readonly error: AppError };
 
 export interface ChatState {
@@ -22,6 +22,7 @@ export type ChatEvent =
   | { readonly type: 'load'; readonly messages: readonly ChatMessage[] }
   | { readonly type: 'optimistic'; readonly message: ChatMessage }
   | { readonly type: 'stream'; readonly requestId: LlmRequestId }
+  | { readonly type: 'stopped'; readonly requestId: LlmRequestId }
   | { readonly type: 'delta'; readonly requestId: LlmRequestId; readonly text: string }
   | { readonly type: 'router'; readonly event: RouterEvent }
   | {
@@ -46,6 +47,15 @@ export function chatReducer(state: ChatState, event: ChatEvent): ChatState {
       return { ...state, bubbles: [...state.bubbles, { kind: 'message', message: event.message }] };
     case 'stream':
       return { ...state, bubbles: [...state.bubbles, { kind: 'stream', requestId: event.requestId, text: '' }] };
+    case 'stopped':
+      return {
+        ...state,
+        bubbles: state.bubbles.flatMap((bubble) => {
+          if (bubble.kind !== 'stream' || bubble.requestId !== event.requestId) return [bubble];
+          return bubble.text.length === 0 ? [] : [{ ...bubble, stopped: true }];
+        }),
+        completedRequests: [...state.completedRequests, event.requestId],
+      };
     case 'delta': {
       if (isCompleted(state, event.requestId)) return state;
       const index = state.bubbles.findIndex(
@@ -104,7 +114,7 @@ export function chatReducer(state: ChatState, event: ChatEvent): ChatState {
           ? { kind: 'failed' as const, requestId: event.requestId, error: event.error }
           : bubble,
       );
-      return { ...state, bubbles };
+      return { ...state, bubbles, completedRequests: [...state.completedRequests, event.requestId] };
     }
     default: {
       const exhaustive: never = event;
