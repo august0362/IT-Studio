@@ -1,3 +1,6 @@
+import type { ProcessId, MicroUsd } from '@itstudio/schemas';
+import type { IProcessTracker } from '../ports/process-tracker.js';
+import { trackProcess, type ProcessActivity } from './process-activity.js';
 import {
   ProviderId,
   type PriceUpdateOutcome,
@@ -28,7 +31,13 @@ import { validatePriceEntries } from '../domain/price-validation.js';
 import { contextBlock, renderTemplate } from '../domain/template.js';
 import { computeTokenCost } from '../domain/cost.js';
 import { toMoneyDisplay } from '../domain/money.js';
-import { isoDateTimeSchema, llmRequestIdSchema, messageIdSchema, conversationIdSchema } from '../validation/brand.js';
+import {
+  isoDateTimeSchema,
+  llmRequestIdSchema,
+  messageIdSchema,
+  conversationIdSchema,
+  microUsdSchema,
+} from '../validation/brand.js';
 import { z } from '../validation/common.js';
 import { priceEntrySchema } from '../validation/cost.js';
 
@@ -45,6 +54,8 @@ const EXTRACTION_RETRY_SUFFIX = `\n\n${contextBlock('validation_error', 'Return 
 const extractionResponseSchema = z.object({ entries: z.array(priceEntrySchema).readonly() });
 
 export interface PricingUpdaterDependencies {
+  readonly processes?: IProcessTracker;
+  readonly costText?: (amount: MicroUsd) => string;
   readonly settings: Pick<SettingsService, 'get'>;
   readonly projects: IProjectRepository;
   readonly pricing: PricingService;
@@ -82,18 +93,59 @@ class PricingPageError extends Error {
 
 export class PricingUpdater {
   private readonly deps: PricingUpdaterDependencies;
+  private activity: ProcessActivity | undefined;
+  private controller: AbortController | undefined;
+  private extractionCost = 0;
   private inFlight: Promise<Result<PriceUpdateRun>> | undefined;
 
   constructor(dependencies: PricingUpdaterDependencies) {
     this.deps = dependencies;
   }
 
-  refresh(): Promise<Result<PriceUpdateRun>> {
+  refresh(replay?: {
+    readonly projectId: ProjectId;
+    readonly modelKey: ModelKey;
+    readonly retryOf: ProcessId;
+  }): Promise<Result<PriceUpdateRun>> {
     if (this.inFlight !== undefined) return this.inFlight;
-    const running = this.run();
+    this.extractionCost = 0;
+    const running = this.run(replay)
+      .then((result) => {
+        const costText = this.deps.costText?.(microUsdSchema.parse(this.extractionCost));
+        if (costText !== undefined) this.activity?.annotate({ costText });
+        if (result.ok)
+          this.activity?.detail('fetch', {
+            outcomes: result.value.providerOutcomes?.map((item) => ({ ...item })) ?? [],
+          });
+        if (!result.ok) this.activity?.fail(result.error);
+        else if (result.value.status === 'applied' || result.value.status === 'no_change') {
+          this.activity?.detail('save', {
+            outcomes: result.value.providerOutcomes?.map((item) => ({ ...item })) ?? [],
+          });
+          this.activity?.finish('Price update ' + result.value.status);
+        } else this.activity?.fail(result.value.error ?? 'Price update ' + result.value.status);
+        return result;
+      })
+      .catch((error: unknown): Result<PriceUpdateRun> => {
+        this.deps.logger.error({ svc: 'pricing', err: error }, 'Price update failed');
+        this.activity?.fail('Price update failed unexpectedly');
+        return {
+          ok: false,
+          error: {
+            code: 'INTERNAL',
+            message: 'Price update failed unexpectedly.',
+            retryable: true,
+            remediation: ['Retry the price update.'],
+          },
+        };
+      });
     this.inFlight = running;
     void running.finally(() => {
-      if (this.inFlight === running) this.inFlight = undefined;
+      if (this.inFlight === running) {
+        this.inFlight = undefined;
+        this.activity = undefined;
+        this.controller = undefined;
+      }
     });
     return running;
   }
@@ -139,10 +191,14 @@ export class PricingUpdater {
     };
   }
 
-  private async run(): Promise<Result<PriceUpdateRun>> {
+  private async run(replay?: {
+    readonly projectId: ProjectId;
+    readonly modelKey: ModelKey;
+    readonly retryOf: ProcessId;
+  }): Promise<Result<PriceUpdateRun>> {
     const settingsResult = await this.deps.settings.get();
     if (!settingsResult.ok) return settingsResult;
-    const activeProjectId = settingsResult.value.activeProjectId;
+    const activeProjectId = replay?.projectId ?? settingsResult.value.activeProjectId;
     if (activeProjectId === null || (await this.deps.projects.get(activeProjectId)) === null) {
       return {
         ok: false,
@@ -155,9 +211,27 @@ export class PricingUpdater {
       };
     }
 
-    const modelResult = await this.selectExtractionModel(settingsResult.value.pricing.extractionModelKey);
+    const modelResult = await this.selectExtractionModel(
+      replay?.modelKey ?? settingsResult.value.pricing.extractionModelKey,
+    );
     if (!modelResult.ok) return modelResult;
+    const controller = new AbortController();
+    this.controller = controller;
+    this.activity = trackProcess(this.deps.processes, 'price_update', {
+      title: 'Update prices',
+      projectId: activeProjectId,
+      operation: { kind: 'price_update', params: { projectId: activeProjectId, modelKey: modelResult.value } },
+      cancel: async () => {
+        controller.abort();
+        await this.inFlight;
+        return { ok: true, value: undefined };
+      },
+      ...(replay === undefined ? {} : { retryOf: replay.retryOf }),
+    });
+    this.activity.done('sources', String(Object.keys(this.deps.sources).length) + ' provider sources');
+    this.activity.step('fetch');
     const startedAt = isoDateTimeSchema.parse(this.deps.clock.now().toISOString());
+    this.activity.annotate({ ref: { type: 'price_run', id: this.activity.id ?? startedAt } });
     const pagesByProvider = new Map<ProviderIdType, SourcePage[]>();
     const fetchNotes = new Map<ProviderIdType, string>();
     const providerOutcomes: PriceUpdateOutcome[] = [];
@@ -221,6 +295,8 @@ export class PricingUpdater {
         providerOutcomes.push(outcome(provider, 'no_change', 'No known models are configured for this provider.'));
         continue;
       }
+      if (isAborted(controller.signal)) return priceCancelled();
+      this.activity.step('extract', undefined, { provider, model: modelResult.value });
       const extracted = await this.extract(provider, pages, providerModels, modelResult.value, activeProjectId);
       if (!extracted.ok) {
         this.deps.logger.warn({ provider, code: extracted.error.code }, 'Pricing extraction failed; models omitted');
@@ -235,6 +311,8 @@ export class PricingUpdater {
         );
         continue;
       }
+      if (isAborted(controller.signal)) return priceCancelled();
+      this.activity.step('validate', undefined, { provider });
       const validated = validatePriceEntries(
         provider,
         extracted.value,
@@ -270,6 +348,8 @@ export class PricingUpdater {
       }
     }
 
+    if (isAborted(controller.signal)) return priceCancelled();
+    this.activity.detail('validate', { outcomes: providerOutcomes.map((item) => ({ ...item })) });
     if (validationFailed) {
       const rejectedOutcomes = providerOutcomes.map((item) =>
         item.status === 'applied'
@@ -302,6 +382,7 @@ export class PricingUpdater {
         extractionError,
       );
     }
+    this.activity.step('save');
     const table = this.deps.pricing.applyExtracted(allEntries);
     return this.finish(
       startedAt,
@@ -368,7 +449,10 @@ export class PricingUpdater {
   private async fetchPage(url: string): Promise<string> {
     const response = await this.deps.http.request(url, {
       method: 'GET',
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.any([
+        AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        ...(this.controller === undefined ? [] : [this.controller.signal]),
+      ]),
     });
     if (!response.ok) throw new PricingPageError(`Pricing page returned HTTP ${String(response.status)}.`);
     const declaredLength = Number(response.headers.get('content-length'));
@@ -460,8 +544,13 @@ export class PricingUpdater {
         ladderOverride: [modelKey],
         stream: false,
       };
-      const response = await this.deps.router.dispatch(request);
+      const response = await this.deps.router.dispatch(
+        request,
+        this.controller === undefined ? undefined : { signal: this.controller.signal },
+      );
       if (!response.ok) return response;
+      this.extractionCost += response.value.costMicroUsd;
+      this.activity?.detail('extract', { model: response.value.modelKey, ...response.value.usage });
       const text = response.value.message.parts
         .filter((part) => part.type === 'text')
         .map((part) => part.text)
@@ -591,4 +680,20 @@ function fetchFailure(): AppError {
 
 function validationFailure(message: string): AppError {
   return { code: 'VALIDATION', message, retryable: false, remediation: ['Review the pricing response and try again.'] };
+}
+
+function priceCancelled(): Result<never> {
+  return {
+    ok: false,
+    error: {
+      code: 'CANCELLED',
+      message: 'Price update was cancelled.',
+      retryable: true,
+      remediation: ['Retry the price update.'],
+    },
+  };
+}
+
+function isAborted(signal: AbortSignal): boolean {
+  return signal.aborted;
 }

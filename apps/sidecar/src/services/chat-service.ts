@@ -1,3 +1,6 @@
+import type { ProcessId, JsonObject } from '@itstudio/schemas';
+import type { IProcessTracker } from '../ports/process-tracker.js';
+import { trackProcess, type ProcessActivity } from './process-activity.js';
 import {
   ErrorCode,
   ModelCapability,
@@ -56,6 +59,7 @@ const generateImageTool: ToolDeclaration = {
 };
 
 export interface ChatServiceDependencies {
+  readonly processes?: IProcessTracker;
   readonly repository: IChatRepository & {
     setRagEnabled(id: ConversationId, enabled: boolean, updatedAt: Conversation['updatedAt']): Promise<void>;
   };
@@ -74,7 +78,7 @@ export class ChatService {
   private readonly deps: ChatServiceDependencies;
   private readonly inFlight = new Map<
     LlmRequestId,
-    { readonly conversationId: ConversationId; readonly controller: AbortController }
+    { readonly conversationId: ConversationId; readonly controller: AbortController; readonly finished?: Promise<void> }
   >();
   private readonly busyConversations = new Set<ConversationId>();
 
@@ -120,6 +124,7 @@ export class ChatService {
     conversationId: ConversationId,
     text: string,
     modelOverride?: ModelKey,
+    retryOf?: ProcessId,
   ): Promise<Result<{ readonly requestId: LlmRequestId; readonly userMessageId: ChatMessage['id'] }>> {
     const conversation = await this.deps.repository.getConversation(conversationId);
     if (conversation === null)
@@ -142,7 +147,24 @@ export class ChatService {
     try {
       await this.deps.repository.createMessage(userMessage);
       this.inFlight.set(requestId, { conversationId, controller });
-      void this.run(requestId, conversation, modelOverride, controller);
+      const activity = trackProcess(this.deps.processes, 'chat', {
+        title: 'Chat: ' + text.slice(0, 60),
+        projectId: conversation.projectId,
+        ref: { type: 'conversation', id: conversationId },
+        operation: {
+          kind: 'chat',
+          params: { conversationId, text, ...(modelOverride === undefined ? {} : { modelOverride }) },
+        },
+        cancel: async () => {
+          const result = await this.cancel(requestId);
+          await this.inFlight.get(requestId)?.finished;
+          return result;
+        },
+        ...(retryOf === undefined ? {} : { retryOf }),
+      });
+      activity.done('input', 'User message received');
+      const finished = this.run(requestId, conversation, modelOverride, controller, activity);
+      this.inFlight.set(requestId, { conversationId, controller, finished });
       return { ok: true, value: { requestId, userMessageId: userMessage.id } };
     } catch (error) {
       this.busyConversations.delete(conversationId);
@@ -163,8 +185,29 @@ export class ChatService {
     conversation: Conversation,
     modelOverride: ModelKey | undefined,
     controller: AbortController,
+    activity: ProcessActivity,
   ): Promise<void> {
+    const attempts: JsonObject[] = [];
+    const unsubscribe = this.deps.events.subscribe('router.event', (event) => {
+      if (!('requestId' in event) || event.requestId !== requestId) return;
+      if (event.type === 'attempt_failed') {
+        attempts.push({ ...event.attempt });
+        activity.detail('router', { attempts });
+      } else if (event.type === 'fallback') {
+        activity.detail('router', { attempts, model: event.to });
+      } else {
+        if (event.state === 'awaiting_user') activity.waiting('Waiting for your fallback decision');
+        else if (event.state === 'dispatching') {
+          activity.done('router', event.modelKey, {
+            attempts,
+            ...(event.modelKey === undefined ? {} : { model: event.modelKey }),
+          });
+          activity.step('provider');
+        }
+      }
+    });
     try {
+      activity.step('context');
       const history = await this.deps.repository.listMessages(conversation.id);
       let hits: readonly RetrievalHit[] = [];
       if (conversation.ragEnabled && this.deps.retriever !== undefined && this.deps.settings !== undefined) {
@@ -179,6 +222,7 @@ export class ChatService {
           : configured;
         if (retrieval.ok) hits = retrieval.value;
         else if (retrieval.error.code === ErrorCode.BUDGET_HARD_STOP) {
+          activity.fail(retrieval.error);
           this.deps.events.publish('chat.failed', { requestId, error: retrieval.error });
           return;
         } else {
@@ -193,6 +237,9 @@ export class ChatService {
           );
         }
       }
+      if (conversation.ragEnabled) activity.done('context', String(hits.length) + ' knowledge hits');
+      else activity.skip('context');
+      activity.step('router');
       const settings = this.deps.settings === undefined ? undefined : await this.deps.settings.get();
       const imageEnabled = settings?.ok === true && settings.value.image.enabled && this.deps.images !== undefined;
       const tools = imageEnabled ? [generateImageTool] : undefined;
@@ -217,13 +264,21 @@ export class ChatService {
       const result = await this.deps.router.dispatch(request, {
         signal: controller.signal,
         onDelta: (textDelta) => {
+          activity.step('stream');
           this.deps.events.publish('chat.delta', { requestId, textDelta });
         },
       });
       if (!result.ok) {
+        activity.fail(result.error);
         this.deps.events.publish('chat.failed', { requestId, error: result.error });
         return;
       }
+      activity.done('router', result.value.modelKey, {
+        model: result.value.modelKey,
+        attempts: result.value.attempts.map((attempt) => ({ ...attempt })),
+      });
+      activity.done('provider', 'Response received', { ...result.value.usage });
+      activity.done('stream', 'Streaming finished');
       let message = result.value.message;
       let completionCost: MoneyDisplay | undefined;
       let generatedImageParts: ChatMessage['parts'] = [];
@@ -307,6 +362,7 @@ export class ChatService {
           });
           if (!followUpResult.ok) {
             this.deps.ledger.forgetRequest(followUpId);
+            activity.fail(followUpResult.error);
             this.deps.events.publish('chat.failed', { requestId, error: followUpResult.error });
             return;
           }
@@ -331,8 +387,18 @@ export class ChatService {
           isoDateTimeSchema.parse(this.deps.clock.now().toISOString()),
         );
       }
+      activity.step('cost');
       const cost = completionCost ?? (await this.deps.ledger.recordedCost(requestId));
       if (cost === undefined) throw new Error('Completed request has no ledger cost');
+      activity.done('cost', cost.usdText + '\n' + cost.vndText);
+      activity.annotate({ costText: cost.usdText + '\n' + cost.vndText });
+      activity.step('output');
+      activity.finish(
+        message.parts
+          .filter((part) => part.type === 'text')
+          .map((part) => part.text)
+          .join(''),
+      );
       this.deps.events.publish('chat.completed', {
         requestId,
         message,
@@ -346,8 +412,10 @@ export class ChatService {
         retryable: true,
         remediation: ['Try sending your message again.'],
       };
+      activity.fail(chatError);
       this.deps.events.publish('chat.failed', { requestId, error: chatError });
     } finally {
+      unsubscribe();
       this.deps.ledger.forgetRequest(requestId);
       this.inFlight.delete(requestId);
       this.busyConversations.delete(conversation.id);

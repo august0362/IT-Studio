@@ -112,6 +112,7 @@ export class RpcServer {
 
 const NOTIFICATION_NAMES: readonly RpcNotificationName[] = [
   'system.ready',
+  'process.event',
   'chat.delta',
   'chat.completed',
   'chat.failed',

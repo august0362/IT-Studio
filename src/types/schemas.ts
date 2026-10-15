@@ -1011,6 +1011,14 @@ type Empty = Readonly<Record<string, never>>;
 
 /** Exhaustive request/response catalog. Adding a method = additive change (no ADR needed). */
 export interface RpcMethodMap {
+  'process.list': { params: { readonly projectId?: ProjectId; readonly status?: readonly ProcessStatus[]; readonly kind?: readonly ProcessKind[]; readonly limit: number }; result: readonly ProcessRecord[] };
+  'process.get': { params: { readonly id: ProcessId }; result: ProcessRecord };
+  'process.cancel': { params: { readonly id: ProcessId }; result: ProcessRecord };     // running/waiting → stopped (delegates to the owning service's cancel)
+  'process.retry': { params: { readonly id: ProcessId }; result: ProcessRecord };      // stopped & retryable → new process
+  'process.dismiss': { params: { readonly id: ProcessId }; result: ProcessRecord };    // stopped → ended
+  'process.delete': { params: { readonly id: ProcessId }; result: { readonly deleted: boolean } }; // ended only
+  'process.report': { params: { readonly kind: 'web_chat'; readonly linkId: string; readonly event: 'opened' | 'loaded' | 'closed' | 'failed'; readonly projectId?: ProjectId }; result: ProcessRecord }; // desktop reports web-chat pane lifecycle (D34: no page content)
+
   'system.ping': { params: Empty; result: { readonly version: string; readonly uptimeMs: number } };
   /** Sent by the Rust shell on app exit; sidecar rolls back in-flight writes and exits within 5 s. */
   'system.shutdown': { params: Empty; result: { readonly accepted: true } };
@@ -1116,6 +1124,7 @@ export type RpcMethod = keyof RpcMethodMap;
 
 /** Sidecar → UI push events. */
 export interface RpcNotificationMap {
+  'process.event': ProcessEvent;
   /** First line the sidecar writes after migrations + journal recovery complete. */
   'system.ready': { readonly version: string; readonly recoveredTransactions: number };
   'chat.delta': { readonly requestId: LlmRequestId; readonly textDelta: string };
@@ -1887,3 +1896,47 @@ export interface RemoteFileWriteRequest {
 }
 
 export type SystemAction = 'reboot' | 'shutdown';
+
+/* §PROCESSES (D40) */
+export type ProcessId = Brand<string, 'ProcessId'>;
+export const ProcessKind = {
+  CHAT: 'chat', CODE_PIPELINE: 'code_pipeline', KNOWLEDGE_INGEST: 'knowledge_ingest', IMAGE: 'image',
+  PRICE_UPDATE: 'price_update', KEY_VERIFY: 'key_verify', VSCODE_LAUNCH: 'vscode_launch', WEB_CHAT: 'web_chat',
+} as const;
+export type ProcessKind = (typeof ProcessKind)[keyof typeof ProcessKind];
+export const ProcessStatus = { RUNNING: 'running', WAITING: 'waiting', STOPPED: 'stopped', ENDED: 'ended' } as const;
+export type ProcessStatus = (typeof ProcessStatus)[keyof typeof ProcessStatus];
+export const ProcessModuleState = { IDLE: 'idle', ACTIVE: 'active', WAITING: 'waiting', DONE: 'done', FAILED: 'failed', SKIPPED: 'skipped' } as const;
+export type ProcessModuleState = (typeof ProcessModuleState)[keyof typeof ProcessModuleState];
+
+export interface ProcessModule {
+  readonly id: string;                 // stable per kind, e.g. 'router'
+  readonly label: string;              // English; UI translates by `${kind}.${id}` key when available
+  readonly state: ProcessModuleState;
+  readonly startedAt?: IsoDateTime;
+  readonly endedAt?: IsoDateTime;
+  readonly input?: string;             // ≤ 500 chars, redacted summary (never secrets)
+  readonly output?: string;            // ≤ 500 chars, redacted summary
+  readonly detail?: JsonObject;        // small structured facts: model, tokens, cost text, file count…
+}
+export interface ProcessEdge { readonly from: string; readonly to: string; readonly label?: string }
+export interface ProcessRecord {
+  readonly id: ProcessId;
+  readonly kind: ProcessKind;
+  readonly projectId?: ProjectId;
+  readonly title: string;              // ≤ 120 chars, e.g. 'Chat: "Làm app ghi chú…"' (first 60 chars of the user text)
+  readonly status: ProcessStatus;
+  readonly statusReason?: string;      // e.g. 'Waiting for your answers', 'LADDER_EXHAUSTED: …'
+  readonly modules: readonly ProcessModule[];
+  readonly edges: readonly ProcessEdge[];
+  readonly result?: string;            // ≤ 500 chars final output summary
+  readonly costText?: string;          // existing money display text when known
+  readonly ref?: { readonly type: 'conversation' | 'pipeline_run' | 'ingest_job' | 'image' | 'price_run' | 'webchat_link'; readonly id: string };
+  readonly retryable: boolean;
+  readonly createdAt: IsoDateTime;
+  readonly updatedAt: IsoDateTime;
+  readonly endedAt?: IsoDateTime;
+}
+export type ProcessEvent =
+  | { readonly type: 'upsert'; readonly process: ProcessRecord }
+  | { readonly type: 'removed'; readonly id: ProcessId };

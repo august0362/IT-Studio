@@ -1,3 +1,4 @@
+import { createProcessProbe } from '../process-test-helper.js';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
@@ -98,7 +99,9 @@ describe('RagService', () => {
         if (job.status === 'indexed') resolveDone();
       });
     });
+    const probe = createProcessProbe();
     const rag = new RagService({
+      processes: probe.tracker,
       projects,
       documents,
       fileSystem: fs,
@@ -124,6 +127,24 @@ describe('RagService', () => {
     const first = await rag.ingest({ projectId: PROJECT_ID, paths: ['guide.md'], tags: ['manual'] });
     expect(first.ok && first.value.status).toBe('queued');
     await completed;
+    expect(probe.start).toHaveBeenCalledWith(
+      'knowledge_ingest',
+      expect.objectContaining({
+        projectId: PROJECT_ID,
+        operation: {
+          kind: 'knowledge_ingest',
+          params: { projectId: PROJECT_ID, paths: ['guide.md'], tags: ['manual'] },
+        },
+      }),
+    );
+    for (const module of ['discover', 'parse', 'chunk', 'embed', 'store', 'done'])
+      expect(probe.module).toHaveBeenCalledWith(expect.anything(), module, expect.objectContaining({ state: 'done' }));
+    expect(probe.module).toHaveBeenCalledWith(
+      expect.anything(),
+      'done',
+      expect.objectContaining({ detail: { files: 1, chunks: expect.any(Number) as unknown, skipped: 0, failed: 0 } }),
+    );
+    expect(probe.end).toHaveBeenCalledOnce();
     expect(await documents.list(PROJECT_ID)).toHaveLength(1);
     expect(embedCalls).toBe(1);
     const documentId = (await documents.list(PROJECT_ID))[0]?.id;

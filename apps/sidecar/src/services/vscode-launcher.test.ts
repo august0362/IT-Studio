@@ -1,3 +1,5 @@
+import { createProcessProbe } from './process-test-helper.js';
+import type { IProcessTracker } from '../ports/process-tracker.js';
 import { join } from 'node:path';
 import type { VSCodeSettings } from '@itstudio/schemas';
 import { describe, expect, it } from 'vitest';
@@ -88,6 +90,7 @@ const settings: VSCodeSettings = {
 
 function setup(
   options: {
+    readonly processes?: IProcessTracker;
     readonly files?: readonly string[];
     readonly env?: NodeJS.ProcessEnv;
     readonly platform?: NodeJS.Platform;
@@ -101,6 +104,7 @@ function setup(
   runner.listed = options.output ?? '';
   const statuses: unknown[] = [];
   const launcher = new VSCodeLauncher({
+    ...(options.processes === undefined ? {} : { processes: options.processes }),
     fileSystem,
     runner,
     logger: createLogger({ level: 'silent' }),
@@ -115,6 +119,16 @@ function setup(
 }
 
 describe('VSCodeLauncher', () => {
+  it('PROC-01 instruments VS Code launch stages using fake CLI and filesystem', async () => {
+    const probe = createProcessProbe();
+    const cli = join(process.cwd(), 'process-cli', 'code');
+    const h = setup({ files: [cli], processes: probe.tracker });
+    await h.launcher.activate({ workspaceRoot: process.cwd(), settings: { ...settings, codeExecutable: cli } });
+    expect(probe.start).toHaveBeenCalledWith('vscode_launch', expect.objectContaining({ title: 'Open VS Code' }));
+    for (const module of ['locate', 'launch', 'session'])
+      expect(probe.module).toHaveBeenCalledWith(expect.anything(), module, expect.objectContaining({ state: 'done' }));
+    expect(probe.end).toHaveBeenCalledOnce();
+  });
   it('TC-M7-041 resolves a configured executable before PATH and default locations', async () => {
     const configured = join(process.cwd(), 'custom', 'code');
     const pathCandidate = join(process.cwd(), 'path', 'code');

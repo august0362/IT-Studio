@@ -1,3 +1,7 @@
+import { ProcessRegistry } from './services/process-registry.js';
+import { ProcessRepository } from './infra/sqlite/process-repository.js';
+import { pipelineRunIdSchema, toolCallIdSchema } from './validation/brand.js';
+import { assertNever } from './domain/assert.js';
 import { providerIdSchema } from './validation/common.js';
 import {
   FailureKind,
@@ -381,6 +385,59 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   for (const warning of loadedSeeds.value.warnings)
     logger.warn({ svc: 'sidecar', warning }, 'Seed configuration warning');
   const database = openDatabase(dataDir);
+  const events = new EventBus<RpcNotificationMap>();
+  const processRegistry: ProcessRegistry = new ProcessRegistry({
+    repository: new ProcessRepository(database.db),
+    events,
+    clock,
+    ids,
+    logger,
+    dispatch: async (operation, retryOf): Promise<Result<unknown>> => {
+      switch (operation.kind) {
+        case 'chat':
+          return chatService.send(
+            operation.params.conversationId,
+            operation.params.text,
+            operation.params.modelOverride,
+            retryOf,
+          );
+        case 'code_pipeline':
+          return pipelineOrchestrator.start({ ...operation.params, retryOf });
+        case 'knowledge_ingest':
+          return ragService.ingest({ ...operation.params, retryOf });
+        case 'image':
+          return imageService.generate(
+            operation.params.projectId,
+            operation.params.args,
+            toolCallIdSchema.parse('process_' + ids.uuid()),
+            new AbortController().signal,
+            retryOf,
+          );
+        case 'price_update':
+          return pricingUpdater.refresh({ ...operation.params, retryOf });
+        case 'key_verify':
+          return secretsService.verify(operation.params.provider, retryOf);
+        default:
+          return assertNever(operation);
+      }
+    },
+    cancelRecovered: async (process): Promise<Result<unknown>> => {
+      if (process.kind === 'code_pipeline' && process.ref?.type === 'pipeline_run') {
+        const id = pipelineRunIdSchema.safeParse(process.ref.id);
+        if (id.success) return { ok: true, value: await pipelineOrchestrator.cancel(id.data) };
+      }
+      if (process.kind === 'web_chat') return { ok: true, value: undefined };
+      return {
+        ok: false,
+        error: {
+          code: ErrorCode.VALIDATION,
+          message: 'This operation cannot be cancelled.',
+          retryable: false,
+          remediation: ['Wait for the operation to finish.'],
+        },
+      };
+    },
+  });
   const migrationsDir = isSea()
     ? resourcePath('migrations')
     : resolve(dirname(fileURLToPath(import.meta.url)), 'infra/sqlite/migrations');
@@ -419,6 +476,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     (model) => model.key === qwenVerificationModel?.modelKey,
   )?.providerModelId;
   const secretsService = new SecretsService({
+    processes: processRegistry,
     store: secretStore,
     history: secretHistoryRepository,
     ids,
@@ -519,7 +577,6 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
           },
         }
       : new FetchHttpClient());
-  const events = new EventBus<RpcNotificationMap>();
   const workflowInternalBus = new EventBus<{ activity: WorkflowInternalEvent }>();
   const workflowInternalEvents = {
     publish: (event: WorkflowInternalEvent) => {
@@ -574,6 +631,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     },
   });
   const vscodeLauncher = new VSCodeLauncher({
+    processes: processRegistry,
     fileSystem,
     runner: new NodeCodeCliRunner(env),
     logger,
@@ -632,6 +690,11 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
         new FluxReplicateProvider(secretStore, new FetchHttpClient()),
       ];
   const imageService = new ImageService({
+    processes: processRegistry,
+    costText: (amount) => {
+      const cost = toMoneyDisplay(amount, fxService.getEffective());
+      return cost.usdText + '\n' + cost.vndText;
+    },
     repository: imageRepository,
     ledger: ledgerRepository,
     budget: budgetGuard,
@@ -695,6 +758,11 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     internalEvents: workflowInternalEvents,
   });
   const ragService = new RagService({
+    processes: processRegistry,
+    costText: (amount) => {
+      const cost = toMoneyDisplay(amount, fxService.getEffective());
+      return cost.usdText + '\n' + cost.vndText;
+    },
     projects: projectRepository,
     documents: documentRepository,
     fileSystem,
@@ -769,6 +837,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     ...(e2e ? { sleep: () => Promise.resolve() } : {}),
   });
   const chatService = new ChatService({
+    processes: processRegistry,
     repository: chatRepository,
     router: llmRouter,
     ledger: ledgerService,
@@ -781,6 +850,11 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     images: imageService,
   });
   const pricingUpdater = new PricingUpdater({
+    processes: processRegistry,
+    costText: (amount) => {
+      const cost = toMoneyDisplay(amount, fxService.getEffective());
+      return cost.usdText + '\n' + cost.vndText;
+    },
     settings: settingsService,
     secretStore,
     projects: projectRepository,
@@ -839,6 +913,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   });
   const failureReportBuilder = new FailureReportBuilder();
   const pipelineOrchestrator = new PipelineOrchestrator({
+    processes: processRegistry,
     eligibility: {
       load: async () => {
         const configuredProviders: ProviderId[] = [];
@@ -930,12 +1005,41 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
       },
       () => {
         activityRecorder.stop();
+        processRegistry.stop();
       },
     ],
     ...(dependencies.exit === undefined ? {} : { exit: dependencies.exit }),
   });
   systemServiceRef.current = service;
   service.register(server);
+  server.register('process.list', async (input) => {
+    await startupRecovery;
+    return processRegistry.list(input);
+  });
+  server.register('process.get', async ({ id }) => {
+    await startupRecovery;
+    return processRegistry.get(id);
+  });
+  server.register('process.cancel', async ({ id }) => {
+    await startupRecovery;
+    return processRegistry.cancel(id);
+  });
+  server.register('process.retry', async ({ id }) => {
+    await startupRecovery;
+    return processRegistry.retry(id);
+  });
+  server.register('process.dismiss', async ({ id }) => {
+    await startupRecovery;
+    return processRegistry.dismiss(id);
+  });
+  server.register('process.delete', async ({ id }) => {
+    await startupRecovery;
+    return processRegistry.delete(id);
+  });
+  server.register('process.report', async (input) => {
+    await startupRecovery;
+    return processRegistry.report(input);
+  });
   server.register('settings.get', () => settingsService.get());
   server.register('settings.update', ({ patch }) => settingsService.update(patch));
   server.register('webchat.browsers', () => webChatService.browsers());
@@ -961,7 +1065,11 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
         await vscodeBridge.activate(result.value.id, result.value.workspaceRoot);
         const settings = await settingsService.get();
         if (settings.ok)
-          await vscodeLauncher.activate({ workspaceRoot: result.value.workspaceRoot, settings: settings.value.vscode });
+          await vscodeLauncher.activate({
+            projectId: result.value.id,
+            workspaceRoot: result.value.workspaceRoot,
+            settings: settings.value.vscode,
+          });
       } catch (error) {
         logger.error(
           { svc: 'vscode-bridge', projectId, error: error instanceof Error ? error.message : 'unknown' },
@@ -1129,6 +1237,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     vscodeBridge,
     vscodeInternalEvents,
     activityRecorder,
+    processRegistry,
     events,
     logger,
     server,
@@ -1168,6 +1277,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
         if (activeProject === undefined) return;
         await vscodeBridge.activate(activeProject.id, activeProject.workspaceRoot);
         await vscodeLauncher.activate({
+          projectId: activeProject.id,
           workspaceRoot: activeProject.workspaceRoot,
           settings: settings.value.vscode,
         });
@@ -1179,6 +1289,10 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
       });
       logger.info({ svc: 'sidecar', startupMs: Math.max(0, clock.monotonicMs() - startupStartedAt) }, 'sidecar ready');
       startupRecovery = (async () => {
+        await processRegistry.recover(async (process) => {
+          const id = pipelineRunIdSchema.safeParse(process.ref?.id);
+          return id.success && (await pipelineRepository.get(id.data))?.stage === 'clarifying';
+        });
         let recoveredTransactions = 0;
         const projects = await projectRepository.list();
         for (const project of projects) {

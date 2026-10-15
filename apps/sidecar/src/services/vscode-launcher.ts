@@ -1,3 +1,6 @@
+import type { ProjectId } from '@itstudio/schemas';
+import type { IProcessTracker } from '../ports/process-tracker.js';
+import { trackProcess } from './process-activity.js';
 import { delimiter, dirname, join, resolve } from 'node:path';
 import type { VSCodeSettings, VSCodeStatus } from '@itstudio/schemas';
 import type { Logger } from 'pino';
@@ -12,6 +15,7 @@ export interface VscodeLauncherEvents {
 }
 
 export interface VscodeLauncherDependencies {
+  readonly processes?: IProcessTracker;
   readonly fileSystem: IFileSystem;
   readonly runner: ICodeCliRunner;
   readonly logger: Logger;
@@ -24,6 +28,7 @@ export interface VscodeLauncherDependencies {
 }
 
 export interface VscodeActivation {
+  readonly projectId?: ProjectId;
   readonly workspaceRoot: string;
   readonly settings: VSCodeSettings;
 }
@@ -39,19 +44,40 @@ export class VSCodeLauncher {
     this.extensionVersion = extensionVersion;
   }
 
-  async activate({ workspaceRoot, settings }: VscodeActivation): Promise<void> {
+  async activate({ workspaceRoot, settings, projectId }: VscodeActivation): Promise<void> {
     const root = resolve(workspaceRoot);
+    const controller = new AbortController();
+    // Merely switching tabs or checking an already-open project is not a launch.
+    const activity =
+      settings.autoLaunch && !this.launchedProjects.has(root)
+        ? trackProcess(this.dependencies.processes, 'vscode_launch', {
+            title: 'Open VS Code',
+            cancel: () => {
+              controller.abort();
+              return Promise.resolve({ ok: true, value: undefined });
+            },
+            ...(projectId === undefined ? {} : { projectId }),
+          })
+        : undefined;
     const baseStatus = {
       connected: this.dependencies.connected(),
       workspaceRoot: root,
       extensionVersion: this.extensionVersion,
     };
     if (this.dependencies.e2e) {
+      activity?.step('launch');
+      activity?.step('session');
+      activity?.finish('VS Code session ready');
       this.dependencies.events.publishStatus({ installed: true, extensionInstalled: true, ...baseStatus });
       return;
     }
     const cli = await this.resolveCli(settings.codeExecutable);
+    if (isAborted(controller.signal)) {
+      activity?.fail('VS Code launch cancelled');
+      return;
+    }
     if (cli === null) {
+      activity?.fail('Visual Studio Code was not found');
       this.warnOnce('Visual Studio Code was not found. Install VS Code or set its executable path in Settings.');
       this.dependencies.events.publishStatus({ installed: false, extensionInstalled: false, ...baseStatus });
       return;
@@ -61,15 +87,23 @@ export class VSCodeLauncher {
       return;
     }
     this.dependencies.events.publishStatus({ installed: true, extensionInstalled: false, ...baseStatus });
+    activity?.step('launch');
     const extensionInstalled = await this.ensureExtension(cli);
+    if (isAborted(controller.signal)) {
+      activity?.fail('VS Code launch cancelled');
+      return;
+    }
     this.dependencies.events.publishStatus({ installed: true, extensionInstalled, ...baseStatus });
     if (this.launchedProjects.has(root)) return;
     const launched = this.dependencies.runner.launch(cli, [root]);
     if (!launched.ok) {
+      activity?.fail(launched.error);
       this.warnOnce('Visual Studio Code could not be launched. Check the installation and try again.');
       return;
     }
     this.launchedProjects.add(root);
+    activity?.step('session', undefined, { extensionInstalled, connected: this.dependencies.connected() });
+    activity?.finish('VS Code launched');
   }
 
   private async ensureExtension(cli: ResolvedCodeCli): Promise<boolean> {
@@ -184,4 +218,8 @@ export class VSCodeLauncher {
     this.warned = true;
     this.dependencies.logger.warn({ svc: 'vscode-launcher', message }, message);
   }
+}
+
+function isAborted(signal: AbortSignal): boolean {
+  return signal.aborted;
 }

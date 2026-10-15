@@ -3,7 +3,7 @@ import { compatibleBaseUrl, compatibleHeaders } from '../../domain/provider-endp
 import type { IHttpClient } from '../../ports/http-client.js';
 
 export interface IProviderKeyVerifier {
-  verify(provider: ProviderId, key: string): Promise<Result<void>>;
+  verify(provider: ProviderId, key: string, signal?: AbortSignal): Promise<Result<void>>;
 }
 
 const TIMEOUT_MS = 25_000;
@@ -84,7 +84,7 @@ export class ProviderKeyVerifier implements IProviderKeyVerifier {
     this.http = http;
   }
 
-  async verify(provider: ProviderId, key: string): Promise<Result<void>> {
+  async verify(provider: ProviderId, key: string, signal?: AbortSignal): Promise<Result<void>> {
     try {
       const settings = await this.settings?.();
       if (settings !== undefined && !settings.ok) return settings;
@@ -93,7 +93,10 @@ export class ProviderKeyVerifier implements IProviderKeyVerifier {
         method: request.body === undefined ? 'GET' : 'POST',
         ...(request.body === undefined ? {} : { body: request.body }),
         headers: request.headers,
-        signal: AbortSignal.timeout(TIMEOUT_MS),
+        signal:
+          signal === undefined
+            ? AbortSignal.timeout(TIMEOUT_MS)
+            : AbortSignal.any([signal, AbortSignal.timeout(TIMEOUT_MS)]),
       });
       if (response.status === 200) return { ok: true, value: undefined };
       if (response.status === 401 || response.status === 403) {
@@ -119,6 +122,13 @@ export class ProviderKeyVerifier implements IProviderKeyVerifier {
         ]),
       };
     } catch (error) {
+      if (signal?.aborted === true)
+        return {
+          ok: false,
+          error: failure(ErrorCode.CANCELLED, 'Key verification was cancelled.', true, [
+            'Retry verification when ready.',
+          ]),
+        };
       if (isTimeout(error)) {
         return {
           ok: false,

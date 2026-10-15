@@ -1,3 +1,5 @@
+import { createProcessProbe } from './process-test-helper.js';
+import type { IProcessTracker } from '../ports/process-tracker.js';
 import { PassThrough } from 'node:stream';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -41,6 +43,7 @@ let removeListeners: (() => void) | undefined;
 
 function makeService(
   options: {
+    readonly processes?: IProcessTracker;
     readonly ragEnabled?: boolean;
     readonly reply?: string;
     readonly hits?: readonly RetrievalHit[];
@@ -82,6 +85,7 @@ function makeService(
   const events = new EventBus<RpcNotificationMap>();
   removeListeners = events.subscribe('chat.completed', () => undefined);
   const service = new ChatService({
+    ...(options.processes === undefined ? {} : { processes: options.processes }),
     repository,
     router: {
       dispatch: (request, options) => {
@@ -156,6 +160,32 @@ afterEach(() => {
 });
 
 describe('ChatService', () => {
+  it('PROC-01 instruments chat modules and formatted cost with an injected tracker', async () => {
+    const probe = createProcessProbe();
+    const h = makeService({ processes: probe.tracker });
+    const completed = new Promise<void>((resolve) => {
+      h.events.subscribe('chat.completed', () => {
+        resolve();
+      });
+    });
+    await h.service.send(conversationId, 'Track this turn');
+    await completed;
+    expect(probe.start).toHaveBeenCalledWith(
+      'chat',
+      expect.objectContaining({
+        projectId,
+        operation: { kind: 'chat', params: { conversationId, text: 'Track this turn' } },
+      }),
+    );
+    for (const module of ['input', 'router', 'provider', 'stream', 'cost', 'output'])
+      expect(probe.module).toHaveBeenCalledWith(expect.anything(), module, expect.objectContaining({ state: 'done' }));
+    expect(probe.module).toHaveBeenCalledWith(expect.anything(), 'context', { state: 'skipped' });
+    expect(probe.annotate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ costText: expect.stringContaining('$') as unknown }),
+    );
+    expect(probe.end).toHaveBeenCalledOnce();
+  });
   it('maps the chat model override to a preferred model while preserving the router ladder', async () => {
     const { service } = makeService();
     await service.send(conversationId, 'First message', modelKeySchema.parse('openai/test-model'));

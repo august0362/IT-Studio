@@ -1,3 +1,5 @@
+import { createProcessProbe } from './process-test-helper.js';
+import type { IProcessTracker } from '../ports/process-tracker.js';
 import { ErrorCode, ProviderId, type ProviderId as Provider } from '@itstudio/schemas';
 import { randomUUID } from 'node:crypto';
 import { Writable } from 'node:stream';
@@ -26,12 +28,13 @@ class MemorySecretHistory implements ISecretHistoryRepository {
   }
 }
 
-function service(store = new MemorySecretStore(), verifier = noVerify) {
+function service(store = new MemorySecretStore(), verifier = noVerify, processes?: IProcessTracker) {
   const history = new MemorySecretHistory();
   return {
     store,
     history,
     secrets: new SecretsService({
+      ...(processes === undefined ? {} : { processes }),
       store,
       verifier,
       history,
@@ -42,6 +45,48 @@ function service(store = new MemorySecretStore(), verifier = noVerify) {
 }
 
 describe('SecretsService', () => {
+  it('PROC-01 cancellation aborts verification and prevents saving a candidate key', async () => {
+    const probe = createProcessProbe();
+    const verifier: IProviderKeyVerifier = {
+      verify: (_provider, _key, signal) =>
+        new Promise((resolveVerified) => {
+          signal?.addEventListener(
+            'abort',
+            () => {
+              resolveVerified({ ok: true, value: undefined });
+            },
+            { once: true },
+          );
+        }),
+    };
+    const h = service(new MemorySecretStore(), verifier, probe.tracker);
+    const pending = h.secrets.verifyAndSave(ProviderId.OPENAI, 'candidate-test-key');
+    await vi.waitFor(() => {
+      expect(probe.start).toHaveBeenCalledOnce();
+    });
+    const init = probe.start.mock.calls[0]?.[1];
+    await init?.cancel?.();
+    expect(await pending).toMatchObject({ ok: false, error: { code: 'CANCELLED' } });
+    expect(await h.store.get(ProviderId.OPENAI)).toEqual({ ok: true, value: null });
+    expect(probe.end).not.toHaveBeenCalled();
+  });
+
+  it('PROC-01 instruments verification using only provider and a masked suffix', async () => {
+    const probe = createProcessProbe();
+    const h = service(new MemorySecretStore(), noVerify, probe.tracker);
+    await h.secrets.set(ProviderId.OPENAI, 'private-test-value-1234');
+    await h.secrets.verify(ProviderId.OPENAI);
+    expect(probe.start).toHaveBeenCalledWith(
+      'key_verify',
+      expect.objectContaining({ operation: { kind: 'key_verify', params: { provider: 'openai' } } }),
+    );
+    expect(probe.module).toHaveBeenCalledWith(expect.anything(), 'input', {
+      state: 'done',
+      output: 'Key ending in ****1234',
+    });
+    expect(JSON.stringify(probe.module.mock.calls)).not.toContain('private-test-value');
+    expect(probe.end).toHaveBeenCalledWith(expect.anything(), 'Key verified');
+  });
   it('trims valid keys and returns only their last four characters', async () => {
     const { secrets, store } = service();
     const result = await secrets.set(ProviderId.OPENAI, '  valid-key-1234  ');
