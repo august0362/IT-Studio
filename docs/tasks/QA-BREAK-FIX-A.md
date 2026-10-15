@@ -31,8 +31,9 @@ Turn every sidecar `it.fails('QA-BREAK-0x-Dnn …')` in `apps/sidecar/test/integ
 
 ## Flaky test
 
-| FLAKE-3 | `apps/sidecar/src/container.test.ts` "logs lifecycle events in order and creates the daily log file" fails under full-suite load (missing last lifecycle lines, then `EPERM` removing the temp dir); passes alone. Await the log flush deterministically (wait for the expected lines with a bounded poll instead of a fixed delay) and retry temp-dir removal (`fs.rm` with `maxRetries`). |
+| ID | Fix |
 |---|---|
+| FLAKE-3 | `apps/sidecar/src/container.test.ts` "logs lifecycle events in order and creates the daily log file" fails under full-suite load (missing last lifecycle lines, then `EPERM` removing the temp dir); passes alone. Await the log flush deterministically (wait for the expected lines with a bounded poll instead of a fixed delay) and retry temp-dir removal (`fs.rm` with `maxRetries`). |
 
 ## Acceptance criteria
 
