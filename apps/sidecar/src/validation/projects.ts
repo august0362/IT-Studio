@@ -7,5 +7,6 @@ export const projectSchema = z
     workspaceRoot: z.string(),
     createdAt: isoDateTimeSchema,
     archived: z.boolean(),
+    lastOpenedAt: isoDateTimeSchema.exactOptional(),
   })
   .readonly() satisfies z.ZodType<Project>;

@@ -110,6 +110,8 @@ export interface Project {
   readonly workspaceRoot: string;
   readonly createdAt: IsoDateTime;
   readonly archived: boolean;
+  /** Last time the project was made active (OWNER-FB2); absent for never-opened rows. */
+  readonly lastOpenedAt?: IsoDateTime;
 }
 
 /* ============================================================================
@@ -1016,6 +1018,8 @@ export interface RpcMethodMap {
   'project.list': { params: Empty; result: readonly Project[] };
   'project.create': { params: { readonly name: string; readonly workspaceRoot: string }; result: Project };
   'project.setActive': { params: { readonly projectId: ProjectId }; result: Project };
+  /** Removes the project and all IT Studio data for it (OWNER-FB2). Never touches files in workspaceRoot. */
+  'project.delete': { params: { readonly projectId: ProjectId }; result: { readonly deleted: boolean } };
 
   'settings.get': { params: Empty; result: AppSettings };
   'settings.update': { params: { readonly patch: SettingsPatch }; result: AppSettings };

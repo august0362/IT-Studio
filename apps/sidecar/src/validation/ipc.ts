@@ -63,6 +63,7 @@ export const rpcParamsSchemas = {
   'project.list': empty,
   'project.create': z.strictObject({ name: z.string(), workspaceRoot: z.string() }).readonly(),
   'project.setActive': z.strictObject({ projectId: projectIdSchema }).readonly(),
+  'project.delete': z.strictObject({ projectId: projectIdSchema }).readonly(),
   'settings.get': empty,
   'settings.update': z.strictObject({ patch: settingsPatchSchema }).readonly(),
   'webchat.browsers': empty,
@@ -233,6 +234,7 @@ export const rpcResultSchemas = {
   'project.list': z.array(projectSchema).readonly(),
   'project.create': projectSchema,
   'project.setActive': projectSchema,
+  'project.delete': z.strictObject({ deleted: z.boolean() }).readonly(),
   'settings.get': appSettingsSchema,
   'settings.update': appSettingsSchema,
   'webchat.browsers': z
