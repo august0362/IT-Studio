@@ -31,6 +31,26 @@ function event(moduleId: ActivityEvent['moduleId'], kind: ActivityEvent['kind'],
 }
 
 describe('workflowReducer', () => {
+  it('M9-OBS-05 counts repeated starts and terminal deliveries once per request', () => {
+    const refs = {
+      requestId: '00000000-0000-4000-8000-000000000001' as NonNullable<ActivityEvent['refs']['requestId']>,
+    };
+    let state = workflowReducer(initialWorkflowState, { type: 'graph', graph });
+    const send = (id: string, kind: ActivityEvent['kind']) => {
+      state = workflowReducer(state, {
+        type: 'activity',
+        now: 0,
+        events: [{ ...event('chat', kind), id: id as ActivityEventId, refs }],
+      });
+    };
+    send('start-1', 'started');
+    send('start-2', 'started');
+    expect(state.graph?.nodes[0]).toMatchObject({ status: 'active', inFlight: 1 });
+    send('complete-1', 'completed');
+    send('complete-2', 'completed');
+    expect(state.graph?.nodes[0]).toMatchObject({ status: 'idle', inFlight: 0 });
+  });
+
   afterEach(() => {
     vi.useRealTimers();
   });

@@ -35,6 +35,8 @@ export function layoutWorkflow(
       id: module.id,
       type: 'module',
       position,
+      initialWidth: NODE_WIDTH,
+      initialHeight: NODE_HEIGHT,
       data: { module, pulsing: pulsingIds.has(module.id) },
     };
     return flowNode;

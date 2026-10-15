@@ -58,6 +58,16 @@ export function WorkflowPage({
       if (request !== graphRequest.current || historyScopeRef.current.projectId !== projectId) return;
       dispatch({ type: 'graph', graph });
       setLoadError(false);
+      await Promise.all(
+        graph.nodes
+          .filter((node) => node.inFlight > 0)
+          .map(async (node) => {
+            const events = await rpc.call('workflow.activity', { projectId, moduleId: node.id, limit: 200 });
+            if (request === graphRequest.current && historyScopeRef.current.projectId === projectId) {
+              dispatch({ type: 'history', projectId, events });
+            }
+          }),
+      );
     } catch {
       if (request === graphRequest.current) setLoadError(true);
     }

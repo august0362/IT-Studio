@@ -54,15 +54,21 @@ export function PortfolioPage({
       </section>
       <div className="grid gap-3 md:grid-cols-2">
         {[
-          { title: t('cost.topProjects'), rows: data.byProject },
-          { title: t('cost.topModels'), rows: data.byModel },
+          {
+            title: t('cost.topProjects'),
+            rows: data.byProject.map((row) => ({
+              ...row,
+              label: projects.find((project) => project.id === row.key)?.name ?? row.key.slice(0, 8),
+            })),
+          },
+          { title: t('cost.topModels'), rows: data.byModel.map((row) => ({ ...row, label: row.key })) },
         ].map(({ title, rows }) => (
           <section className="rounded border border-border bg-surface p-4" key={title}>
             <h2 className="mb-2 font-semibold">{title}</h2>
             <ul>
               {rows.map((row) => (
                 <li className="flex justify-between py-1" key={row.key}>
-                  <span>{row.key}</span>
+                  <span>{row.label}</span>
                   <Money compact value={row.cost} />
                 </li>
               ))}

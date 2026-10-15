@@ -48,6 +48,7 @@ export class PricingService {
     if (existing !== null) {
       const automatic = new Map(this.seed.entries.map((entry) => [entry.modelKey, entry]));
       const manualOverrides = new Set(existing.manualOverrides);
+      for (const entry of existing.automaticEntries ?? []) automatic.set(entry.modelKey, entry);
       for (const entry of existing.entries) {
         if (!manualOverrides.has(entry.modelKey)) automatic.set(entry.modelKey, entry);
       }
@@ -172,6 +173,7 @@ export class PricingService {
       origin: 'manual_override',
       entries: [...entries],
       manualOverrides: [...manualOverrides],
+      automaticEntries: this.latestAutomaticEntries,
     };
     this.repository.insert(next);
     return toPriceTable(next);
@@ -188,6 +190,7 @@ export class PricingService {
       origin: 'auto_extracted',
       entries: [...entries],
       manualOverrides: [...previous.manualOverrides],
+      automaticEntries: this.latestAutomaticEntries,
     };
     this.repository.insert(next);
     return toPriceTable(next);

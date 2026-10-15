@@ -98,7 +98,10 @@ const activity: ActivityEvent = {
   ts: '2026-10-04T00:00:00.000Z' as IsoDateTime,
 };
 
-function renderPage(): {
+function renderPage(
+  snapshot: WorkflowGraph = graph,
+  history: readonly ActivityEvent[] = [activity],
+): {
   readonly transport: FakeTransport;
   readonly routes: string[];
   readonly navigations: { readonly route: string; readonly event?: ActivityEvent }[];
@@ -110,7 +113,7 @@ function renderPage(): {
     const request = JSON.parse(line) as { readonly id: number; readonly method: string; readonly params: unknown };
     requests.push(request);
     const result: unknown =
-      request.method === 'workflow.graph' ? graph : request.method === 'workflow.activity' ? [activity] : [];
+      request.method === 'workflow.graph' ? snapshot : request.method === 'workflow.activity' ? history : [];
     transport.receive(JSON.stringify({ jsonrpc: '2.0', id: request.id, result }));
     return Promise.resolve();
   };
@@ -214,6 +217,92 @@ async function renderPageWithFakeTimers(): Promise<ReturnType<typeof renderPage>
 }
 
 describe('WorkflowPage', () => {
+  it.each(['completed', 'failed'] as const)(
+    'M9-OBS-05 keeps concurrent retrievals in sync until the last call is %s',
+    async (lastKind) => {
+      const base = graph.nodes[0];
+      if (base === undefined) throw new Error('Missing graph fixture');
+      const snapshot: WorkflowGraph = {
+        ...graph,
+        nodes: [{ ...base, id: 'retriever', labelKey: 'workflow.module.retriever' }],
+      };
+      const { transport } = renderPage(snapshot, []);
+      fireEvent.click(await screen.findByLabelText('Retriever · Idle'));
+      const send = async (id: string, kind: ActivityEvent['kind'], count: number, status: string) => {
+        const event: ActivityEvent = {
+          ...activity,
+          id: id as ActivityEventId,
+          moduleId: 'retriever',
+          refs: {},
+          kind,
+          summary: kind === 'completed' ? 'Retrieved 0 hits' : id,
+        };
+        act(() => {
+          transport.receive(JSON.stringify({ jsonrpc: '2.0', method: 'workflow.activity', params: [event] }));
+        });
+        await waitFor(() => expect(screen.getByText(`In flight: ${String(count)}`)).toBeVisible());
+        expect(screen.getByLabelText(`Retriever · ${status}`)).toBeVisible();
+      };
+      await send('first', 'started', 1, 'Active');
+      await send('second', 'started', 2, 'Active');
+      await send('first-complete', 'completed', 1, 'Active');
+      await send('last-terminal', lastKind, 0, lastKind === 'failed' ? 'Error' : 'Idle');
+      expect(screen.getByText('No activity in flight.')).toBeVisible();
+      fireEvent.click(screen.getByRole('tab', { name: 'Recent' }));
+      expect(screen.getAllByText('Retrieved 0 hits').length).toBeGreaterThan(0);
+    },
+  );
+
+  it('M9-OBS-05 reconciles a completed zero-hit retrieval with node, Now and Recent after refresh', async () => {
+    const retrieval: ActivityEvent = {
+      ...activity,
+      moduleId: 'retriever',
+      refs: {},
+      kind: 'started',
+      summary: 'Retrieval started',
+    };
+    const completed: ActivityEvent = {
+      ...retrieval,
+      id: 'retrieval-done' as ActivityEventId,
+      kind: 'completed',
+      summary: 'Retrieved 0 hits',
+    };
+    const base = graph.nodes[0];
+    if (base === undefined) throw new Error('Missing graph fixture');
+    const snapshot: WorkflowGraph = {
+      ...graph,
+      nodes: [
+        {
+          ...base,
+          id: 'retriever',
+          labelKey: 'workflow.module.retriever',
+          status: 'active',
+          inFlight: 1,
+        },
+      ],
+    };
+    const { transport } = renderPage(snapshot, [completed, retrieval]);
+    const node = await screen.findByLabelText('Retriever · Idle');
+    fireEvent.click(node);
+    expect(await screen.findByText('In flight: 0')).toBeVisible();
+    expect(screen.getByText('No activity in flight.')).toBeVisible();
+    fireEvent.click(screen.getByRole('tab', { name: 'Recent' }));
+    expect(await screen.findByText('Retrieved 0 hits')).toBeVisible();
+    expect(screen.getByText('Completed')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    expect(await screen.findByLabelText('Retriever · Idle')).toBeVisible();
+    // Duplicate deliveries must not reopen a completed call.
+    act(() => {
+      transport.receive(
+        JSON.stringify({ jsonrpc: '2.0', method: 'workflow.activity', params: [retrieval, completed] }),
+      );
+    });
+    await waitFor(() => expect(screen.getByLabelText('Retriever · Idle')).toBeVisible());
+    fireEvent.click(screen.getByRole('tab', { name: 'Now' }));
+    expect(screen.getByText('In flight: 0')).toBeVisible();
+    expect(screen.getByText('No activity in flight.')).toBeVisible();
+  });
+
   afterEach(() => {
     cleanup();
     vi.useRealTimers();
