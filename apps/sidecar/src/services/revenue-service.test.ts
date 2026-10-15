@@ -38,6 +38,27 @@ function harness() {
 }
 
 describe('RevenueService', () => {
+  it('QA-BREAK-01-D02 rejects unsafe inputs and serializes aggregate overflow checks', async () => {
+    const { service, stored } = harness();
+    for (const [currency, amount] of [
+      ['USD', 1e308],
+      ['VND', 1.5],
+      ['VND', Number.MAX_SAFE_INTEGER + 2],
+      ['USD', 0.00000001],
+    ] as const) {
+      expect(await service.add({ projectId, currency, amount, description: '' })).toMatchObject({
+        ok: false,
+        error: { code: 'VALIDATION' },
+      });
+    }
+    expect(stored).toHaveLength(0);
+    const results = await Promise.all(
+      [1, 2].map(() => service.add({ projectId, currency: 'USD', amount: 9_000_000_000, description: '' })),
+    );
+    expect(results.filter((result) => result.ok)).toHaveLength(1);
+    expect(results.filter((result) => !result.ok)).toMatchObject([{ ok: false, error: { code: 'VALIDATION' } }]);
+    expect(stored).toHaveLength(1);
+  });
   it('converts USD and VND to rounded integer micro-USD using the effective FX rate', async () => {
     const { service, rates, stored } = harness();
     const usd = await service.add({ projectId, amount: 1.2345678, currency: 'USD', description: '  invoice  ' });

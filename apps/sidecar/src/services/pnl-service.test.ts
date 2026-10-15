@@ -95,6 +95,10 @@ describe('PnLService', () => {
         ],
       },
     });
-    expect(await service.get(projectAId, to, to)).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
+    expect(await service.get(projectAId, to, to)).toMatchObject({
+      ok: true,
+      value: { revenue: { microUsd: 0 }, cost: { microUsd: 0 }, margin: { microUsd: 0 } },
+    });
+    expect(await service.get(projectAId, to, from)).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
   });
 });

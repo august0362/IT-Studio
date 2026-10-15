@@ -97,6 +97,7 @@ export class PipelineOrchestrator {
   private readonly transactions = new Map<PipelineRunId, PreparedWriteTransaction>();
   private readonly restoredProjects = new Map<ProjectId, Promise<void>>();
   private readonly answering = new Set<PipelineRunId>();
+  private readonly admitting = new Set<ProjectId>();
   private readonly clarificationGates = new Map<
     ProjectId,
     { readonly runId: PipelineRunId; readonly promise: Promise<void>; readonly release: () => void }
@@ -107,6 +108,20 @@ export class PipelineOrchestrator {
   }
 
   async start(input: { readonly projectId: ProjectId; readonly prompt: string }): Promise<Result<PipelineRun>> {
+    if (this.admitting.has(input.projectId))
+      return {
+        ok: false,
+        error: appError('A pipeline start is already being admitted for this project.', ErrorCode.CONFLICT),
+      };
+    this.admitting.add(input.projectId);
+    try {
+      return await this.admit(input);
+    } finally {
+      this.admitting.delete(input.projectId);
+    }
+  }
+
+  private async admit(input: { readonly projectId: ProjectId; readonly prompt: string }): Promise<Result<PipelineRun>> {
     const project = await this.deps.projects.get(input.projectId);
     if (project === null) return { ok: false, error: appError('The project does not exist.', ErrorCode.VALIDATION) };
     const settings = await this.deps.settings();

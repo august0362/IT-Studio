@@ -35,6 +35,25 @@ afterEach(() => {
 });
 
 describe('SettingsService', () => {
+  it('QA-BREAK-02-D08 merges simultaneous patches against the latest persisted settings', async () => {
+    const { opened, service } = createService();
+    try {
+      const results = await Promise.all([
+        service.update({ ui: { locale: 'vi' } }),
+        service.update({ budget: { hardStop: true } }),
+        service.update({ ui: { mode: 'dark' } }),
+      ]);
+      expect(results.every((result) => result.ok)).toBe(true);
+      expect(await service.get()).toMatchObject({
+        ok: true,
+        value: { ui: { locale: 'vi', mode: 'dark' }, budget: { hardStop: true } },
+      });
+      expect(await service.update({ ui: { themeId: themeIdSchema.parse('unknown') } })).toMatchObject({ ok: false });
+      expect(await service.update({ ui: { locale: 'en' } })).toMatchObject({ ok: true });
+    } finally {
+      opened.client.close();
+    }
+  });
   it('PSTUDIO-01 defaults autoClarify to false, upgrades older settings, and saves changes', async () => {
     const { opened, service, loaded } = createService();
     try {

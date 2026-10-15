@@ -79,26 +79,22 @@ async function setupPipeline() {
 }
 
 describe('QA-BREAK-02 adversarial concurrency and sync', () => {
-  it.fails(
-    'QA-BREAK-02-D06 BRK-C01 rejects one of two same-tick pipeline starts and retains one active run',
-    async () => {
-      const { first } = await setupPipeline();
-      const responses = await Promise.all([
-        currentSidecar().call('pipeline.start', { projectId: first.projectId, prompt: 'first' }),
-        currentSidecar().call('pipeline.start', { projectId: first.projectId, prompt: 'second' }),
-      ]);
-      expect(responses.filter((response) => response.error === undefined)).toHaveLength(1);
-      expect(responses.filter((response) => response.error !== undefined)).toHaveLength(1);
-      const list = await currentSidecar().call('pipeline.list', { projectId: first.projectId, limit: 20 });
-      expect(
-        z
-          .array(pipelineRunSchema)
-          .parse(list.result)
-          .filter((run) => run.stage !== 'completed' && run.stage !== 'failed' && run.stage !== 'rolled_back'),
-      ).toHaveLength(1);
-    },
-    60_000,
-  );
+  it('QA-BREAK-02-D06 BRK-C01 rejects one of two same-tick pipeline starts and retains one active run', async () => {
+    const { first } = await setupPipeline();
+    const responses = await Promise.all([
+      currentSidecar().call('pipeline.start', { projectId: first.projectId, prompt: 'first' }),
+      currentSidecar().call('pipeline.start', { projectId: first.projectId, prompt: 'second' }),
+    ]);
+    expect(responses.filter((response) => response.error === undefined)).toHaveLength(1);
+    expect(responses.filter((response) => response.error !== undefined)).toHaveLength(1);
+    const list = await currentSidecar().call('pipeline.list', { projectId: first.projectId, limit: 20 });
+    expect(
+      z
+        .array(pipelineRunSchema)
+        .parse(list.result)
+        .filter((run) => run.stage !== 'completed' && run.stage !== 'failed' && run.stage !== 'rolled_back'),
+    ).toHaveLength(1);
+  }, 60_000);
 
   it('BRK-C02 attributes parallel pipeline events and ledger rows to their own projects', async () => {
     const { first, second } = await setupPipeline();
@@ -207,72 +203,69 @@ describe('QA-BREAK-02 adversarial concurrency and sync', () => {
     expect(rows).toHaveLength(20);
   }, 85_000);
 
-  it.fails(
-    'QA-BREAK-02-D08 BRK-C06 preserves concurrent distinct settings fields across valid settings patches',
-    async () => {
-      sidecar = await startSidecar();
-      const initial = appSettingsSchema.parse((await currentSidecar().call('settings.get')).result);
-      const patches = [
-        { ui: { mode: 'dark' as const } },
-        { ui: { locale: 'vi' as const } },
-        { budget: { hardStop: !initial.budget.hardStop } },
-        { pricing: { autoUpdate: !initial.pricing.autoUpdate } },
-        { pricing: { updateIntervalHours: 73 } },
-        { pricing: { maxAutoChangePercent: 17 } },
-        { fx: { autoUpdate: !initial.fx.autoUpdate } },
-        { fx: { manualUsdToVnd: initial.fx.manualUsdToVnd === null ? 25000 : null } },
-        { vscode: { autoLaunch: !initial.vscode.autoLaunch } },
-        { vscode: { showDiffBeforeValidate: !initial.vscode.showDiffBeforeValidate } },
-        { vscode: { revealChangedFiles: !initial.vscode.revealChangedFiles } },
-        { image: { enabled: !initial.image.enabled } },
-        { rag: { defaultTopK: 13 } },
-        { rag: { minScore: 0.23 } },
-        { router: { autoFallback: !initial.router.autoFallback } },
-        { router: { userDecisionTimeoutMs: 61000 } },
-        { router: { circuitBreaker: { failureThreshold: 4, cooldownMs: 121000 } } },
-        {
-          webChat: {
-            browser: 'custom' as const,
-            customBrowserPath: resolve(currentSidecar().dataDir, 'custom-browser.exe'),
-          },
+  it('QA-BREAK-02-D08 BRK-C06 preserves concurrent distinct settings fields across valid settings patches', async () => {
+    sidecar = await startSidecar();
+    const initial = appSettingsSchema.parse((await currentSidecar().call('settings.get')).result);
+    const patches = [
+      { ui: { mode: 'dark' as const } },
+      { ui: { locale: 'vi' as const } },
+      { budget: { hardStop: !initial.budget.hardStop } },
+      { pricing: { autoUpdate: !initial.pricing.autoUpdate } },
+      { pricing: { updateIntervalHours: 73 } },
+      { pricing: { maxAutoChangePercent: 17 } },
+      { fx: { autoUpdate: !initial.fx.autoUpdate } },
+      { fx: { manualUsdToVnd: initial.fx.manualUsdToVnd === null ? 25000 : null } },
+      { vscode: { autoLaunch: !initial.vscode.autoLaunch } },
+      { vscode: { showDiffBeforeValidate: !initial.vscode.showDiffBeforeValidate } },
+      { vscode: { revealChangedFiles: !initial.vscode.revealChangedFiles } },
+      { image: { enabled: !initial.image.enabled } },
+      { rag: { defaultTopK: 13 } },
+      { rag: { minScore: 0.23 } },
+      { router: { autoFallback: !initial.router.autoFallback } },
+      { router: { userDecisionTimeoutMs: 61000 } },
+      { router: { circuitBreaker: { failureThreshold: 4, cooldownMs: 121000 } } },
+      {
+        webChat: {
+          browser: 'custom' as const,
+          customBrowserPath: resolve(currentSidecar().dataDir, 'custom-browser.exe'),
         },
-      ];
-      const results = await Promise.all(patches.map((patch) => currentSidecar().call('settings.update', { patch })));
-      expect(
-        results.map((result, index) => ({ index, error: result.error })).filter((result) => result.error !== undefined),
-      ).toEqual([]);
-      const final = appSettingsSchema.parse((await currentSidecar().call('settings.get')).result);
-      expect(final.ui.mode).toBe('dark');
-      expect(final.ui.locale).toBe('vi');
-      expect(final.budget.hardStop).toBe(!initial.budget.hardStop);
-      expect(final.pricing).toMatchObject({
-        autoUpdate: !initial.pricing.autoUpdate,
-        updateIntervalHours: 73,
-        maxAutoChangePercent: 17,
-      });
-      expect(final.fx).toMatchObject({
-        autoUpdate: !initial.fx.autoUpdate,
-        manualUsdToVnd: initial.fx.manualUsdToVnd === null ? 25000 : null,
-      });
-      expect(final.vscode).toMatchObject({
-        autoLaunch: !initial.vscode.autoLaunch,
-        showDiffBeforeValidate: !initial.vscode.showDiffBeforeValidate,
-        revealChangedFiles: !initial.vscode.revealChangedFiles,
-      });
-      expect(final.image.enabled).toBe(!initial.image.enabled);
-      expect(final.rag).toMatchObject({ defaultTopK: 13, minScore: 0.23 });
-      expect(final.router).toMatchObject({
-        autoFallback: !initial.router.autoFallback,
-        userDecisionTimeoutMs: 61000,
-        circuitBreaker: { failureThreshold: 4, cooldownMs: 121000 },
-      });
-      expect(final.webChat).toMatchObject({
-        browser: 'custom',
-        customBrowserPath: resolve(currentSidecar().dataDir, 'custom-browser.exe'),
-      });
-      // The SettingsPatch contract currently exposes 18 independently patchable leaves/objects, not 50.
-    },
-  );
+      },
+    ];
+    const results = await Promise.all(patches.map((patch) => currentSidecar().call('settings.update', { patch })));
+    expect(
+      results.map((result, index) => ({ index, error: result.error })).filter((result) => result.error !== undefined),
+    ).toEqual([]);
+    const final = appSettingsSchema.parse((await currentSidecar().call('settings.get')).result);
+    expect(final.ui.mode).toBe('dark');
+    expect(final.ui.locale).toBe('vi');
+    expect(final.budget.hardStop).toBe(!initial.budget.hardStop);
+    expect(final.pricing).toMatchObject({
+      autoUpdate: !initial.pricing.autoUpdate,
+      updateIntervalHours: 73,
+      maxAutoChangePercent: 17,
+    });
+    expect(final.fx).toMatchObject({
+      autoUpdate: !initial.fx.autoUpdate,
+      manualUsdToVnd: initial.fx.manualUsdToVnd === null ? 25000 : null,
+    });
+    expect(final.vscode).toMatchObject({
+      autoLaunch: !initial.vscode.autoLaunch,
+      showDiffBeforeValidate: !initial.vscode.showDiffBeforeValidate,
+      revealChangedFiles: !initial.vscode.revealChangedFiles,
+    });
+    expect(final.image.enabled).toBe(!initial.image.enabled);
+    expect(final.rag).toMatchObject({ defaultTopK: 13, minScore: 0.23 });
+    expect(final.router).toMatchObject({
+      autoFallback: !initial.router.autoFallback,
+      userDecisionTimeoutMs: 61000,
+      circuitBreaker: { failureThreshold: 4, cooldownMs: 121000 },
+    });
+    expect(final.webChat).toMatchObject({
+      browser: 'custom',
+      customBrowserPath: resolve(currentSidecar().dataDir, 'custom-browser.exe'),
+    });
+    // The SettingsPatch contract currently exposes 18 independently patchable leaves/objects, not 50.
+  });
 
   it('BRK-C07 keeps the in-flight router request valid while applying the reordered config to the next request', async () => {
     const { chat } = await setupChat({ 'google/gemini-3.8-flash': ['delay:200', 'ok'] });
@@ -363,67 +356,63 @@ describe('QA-BREAK-02 adversarial concurrency and sync', () => {
     expect(concurrentLedger.length).toBe(completedCount);
   }, 45_000);
 
-  it.fails(
-    'QA-BREAK-02-D05 BRK-C09 preserves delete across concurrent re-index of an existing source',
-    async () => {
-      sidecar = await startSidecar();
-      const { projectId, workspaceRoot } = await makeProject(sidecar, 'RAG race');
-      const settings = appSettingsSchema.parse((await sidecar.call('settings.get')).result);
-      await sidecar.call('secrets.set', {
-        provider: providerIdSchema.parse(settings.rag.embedding.modelKey.split('/')[0]),
-        apiKey: 'integration-only-embedding-key',
-      });
-      const sourcePath = resolve(workspaceRoot, 'source.md');
-      await writeFile(sourcePath, '# Seed\n\nSmall initial document.');
-      const seed = await currentSidecar().call('rag.ingest', { projectId, paths: ['source.md'] });
-      expect(seed.error).toBeUndefined();
-      const seedJobId = z.object({ id: z.string() }).parse(seed.result).id;
-      await waitFor(
-        () =>
+  it('QA-BREAK-02-D05 BRK-C09 preserves delete across concurrent re-index of an existing source', async () => {
+    sidecar = await startSidecar();
+    const { projectId, workspaceRoot } = await makeProject(sidecar, 'RAG race');
+    const settings = appSettingsSchema.parse((await sidecar.call('settings.get')).result);
+    await sidecar.call('secrets.set', {
+      provider: providerIdSchema.parse(settings.rag.embedding.modelKey.split('/')[0]),
+      apiKey: 'integration-only-embedding-key',
+    });
+    const sourcePath = resolve(workspaceRoot, 'source.md');
+    await writeFile(sourcePath, '# Seed\n\nSmall initial document.');
+    const seed = await currentSidecar().call('rag.ingest', { projectId, paths: ['source.md'] });
+    expect(seed.error).toBeUndefined();
+    const seedJobId = z.object({ id: z.string() }).parse(seed.result).id;
+    await waitFor(
+      () =>
+        observed<{ id: string; status: string }>(currentSidecar(), 'rag.progress').some(
+          (event) => event.id === seedJobId && event.status === 'indexed',
+        ),
+      30_000,
+    );
+    const original = z
+      .array(sourceDocumentSchema)
+      .parse((await currentSidecar().call('rag.listDocuments', { projectId })).result)[0];
+    if (original === undefined) throw new Error('Seed ingest produced no document');
+    await writeFile(sourcePath, '# Race\n\n' + 'Same source indexed concurrently. '.repeat(120_000));
+    const started = await Promise.all(
+      [1, 2].map(() => currentSidecar().call('rag.ingest', { projectId, paths: ['source.md'] })),
+    );
+    const ids = started.flatMap((result) =>
+      result.result ? [z.object({ id: z.string() }).parse(result.result).id] : [],
+    );
+    expect(ids).toHaveLength(2);
+    await waitFor(
+      () =>
+        ids.some((id) =>
           observed<{ id: string; status: string }>(currentSidecar(), 'rag.progress').some(
-            (event) => event.id === seedJobId && event.status === 'indexed',
+            (event) => event.id === id && event.status === 'parsing',
           ),
-        30_000,
-      );
-      const original = z
-        .array(sourceDocumentSchema)
-        .parse((await currentSidecar().call('rag.listDocuments', { projectId })).result)[0];
-      if (original === undefined) throw new Error('Seed ingest produced no document');
-      await writeFile(sourcePath, '# Race\n\n' + 'Same source indexed concurrently. '.repeat(120_000));
-      const started = await Promise.all(
-        [1, 2].map(() => currentSidecar().call('rag.ingest', { projectId, paths: ['source.md'] })),
-      );
-      const ids = started.flatMap((result) =>
-        result.result ? [z.object({ id: z.string() }).parse(result.result).id] : [],
-      );
-      expect(ids).toHaveLength(2);
-      await waitFor(
-        () =>
-          ids.some((id) =>
-            observed<{ id: string; status: string }>(currentSidecar(), 'rag.progress').some(
-              (event) => event.id === id && event.status === 'parsing',
-            ),
+        ),
+      30_000,
+    );
+    expect((await currentSidecar().call('rag.deleteDocument', { documentId: original.id })).error).toBeUndefined();
+    await waitFor(
+      () =>
+        ids.every((id) =>
+          observed<{ id: string; status: string }>(currentSidecar(), 'rag.progress').some(
+            (event) => event.id === id && ['indexed', 'failed'].includes(event.status),
           ),
-        30_000,
-      );
-      expect((await currentSidecar().call('rag.deleteDocument', { documentId: original.id })).error).toBeUndefined();
-      await waitFor(
-        () =>
-          ids.every((id) =>
-            observed<{ id: string; status: string }>(currentSidecar(), 'rag.progress').some(
-              (event) => event.id === id && ['indexed', 'failed'].includes(event.status),
-            ),
-          ),
-        60_000,
-      );
-      expect(await sidecar.call('rag.listDocuments', { projectId })).toMatchObject({ result: [] });
-      expect(await new LanceDbVectorStore(resolve(sidecar.dataDir, 'lancedb')).count(projectId)).toEqual({
-        ok: true,
-        value: 0,
-      });
-    },
-    80_000,
-  );
+        ),
+      60_000,
+    );
+    expect(await sidecar.call('rag.listDocuments', { projectId })).toMatchObject({ result: [] });
+    expect(await new LanceDbVectorStore(resolve(sidecar.dataDir, 'lancedb')).count(projectId)).toEqual({
+      ok: true,
+      value: 0,
+    });
+  }, 80_000);
 
   it('BRK-C10 applies concurrent pricing refreshes without exposing a partial row set', async () => {
     sidecar = await startSidecar({ ITSTUDIO_E2E_PRICING_HTTP: 'fail' });
@@ -456,34 +445,30 @@ describe('QA-BREAK-02 adversarial concurrency and sync', () => {
     expect(z.array(z.unknown()).parse(history.result).length).toBeGreaterThanOrEqual(20);
   }, 60_000);
 
-  it.fails(
-    'QA-BREAK-02-D07 BRK-C12 keeps ping responsive and workflow activity bounded during a query burst',
-    async () => {
-      sidecar = await startSidecar();
-      const { projectId } = await makeProject(sidecar, 'Activity burst');
-      const settings = appSettingsSchema.parse((await sidecar.call('settings.get')).result);
-      const embeddingProvider = providerIdSchema.parse(settings.rag.embedding.modelKey.split('/')[0]);
-      await sidecar.call('secrets.set', { provider: embeddingProvider, apiKey: 'integration-only-workflow-burst-key' });
-      const durations: number[] = [];
-      await Promise.all(
-        Array.from({ length: 500 }, async () => {
-          const started = performance.now();
-          const [query, ping] = await Promise.all([
-            currentSidecar().call('rag.query', { projectId, query: 'burst query', topK: 5, minScore: 0 }),
-            currentSidecar().call('system.ping'),
-          ]);
-          expect(query.error).toBeUndefined();
-          expect(ping.error).toBeUndefined();
-          durations.push(performance.now() - started);
-        }),
-      );
-      const p95 = durations.sort((a, b) => a - b)[Math.floor(durations.length * 0.95)] ?? 0;
-      const activity = await sidecar.call('workflow.activity', { projectId, limit: 200 });
-      const events = z.array(activityEventSchema).parse(activity.result);
-      expect(events.length).toBeGreaterThan(0);
-      expect(p95).toBeLessThan(200);
-      expect(events.length).toBeLessThanOrEqual(5_000);
-    },
-    85_000,
-  );
+  it('QA-BREAK-02-D07 BRK-C12 keeps ping responsive and workflow activity bounded during a query burst', async () => {
+    sidecar = await startSidecar();
+    const { projectId } = await makeProject(sidecar, 'Activity burst');
+    const settings = appSettingsSchema.parse((await sidecar.call('settings.get')).result);
+    const embeddingProvider = providerIdSchema.parse(settings.rag.embedding.modelKey.split('/')[0]);
+    await sidecar.call('secrets.set', { provider: embeddingProvider, apiKey: 'integration-only-workflow-burst-key' });
+    const durations: number[] = [];
+    await Promise.all(
+      Array.from({ length: 500 }, async () => {
+        const started = performance.now();
+        const [query, ping] = await Promise.all([
+          currentSidecar().call('rag.query', { projectId, query: 'burst query', topK: 5, minScore: 0 }),
+          currentSidecar().call('system.ping'),
+        ]);
+        expect(query.error).toBeUndefined();
+        expect(ping.error).toBeUndefined();
+        durations.push(performance.now() - started);
+      }),
+    );
+    const p95 = durations.sort((a, b) => a - b)[Math.floor(durations.length * 0.95)] ?? 0;
+    const activity = await sidecar.call('workflow.activity', { projectId, limit: 200 });
+    const events = z.array(activityEventSchema).parse(activity.result);
+    expect(events.length).toBeGreaterThan(0);
+    expect(p95).toBeLessThan(200);
+    expect(events.length).toBeLessThanOrEqual(5_000);
+  }, 85_000);
 });

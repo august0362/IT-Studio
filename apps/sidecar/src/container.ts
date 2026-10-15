@@ -4,7 +4,6 @@ import {
   CostPurpose,
   ImageProviderId,
   ProviderId,
-  PipelineStage,
   type PriceEntry,
   type ProjectId,
   type RpcNotificationMap,
@@ -83,6 +82,7 @@ import { RoleCaller } from './services/role-caller.js';
 import { WriteTransactionService } from './services/write-transaction.js';
 import { CommandRunner } from './services/command-runner.js';
 import { FailureReportBuilder } from './services/failure-report-builder.js';
+import { recoverInterruptedRuns } from './services/pipeline-recovery.js';
 import { JournalRecoveryService } from './services/journal-recovery.js';
 import { ProjectContextService } from './services/project-context.js';
 import { BrowserLocator } from './infra/browser-locator.js';
@@ -515,6 +515,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     subscribe: (handler: (event: WorkflowInternalEvent) => void) => workflowInternalBus.subscribe('activity', handler),
   };
   const activityRecorder = new ActivityRecorder({
+    logger,
     events,
     repository: activityRepository,
     ids,
@@ -780,6 +781,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     clock,
     logger,
   });
+  let startupRecovery: Promise<void> = Promise.resolve();
   const pipelineRepository = new PipelineRepository(database.db);
   const roleCaller = new RoleCaller({ router: llmRouter, logger, ids, now: () => clock.now() });
   const writeTransaction = new WriteTransactionService({ fileSystem, ids, clock });
@@ -966,11 +968,13 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   server.register('images.list', ({ projectId }) => imageService.list(projectId));
   server.register('images.delete', ({ assetId }) => imageService.delete(assetId));
   server.register('pipeline.start', async (input) => {
+    await startupRecovery;
     const result = await pipelineOrchestrator.start(input);
     if (result.ok) activityRecorder.correlatePipelineRun(result.value.id, result.value.projectId);
     return result;
   });
   server.register('pipeline.get', async ({ runId }) => {
+    await startupRecovery;
     const run = await pipelineOrchestrator.get(runId);
     return run === null
       ? {
@@ -984,8 +988,12 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
         }
       : { ok: true, value: run };
   });
-  server.register('pipeline.list', async (input) => ({ ok: true, value: await pipelineOrchestrator.list(input) }));
+  server.register('pipeline.list', async (input) => {
+    await startupRecovery;
+    return { ok: true, value: await pipelineOrchestrator.list(input) };
+  });
   server.register('pipeline.cancel', async ({ runId }) => {
+    await startupRecovery;
     const run = await pipelineOrchestrator.cancel(runId);
     return run === null
       ? {
@@ -999,7 +1007,10 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
         }
       : { ok: true, value: run };
   });
-  server.register('pipeline.answerClarifications', (input) => pipelineOrchestrator.answerClarifications(input));
+  server.register('pipeline.answerClarifications', async (input) => {
+    await startupRecovery;
+    return pipelineOrchestrator.answerClarifications(input);
+  });
   server.register('workflow.graph', ({ projectId }) =>
     activityRecorder.graph(projectId).then((value) => ({ ok: true as const, value })),
   );
@@ -1125,32 +1136,27 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
         );
       });
       logger.info({ svc: 'sidecar', startupMs: Math.max(0, clock.monotonicMs() - startupStartedAt) }, 'sidecar ready');
-      void (async () => {
+      startupRecovery = (async () => {
         let recoveredTransactions = 0;
         const projects = await projectRepository.list();
         for (const project of projects) {
-          const recovered = await journalRecovery.recover(project.workspaceRoot);
+          const recoveredIds = new Set<string>();
+          const recovered = await journalRecovery.recover(project.workspaceRoot, (id) => recoveredIds.add(id));
           if (recovered.ok) {
             recoveredTransactions += recovered.value;
-            for (let index = 0; index < recovered.value; index += 1) {
-              events.publish('pipeline.failureReport', {
-                stage: PipelineStage.ROLLED_BACK,
-                error: {
-                  code: ErrorCode.INTERNAL,
-                  message: 'An interrupted pipeline transaction was recovered after restart.',
-                  retryable: false,
-                  remediation: ['Review the restored project files, then run the pipeline again if needed.'],
-                },
-                rolledBack: true,
-                nextSteps: ['Review the restored project files, then run the pipeline again if needed.'],
-                logExcerpt: 'Recovered an interrupted workspace transaction during sidecar startup.',
-              });
-            }
           } else
             logger.error(
               { svc: 'journal-recovery', projectId: project.id, remediation: recovered.error.remediation },
               'Journal recovery failed',
             );
+          await recoverInterruptedRuns({
+            projectId: project.id,
+            recoveredTransactions: recoveredIds,
+            repository: pipelineRepository,
+            reports: failureReportBuilder,
+            events,
+            clock,
+          });
         }
         events.publish('system.ready', { version: service.getVersion(), recoveredTransactions });
       })().catch((error: unknown) => {

@@ -26,7 +26,7 @@ export class JournalRecoveryService {
     this.clock = clock;
   }
 
-  async recover(projectRoot: string): Promise<Result<number>> {
+  async recover(projectRoot: string, onRecovered?: (transactionId: string) => void): Promise<Result<number>> {
     const realRoot = await this.fs.realpath(projectRoot);
     if (!realRoot.ok) return recoveryError('The project folder is unavailable during journal recovery.', [projectRoot]);
     const transactionRoot = join(realRoot.value, '.itstudio', 'tx');
@@ -114,7 +114,10 @@ export class JournalRecoveryService {
       // PreparedWriteTransaction's failure helper always includes remediation paths.
       /* v8 ignore next */
       if (!result.ok) failures.push(...(result.error.remediation ?? [manifestPath]));
-      else recovered += 1;
+      else {
+        recovered += 1;
+        onRecovered?.(transaction.id);
+      }
     }
     if (failures.length > 0)
       return recoveryError('Some transaction journals could not be recovered.', [...new Set(failures)]);

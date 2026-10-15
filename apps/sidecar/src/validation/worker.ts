@@ -27,7 +27,11 @@ export const commandKindSchema = z.enum([
 ]) satisfies z.ZodType<CommandKind>;
 export const fileOperationSchema: z.ZodType<FileOperation> = z.discriminatedUnion('kind', [
   z
-    .object({ kind: z.literal('create'), path: workspaceRelativePathSchema, content: z.string().max(1024 * 1024) })
+    .object({
+      kind: z.literal('create'),
+      path: workspaceRelativePathSchema,
+      content: z.string().max(1024 * 1024),
+    })
     .readonly(),
   z
     .object({
@@ -74,7 +78,7 @@ export const writeTransactionSchema = z
   })
   .readonly() satisfies z.ZodType<WriteTransaction>;
 export const commandSpecSchema = z
-  .object({
+  .strictObject({
     kind: commandKindSchema,
     executable: z.string(),
     args: z.array(z.string()).readonly(),

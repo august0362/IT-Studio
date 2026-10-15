@@ -24,19 +24,40 @@ export interface RevenueServiceDependencies {
 
 export class RevenueService {
   private readonly deps: RevenueServiceDependencies;
+  private additions: Promise<void> = Promise.resolve();
 
   constructor(dependencies: RevenueServiceDependencies) {
     this.deps = dependencies;
   }
 
-  async add(input: {
+  add(input: {
+    readonly projectId: ProjectId;
+    readonly amount: number;
+    readonly currency: 'USD' | 'VND';
+    readonly description: string;
+  }): Promise<Result<RevenueEntry>> {
+    const pending = this.additions.then(() => this.addEntry(input));
+    this.additions = pending.then(
+      () => undefined,
+      () => undefined,
+    );
+    return pending;
+  }
+
+  private async addEntry(input: {
     readonly projectId: ProjectId;
     readonly amount: number;
     readonly currency: 'USD' | 'VND';
     readonly description: string;
   }): Promise<Result<RevenueEntry>> {
     const description = input.description.trim();
-    if (!Number.isFinite(input.amount) || input.amount <= 0 || description.length > 500)
+    if (
+      !Number.isFinite(input.amount) ||
+      input.amount <= 0 ||
+      input.amount > Number.MAX_SAFE_INTEGER ||
+      (input.currency === 'VND' && !Number.isSafeInteger(input.amount)) ||
+      description.length > 500
+    )
       return failure(
         ErrorCode.VALIDATION,
         'Revenue amount must be positive and description must be at most 500 characters.',
@@ -47,9 +68,21 @@ export class RevenueService {
     try {
       const fxRate = input.currency === 'USD' ? undefined : this.deps.fx.getEffective().usdToVnd;
       amountMicroUsd = convertAmount(input.amount, fxRate);
+      if (amountMicroUsd <= 0) throw new RangeError('Revenue must be at least one micro-dollar');
     } catch {
       return failure(ErrorCode.VALIDATION, 'Revenue amount is outside the supported range.');
     }
+    let total = BigInt(amountMicroUsd);
+    for (const storedProject of await this.deps.projects.list()) {
+      const entries = await this.deps.repository.list({
+        projectId: storedProject.id,
+        from: '',
+        to: '9999-12-31T23:59:59.999Z',
+      });
+      for (const entry of entries) total += BigInt(entry.amountMicroUsd);
+    }
+    if (total > BigInt(Number.MAX_SAFE_INTEGER))
+      return failure(ErrorCode.VALIDATION, 'Revenue total is outside the supported range.');
     const entry: RevenueEntry = {
       id: revenueEntryIdSchema.parse(this.deps.ids.uuid()),
       projectId: projectIdSchema.parse(input.projectId),

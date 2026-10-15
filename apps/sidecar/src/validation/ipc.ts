@@ -38,7 +38,7 @@ import {
 } from './cost.js';
 import { retrievalQuerySchema, ingestJobSchema, sourceDocumentSchema, retrievalHitSchema } from './rag.js';
 import { pipelineRunSchema, pipelineEventSchema, failureReportSchema } from './pipeline.js';
-import { commandKindSchema, diagnosticSchema, commandRunSchema } from './worker.js';
+import { diagnosticSchema } from './worker.js';
 import { vscodeStatusSchema } from './vscode.js';
 import { imageAssetSchema } from './image.js';
 import { appErrorSchema } from './errors.js';
@@ -49,66 +49,72 @@ import {
   llmRequestIdSchema,
   pipelineRunIdSchema,
   documentIdSchema,
-  workspaceRelativePathSchema,
   modelKeySchema,
   isoDateTimeSchema,
   providerIdSchema,
   messageIdSchema,
   imageAssetIdSchema,
-  sha256Schema,
 } from './common.js';
 
-const empty = z.object({}).readonly();
+const empty = z.strictObject({}).readonly();
 export const rpcParamsSchemas = {
   'system.ping': empty,
   'system.shutdown': empty,
   'project.list': empty,
-  'project.create': z.object({ name: z.string(), workspaceRoot: z.string() }).readonly(),
-  'project.setActive': z.object({ projectId: projectIdSchema }).readonly(),
+  'project.create': z.strictObject({ name: z.string(), workspaceRoot: z.string() }).readonly(),
+  'project.setActive': z.strictObject({ projectId: projectIdSchema }).readonly(),
   'settings.get': empty,
-  'settings.update': z.object({ patch: settingsPatchSchema }).readonly(),
+  'settings.update': z.strictObject({ patch: settingsPatchSchema }).readonly(),
   'webchat.browsers': empty,
   'webchat.open': z
-    .object({
+    .strictObject({
       linkId: z.custom<WebChatLinkId>((value) => typeof value === 'string' && value.length > 0),
     })
     .readonly(),
-  'webchat.projectBrief': z.object({ projectId: projectIdSchema }).readonly(),
-  'secrets.set': z.object({ provider: providerIdSchema, apiKey: z.string() }).readonly(),
-  'secrets.delete': z.object({ provider: providerIdSchema }).readonly(),
+  'webchat.projectBrief': z.strictObject({ projectId: projectIdSchema }).readonly(),
+  'secrets.set': z.strictObject({ provider: providerIdSchema, apiKey: z.string() }).readonly(),
+  'secrets.delete': z.strictObject({ provider: providerIdSchema }).readonly(),
   'secrets.status': empty,
-  'secrets.verify': z.object({ provider: providerIdSchema }).readonly(),
-  'secrets.verifyAndSave': z.object({ provider: providerIdSchema, apiKey: z.string() }).readonly(),
+  'secrets.verify': z.strictObject({ provider: providerIdSchema }).readonly(),
+  'secrets.verifyAndSave': z.strictObject({ provider: providerIdSchema, apiKey: z.string() }).readonly(),
   'secrets.history': z
-    .object({
+    .strictObject({
       provider: providerIdSchema.exactOptional(),
       limit: z.number().int().min(1).max(50).exactOptional(),
     })
     .readonly(),
   'models.list': empty,
-  'chat.listConversations': z.object({ projectId: projectIdSchema }).readonly(),
-  'chat.createConversation': z.object({ projectId: projectIdSchema, title: z.string().exactOptional() }).readonly(),
-  'chat.getMessages': z.object({ conversationId: conversationIdSchema }).readonly(),
-  'chat.setRagEnabled': z.object({ conversationId: conversationIdSchema, enabled: z.boolean() }).readonly(),
-  'chat.send': z
-    .object({ conversationId: conversationIdSchema, text: z.string(), modelOverride: modelKeySchema.exactOptional() })
+  'chat.listConversations': z.strictObject({ projectId: projectIdSchema }).readonly(),
+  'chat.createConversation': z
+    .strictObject({ projectId: projectIdSchema, title: z.string().exactOptional() })
     .readonly(),
-  'chat.cancel': z.object({ requestId: llmRequestIdSchema }).readonly(),
-  'images.list': z.object({ projectId: projectIdSchema }).readonly(),
-  'images.delete': z.object({ assetId: imageAssetIdSchema }).readonly(),
+  'chat.getMessages': z.strictObject({ conversationId: conversationIdSchema }).readonly(),
+  'chat.setRagEnabled': z.strictObject({ conversationId: conversationIdSchema, enabled: z.boolean() }).readonly(),
+  'chat.send': z
+    .strictObject({
+      conversationId: conversationIdSchema,
+      text: z.string(),
+      modelOverride: modelKeySchema.exactOptional(),
+    })
+    .readonly(),
+  'chat.cancel': z.strictObject({ requestId: llmRequestIdSchema }).readonly(),
+  'images.list': z.strictObject({ projectId: projectIdSchema }).readonly(),
+  'images.delete': z.strictObject({ assetId: imageAssetIdSchema }).readonly(),
   'router.getConfig': empty,
-  'router.updateConfig': z.object({ config: routerConfigSchema }).readonly(),
+  'router.updateConfig': z.strictObject({ config: routerConfigSchema }).readonly(),
   'router.resolveFallback': fallbackDecisionSchema,
   'ledger.query': ledgerQuerySchema,
   'ledger.queryRows': ledgerQuerySchema,
-  'pnl.get': z.object({ projectId: projectIdSchema, from: isoDateTimeSchema, to: isoDateTimeSchema }).readonly(),
-  'pnl.getAll': z.object({ from: isoDateTimeSchema, to: isoDateTimeSchema }).readonly(),
-  'revenue.list': z.object({ projectId: projectIdSchema, from: isoDateTimeSchema, to: isoDateTimeSchema }).readonly(),
+  'pnl.get': z.strictObject({ projectId: projectIdSchema, from: isoDateTimeSchema, to: isoDateTimeSchema }).readonly(),
+  'pnl.getAll': z.strictObject({ from: isoDateTimeSchema, to: isoDateTimeSchema }).readonly(),
+  'revenue.list': z
+    .strictObject({ projectId: projectIdSchema, from: isoDateTimeSchema, to: isoDateTimeSchema })
+    .readonly(),
   'revenue.listRows': z
-    .object({ projectId: projectIdSchema, from: isoDateTimeSchema, to: isoDateTimeSchema })
+    .strictObject({ projectId: projectIdSchema, from: isoDateTimeSchema, to: isoDateTimeSchema })
     .readonly(),
   'revenue.add': z
-    .object({
+    .strictObject({
       projectId: projectIdSchema,
       amount: z.number().positive(),
       currency: z.enum(['USD', 'VND']),
@@ -117,21 +123,21 @@ export const rpcParamsSchemas = {
     .readonly(),
   'budget.set': budgetSchema,
   'budget.setUsd': z
-    .object({
+    .strictObject({
       projectId: projectIdSchema,
       period: z.enum(['daily', 'monthly', 'project_lifetime']),
       limitUsd: z.string(),
       warnAt: z.array(z.number()).readonly(),
     })
     .readonly(),
-  'budget.status': z.object({ projectId: projectIdSchema }).readonly(),
+  'budget.status': z.strictObject({ projectId: projectIdSchema }).readonly(),
   'pricing.get': empty,
   'pricing.getRows': empty,
   'pricing.refresh': empty,
-  'pricing.override': z.object({ entry: priceEntrySchema }).readonly(),
-  'pricing.clearOverride': z.object({ modelKey: modelKeySchema }).readonly(),
+  'pricing.override': z.strictObject({ entry: priceEntrySchema }).readonly(),
+  'pricing.clearOverride': z.strictObject({ modelKey: modelKeySchema }).readonly(),
   'pricing.overrideUsd': z
-    .object({
+    .strictObject({
       modelKey: modelKeySchema,
       inputPerMTokUsd: z.string().regex(/^\d+(\.\d{1,6})?$/),
       outputPerMTokUsd: z.string().regex(/^\d+(\.\d{1,6})?$/),
@@ -139,28 +145,28 @@ export const rpcParamsSchemas = {
     })
     .readonly(),
   'fx.get': empty,
-  'fx.override': z.object({ usdToVnd: z.number().nullable() }).readonly(),
+  'fx.override': z.strictObject({ usdToVnd: z.number().nullable() }).readonly(),
   'rag.ingest': z
-    .object({
+    .strictObject({
       projectId: projectIdSchema,
       paths: z.array(z.string()).readonly(),
       tags: z.array(z.string()).readonly().exactOptional(),
     })
     .readonly(),
-  'rag.listDocuments': z.object({ projectId: projectIdSchema }).readonly(),
-  'rag.deleteDocument': z.object({ documentId: documentIdSchema }).readonly(),
+  'rag.listDocuments': z.strictObject({ projectId: projectIdSchema }).readonly(),
+  'rag.deleteDocument': z.strictObject({ documentId: documentIdSchema }).readonly(),
   'rag.query': retrievalQuerySchema,
-  'pipeline.start': z.object({ projectId: projectIdSchema, prompt: z.string() }).readonly(),
-  'pipeline.get': z.object({ runId: pipelineRunIdSchema }).readonly(),
-  'pipeline.list': z.object({ projectId: projectIdSchema, limit: z.number() }).readonly(),
-  'pipeline.cancel': z.object({ runId: pipelineRunIdSchema }).readonly(),
+  'pipeline.start': z.strictObject({ projectId: projectIdSchema, prompt: z.string() }).readonly(),
+  'pipeline.get': z.strictObject({ runId: pipelineRunIdSchema }).readonly(),
+  'pipeline.list': z.strictObject({ projectId: projectIdSchema, limit: z.number() }).readonly(),
+  'pipeline.cancel': z.strictObject({ runId: pipelineRunIdSchema }).readonly(),
   'pipeline.answerClarifications': z
-    .object({
+    .strictObject({
       runId: pipelineRunIdSchema,
       answers: z
         .array(
           z
-            .object({
+            .strictObject({
               questionId: z.string(),
               optionId: z.string().exactOptional(),
               freeText: z.string().max(2000).exactOptional(),
@@ -171,18 +177,16 @@ export const rpcParamsSchemas = {
         .readonly(),
     })
     .readonly(),
-  'workflow.graph': z.object({ projectId: projectIdSchema.nullable() }).readonly(),
+  'workflow.graph': z.strictObject({ projectId: projectIdSchema.nullable() }).readonly(),
   'workflow.activity': z
-    .object({
+    .strictObject({
       projectId: projectIdSchema.nullable(),
       moduleId: workflowModuleIdSchema.exactOptional(),
       limit: z.number().int().min(1).max(200),
       before: isoDateTimeSchema.exactOptional(),
     })
     .readonly(),
-  'workspace.openInVSCode': z.object({ projectId: projectIdSchema }).readonly(),
-  'workspace.readFile': z.object({ projectId: projectIdSchema, path: workspaceRelativePathSchema }).readonly(),
-  'workspace.runCommand': z.object({ projectId: projectIdSchema, kind: commandKindSchema }).readonly(),
+  'workspace.openInVSCode': z.strictObject({ projectId: projectIdSchema }).readonly(),
 } satisfies { [M in RpcMethod]: z.ZodType<RpcMethodMap[M]['params']> };
 export const rpcRequestEnvelopeSchema = z
   .object({ jsonrpc: z.literal('2.0'), id: z.number().int().nonnegative(), method: z.string() })
@@ -243,7 +247,10 @@ export const rpcResultSchemas = {
     )
     .readonly(),
   'webchat.open': z
-    .object({ opened: z.literal(true), browser: z.enum(['default', 'coccoc', 'chrome', 'edge', 'firefox', 'custom']) })
+    .object({
+      opened: z.literal(true),
+      browser: z.enum(['default', 'coccoc', 'chrome', 'edge', 'firefox', 'custom']),
+    })
     .readonly(),
   'webchat.projectBrief': z.object({ text: z.string().max(4000) }).readonly(),
   'secrets.set': secretStatusSchema,
@@ -301,6 +308,4 @@ export const rpcResultSchemas = {
   'workflow.graph': workflowGraphSchema,
   'workflow.activity': z.array(activityEventSchema).readonly(),
   'workspace.openInVSCode': vscodeStatusSchema,
-  'workspace.readFile': z.object({ content: z.string(), hash: sha256Schema }).readonly(),
-  'workspace.runCommand': commandRunSchema,
 } satisfies { [M in RpcMethod]: z.ZodType<RpcMethodMap[M]['result']> };

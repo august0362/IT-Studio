@@ -118,41 +118,37 @@ describe('adversarial JSON-RPC protocol', () => {
     await expect(sidecar.call('system.ping')).resolves.toMatchObject({ result: { version: '0.1.0' } });
   }, 30_000);
 
-  it.fails(
-    'QA-BREAK-01-D04 BRK-P06 rejects prototype and extra-key pollution attempts',
-    async () => {
-      sidecar = await startSidecar();
-      const settings = await new Promise<string>((resolveResponse) => {
-        const listener = (line: string): void => {
-          if (line.includes('"id":806')) {
-            sidecar?.notifications.off('line', listener);
-            resolveResponse(line);
-          }
-        };
-        sidecar?.notifications.on('line', listener);
-        sidecar?.writeLine(
-          '{"jsonrpc":"2.0","id":806,"method":"settings.update","params":{"patch":{"router":{"autoFallback":true,"__proto__":{"polluted":true},"constructor":{"prototype":{"polluted":true}},"extra":true}}}}',
-        );
-      }).then((line) => JSON.parse(line) as unknown);
-      expect(settings).toMatchObject({ error: { code: -32602 } });
-      const project = await new Promise<string>((resolveResponse) => {
-        const listener = (line: string): void => {
-          if (line.includes('"id":807')) {
-            sidecar?.notifications.off('line', listener);
-            resolveResponse(line);
-          }
-        };
-        sidecar?.notifications.on('line', listener);
-        sidecar?.writeLine(
-          `{"jsonrpc":"2.0","id":807,"method":"project.create","params":{"name":"pollution","workspaceRoot":${JSON.stringify(sidecar.dataDir)},"__proto__":{"polluted":true},"extra":true}}`,
-        );
-      }).then((line) => JSON.parse(line) as unknown);
-      expect(project).toMatchObject({ error: { code: -32602 } });
-      expect(({} as Record<string, unknown>).polluted).toBeUndefined();
-      expect((await sidecar.call('settings.get')).error).toBeUndefined();
-    },
-    30_000,
-  );
+  it('QA-BREAK-01-D04 BRK-P06 rejects prototype and extra-key pollution attempts', async () => {
+    sidecar = await startSidecar();
+    const settings = await new Promise<string>((resolveResponse) => {
+      const listener = (line: string): void => {
+        if (line.includes('"id":806')) {
+          sidecar?.notifications.off('line', listener);
+          resolveResponse(line);
+        }
+      };
+      sidecar?.notifications.on('line', listener);
+      sidecar?.writeLine(
+        '{"jsonrpc":"2.0","id":806,"method":"settings.update","params":{"patch":{"router":{"autoFallback":true,"__proto__":{"polluted":true},"constructor":{"prototype":{"polluted":true}},"extra":true}}}}',
+      );
+    }).then((line) => JSON.parse(line) as unknown);
+    expect(settings).toMatchObject({ error: { code: -32602 } });
+    const project = await new Promise<string>((resolveResponse) => {
+      const listener = (line: string): void => {
+        if (line.includes('"id":807')) {
+          sidecar?.notifications.off('line', listener);
+          resolveResponse(line);
+        }
+      };
+      sidecar?.notifications.on('line', listener);
+      sidecar?.writeLine(
+        `{"jsonrpc":"2.0","id":807,"method":"project.create","params":{"name":"pollution","workspaceRoot":${JSON.stringify(sidecar.dataDir)},"__proto__":{"polluted":true},"extra":true}}`,
+      );
+    }).then((line) => JSON.parse(line) as unknown);
+    expect(project).toMatchObject({ error: { code: -32602 } });
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+    expect((await sidecar.call('settings.get')).error).toBeUndefined();
+  }, 30_000);
 
   it.each([{}, [], true, 1.5])(
     'BRK-P07 rejects a non-integer id envelope (%j)',
