@@ -225,6 +225,16 @@ Work order and QA verdict: `docs/tasks/OWNER-FB1.md`.
 - [ ] **PROC-04** (C) Native web-chat page-loaded signal for web-chat processes (Rust child webview event).
 - [ ] **PROC-03** *(later, on owner request)* User-built n8n-style workflows (drag modules from a library, connect, save, run).
 
+## ORCH — Supervised multi-agent orchestration *(D41, ADR-0006)*
+
+Tests: `docs/qa/ORCH-test-cases.md` · Roles: `docs/governance/MULTI_AGENT_ORCHESTRATION.md`
+
+- [ ] **ORCH-01** (C) Engine core: contracts, persistence, DAG validation, scheduler, path locks, mock adapter, process hook.
+- [ ] **ORCH-02** (C) Adapters (api, claude-cli, codex-cli), probes, envelope/ack, worktrees, worker apply, process-tree cancel.
+- [ ] **ORCH-03** (C) Review/fix loop, integration branch, final review + owner approval merge, budgets/usage, recovery, safety.
+- [ ] **ORCH-04** (C) UI: Settings → Orchestration (with Saved confirmation), Code → Orchestration view, Projects badge, Processes links.
+- [ ] **ORCH-QA** (A) Traceability ORCH-001…019 with recorded results + one real-agent run (ORCH-M01).
+
 ## MOD — Sidecar feature modules *(D37; after v1 sign-off, before LLMPOOL)*
 
 - [ ] **MOD-01** (C) `kernel/` + module rules (eslint boundaries) + leaf modules cost, knowledge, images, vscode, web-chat, workflow (move-only).
