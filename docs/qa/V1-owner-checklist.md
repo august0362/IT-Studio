@@ -45,7 +45,7 @@ Cần chuẩn bị:
   - Làm: dán key thật, bấm *Verify & save*.
   - Phải thấy: lưu thành công, key chỉ hiện 4 ký tự cuối (để không bị lộ).
 
-- [ ] **B3. Nhà cung cấp mới (DeepSeek, OpenRouter, Qwen, Mistral)**
+- [x] **B3. Nhà cung cấp mới (DeepSeek, OpenRouter, Qwen, Mistral)**
   - Làm: trong *Settings → API Keys*, nhập key của hãng bạn có rồi bấm *Verify & save*. Riêng Qwen: chọn đúng **vùng** của key (mặc định International/Singapore).
   - Phải thấy: key được xác minh và lưu. Giá của các model mới ghi là *chưa xác minh*; muốn giá chính xác thì vào *Settings → Pricing* bấm *Update prices*.
 
@@ -55,23 +55,23 @@ Cần chuẩn bị:
   - Làm: bấm dấu **+** ở trên cùng, đặt tên, bấm nút **Browse…** để chọn thư mục trống đã chuẩn bị (không cần gõ tay).
   - Phải thấy: có thêm một tab mang tên project đó.
 
-- [ ] **C2. Chat thử**
+- [x] **C2. Chat thử**
   - Làm: vào *Chat → New chat*, chọn *Auto*, gõ "xin chào".
   - Phải thấy: AI trả lời, chữ hiện dần ra, bên dưới có chi phí bằng USD và VND.
 
-- [ ] **C3. Hai project không lẫn nhau**
+- [x] **C3. Hai project không lẫn nhau**
   - Làm: tạo thêm một project thứ hai, bấm chuyển qua lại giữa hai tab thật nhanh.
   - Phải thấy: mỗi project chỉ hiện cuộc chat của riêng nó. Không bao giờ gửi nhầm tin sang project kia.
 
-- [ ] **C4. Lịch sử project (Projects)**
+- [x] **C4. Lịch sử project (Projects)**
   - Làm: bấm **Projects** ở menu trái. Thử ô tìm kiếm, bấm **Mở** một project, rồi **Xóa** project rác (thư mục `itstudio-e2e-project-…` do lần test tự động để lại).
   - Phải thấy: thấy đủ các project kèm lần mở gần nhất; Mở thì vào đúng project; Xóa có hỏi xác nhận, chỉ xóa dữ liệu trong IT Studio, **không đụng file trong thư mục project**. Đóng tab (×) thì project vẫn còn trong Projects. Tắt app mở lại thì các tab vẫn còn.
 
-- [ ] **C5. Dấu hiệu AI đang trả lời**
+- [x] **C5. Dấu hiệu AI đang trả lời**
   - Làm: gửi một tin chat.
   - Phải thấy: ngay sau khi gửi có **3 chấm chạy "Đang trả lời…"**, khi chữ bắt đầu hiện thì có con trỏ nhấp nháy; xong thì biến mất. Nếu lỗi, thông báo nói rõ từng model hỏng vì sao và chỉ tới *Settings → Router*.
 
-- [ ] **C6. Auto dùng mọi hãng có key**
+- [x] **C6. Auto dùng mọi hãng có key**
   - Làm: chỉ để key của 1–2 hãng (ví dụ Google + DeepSeek), chọn *Auto* rồi chat.
   - Phải thấy: AI vẫn trả lời bằng model của hãng bạn có key, không còn báo "Every model in the ladder was unavailable".
 
@@ -79,7 +79,7 @@ Cần chuẩn bị:
 
 "Pipeline" là chức năng bạn gõ yêu cầu, AI tự lên kế hoạch, viết code, tự review, rồi ghi file vào thư mục project.
 
-- [ ] **D1. AI hỏi lại khi yêu cầu chưa rõ**
+- [x] **D1. AI hỏi lại khi yêu cầu chưa rõ**
   - Làm: vào *Settings → Pipeline*, **tắt** ô "Auto-answer clarifying questions". Sau đó vào tab *Code*, gõ một yêu cầu mơ hồ như "thêm đăng nhập", bấm *Run*.
   - Phải thấy: AI có thể dừng lại và hỏi bạn tối đa 5 câu. Mỗi câu có vài lựa chọn, một lựa chọn được AI **đề xuất** (nhãn *Recommended*) kèm lý do.
 
