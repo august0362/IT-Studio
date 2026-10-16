@@ -188,6 +188,7 @@ export class ChatService {
     activity: ProcessActivity,
   ): Promise<void> {
     const attempts: JsonObject[] = [];
+    let processFinalized = false;
     const unsubscribe = this.deps.events.subscribe('router.event', (event) => {
       if (!('requestId' in event) || event.requestId !== requestId) return;
       if (event.type === 'attempt_failed') {
@@ -223,6 +224,7 @@ export class ChatService {
         if (retrieval.ok) hits = retrieval.value;
         else if (retrieval.error.code === ErrorCode.BUDGET_HARD_STOP) {
           activity.fail(retrieval.error);
+          processFinalized = true;
           this.deps.events.publish('chat.failed', { requestId, error: retrieval.error });
           return;
         } else {
@@ -270,6 +272,7 @@ export class ChatService {
       });
       if (!result.ok) {
         activity.fail(result.error);
+        processFinalized = true;
         this.deps.events.publish('chat.failed', { requestId, error: result.error });
         return;
       }
@@ -363,6 +366,7 @@ export class ChatService {
           if (!followUpResult.ok) {
             this.deps.ledger.forgetRequest(followUpId);
             activity.fail(followUpResult.error);
+            processFinalized = true;
             this.deps.events.publish('chat.failed', { requestId, error: followUpResult.error });
             return;
           }
@@ -399,6 +403,7 @@ export class ChatService {
           .map((part) => part.text)
           .join(''),
       );
+      processFinalized = true;
       this.deps.events.publish('chat.completed', {
         requestId,
         message,
@@ -413,8 +418,10 @@ export class ChatService {
         remediation: ['Try sending your message again.'],
       };
       activity.fail(chatError);
+      processFinalized = true;
       this.deps.events.publish('chat.failed', { requestId, error: chatError });
     } finally {
+      if (!processFinalized) activity.fail('Chat request ended before its process was finalized.');
       unsubscribe();
       this.deps.ledger.forgetRequest(requestId);
       this.inFlight.delete(requestId);

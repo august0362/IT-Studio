@@ -2,7 +2,7 @@ import { expect } from 'chai';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ensureProviderKeys } from '../../helpers/keys.js';
-import { createTemporaryProjectFolder, resetLocaleToEnglish, waitForReady } from '../../helpers/ui.js';
+import { createTemporaryProjectFolder, openSettings, resetLocaleToEnglish, waitForReady } from '../../helpers/ui.js';
 
 describe('M4 App shell', () => {
   before(async () => {
@@ -36,14 +36,14 @@ describe('M4 App shell', () => {
 
   it('TC-M4-011 switches to Vietnamese and restores the locale after reload', async () => {
     await waitForReady();
-    await browser.$('nav a[href="#settings-theme"]').click();
+    await openSettings('theme', browser);
     await browser.$('select:has(option[value="vi"])').selectByAttribute('value', 'vi');
     await browser.waitUntil(async () => (await browser.$('nav a[href="#chat"]').getText()) === 'Trò chuyện');
     await browser.refresh();
     await waitForReady();
     await browser.waitUntil(async () => (await browser.$('nav a[href="#chat"]').getText()) === 'Trò chuyện');
     expect(await browser.$('nav a[href="#cost"]').getText()).to.equal('Chi phí & Lãi lỗ');
-    await browser.$('nav a[href="#settings-theme"]').click();
+    await openSettings('theme', browser);
     await browser.$('select:has(option[value="vi"])').selectByAttribute('value', 'en');
     await browser.waitUntil(async () => (await browser.$('nav a[href="#chat"]').getText()) === 'Chat');
   });
@@ -82,7 +82,8 @@ describe('M4 App shell', () => {
       'settings-pipeline',
     ];
     for (const route of routes) {
-      await browser.$(`nav a[href="#${route}"]`).click();
+      if (route.startsWith('settings-')) await openSettings(route.slice('settings-'.length));
+      else await browser.$(`nav a[href="#${route}"]`).click();
       await browser.waitUntil(async () => (await browser.$('main').getText()).length > 0);
       const text = await browser.$('main').getText();
       expect(text, `route ${route}`).not.to.match(

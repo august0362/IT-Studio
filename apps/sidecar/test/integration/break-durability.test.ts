@@ -387,7 +387,13 @@ describe('QA-BREAK-02 adversarial crash durability and upgrade', () => {
     const latest = migrated.prepare('SELECT MAX(created_at) AS created_at FROM __drizzle_migrations').get() as {
       created_at: number;
     };
-    expect(latest.created_at).toBe(journal.entries.find((entry) => entry.idx === 11)?.when);
+    const migration11 = journal.entries.find((entry) => entry.idx === 11);
+    expect(migration11).toBeDefined();
+    expect(
+      migrated.prepare('SELECT 1 AS applied FROM __drizzle_migrations WHERE created_at = ?').get(migration11?.when),
+    ).toBeDefined();
+    const highestMigration = journal.entries.reduce((highest, entry) => (entry.idx > highest.idx ? entry : highest));
+    expect(latest.created_at).toBe(highestMigration.when);
     migrated.close();
   }, 60_000);
 

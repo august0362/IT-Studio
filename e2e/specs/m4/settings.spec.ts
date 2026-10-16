@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import { Key } from 'webdriverio';
 import { ensureProviderKeys } from '../../helpers/keys.js';
-import { createTemporaryProjectFolder, waitForReady } from '../../helpers/ui.js';
+import { createTemporaryProjectFolder, openSettings, waitForReady } from '../../helpers/ui.js';
 
 async function findPricingRow(name: string): Promise<WebdriverIO.Element> {
   const row = browser.$(`//tbody/tr[td[1][starts-with(normalize-space(.), "${name}")]]`);
@@ -22,21 +22,21 @@ describe('M4 Settings', () => {
 
   it('TC-M4-040 persists Auto Fallback after reload', async () => {
     await waitForReady();
-    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
+    await openSettings('router', browser);
     const toggle = browser.$('aria/Auto Fallback');
     await browser.waitUntil(async () => toggle.isExisting());
     if (await toggle.isSelected()) await toggle.click();
     await browser.waitUntil(async () => !(await toggle.isSelected()));
     await browser.refresh();
     await waitForReady();
-    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
+    await openSettings('router', browser);
     await browser.waitUntil(async () => !(await browser.$('aria/Auto Fallback').isSelected()));
     expect(await browser.$('aria/Auto Fallback').isSelected()).to.equal(false);
   });
 
   it('TC-M4-041 reorders the ladder with the keyboard and announces the move', async () => {
     await waitForReady();
-    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
+    await openSettings('router', browser);
     const buttons = browser.$$('ol button[aria-label^="Reorder"]');
     const before = browser.$$('ol li span');
     const first = before[0];
@@ -60,7 +60,7 @@ describe('M4 Settings', () => {
     expect(await after[1]?.getText()).to.equal(firstName);
     await browser.refresh();
     await waitForReady();
-    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
+    await openSettings('router', browser);
     const persisted = browser.$$('ol li span');
     expect(await persisted[0]?.getText()).to.equal(secondName);
     expect(await persisted[1]?.getText()).to.equal(firstName);
@@ -78,7 +78,7 @@ describe('M4 Settings', () => {
     await browser.$('nav[aria-label="Main navigation"] a[href="#cost"]').click();
     await browser.$('aria/Limit (USD)').setValue('0.000001');
     await browser.$('button=Save budget').click();
-    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-budget"]').click();
+    await openSettings('budget', browser);
     const hardStop = browser.$('aria/Hard Stop');
     if (!(await hardStop.isSelected())) await hardStop.click();
     await browser.$('nav[aria-label="Main navigation"] a[href="#chat"]').click();
@@ -100,7 +100,7 @@ describe('M4 Settings', () => {
     await browser.waitUntil(
       async () => (await browser.$('[role="tab"][aria-selected="true"]').getText()) === 'Pricing Project',
     );
-    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-pricing"]').click();
+    await openSettings('pricing', browser);
     const row = await findPricingRow('GPT-5.5');
     await row.$('button=Override').click();
     const inputs = browser.$$('form[aria-labelledby="override-heading"] input');
@@ -130,7 +130,7 @@ describe('M4 Settings', () => {
     );
     await browser.$('[role="tab"][aria-selected="true"]').click();
     await browser.$('button=All projects').click();
-    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-pricing"]').click();
+    await openSettings('pricing', browser);
     expect(await browser.$('button=Update prices').isEnabled()).to.equal(false);
     expect(await browser.$('body').getText()).to.include('Select a project before updating prices.');
   });
@@ -147,7 +147,7 @@ describe('M4 Settings', () => {
     await browser.$('nav[aria-label="Main navigation"] a[href="#cost"]').click();
     await browser.$('aria/Amount').setValue('1');
     await browser.$('aria/Description').setValue('FX test revenue');
-    await browser.$('button=Add revenue').click();
+    await browser.$('form[aria-label="Revenue entries"] button[type="submit"]').click();
     await browser.waitUntil(async () => (await browser.$('body').getText()).includes('FX test revenue'));
     const money = browser.$('[aria-label^="USD "]');
     const vndText = async (): Promise<string> => {
@@ -155,14 +155,14 @@ describe('M4 Settings', () => {
       return label?.split('; VND ')[1] ?? '';
     };
     const beforeVnd = await vndText();
-    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-fx"]').click();
+    await openSettings('fx', browser);
     await browser.$('input[type="number"]').setValue('25000');
     await browser.$('button=Save').click();
     await browser.waitUntil(async () => (await browser.$('body').getText()).includes('25,000 VND per USD'));
     await browser.$('nav[aria-label="Main navigation"] a[href="#cost"]').click();
     await browser.waitUntil(async () => (await vndText()) !== beforeVnd);
     expect(await vndText()).not.to.equal(beforeVnd);
-    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-fx"]').click();
+    await openSettings('fx', browser);
     await browser.$('button=Clear override').click();
     await browser.waitUntil(async () => !(await browser.$('body').getText()).includes('Manual override'));
   });
@@ -177,7 +177,7 @@ describe('M4 Settings', () => {
       async () =>
         (await browser.$('[role="tab"][aria-selected="true"]').getText()) === 'Clear Pricing Override Project',
     );
-    await browser.$('nav[aria-label="Main navigation"] a[href="#settings-pricing"]').click();
+    await openSettings('pricing', browser);
     const row = await findPricingRow('GPT-5.5');
     expect(await row.$('td').getText()).to.include('GPT-5.5');
     await row.$('button=Override').click();
