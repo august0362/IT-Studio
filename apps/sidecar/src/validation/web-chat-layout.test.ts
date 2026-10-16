@@ -3,6 +3,39 @@ import { webChatLayoutSchema, webChatSettingsSchema } from './settings.js';
 import { DEFAULT_WEB_CHAT_SETTINGS } from '../domain/web-chat.js';
 
 describe('web-chat layout validation', () => {
+  it('WC-03 accepts validated free windows and rejects excess or duplicate sites', () => {
+    const windowLayout = {
+      linkId: 'chatgpt',
+      x: 12,
+      y: 18,
+      width: 520,
+      height: 360,
+      maximized: false,
+      minimized: false,
+      zIndex: 0,
+    };
+    const layout = { panes: ['chatgpt'], sizes: [1], mode: 'free', windows: [windowLayout] };
+    expect(webChatSettingsSchema.safeParse({ ...DEFAULT_WEB_CHAT_SETTINGS, layout }).success).toBe(true);
+    expect(
+      webChatSettingsSchema.safeParse({
+        ...DEFAULT_WEB_CHAT_SETTINGS,
+        layout: {
+          ...layout,
+          windows: Array.from({ length: 7 }, (_, zIndex) => ({
+            ...windowLayout,
+            linkId: `site-${String(zIndex)}`,
+            zIndex,
+          })),
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      webChatSettingsSchema.safeParse({
+        ...DEFAULT_WEB_CHAT_SETTINGS,
+        layout: { ...layout, windows: [windowLayout, { ...windowLayout, zIndex: 1 }] },
+      }).success,
+    ).toBe(false);
+  });
   it('accepts legacy settings and one-to-four persisted panes', () => {
     expect(webChatSettingsSchema.safeParse(DEFAULT_WEB_CHAT_SETTINGS).success).toBe(true);
     for (let count = 1; count <= 4; count += 1) {

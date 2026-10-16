@@ -37,6 +37,25 @@ export const webChatLayoutSchema = z
       .max(4)
       .readonly(),
     sizes: z.array(z.number().min(0.1).max(1)).min(1).max(4).readonly(),
+    mode: z.enum(['tiled', 'free']).exactOptional(),
+    windows: z
+      .array(
+        z
+          .strictObject({
+            linkId: z.custom<WebChatLinkId>((value) => typeof value === 'string' && value.length > 0),
+            x: z.number().min(0).max(32768),
+            y: z.number().min(0).max(32768),
+            width: z.number().min(360).max(32768),
+            height: z.number().min(280).max(32768),
+            maximized: z.boolean(),
+            minimized: z.boolean(),
+            zIndex: z.number().int().min(0).max(5),
+          })
+          .readonly(),
+      )
+      .max(6)
+      .readonly()
+      .exactOptional(),
   })
   .readonly()
   .superRefine((layout, context) => {

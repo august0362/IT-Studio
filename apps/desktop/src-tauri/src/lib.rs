@@ -29,7 +29,9 @@ pub fn run() {
             commands::sidecar_send,
             commands::sidecar_status,
             webchat::webchat_sync,
+            webchat::webchat_raise,
             webchat::webchat_reload,
+            webchat::webchat_set_pane_visible,
             webchat::webchat_set_visible,
             webchat::webchat_close_all
         ]);

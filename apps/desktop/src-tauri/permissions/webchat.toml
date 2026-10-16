@@ -4,9 +4,19 @@ description = "Enables the main app webview to manage isolated web-chat children
 commands.allow = ["webchat_sync"]
 
 [[permission]]
+identifier = "allow-webchat-raise"
+description = "Enables the main app webview to raise a web-chat pane."
+commands.allow = ["webchat_raise"]
+
+[[permission]]
 identifier = "allow-webchat-reload"
 description = "Enables the main app webview to reload a web-chat pane."
 commands.allow = ["webchat_reload"]
+
+[[permission]]
+identifier = "allow-webchat-set-pane-visible"
+description = "Enables the main app webview to hide one web-chat child during direct manipulation."
+commands.allow = ["webchat_set_pane_visible"]
 
 [[permission]]
 identifier = "allow-webchat-set-visible"
@@ -17,3 +27,8 @@ commands.allow = ["webchat_set_visible"]
 identifier = "allow-webchat-close-all"
 description = "Enables the main app webview to close web-chat panes."
 commands.allow = ["webchat_close_all"]
+
+[[permission]]
+identifier = "allow-webchat-raise"
+description = "Enables the main app webview to raise a web-chat pane."
+commands.allow = ["webchat_raise"]

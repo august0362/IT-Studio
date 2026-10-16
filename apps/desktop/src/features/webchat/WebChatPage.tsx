@@ -1,4 +1,4 @@
-import type { AppError, ProjectId, WebChatLayout, WebChatSettings } from '@itstudio/schemas';
+import type { AppError, ProjectId, WebChatLayout, WebChatSettings, WebChatWindowLayout } from '@itstudio/schemas';
 import { useQueryClient } from '@tanstack/react-query';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ import { createWebChatHost, type IWebChatHost } from './webchat-host';
 import { initialLayout, MIN_PANE_SIZE, resizePanes, withPaneCount } from './webchat-layout';
 import { useNativeWebChatPanes } from './use-native-webchat-panes';
 import { WebChatPane } from './WebChatPane';
+import { WebChatFloatingWindow } from './WebChatFloatingWindow';
 import { useWebChatReporting } from './useWebChatReporting';
 
 const SIGN_IN_WARNING_KEY = 'itstudio.webchat.sign-in-warning-dismissed';
@@ -160,8 +161,8 @@ function WebChatWorkspace({ host, initial, suspended, layoutRevision, onSettings
     };
   }, [drag, persist, replaceLayout]);
 
-  async function openBrowser(slot: number): Promise<void> {
-    const linkId = layout.panes[slot];
+  async function openBrowser(slot: number, requestedId?: WebChatWindowLayout['linkId']): Promise<void> {
+    const linkId = requestedId ?? layout.panes[slot];
     if (!linkId) return;
     try {
       await rpc.call('webchat.open', { linkId });
@@ -179,6 +180,18 @@ function WebChatWorkspace({ host, initial, suspended, layoutRevision, onSettings
     }
   }
 
+  const freeWindows = layout.windows ?? [];
+  function saveWindows(windows: readonly WebChatWindowLayout[]): void {
+    const ordered = [...windows]
+      .sort((left, right) => left.zIndex - right.zIndex)
+      .map((item, index) => ({ ...item, zIndex: index }));
+    void persist({
+      ...layout,
+      mode: 'free',
+      windows: ordered,
+    });
+  }
+
   return (
     <section aria-labelledby="webchat-heading" className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -187,22 +200,91 @@ function WebChatWorkspace({ host, initial, suspended, layoutRevision, onSettings
         </h2>
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-2">
-            {t('webChat.paneCount')}
+            Layout
             <select
+              aria-label="Web chat layout"
               className="rounded border border-border bg-surface px-3 py-2"
-              disabled={saving || suspended || links.length === 0}
-              value={layout.panes.length}
+              value={layout.mode ?? 'tiled'}
+              disabled={saving || suspended}
               onChange={(event) => {
-                void persist(withPaneCount(layout, links, Number(event.target.value)));
+                if (event.target.value === 'free') {
+                  const windows = freeWindows.length
+                    ? freeWindows
+                    : layout.panes.map((linkId, index) => ({
+                        linkId,
+                        x: 24 + index * 34,
+                        y: 24 + index * 34,
+                        width: 560,
+                        height: 400,
+                        maximized: false,
+                        minimized: false,
+                        zIndex: index,
+                      }));
+                  saveWindows(windows);
+                } else void persist({ ...layout, mode: 'tiled' });
               }}
             >
-              {[1, 2, 3, 4].map((count) => (
-                <option key={count} value={count}>
-                  {count}
-                </option>
-              ))}
+              <option value="tiled">Tiled</option>
+              <option value="free">Free</option>
             </select>
           </label>
+          {layout.mode === 'free' ? (
+            <label className="flex items-center gap-2">
+              Add window
+              <select
+                aria-label="Add web chat window"
+                value=""
+                onChange={(event) => {
+                  const id = links.find((item) => item.id === event.target.value)?.id;
+                  if (!id) return;
+                  const found = freeWindows.find((item) => item.linkId === id);
+                  if (found)
+                    saveWindows(freeWindows.map((item) => (item.linkId === id ? { ...item, minimized: false } : item)));
+                  else if (freeWindows.length < 6)
+                    saveWindows([
+                      ...freeWindows,
+                      {
+                        linkId: id,
+                        x: 24 + freeWindows.length * 30,
+                        y: 24 + freeWindows.length * 30,
+                        width: 560,
+                        height: 400,
+                        maximized: false,
+                        minimized: false,
+                        zIndex: freeWindows.length,
+                      },
+                    ]);
+                  event.target.value = '';
+                }}
+              >
+                <option value="">Choose site</option>
+                {links.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {layout.mode !== 'free' ? (
+            <label className="flex items-center gap-2">
+              {t('webChat.paneCount')}
+              <select
+                className="rounded border border-border bg-surface px-3 py-2"
+                disabled={saving || suspended || links.length === 0}
+                value={layout.panes.length}
+                onChange={(event) => {
+                  void persist(withPaneCount(layout, links, Number(event.target.value)));
+                }}
+              >
+                {[1, 2, 3, 4].map((count) => (
+                  <option key={count} value={count}>
+                    {count}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           {onSettings ? (
             <button className="rounded border border-border px-3 py-2" onClick={onSettings} type="button">
               {t('chat.webChat.editLinks')}
@@ -233,61 +315,168 @@ function WebChatWorkspace({ host, initial, suspended, layoutRevision, onSettings
       {links.length === 0 ? (
         <p role="status">{t('webChat.noSites')}</p>
       ) : (
-        <div ref={container} className="flex h-[65vh] min-h-80 w-full gap-1" aria-label={t('webChat.panes')}>
-          {layout.panes.map((linkId, slot) => (
-            <Fragment key={slot}>
-              {slot > 0 ? (
-                <div
-                  aria-label={t('webChat.resize', { left: slot, right: slot + 1 })}
-                  aria-orientation="vertical"
-                  aria-valuemin={MIN_PANE_SIZE * 100}
-                  aria-valuemax={Math.round(
-                    ((layout.sizes[slot - 1] ?? 0) + (layout.sizes[slot] ?? 0) - MIN_PANE_SIZE) * 100,
-                  )}
-                  aria-valuenow={Math.round((layout.sizes[slot - 1] ?? 0) * 100)}
-                  className="w-2 shrink-0 cursor-col-resize rounded bg-border hover:bg-primary focus-visible:outline-2 focus-visible:outline-focus-ring"
-                  onKeyDown={(event) => {
-                    if (saving || suspended || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return;
-                    event.preventDefault();
-                    void persist(resizePanes(layout, slot - 1, event.key === 'ArrowRight' ? 0.05 : -0.05));
-                  }}
-                  onPointerDown={(event) => {
-                    if (saving || suspended) return;
-                    event.preventDefault();
-                    const width = container.current?.getBoundingClientRect().width;
-                    if (width) setDrag({ divider: slot - 1, x: event.clientX, width, start: layout });
-                  }}
-                  role="separator"
-                  tabIndex={0}
-                />
-              ) : null}
-              <div className="min-w-0" style={{ flex: `${String(layout.sizes[slot] ?? 1)} 1 0%` }}>
-                <WebChatPane
-                  contentRef={(element) => {
-                    elements.current[slot] = element;
-                  }}
-                  disabled={saving || suspended || drag !== null}
-                  linkId={linkId}
+        <div
+          ref={container}
+          className={`relative h-[65vh] min-h-80 w-full gap-1 ${layout.mode === 'free' ? 'overflow-hidden rounded border border-border bg-bg' : 'flex'}`}
+          aria-label={t('webChat.panes')}
+        >
+          {layout.mode === 'free' ? (
+            <>
+              {freeWindows.map((item, index) => (
+                <WebChatFloatingWindow
+                  key={item.linkId}
+                  window={item}
+                  slot={index}
                   links={links}
-                  nativeAvailable={host.available}
-                  onOpen={() => void openBrowser(slot)}
-                  onReload={() => {
-                    void host.reload(slot).catch(() => {
-                      reportFailed([linkId]);
-                      nativeError();
-                    });
+                  contentRef={(element) => {
+                    elements.current[index] = element;
                   }}
-                  onSelect={(selected) => {
-                    void persist({
-                      ...layout,
-                      panes: layout.panes.map((id, index) => (index === slot ? selected : id)),
-                    });
+                  disabled={saving || suspended}
+                  front={item.zIndex === Math.max(-1, ...freeWindows.map((windowItem) => windowItem.zIndex))}
+                  minimized={item.minimized}
+                  onRaise={() =>
+                    saveWindows(
+                      freeWindows.map((windowItem) => ({
+                        ...windowItem,
+                        zIndex:
+                          windowItem.linkId === item.linkId
+                            ? freeWindows.length
+                            : windowItem.zIndex >= freeWindows.length
+                              ? freeWindows.length - 1
+                              : windowItem.zIndex,
+                      })),
+                    )
+                  }
+                  onDragStart={() => {
+                    const pending = host.setPaneVisible?.(index, false);
+                    if (pending) void pending.catch(nativeError);
                   }}
-                  slot={slot}
+                  onDragEnd={() => {
+                    const pending = host.setPaneVisible?.(index, true);
+                    if (pending) void pending.catch(nativeError);
+                  }}
+                  onChange={(updated) =>
+                    saveWindows(
+                      freeWindows.map((windowItem) => (windowItem.linkId === item.linkId ? updated : windowItem)),
+                    )
+                  }
+                  onClose={() => saveWindows(freeWindows.filter((windowItem) => windowItem.linkId !== item.linkId))}
+                  onReload={() => void host.reload(index)}
+                  onOpen={() => void openBrowser(index, item.linkId)}
+                  onSelect={(linkId) =>
+                    saveWindows(
+                      freeWindows.map((windowItem) =>
+                        windowItem.linkId === item.linkId ? { ...windowItem, linkId } : windowItem,
+                      ),
+                    )
+                  }
+                  onMinimize={() =>
+                    saveWindows(
+                      freeWindows.map((windowItem) =>
+                        windowItem.linkId === item.linkId ? { ...windowItem, minimized: true } : windowItem,
+                      ),
+                    )
+                  }
+                  onMaximize={() =>
+                    saveWindows(
+                      freeWindows.map((windowItem) =>
+                        windowItem.linkId === item.linkId
+                          ? {
+                              ...windowItem,
+                              maximized: !windowItem.maximized,
+                              x: 0,
+                              y: 0,
+                              width: container.current?.clientWidth ?? windowItem.width,
+                              height: container.current?.clientHeight ?? windowItem.height,
+                            }
+                          : windowItem,
+                      ),
+                    )
+                  }
                 />
+              ))}
+              <div
+                className="absolute inset-x-0 bottom-0 z-[100] flex min-h-9 items-center gap-2 border-t border-border bg-surface/90 p-1"
+                aria-label="Minimized web chats"
+              >
+                {freeWindows
+                  .filter((item) => item.minimized)
+                  .map((item) => (
+                    <button
+                      key={item.linkId}
+                      className="rounded border border-border px-2 py-1 text-xs"
+                      onClick={() =>
+                        saveWindows(
+                          freeWindows.map((windowItem) =>
+                            windowItem.linkId === item.linkId
+                              ? { ...windowItem, minimized: false, zIndex: freeWindows.length }
+                              : windowItem,
+                          ),
+                        )
+                      }
+                      type="button"
+                    >
+                      {links.find((link) => link.id === item.linkId)?.name}
+                    </button>
+                  ))}
               </div>
-            </Fragment>
-          ))}
+            </>
+          ) : (
+            layout.panes.map((linkId, slot) => (
+              <Fragment key={slot}>
+                {slot > 0 ? (
+                  <div
+                    aria-label={t('webChat.resize', { left: slot, right: slot + 1 })}
+                    aria-orientation="vertical"
+                    aria-valuemin={MIN_PANE_SIZE * 100}
+                    aria-valuemax={Math.round(
+                      ((layout.sizes[slot - 1] ?? 0) + (layout.sizes[slot] ?? 0) - MIN_PANE_SIZE) * 100,
+                    )}
+                    aria-valuenow={Math.round((layout.sizes[slot - 1] ?? 0) * 100)}
+                    className="w-2 shrink-0 cursor-col-resize rounded bg-border hover:bg-primary focus-visible:outline-2 focus-visible:outline-focus-ring"
+                    onKeyDown={(event) => {
+                      if (saving || suspended || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return;
+                      event.preventDefault();
+                      void persist(resizePanes(layout, slot - 1, event.key === 'ArrowRight' ? 0.05 : -0.05));
+                    }}
+                    onPointerDown={(event) => {
+                      if (saving || suspended) return;
+                      event.preventDefault();
+                      const width = container.current?.getBoundingClientRect().width;
+                      if (width) setDrag({ divider: slot - 1, x: event.clientX, width, start: layout });
+                    }}
+                    role="separator"
+                    tabIndex={0}
+                  />
+                ) : null}
+                <div className="min-w-0" style={{ flex: `${String(layout.sizes[slot] ?? 1)} 1 0%` }}>
+                  <WebChatPane
+                    contentRef={(element) => {
+                      elements.current[slot] = element;
+                    }}
+                    disabled={saving || suspended || drag !== null}
+                    linkId={linkId}
+                    links={links}
+                    nativeAvailable={host.available}
+                    onOpen={() => void openBrowser(slot)}
+                    onReload={() => {
+                      void host.reload(slot).catch(() => {
+                        reportFailed([linkId]);
+                        nativeError();
+                      });
+                    }}
+                    onSelect={(selected) => {
+                      void persist({
+                        ...layout,
+                        panes: layout.panes.map((id, index) => (index === slot ? selected : id)),
+                      });
+                    }}
+                    slot={slot}
+                  />
+                </div>
+              </Fragment>
+            ))
+          )}
         </div>
       )}
     </section>

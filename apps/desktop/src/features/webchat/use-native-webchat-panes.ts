@@ -23,6 +23,7 @@ export function useNativeWebChatPanes({
   onError,
   onLoadFailure,
 }: NativePaneOptions): void {
+  const paneIds = layout.mode === 'free' ? (layout.windows ?? []).map((item) => item.linkId) : layout.panes;
   useEffect(() => {
     return () => {
       void host.closeAll().catch(() => {
@@ -44,7 +45,7 @@ export function useNativeWebChatPanes({
       frame = window.requestAnimationFrame(() => {
         if (!active) return;
         const panes: WebChatPaneRequest[] = [];
-        layout.panes.forEach((linkId, slot) => {
+        paneIds.forEach((linkId, slot) => {
           const element = elements.current[slot];
           if (!element) return;
           const rect = element.getBoundingClientRect();
@@ -60,11 +61,18 @@ export function useNativeWebChatPanes({
           .sync(
             links,
             panes,
-            layout.panes.map((_, slot) => slot),
+            paneIds.map((_, slot) => slot),
           )
-          .then(() => {
+          .then(async () => {
             if (active) {
-              return host.setVisible(true);
+              await host.setVisible(true);
+              if (layout.mode === 'free') {
+                const front = [...(layout.windows ?? [])]
+                  .filter((item) => !item.minimized)
+                  .sort((a, b) => b.zIndex - a.zIndex)[0];
+                const slot = front ? (layout.windows ?? []).findIndex((item) => item.linkId === front.linkId) : -1;
+                if (slot >= 0) await host.raise?.(slot);
+              }
             }
           })
           .catch(() => {
@@ -94,5 +102,5 @@ export function useNativeWebChatPanes({
       window.removeEventListener('resize', schedule);
       window.removeEventListener('scroll', schedule, true);
     };
-  }, [elements, host, layout, links, measureRevision, onError, onLoadFailure, paused]);
+  }, [elements, host, layout, links, measureRevision, onError, onLoadFailure, paneIds, paused]);
 }

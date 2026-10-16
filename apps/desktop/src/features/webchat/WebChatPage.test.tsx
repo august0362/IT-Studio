@@ -83,7 +83,8 @@ function setup({ native = true, failMethod = '' } = {}) {
   const reload = vi.fn<IWebChatHost['reload']>(() => Promise.resolve());
   const closeAll = vi.fn(() => Promise.resolve());
   const setVisible = vi.fn<IWebChatHost['setVisible']>(() => Promise.resolve());
-  const host: IWebChatHost = { available: native, sync, reload, closeAll, setVisible };
+  const setPaneVisible = vi.fn(() => Promise.resolve());
+  const host: IWebChatHost = { available: native, sync, reload, closeAll, setVisible, setPaneVisible };
   const client = new RpcClient(transport);
   const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const page = (suspended: boolean, layoutRevision = '') => (
@@ -96,10 +97,20 @@ function setup({ native = true, failMethod = '' } = {}) {
     </QueryClientProvider>
   );
   const rendered = render(page(false));
-  return { ...rendered, transport, updates, sync, reload, closeAll, setVisible, page };
+  return { ...rendered, transport, updates, sync, reload, closeAll, setVisible, setPaneVisible, page };
 }
 
 describe('WebChatPage', () => {
+  it('WC-03 persists free mode and restores minimized windows from the dock', async () => {
+    const view = setup();
+    fireEvent.change(await screen.findByRole('combobox', { name: 'Web chat layout' }), { target: { value: 'free' } });
+    const minimize = await screen.findByRole('button', { name: 'Minimize ChatGPT' });
+    fireEvent.click(minimize);
+    expect(await screen.findByRole('button', { name: 'ChatGPT' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'ChatGPT' }));
+    expect(await screen.findByRole('button', { name: 'Minimize ChatGPT' })).toBeVisible();
+    expect(view.updates.some((layout) => layout.mode === 'free' && layout.windows?.[0]?.minimized)).toBe(true);
+  });
   it('PROC-02 reports pane open/close with only lifecycle metadata', async () => {
     const view = setup();
     const reports = () =>

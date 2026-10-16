@@ -18,7 +18,7 @@ use tokio::sync::Mutex;
 
 use crate::commands::require_main_webview;
 
-const MAX_PANES: usize = 4;
+const MAX_PANES: usize = 6;
 const MAX_LINKS: usize = 40;
 const MAX_BOUND: f64 = 32_768.0;
 
@@ -56,6 +56,7 @@ struct PlannedPane {
 struct ActivePane {
     url: String,
     in_view: bool,
+    bounds: PaneBounds,
 }
 
 pub struct WebChatState {
@@ -208,10 +209,154 @@ pub async fn webchat_sync(
             ActivePane {
                 url: pane.url.to_string(),
                 in_view: true,
+                bounds: pane.bounds,
             },
         );
     }
     Ok(())
+}
+
+#[tauri::command]
+pub async fn webchat_raise(
+    webview: Webview,
+    app: AppHandle,
+    state: State<'_, WebChatState>,
+    pane_id: u8,
+) -> Result<(), String> {
+    require_main_webview(webview.label())?;
+    validate_slot(pane_id)?;
+    let active = state.panes.lock().await;
+    let pane = active.get(&pane_id).ok_or("raise target not found")?;
+    #[cfg(windows)]
+    {
+        let window = app
+            .get_webview_window("main")
+            .ok_or("The main window is unavailable.")?;
+        let hwnd = window
+            .hwnd()
+            .map_err(|_| "The main window HWND is unavailable.")?;
+        let scale = window
+            .scale_factor()
+            .map_err(|_| "Unable to read the window scale.")?;
+        let target = Rect {
+            x: (pane.bounds.x * scale).round() as i32,
+            y: (pane.bounds.y * scale).round() as i32,
+            width: (pane.bounds.width * scale).round() as i32,
+            height: (pane.bounds.height * scale).round() as i32,
+        };
+        zorder::raise(hwnd, target)?;
+    }
+    #[cfg(not(windows))]
+    let _ = (app, pane);
+    Ok(())
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Rect {
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+}
+
+#[cfg(windows)]
+mod zorder {
+    use super::Rect;
+    use windows::Win32::{
+        Foundation::{HWND, LPARAM, RECT},
+        Graphics::Gdi::MapWindowPoints,
+        UI::WindowsAndMessaging::{
+            EnumChildWindows, GetClassNameW, GetParent, GetWindowRect, SetWindowPos, HWND_TOP,
+            SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+        },
+    };
+
+    struct Collector {
+        main: HWND,
+        candidates: Vec<(isize, Rect)>,
+    }
+
+    pub fn pick_by_bounds(candidates: &[(isize, Rect)], target: Rect, tol: i32) -> Option<isize> {
+        let mut matches = candidates.iter().filter(|(_, rect)| {
+            (rect.x - target.x).abs() <= tol
+                && (rect.y - target.y).abs() <= tol
+                && (rect.width - target.width).abs() <= tol
+                && (rect.height - target.height).abs() <= tol
+        });
+        let hwnd = matches.next()?.0;
+        if matches.next().is_some() {
+            None
+        } else {
+            Some(hwnd)
+        }
+    }
+
+    pub fn raise(main: HWND, target: Rect) -> Result<(), String> {
+        let mut collector = Collector {
+            main,
+            candidates: Vec::new(),
+        };
+        unsafe {
+            let _ = EnumChildWindows(
+                Some(main),
+                Some(collect),
+                LPARAM((&mut collector as *mut Collector) as isize),
+            );
+        }
+        let hwnd =
+            pick_by_bounds(&collector.candidates, target, 2).ok_or("raise target not found")?;
+        unsafe {
+            SetWindowPos(
+                HWND(hwnd as *mut _),
+                Some(HWND_TOP),
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+            )
+        }
+        .map_err(|_| "Unable to raise web-chat pane".to_string())
+    }
+
+    unsafe extern "system" fn collect(hwnd: HWND, data: LPARAM) -> windows::core::BOOL {
+        let collector = unsafe { &mut *(data.0 as *mut Collector) };
+        if unsafe { GetParent(hwnd) }.map_or(true, |parent| parent != collector.main) {
+            return windows::core::BOOL(1);
+        }
+        let mut class = [0u16; 256];
+        let len = unsafe { GetClassNameW(hwnd, &mut class) };
+        if len > 0
+            && String::from_utf16_lossy(&class[..len as usize]).starts_with("Chrome_WidgetWin")
+        {
+            let mut rect = RECT::default();
+            if unsafe { GetWindowRect(hwnd, &mut rect) }.is_ok() {
+                let mut points = [
+                    windows::Win32::Foundation::POINT {
+                        x: rect.left,
+                        y: rect.top,
+                    },
+                    windows::Win32::Foundation::POINT {
+                        x: rect.right,
+                        y: rect.bottom,
+                    },
+                ];
+                unsafe {
+                    MapWindowPoints(None, Some(collector.main), &mut points);
+                }
+                collector.candidates.push((
+                    hwnd.0 as isize,
+                    Rect {
+                        x: points[0].x,
+                        y: points[0].y,
+                        width: points[1].x - points[0].x,
+                        height: points[1].y - points[0].y,
+                    },
+                ));
+            }
+        }
+        windows::core::BOOL(1)
+    }
 }
 
 #[tauri::command]
@@ -260,6 +405,27 @@ pub async fn webchat_reload(
 }
 
 #[tauri::command]
+pub async fn webchat_set_pane_visible(
+    webview: Webview,
+    app: AppHandle,
+    state: State<'_, WebChatState>,
+    slot: u8,
+    visible: bool,
+) -> Result<(), String> {
+    require_main_webview(webview.label())?;
+    validate_slot(slot)?;
+    let active = state.panes.lock().await;
+    if !active.contains_key(&slot) {
+        return Err("This web-chat pane is not open.".into());
+    }
+    let child = app
+        .get_webview(&pane_label(slot))
+        .ok_or("This web-chat pane is unavailable.")?;
+    if visible { child.show() } else { child.hide() }
+        .map_err(|_| "Unable to change web-chat pane visibility.".into())
+}
+
+#[tauri::command]
 pub async fn webchat_close_all(
     webview: Webview,
     app: AppHandle,
@@ -288,7 +454,7 @@ fn retained_slots(
         return Ok(planned.keys().copied().collect());
     };
     if slots.len() > MAX_PANES {
-        return Err("Web chat supports at most four active slots.".into());
+        return Err("Web chat supports at most six active slots.".into());
     }
     let mut retained = HashSet::new();
     for slot in slots {
@@ -318,7 +484,7 @@ fn pane_label(slot: u8) -> String {
 
 fn validate_slot(slot: u8) -> Result<(), String> {
     if usize::from(slot) >= MAX_PANES {
-        return Err("Web-chat pane slots must be between 0 and 3.".into());
+        return Err("Web-chat pane slots must be between 0 and 5.".into());
     }
     Ok(())
 }
@@ -346,7 +512,7 @@ fn plan_panes(
     panes: &[WebChatPaneRequest],
 ) -> Result<(BTreeMap<u8, PlannedPane>, HashSet<String>), String> {
     if links.len() > MAX_LINKS || panes.len() > MAX_PANES {
-        return Err("Web chat supports at most 40 saved links and four panes.".into());
+        return Err("Web chat supports at most 40 saved links and six panes.".into());
     }
     let mut saved = BTreeMap::new();
     let mut origins = HashSet::new();

@@ -225,6 +225,29 @@ fn web_chat_profiles_are_separate_from_main_and_safe_for_reuse() {
     assert_eq!(pane_label(3), "webchat-pane-3");
 }
 
+#[cfg(windows)]
+#[test]
+fn webchat_raise_matches_bounds_without_guessing() {
+    use super::zorder::pick_by_bounds;
+    use super::Rect;
+    let target = Rect {
+        x: 10,
+        y: 20,
+        width: 300,
+        height: 200,
+    };
+    assert_eq!(pick_by_bounds(&[(1, target)], target, 2), Some(1));
+    assert_eq!(
+        pick_by_bounds(&[(1, Rect { x: 12, ..target })], target, 2),
+        Some(1)
+    );
+    assert_eq!(
+        pick_by_bounds(&[(1, Rect { x: 13, ..target })], target, 2),
+        None
+    );
+    assert_eq!(pick_by_bounds(&[(1, target), (2, target)], target, 2), None);
+}
+
 #[test]
 fn valid_public_device_name_hosts_use_safe_windows_profile_paths() {
     let root = Path::new("C:/app-data");
