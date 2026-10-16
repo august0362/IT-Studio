@@ -2,6 +2,7 @@ import type { AppError, ErrorCode } from '@itstudio/schemas';
 import { jsonObjectSchema, z } from './common.js';
 export const errorCodeSchema = z.enum([
   'VALIDATION',
+  'PLAN_INVALID',
   'NOT_FOUND',
   'CONFLICT',
   'SECRET_MISSING',

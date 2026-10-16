@@ -65,6 +65,7 @@ export type Result<T, E = AppError> =
 
 export const ErrorCode = {
   VALIDATION: 'VALIDATION',
+  PLAN_INVALID: 'PLAN_INVALID',
   NOT_FOUND: 'NOT_FOUND',
   CONFLICT: 'CONFLICT',
   SECRET_MISSING: 'SECRET_MISSING',
@@ -979,6 +980,27 @@ export interface Diagnostic {
   readonly code?: string;
 }
 
+/* §ORCHESTRATION (D41) */
+export type OrchRunId = Brand<string, 'OrchRunId'>;
+export type OrchTaskId = Brand<string, 'OrchTaskId'>;
+export type OrchAttemptId = Brand<string, 'OrchAttemptId'>;
+export const OrchRole = { SUPERVISOR: 'supervisor', WORKER: 'worker', REVIEWER: 'reviewer' } as const;
+export type OrchRole = (typeof OrchRole)[keyof typeof OrchRole];
+export const OrchTransport = { API: 'api', CLAUDE_CLI: 'claude-cli', CODEX_CLI: 'codex-cli', MOCK: 'mock' } as const;
+export type OrchTransport = (typeof OrchTransport)[keyof typeof OrchTransport];
+export interface OrchAgentRef { readonly agentId: string; readonly role: OrchRole; readonly transport: OrchTransport; readonly providerId?: ProviderId; readonly modelId?: string }
+export const OrchTaskState = { DRAFT:'draft', READY:'ready', QUEUED:'queued', ASSIGNED:'assigned', RUNNING:'running', AWAITING_HANDOFF:'awaiting_handoff', IN_REVIEW:'in_review', FIX_REQUIRED:'fix_required', INTEGRATING:'integrating', VALIDATING:'validating', AWAITING_APPROVAL:'awaiting_approval', COMPLETED:'completed', BLOCKED:'blocked', FAILED:'failed', CANCELLED:'cancelled' } as const;
+export type OrchTaskState = (typeof OrchTaskState)[keyof typeof OrchTaskState];
+export const OrchRunState = { DRAFT:'draft', PLANNING:'planning', PLAN_READY:'plan_ready', RUNNING:'running', PAUSED:'paused', PAUSED_INTERRUPTED:'paused_interrupted', AWAITING_APPROVAL:'awaiting_approval', COMPLETED:'completed', FAILED:'failed', CANCELLED:'cancelled' } as const;
+export type OrchRunState = (typeof OrchRunState)[keyof typeof OrchRunState];
+export interface OrchTaskSpec { readonly id: OrchTaskId; readonly title: string; readonly objective: string; readonly dependsOn: readonly OrchTaskId[]; readonly role: 'worker'; readonly candidateAgents: readonly string[]; readonly allowedPaths: readonly string[]; readonly testCommands: readonly CommandSpec[]; readonly acceptanceCriteria: readonly string[]; readonly estimate: 'S' | 'M' | 'L'; readonly timeoutMs: number }
+export interface OrchUsage { readonly inputTokens: number | null; readonly outputTokens: number | null; readonly cachedInputTokens: number | null; readonly reasoningTokens: number | null; readonly source: 'provider' | 'cli' | 'estimated' | 'unknown'; readonly costMicroUsd: MicroUsd | null; readonly billing: 'api' | 'subscription' | 'free' | 'unknown' }
+export interface OrchAttempt { readonly id: OrchAttemptId; readonly taskId: OrchTaskId | null; readonly role: OrchRole; readonly agent: OrchAgentRef; readonly state: 'running' | 'succeeded' | 'failed' | 'cancelled' | 'unknown'; readonly reason?: string; readonly worktree?: string; readonly baseSha?: string; readonly headSha?: string; readonly changedFiles: readonly string[]; readonly evidence: readonly CommandRun[]; readonly verdict?: { readonly verdict: 'pass' | 'fix_required' | 'reject'; readonly findings: readonly { readonly severity: FindingSeverity; readonly path: string; readonly line?: number; readonly message: string; readonly suggestedFix: string }[]; readonly summary: string }; readonly usage: OrchUsage; readonly startedAt: IsoDateTime; readonly endedAt?: IsoDateTime }
+export interface OrchTask extends OrchTaskSpec { readonly state: OrchTaskState; readonly stateReason?: string; readonly assignedAgentId?: string; readonly fixRounds: number; readonly attempts: readonly OrchAttemptId[] }
+export interface OrchLimits { readonly maxCostMicroUsd: MicroUsd; readonly maxWallClockMs: number; readonly maxAgentCalls: number; readonly maxConcurrentWorkers: number; readonly maxFixRounds: number; readonly transientRetries: number; readonly hardStop: boolean }
+export interface OrchRun { readonly id: OrchRunId; readonly projectId: ProjectId; readonly request: string; readonly state: OrchRunState; readonly stateReason?: string; readonly agents: readonly OrchAgentRef[]; readonly tasks: readonly OrchTask[]; readonly limits: OrchLimits; readonly targetBranch: string; readonly integrationBranch?: string; readonly costMicroUsd: MicroUsd; readonly agentCalls: number; readonly createdAt: IsoDateTime; readonly updatedAt: IsoDateTime }
+export type OrchEvent = { readonly type: 'run'; readonly run: OrchRun } | { readonly type: 'task'; readonly runId: OrchRunId; readonly task: OrchTask; readonly reason: string } | { readonly type: 'attempt'; readonly runId: OrchRunId; readonly attempt: OrchAttempt };
+
 /* ============================================================================
  * §10. IPC — React ⇄ Sidecar (JSON-RPC 2.0 relayed by Tauri over stdio)
  * ========================================================================== */
@@ -1011,6 +1033,15 @@ type Empty = Readonly<Record<string, never>>;
 
 /** Exhaustive request/response catalog. Adding a method = additive change (no ADR needed). */
 export interface RpcMethodMap {
+  'orch.plan': { params: { readonly projectId: ProjectId; readonly request: string }; result: OrchRun };
+  'orch.start': { params: { readonly runId: OrchRunId }; result: OrchRun };
+  'orch.cancel': { params: { readonly runId: OrchRunId }; result: OrchRun };
+  'orch.resume': { params: { readonly runId: OrchRunId }; result: OrchRun };
+  'orch.approve': { params: { readonly runId: OrchRunId }; result: OrchRun };
+  'orch.discard': { params: { readonly runId: OrchRunId }; result: OrchRun };
+  'orch.get': { params: { readonly runId: OrchRunId }; result: OrchRun };
+  'orch.list': { params: { readonly projectId?: ProjectId; readonly limit: number }; result: readonly OrchRun[] };
+  'orch.attempts': { params: { readonly runId: OrchRunId; readonly taskId?: OrchTaskId }; result: readonly OrchAttempt[] };
   'process.list': { params: { readonly projectId?: ProjectId; readonly status?: readonly ProcessStatus[]; readonly kind?: readonly ProcessKind[]; readonly limit: number }; result: readonly ProcessRecord[] };
   'process.get': { params: { readonly id: ProcessId }; result: ProcessRecord };
   'process.cancel': { params: { readonly id: ProcessId }; result: ProcessRecord };     // running/waiting → stopped (delegates to the owning service's cancel)
@@ -1125,6 +1156,7 @@ export type RpcMethod = keyof RpcMethodMap;
 
 /** Sidecar → UI push events. */
 export interface RpcNotificationMap {
+  'orch.event': OrchEvent;
   'process.event': ProcessEvent;
   /** First line the sidecar writes after migrations + journal recovery complete. */
   'system.ready': { readonly version: string; readonly recoveredTransactions: number };
@@ -1918,7 +1950,7 @@ export type SystemAction = 'reboot' | 'shutdown';
 export type ProcessId = Brand<string, 'ProcessId'>;
 export const ProcessKind = {
   CHAT: 'chat', CODE_PIPELINE: 'code_pipeline', KNOWLEDGE_INGEST: 'knowledge_ingest', IMAGE: 'image',
-  PRICE_UPDATE: 'price_update', KEY_VERIFY: 'key_verify', VSCODE_LAUNCH: 'vscode_launch', WEB_CHAT: 'web_chat',
+  PRICE_UPDATE: 'price_update', KEY_VERIFY: 'key_verify', VSCODE_LAUNCH: 'vscode_launch', WEB_CHAT: 'web_chat', ORCHESTRATION: 'orchestration',
 } as const;
 export type ProcessKind = (typeof ProcessKind)[keyof typeof ProcessKind];
 export const ProcessStatus = { RUNNING: 'running', WAITING: 'waiting', STOPPED: 'stopped', ENDED: 'ended' } as const;
@@ -1948,7 +1980,7 @@ export interface ProcessRecord {
   readonly edges: readonly ProcessEdge[];
   readonly result?: string;            // ≤ 500 chars final output summary
   readonly costText?: string;          // existing money display text when known
-  readonly ref?: { readonly type: 'conversation' | 'pipeline_run' | 'ingest_job' | 'image' | 'price_run' | 'webchat_link'; readonly id: string };
+  readonly ref?: { readonly type: 'conversation' | 'pipeline_run' | 'ingest_job' | 'image' | 'price_run' | 'webchat_link' | 'orchestration_run'; readonly id: string };
   readonly retryable: boolean;
   readonly createdAt: IsoDateTime;
   readonly updatedAt: IsoDateTime;

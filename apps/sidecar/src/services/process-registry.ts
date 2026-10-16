@@ -26,6 +26,7 @@ import { isoDateTimeSchema, processIdSchema } from '../validation/brand.js';
 import { processRecordSchema } from '../validation/process.js';
 import { jsonObjectSchema } from '../validation/common.js';
 import { processOperationSchema } from '../validation/process-operation.js';
+import type { OrchRun } from '@itstudio/schemas';
 
 export interface ProcessRegistryDependencies {
   readonly repository: IProcessRepository;
@@ -58,6 +59,43 @@ export class ProcessRegistry implements IProcessTracker {
       this.sequence = Math.max(this.sequence, stored.sequence);
     }
     this.restored = [...this.records.values()].map(({ process }) => process);
+  }
+
+  upsertOrchestration(run: OrchRun): void {
+    let id = this.find('orchestration', run.id);
+    id ??= this.start('orchestration', {
+      title: `Orchestration: ${run.request.slice(0, 90)}`,
+      projectId: run.projectId,
+      ref: { type: 'orchestration_run', id: run.id },
+    });
+    const current = this.records.get(id)?.process;
+    if (current === undefined || current.status === 'ended' || current.status === 'stopped') return;
+    const states = run.tasks.map((task) => ({
+      id: task.id,
+      label: task.title,
+      state:
+        task.state === 'completed'
+          ? ('done' as const)
+          : task.state === 'failed'
+            ? ('failed' as const)
+            : task.state === 'blocked' || task.state === 'cancelled'
+              ? ('skipped' as const)
+              : task.state === 'queued' || task.state === 'ready'
+                ? ('waiting' as const)
+                : ('active' as const),
+    }));
+    const edges = run.tasks.flatMap((task) => task.dependsOn.map((from) => ({ from, to: task.id })));
+    const status =
+      run.state === 'awaiting_approval' || run.state === 'paused' || run.state === 'paused_interrupted'
+        ? ('waiting' as const)
+        : ('running' as const);
+    this.put({
+      ...current,
+      modules: states,
+      edges,
+      status,
+      ...(status === 'waiting' ? { statusReason: run.stateReason ?? 'Awaiting owner action' } : {}),
+    });
   }
 
   async recover(isClarifying: (process: ProcessRecord) => Promise<boolean>): Promise<void> {

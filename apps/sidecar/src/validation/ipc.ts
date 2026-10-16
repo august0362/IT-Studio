@@ -13,6 +13,7 @@ import type {
   RpcNotificationName,
   WebChatLinkId,
 } from '@itstudio/schemas';
+import type { OrchAttempt, OrchEvent, OrchRun } from '@itstudio/schemas';
 import { z } from './common.js';
 import { projectSchema } from './projects.js';
 import { appSettingsSchema, settingsPatchSchema } from './settings.js';
@@ -64,7 +65,39 @@ import {
 } from './common.js';
 
 const empty = z.strictObject({}).readonly();
+const orchRunIdSchema = z
+  .string()
+  .min(1)
+  .transform((value) => value as OrchRun['id']);
+const orchTaskIdSchema = z
+  .string()
+  .min(1)
+  .transform((value) => value as OrchRun['tasks'][number]['id']);
+const orchRunSchema = z.custom<OrchRun>(
+  (value) =>
+    typeof value === 'object' &&
+    value !== null &&
+    'id' in value &&
+    'state' in value &&
+    'tasks' in value &&
+    'limits' in value,
+);
+const orchAttemptSchema = z.custom<OrchAttempt>(
+  (value) => typeof value === 'object' && value !== null && 'id' in value && 'usage' in value && 'agent' in value,
+);
+const orchEventSchema = z.custom<OrchEvent>((value) => typeof value === 'object' && value !== null && 'type' in value);
 export const rpcParamsSchemas = {
+  'orch.plan': z.strictObject({ projectId: projectIdSchema, request: z.string().min(1) }).readonly(),
+  'orch.start': z.strictObject({ runId: orchRunIdSchema }).readonly(),
+  'orch.cancel': z.strictObject({ runId: orchRunIdSchema }).readonly(),
+  'orch.resume': z.strictObject({ runId: orchRunIdSchema }).readonly(),
+  'orch.approve': z.strictObject({ runId: orchRunIdSchema }).readonly(),
+  'orch.discard': z.strictObject({ runId: orchRunIdSchema }).readonly(),
+  'orch.get': z.strictObject({ runId: orchRunIdSchema }).readonly(),
+  'orch.list': z
+    .strictObject({ projectId: projectIdSchema.exactOptional(), limit: z.number().int().min(1).max(200) })
+    .readonly(),
+  'orch.attempts': z.strictObject({ runId: orchRunIdSchema, taskId: orchTaskIdSchema.exactOptional() }).readonly(),
   'process.list': processListSchema,
   'process.get': processIdentitySchema,
   'process.cancel': processIdentitySchema,
@@ -224,6 +257,7 @@ export const rpcResponseEnvelopeSchema = z
   })
   .readonly();
 export const rpcNotificationParamsSchemas = {
+  'orch.event': orchEventSchema,
   'process.event': processEventSchema,
   'system.ready': z.object({ version: z.string(), recoveredTransactions: z.number() }).readonly(),
   'chat.delta': z.object({ requestId: llmRequestIdSchema, textDelta: z.string() }).readonly(),
@@ -247,6 +281,15 @@ export const rpcNotificationParamsSchemas = {
 } satisfies { [N in RpcNotificationName]: z.ZodType<RpcNotificationMap[N]> };
 
 export const rpcResultSchemas = {
+  'orch.plan': orchRunSchema,
+  'orch.start': orchRunSchema,
+  'orch.cancel': orchRunSchema,
+  'orch.resume': orchRunSchema,
+  'orch.approve': orchRunSchema,
+  'orch.discard': orchRunSchema,
+  'orch.get': orchRunSchema,
+  'orch.list': z.array(orchRunSchema).readonly(),
+  'orch.attempts': z.array(orchAttemptSchema).readonly(),
   'process.list': z.array(processRecordSchema).readonly(),
   'process.get': processRecordSchema,
   'process.cancel': processRecordSchema,

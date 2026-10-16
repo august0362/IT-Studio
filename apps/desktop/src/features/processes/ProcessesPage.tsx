@@ -19,6 +19,7 @@ const KIND_ICONS: Readonly<Record<ProcessKind, IconName>> = {
   key_verify: 'key',
   vscode_launch: 'open',
   web_chat: 'web',
+  orchestration: 'studio',
 };
 const STATUSES = ['running', 'waiting', 'stopped', 'ended'] as const;
 export function ProcessesPage({

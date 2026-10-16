@@ -25,6 +25,9 @@ type RemediationSteps = (context?: RemediationContext) => readonly string[];
 
 const remediation: Record<ErrorCodeType, RemediationSteps> = {
   [ErrorCode.VALIDATION]: () => ['Review the highlighted values and correct the invalid input.'],
+  [ErrorCode.PLAN_INVALID]: () => [
+    'Review the reported task ids, dependencies, paths, and validation commands, then submit a corrected plan.',
+  ],
   [ErrorCode.NOT_FOUND]: () => ['Confirm the item still exists, then select it again.'],
   [ErrorCode.CONFLICT]: () => ['Refresh the item and retry your change.'],
   [ErrorCode.SECRET_MISSING]: () => ['Add the required provider key in Settings, then retry.'],

@@ -10,6 +10,59 @@ export const projects = sqliteTable('projects', {
   archived: integer('archived').notNull().default(0),
 });
 
+export const orchRuns = sqliteTable(
+  'orch_runs',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    state: text('state').notNull(),
+    dataJson: text('data_json').notNull(),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [index('orch_runs_project_updated_idx').on(table.projectId, table.updatedAt)],
+);
+export const orchTasks = sqliteTable(
+  'orch_tasks',
+  {
+    id: text('id').primaryKey(),
+    runId: text('run_id')
+      .notNull()
+      .references(() => orchRuns.id, { onDelete: 'cascade' }),
+    state: text('state').notNull(),
+    dataJson: text('data_json').notNull(),
+  },
+  (table) => [index('orch_tasks_run_idx').on(table.runId)],
+);
+export const orchAttempts = sqliteTable(
+  'orch_attempts',
+  {
+    id: text('id').primaryKey(),
+    runId: text('run_id')
+      .notNull()
+      .references(() => orchRuns.id, { onDelete: 'cascade' }),
+    taskId: text('task_id'),
+    state: text('state').notNull(),
+    dataJson: text('data_json').notNull(),
+  },
+  (table) => [index('orch_attempts_run_idx').on(table.runId)],
+);
+export const orchEvents = sqliteTable(
+  'orch_events',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    runId: text('run_id')
+      .notNull()
+      .references(() => orchRuns.id, { onDelete: 'cascade' }),
+    type: text('type').notNull(),
+    dataJson: text('data_json').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [index('orch_events_run_idx').on(table.runId, table.id)],
+);
+
 export const settings = sqliteTable(
   'settings',
   {
