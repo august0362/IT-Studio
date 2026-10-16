@@ -108,6 +108,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 - Add npm-workspaces monorepo scaffold: sidecar, desktop (Tauri v2 + React 19 + Vite 8 + Tailwind 4), VS Code extension skeleton ([M0-04](docs/tasks/M0-04.md))
 
 ### Changed
+- Refresh the visual design: re-derived light/dark variants for all 21 themes, consistent shared controls, live theme preview cards and accent/density/font-size/motion settings with automated contrast checks ([UX-05](docs/tasks/UX-05.md))
 - Move project documents (CONTEXT, ARCHITECTURE, CONVENTIONS, ROADMAP, ROLES, TESTING, diagram) into `docs/`; unit tests use 15 s / 20 s timeouts ([REPO-01](docs/tasks/REPO-01.md))
 - Remove the unused `workspace.readFile` / `workspace.runCommand` RPC contracts ([QA-BREAK-FIX-A](docs/tasks/QA-BREAK-FIX-A.md))
 - Show workflow nodes as names and status labels, keep counters in the side panel, and animate queued activity dots with reduced-motion highlighting ([OWNER-FB1 P2](docs/tasks/OWNER-FB1.md))
