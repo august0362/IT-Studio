@@ -205,6 +205,12 @@ Work order and QA verdict: `docs/tasks/OWNER-FB1.md`.
 
 - [ ] **WC-02** (C) Nine more built-in web chats (DeepSeek, Qwen, Le Chat, Copilot, Kimi, Meta AI, Poe, HuggingChat, Z.ai), upgrade-safe one-time merge.
 
+- [ ] **WC-03** (C) Free-floating web-chat windows: drag, resize, maximize, minimize to dock, overlap with native z-order, smooth placeholders.
+
+- [ ] **UX-05** (C, gpt-6.1-sol high) Theme & visual design overhaul — Codex owns the design; AA contrast test, id migration, restyled primitives, new Appearance gallery.
+
+- [ ] **VSC-01** (C) Close Studio-launched VS Code windows on project close/delete and on Studio exit via the extension bridge (never kill processes).
+
 ## PROC — Processes *(D40)*
 
 - [x] **PROC-01** (C) Sidecar process registry, module graphs per kind, instrumentation, retention 20, retry/cancel/dismiss, restart sweep.
