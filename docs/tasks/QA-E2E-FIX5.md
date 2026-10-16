@@ -1,0 +1,14 @@
+# QA-E2E-FIX5 — E2E after the navigation/theme changes + two product defects
+
+Role: Implementer · Size M · Model: gpt-6-luna medium · **Deps pre-installed** · **Broad scope: `e2e/**`, `apps/desktop/src/features/cost/**`, `apps/sidecar/src/**` process tracking for chat, `apps/sidecar/test/integration/break-durability.test.ts` — list edits in Result.** The sandbox cannot run E2E (GUI) or integration (`tsx`); QA runs them.
+
+## QA evidence (2026-10-16, full E2E 8/14 pass; integration 172/173)
+
+1. **Stale navigation in E2E specs (test defect).** Since UX-03 the sidebar has no settings sub-links, and since UX-04 there is no `#workflow` sidebar link. Failing selectors: `nav[aria-label="Main navigation"] a[href="#settings-router|budget|pricing|images|theme|fx"]` and `nav a[href="#workflow"]` in `m4/shell.spec.ts`, `m4/scripted-llm.spec.ts`, `m4/settings.spec.ts`, `m8/images.spec.ts`, `mw/workflow.spec.ts` (29 occurrences). Fix: add a helper in `e2e/helpers/` `openSettings(section)` = click the sidebar **Settings** entry, then the sub-navigation link `a[href="#settings-<section>"]` inside the Settings page (or select it on narrow windows), and `openSystemMap()` = sidebar **Processes** → tab **System map**. Replace every stale selector with the helpers.
+2. **Duplicate "Add revenue" buttons (product + test defect).** UX-06 added an empty-state CTA labelled "Add revenue" above the revenue form, so `m4/cost.spec.ts` TC-M4-030/032 and `m4/settings.spec.ts` TC-M4-045 click the CTA (which only focuses the form) instead of submitting; evidence screenshots show the form filled but not submitted. Fix in the product: rename the empty-state CTA to "Enter first revenue" / vi "Nhập doanh thu đầu tiên" (it focuses the Amount field), keep the form's submit button "Add revenue". Fix the specs to click the submit button scoped to the "Revenue entries" form (`form[aria-label=…]` or the section's button).
+3. **Processes stuck "running" (product defect, verify).** After the E2E session the status bar showed 4 green (running) processes while nothing ran — likely chat processes that ended via a blocked/failed path (e.g. `BUDGET_HARD_STOP`, ladder exhausted, cancel) without calling the tracker's end/status. Write a unit test per chat outcome (success, provider failure, budget hard stop, ladder exhausted, user cancel) asserting the chat process ends `ended` or `stopped` — then fix the missing transitions in the chat service instrumentation.
+4. **BRK-D06 (test defect).** `break-durability.test.ts:390` asserts the latest applied migration equals journal entry `idx === 11`; migrations 12 and 13 now exist. Assert it equals the **highest** `idx` in the journal instead (and that 0011 is applied).
+
+## Acceptance criteria
+
+- [ ] `npx prettier --write` changed files; `npm run typecheck`, `npm run lint`, `npm test` pass. QA reruns the full E2E (14/14) and `break-durability` integration.
