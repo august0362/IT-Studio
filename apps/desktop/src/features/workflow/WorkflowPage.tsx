@@ -1,4 +1,4 @@
-import type { ActivityEvent, ProjectId, WorkflowModuleId } from '@itstudio/schemas';
+import type { ActivityEvent, ProcessKind, ProjectId, WorkflowModuleId } from '@itstudio/schemas';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Icon } from '../../components/ui/Icon';
 import type { JSX } from 'react';
@@ -19,10 +19,12 @@ export function WorkflowPage({
   projectId,
   projects,
   onNavigate,
+  onShowProcesses,
 }: {
   readonly projectId: ProjectId | null;
   readonly projects: readonly { readonly id: ProjectId; readonly name: string }[];
   readonly onNavigate: (route: 'chat' | 'code' | 'knowledge' | 'cost', event?: ActivityEvent) => void;
+  readonly onShowProcesses?: (kind: ProcessKind) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const rpc = useRpcClient();
@@ -223,6 +225,7 @@ export function WorkflowPage({
                 setSelectedId(null);
               }}
               onNavigate={onNavigate}
+              {...(onShowProcesses === undefined ? {} : { onShowProcesses })}
               projectId={projectId}
               projects={projects}
               recentEvents={selectedRecent}

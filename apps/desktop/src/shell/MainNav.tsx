@@ -38,7 +38,6 @@ export function MainNav({
     { route: 'knowledge', label: t('nav.knowledge'), icon: 'knowledge' },
     { route: 'gallery', label: t('nav.gallery'), icon: 'gallery' },
     { route: 'cost', label: t('nav.cost'), icon: 'cost' },
-    { route: 'workflow', label: t('nav.workflow'), icon: 'workflow' },
     { route: 'processes', label: t('processes.heading'), icon: 'processes' },
   ];
   const linkClass =

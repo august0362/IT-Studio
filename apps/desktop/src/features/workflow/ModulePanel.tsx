@@ -5,6 +5,7 @@ import {
   type ProjectId,
   type WorkflowEdge,
   type WorkflowNode,
+  type ProcessKind,
 } from '@itstudio/schemas';
 import type { JSX } from 'react';
 import { useEffect, useMemo, useState } from 'react';
@@ -27,6 +28,7 @@ export function ModulePanel({
   onLoadMore,
   onClose,
   onNavigate,
+  onShowProcesses,
 }: {
   readonly node: WorkflowNode;
   readonly edges: readonly WorkflowEdge[];
@@ -39,6 +41,7 @@ export function ModulePanel({
   readonly onLoadMore: () => void;
   readonly onClose: () => void;
   readonly onNavigate: (route: 'chat' | 'code' | 'knowledge' | 'cost', event?: ActivityEvent) => void;
+  readonly onShowProcesses?: (kind: ProcessKind) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const [tab, setTab] = useState<PanelTab>('now');
@@ -87,6 +90,26 @@ export function ModulePanel({
     const target = navTarget(event);
     if (target !== undefined) onNavigate(target, event);
   };
+  const processKind: ProcessKind | undefined =
+    node.id === WorkflowModuleId.CHAT
+      ? 'chat'
+      : node.id === WorkflowModuleId.CODE ||
+          node.id === WorkflowModuleId.PIPELINE_PM ||
+          node.id === WorkflowModuleId.PIPELINE_CODER ||
+          node.id === WorkflowModuleId.PIPELINE_REVIEWER ||
+          node.id === WorkflowModuleId.WORKER
+        ? 'code_pipeline'
+        : node.id === WorkflowModuleId.KNOWLEDGE ||
+            node.id === WorkflowModuleId.RAG_INGEST ||
+            node.id === WorkflowModuleId.EMBEDDINGS ||
+            node.id === WorkflowModuleId.VECTOR_STORE ||
+            node.id === WorkflowModuleId.RETRIEVER
+          ? 'knowledge_ingest'
+          : node.id === WorkflowModuleId.PRICING_FX
+            ? 'price_update'
+            : node.id === WorkflowModuleId.VSCODE_BRIDGE
+              ? 'vscode_launch'
+              : undefined;
 
   return (
     <aside
@@ -106,6 +129,16 @@ export function ModulePanel({
           ×
         </button>
       </header>
+      {processKind !== undefined && onShowProcesses !== undefined ? (
+        <button
+          className="self-start rounded border border-border px-3 py-2"
+          onClick={() => {
+            onShowProcesses(processKind);
+          }}
+        >
+          {t('workflow.showProcesses')}
+        </button>
+      ) : null}
       {projectId === null ? (
         <fieldset className="space-y-1">
           <legend className="text-sm">{t('workflow.projectFilter')}</legend>
