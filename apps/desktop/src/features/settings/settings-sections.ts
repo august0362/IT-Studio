@@ -35,7 +35,8 @@ export const SETTINGS_SECTIONS = [
     route: 'settings-web-chat',
     en: 'Web chat',
     vi: 'Trò chuyện web',
-    keywords: 'browser coccoc links panes web chat trình duyệt',
+    keywords:
+      'browser coccoc links panes web chat deepseek qwen le chat mistral microsoft copilot kimi meta ai poe huggingchat huggingface z.ai glm trình duyệt',
   },
   {
     route: 'settings-vscode',

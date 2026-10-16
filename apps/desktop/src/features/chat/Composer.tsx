@@ -1,4 +1,5 @@
 import type { JSX, KeyboardEvent } from 'react';
+import { Button, Textarea } from '../../components/ui/primitives';
 import { useTranslation } from 'react-i18next';
 
 export function Composer({
@@ -26,7 +27,7 @@ export function Composer({
       <label className="sr-only" htmlFor="chat-composer">
         {t('chat.message')}
       </label>
-      <textarea
+      <Textarea
         className="min-h-12 flex-1 resize-y rounded border border-border bg-surface p-2"
         id="chat-composer"
         onChange={(event) => {
@@ -36,18 +37,13 @@ export function Composer({
         value={value}
       />
       {busy ? (
-        <button className="rounded border border-border px-3 py-2" onClick={onStop} type="button">
+        <Button onClick={onStop} type="button">
           {t('chat.stop')}
-        </button>
+        </Button>
       ) : (
-        <button
-          className="rounded bg-primary px-3 py-2 text-primary-fg disabled:opacity-50"
-          disabled={!value.trim()}
-          onClick={onSend}
-          type="button"
-        >
+        <Button tone="primary" disabled={!value.trim()} onClick={onSend} type="button">
           {t('chat.send')}
-        </button>
+        </Button>
       )}
     </div>
   );

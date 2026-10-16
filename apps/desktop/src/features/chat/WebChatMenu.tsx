@@ -66,7 +66,7 @@ export function WebChatMenu({
       {open ? (
         <div
           aria-label={t('chat.webChat.label')}
-          className="absolute right-0 z-20 mt-1 min-w-64 rounded border border-border bg-surface p-1 shadow-lg"
+          className="absolute right-0 z-20 mt-1 max-h-[60vh] min-w-64 max-w-[calc(100vw-2rem)] overflow-y-auto break-words rounded border border-border bg-surface p-1 shadow-lg"
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
               setOpen(false);

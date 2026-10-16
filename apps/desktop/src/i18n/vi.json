@@ -811,5 +811,29 @@
       "vscode_bridge": "Kết nối VS Code",
       "storage": "Lưu trữ"
     }
+  },
+  "appearance": {
+    "customize": "Không gian của bạn",
+    "description": "Tinh chỉnh giao diện. Các tùy chọn được lưu trên thiết bị này.",
+    "accent": "Màu nhấn",
+    "density": "Mật độ",
+    "fontScale": "Cỡ chữ giao diện",
+    "motion": "Chuyển động",
+    "storageError": "Không thể lưu tùy chọn. Hãy bật bộ nhớ cục bộ và thử lại.",
+    "options": {
+      "theme": "Mặc định của chủ đề",
+      "ocean": "Xanh đại dương",
+      "grove": "Xanh lá",
+      "ember": "Vàng hổ phách",
+      "alternate": "Màu phối của bảng màu",
+      "comfortable": "Thoải mái",
+      "compact": "Gọn",
+      "small": "Nhỏ · 94%",
+      "default": "Mặc định · 100%",
+      "large": "Lớn · 113%",
+      "system": "Theo hệ thống",
+      "full": "Đầy đủ",
+      "reduced": "Giảm"
+    }
   }
 }

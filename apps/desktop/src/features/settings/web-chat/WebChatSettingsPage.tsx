@@ -19,6 +19,25 @@ const defaults: readonly WebChatLink[] = [
     enabled: true,
   },
   { id: 'perplexity' as WebChatLink['id'], name: 'Perplexity', url: 'https://www.perplexity.ai/', enabled: true },
+  { id: 'deepseek' as WebChatLink['id'], name: 'DeepSeek', url: 'https://chat.deepseek.com/', enabled: true },
+  { id: 'qwen' as WebChatLink['id'], name: 'Qwen Chat', url: 'https://chat.qwen.ai/', enabled: true },
+  {
+    id: 'mistral-le-chat' as WebChatLink['id'],
+    name: 'Le Chat (Mistral)',
+    url: 'https://chat.mistral.ai/chat',
+    enabled: true,
+  },
+  {
+    id: 'copilot' as WebChatLink['id'],
+    name: 'Microsoft Copilot',
+    url: 'https://copilot.microsoft.com/',
+    enabled: true,
+  },
+  { id: 'kimi' as WebChatLink['id'], name: 'Kimi', url: 'https://www.kimi.com/', enabled: true },
+  { id: 'meta-ai' as WebChatLink['id'], name: 'Meta AI', url: 'https://www.meta.ai/', enabled: true },
+  { id: 'poe' as WebChatLink['id'], name: 'Poe', url: 'https://poe.com/', enabled: true },
+  { id: 'huggingchat' as WebChatLink['id'], name: 'HuggingChat', url: 'https://huggingface.co/chat/', enabled: true },
+  { id: 'zai' as WebChatLink['id'], name: 'Z.ai (GLM)', url: 'https://chat.z.ai/', enabled: true },
 ];
 const browsers = [
   WebChatBrowser.DEFAULT,
@@ -224,7 +243,7 @@ function WebChatSettingsForm({
         <div className="flex flex-wrap gap-2">
           <button
             className="rounded border border-border px-3 py-2"
-            disabled={value.links.length >= 20}
+            disabled={value.links.length >= 40}
             onClick={() => {
               setValue({
                 ...value,

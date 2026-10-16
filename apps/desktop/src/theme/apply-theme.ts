@@ -1,11 +1,16 @@
 import type { ThemeTokens } from '@itstudio/schemas';
+import { applyAppearance, appearanceTokens, readAppearance } from './appearance';
 
 function kebabCase(value: string): string {
   return value.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
 }
 
 export function applyTheme(themeId: string, mode: 'light' | 'dark', tokens: ThemeTokens): void {
+  const appearance = readAppearance();
+  tokens = appearanceTokens(tokens, appearance.accent);
+  applyAppearance(appearance);
   const root = document.documentElement;
+  root.style.colorScheme = mode;
   const semanticKeys = [
     'bg',
     'surface',
@@ -47,8 +52,10 @@ export function applyTheme(themeId: string, mode: 'light' | 'dark', tokens: Them
 }
 
 export function enableThemeTransitions(): void {
+  if (document.getElementById('theme-transitions') !== null) return;
   const style = document.createElement('style');
+  style.id = 'theme-transitions';
   style.textContent =
-    '@media (prefers-reduced-motion: no-preference) { :root { transition: background-color 150ms, color 150ms, border-color 150ms; } }';
+    '@media (prefers-reduced-motion: no-preference) { :root:not([data-motion="reduced"]) { transition: background-color 150ms, color 150ms, border-color 150ms; } }';
   document.head.append(style);
 }

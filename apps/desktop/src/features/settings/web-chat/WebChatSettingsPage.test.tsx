@@ -111,6 +111,20 @@ describe('WebChatSettingsPage', () => {
       expect(saved.length).toBe(2);
     });
     expect(saved[1]).toContain('perplexity');
+    expect(screen.getAllByRole('textbox', { name: 'Name' })).toHaveLength(15);
+    for (const name of [
+      'DeepSeek',
+      'Qwen Chat',
+      'Le Chat (Mistral)',
+      'Microsoft Copilot',
+      'Kimi',
+      'Meta AI',
+      'Poe',
+      'HuggingChat',
+      'Z.ai (GLM)',
+    ]) {
+      expect(screen.getByDisplayValue(name)).toBeVisible();
+    }
     expect(transport.sent.filter((line) => line.includes('settings.update'))).toHaveLength(2);
   });
 
