@@ -101,6 +101,7 @@ const activity: ActivityEvent = {
 function renderPage(
   snapshot: WorkflowGraph = graph,
   history: readonly ActivityEvent[] = [activity],
+  onShowProcesses: (kind: string) => void = () => undefined,
 ): {
   readonly transport: FakeTransport;
   readonly routes: string[];
@@ -129,6 +130,9 @@ function renderPage(
           onNavigate={(route, event) => {
             routes.push(route);
             navigations.push({ route, ...(event === undefined ? {} : { event }) });
+          }}
+          onShowProcesses={(kind) => {
+            onShowProcesses(kind);
           }}
         />
       </RpcClientProvider>
@@ -511,6 +515,14 @@ describe('WorkflowPage', () => {
       route: 'chat',
       event: { refs: { conversationId: activity.refs.conversationId } },
     });
+  });
+
+  it('offers the matching process kind from the selected workflow module', async () => {
+    const showProcesses = vi.fn();
+    renderPage(graph, [activity], showProcesses);
+    fireEvent.click(await screen.findByLabelText('Chat · Idle'));
+    fireEvent.click(screen.getByRole('button', { name: 'Show processes' }));
+    expect(showProcesses).toHaveBeenCalledWith('chat');
   });
 
   it('ignores a late graph response from the previous project after a project switch', async () => {

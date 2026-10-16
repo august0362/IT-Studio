@@ -33,7 +33,6 @@ export function MainNav({
     { route: 'knowledge', label: t('nav.knowledge') },
     { route: 'gallery', label: t('nav.gallery') },
     { route: 'cost', label: t('nav.cost') },
-    { route: 'workflow', label: t('nav.workflow') },
     { route: 'processes', label: t('processes.heading') },
   ];
   const linkClass =

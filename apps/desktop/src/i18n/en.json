@@ -1,6 +1,7 @@
 {
   "processes": {
     "heading": "Processes",
+    "tabs": { "label": "Process views", "processes": "Processes", "system-map": "System map" },
     "counts": "Process counts",
     "allProjects": "All projects",
     "kind": "Kind",
@@ -736,6 +737,7 @@
     "applyFilters": "Apply filters"
   },
   "workflow": {
+    "showProcesses": "Show processes",
     "heading": "Workflow",
     "graphLabel": "Workflow graph",
     "minimapLabel": "Workflow minimap",
