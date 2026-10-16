@@ -201,6 +201,8 @@ Work order and QA verdict: `docs/tasks/OWNER-FB1.md`.
 
 - [ ] **OWNER-FB3** (C) Process module states/captions, pipeline roles use keyed providers + capability filter, delete updates counts.
 
+- [ ] **UX-04** (C) Workflow map becomes the "System map" tab of Processes; sidebar entry removed.
+
 ## PROC — Processes *(D40)*
 
 - [x] **PROC-01** (C) Sidecar process registry, module graphs per kind, instrumentation, retention 20, retry/cancel/dismiss, restart sweep.
