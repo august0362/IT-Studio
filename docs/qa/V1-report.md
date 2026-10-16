@@ -47,3 +47,7 @@ PROV-01 (DeepSeek, OpenRouter, Qwen, Mistral) landed at `caadd00`. Lean QA (owne
 ## Addendum — owner feedback build (2026-10-16 01:33)
 
 Landed: OWNER-FB2-A/B, UX-03, PROC-01 (+PROC-01T), PROC-02. Lean QA: typecheck, lint, unit 1 519 pass; targeted integration (router, chat, settings-projects, processes, pipeline, rag-ingest, startup) pass after fixture fixes; `smoke:sidecar` median 477 ms; `smoke:install` 7/7. NSIS SHA-256 `c97d23758041879536be9fdbd2c8eb1c9c5762f4350566c89a67711522715a1b` (93 456 372 bytes). The MSI step of `build:app` failed with `timeout: global` (bundler download); NSIS is the owner's installer. E2E not yet re-run after the navigation change (UX-03) — scheduled next.
+
+## Addendum — owner feedback round 3 build (2026-10-16 21:54)
+
+Landed since 01:33: OWNER-FB3, WC-02, VSC-01, UX-04, UX-05, UX-06, WC-03, DX-02. QA: typecheck, unit 1 591 pass; targeted integration per task; `build:app` OK (NSIS + MSI); `smoke:install` 7/7. NSIS SHA-256 `8da4e75c9ee6da6c35181fd52e88e53cc87977c7f979431143829c4162ef4cc4` (93 490 781 bytes). Full E2E not re-run (navigation changed in UX-03/UX-04 — E2E specs may need path updates; owner checklist covers navigation).
