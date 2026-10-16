@@ -1787,6 +1787,7 @@ dependencies = [
  "tauri-plugin-opener",
  "thiserror 2.0.21",
  "tokio",
+ "windows",
 ]
 
 [[package]]
