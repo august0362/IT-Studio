@@ -5,6 +5,7 @@ import type { PlanValidationOptions } from './dag.js';
 import type { OrchRepository } from './storage/orch-repository.js';
 import type { RpcServer } from '../../rpc/rpc-server.js';
 import type { ProcessRegistry } from '../../services/process-registry.js';
+import type { IAgentExecutionAdapter } from '../../ports/agent-execution.js';
 
 export interface OrchestrationModuleDependencies {
   readonly repository: OrchRepository;
@@ -12,6 +13,7 @@ export interface OrchestrationModuleDependencies {
   readonly validate: PlanValidationOptions;
   readonly createRun: (projectId: ProjectId, request: string, tasks: readonly OrchTaskSpec[]) => OrchRun;
   readonly scripts?: Partial<Record<'supervisor' | 'worker' | 'reviewer', MockScript>>;
+  readonly adapters?: readonly IAgentExecutionAdapter[];
   readonly publish?: (event: { readonly type: 'run'; readonly run: OrchRun }) => void;
 }
 export function createOrchestrationModule(deps: OrchestrationModuleDependencies) {
@@ -38,7 +40,11 @@ export function createOrchestrationModule(deps: OrchestrationModuleDependencies)
           ],
         })),
   };
-  const engine = new OrchestrationEngine({ adapter: new MockAgentAdapter(scripts), validate: deps.validate });
+  const mockAdapter = new MockAgentAdapter(scripts);
+  const adapterList = [mockAdapter, ...(deps.adapters ?? [])];
+  const adapterMap = new Map(adapterList.map((adapter) => [adapter.id, adapter]));
+  const engine = new OrchestrationEngine({ adapter: mockAdapter, adapters: adapterMap, validate: deps.validate });
+  const activeRuns = new Map<string, Promise<OrchRun>>();
   const eventTimers = new Map<string, ReturnType<typeof setTimeout>>();
   const pendingEvents = new Map<string, { readonly type: 'run'; readonly run: OrchRun }>();
   function publish(event: { readonly type: 'run'; readonly run: OrchRun }): void {
@@ -68,17 +74,31 @@ export function createOrchestrationModule(deps: OrchestrationModuleDependencies)
   async function start(runId: string): Promise<OrchRun | undefined> {
     const current = deps.repository.get(runId);
     if (current === undefined) return undefined;
-    const run = await engine.run(current, (updated, attempts) => {
+    const running = engine.run(current, (updated, attempts) => {
       deps.repository.save(updated, attempts);
       deps.processes.upsertOrchestration(updated);
       publish({ type: 'run', run: updated });
     });
+    activeRuns.set(runId, running);
+    const run = await running;
+    activeRuns.delete(runId);
     deps.repository.save(run, engine.attempts(run.id));
     deps.processes.upsertOrchestration(run);
     publish({ type: 'run', run });
     return run;
   }
   function register(server: RpcServer): void {
+    server.register('orch.adapters', async () => ({
+      ok: true,
+      value: await Promise.all(
+        adapterList
+          .filter((item) => item.id !== 'mock')
+          .map(async (adapter) => ({
+            transport: adapter.id,
+            ...(await adapter.probe()),
+          })),
+      ),
+    }));
     server.register('orch.plan', async ({ projectId, request }) => {
       const run = await plan(projectId, request);
       return run === undefined
@@ -114,7 +134,20 @@ export function createOrchestrationModule(deps: OrchestrationModuleDependencies)
           retryable: false,
         },
       });
-    server.register('orch.cancel', unavailable);
+    server.register('orch.cancel', async ({ runId }) => {
+      if (!engine.cancel(runId))
+        return {
+          ok: false,
+          error: { code: ErrorCode.CONFLICT, message: 'The orchestration run is not active.', retryable: false },
+        };
+      const completed = await activeRuns.get(runId);
+      return completed === undefined
+        ? {
+            ok: false,
+            error: { code: ErrorCode.INTERNAL, message: 'The cancelled run did not finish.', retryable: false },
+          }
+        : { ok: true, value: completed };
+    });
     server.register('orch.resume', unavailable);
     server.register('orch.approve', unavailable);
     server.register('orch.discard', unavailable);

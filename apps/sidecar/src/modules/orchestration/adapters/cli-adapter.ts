@@ -1,3 +1,7 @@
+import { randomUUID } from 'node:crypto';
+import { readFile, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { ErrorCode, OrchRole, OrchTransport, type OrchUsage, type Result } from '@itstudio/schemas';
 import type { IProcessRunner } from '../../../ports/process-runner.js';
 import type { AgentEnvelope, AgentEvent, AgentOutput, IAgentExecutionAdapter } from '../../../ports/agent-execution.js';
@@ -44,6 +48,15 @@ function ackMatches(ack: unknown, envelope: AgentEnvelope): boolean {
     JSON.stringify(value.allowedPaths) === JSON.stringify(envelope.allowedPaths)
   );
 }
+function protocolObjects(text: string, cli: Cli): readonly unknown[] {
+  const outer = parseObjects(text);
+  if (cli === 'claude' && outer.length === 1) {
+    const value = outer[0];
+    if (typeof value === 'object' && value !== null && 'result' in value && typeof value.result === 'string')
+      return parseObjects(value.result);
+  }
+  return outer;
+}
 export class CliAgentAdapter implements IAgentExecutionAdapter {
   readonly id: OrchTransport;
   private readonly runner: IProcessRunner;
@@ -86,7 +99,7 @@ export class CliAgentAdapter implements IAgentExecutionAdapter {
     if (!version.ok || version.value.exitCode !== 0 || !help.ok || help.value.exitCode !== 0)
       return this.cache({ status: 'unavailable', reason: `${this.cli} version/help probe failed.` });
     const flags = this.cli === 'claude' ? ['-p', '--output-format', '--model'] : ['exec', '-C', '-m', '--json', '-o'];
-    const missing = flags.filter((flag) => !(version.value.stdoutTail + help.value.stdoutTail).includes(flag));
+    const missing = flags.filter((flag) => !help.value.stdoutTail.includes(flag));
     if (missing.length)
       return this.cache({
         status: 'unsupported',
@@ -114,6 +127,7 @@ export class CliAgentAdapter implements IAgentExecutionAdapter {
     onEvent: (event: AgentEvent) => void,
   ): Promise<Result<AgentOutput>> {
     const prompt = `Return first an acknowledgement JSON, then the payload JSON. Acknowledgement must exactly match: ${JSON.stringify({ ack: true, roleId: envelope.roleId, taskId: envelope.taskId, attemptId: envelope.attemptId, allowedPaths: envelope.allowedPaths })}\nEnvelope: ${JSON.stringify(envelope)}\nInput: ${JSON.stringify(input)}`;
+    const outputFile = this.cli === 'codex' ? join(tmpdir(), `itstudio-codex-${randomUUID()}.txt`) : undefined;
     const args =
       this.cli === 'claude'
         ? [
@@ -125,8 +139,17 @@ export class CliAgentAdapter implements IAgentExecutionAdapter {
             envelope.modelId,
             ...(envelope.roleId === 'supervisor' ? ['--disallowedTools', 'Edit,Bash'] : []),
           ]
-        : ['exec', '-C', envelope.assignedWorktree ?? process.cwd(), '-m', envelope.modelId, '--json', '-o', ''];
-    if (this.cli === 'codex') args[args.length - 1] = prompt;
+        : [
+            'exec',
+            '-C',
+            envelope.assignedWorktree ?? process.cwd(),
+            '-m',
+            envelope.modelId,
+            '--json',
+            '-o',
+            outputFile ?? '',
+            prompt,
+          ];
     onEvent({ type: 'started' });
     const result = await this.runner.run({
       executable: this.cli,
@@ -136,13 +159,23 @@ export class CliAgentAdapter implements IAgentExecutionAdapter {
       timeoutMs: envelope.timeoutMs,
       signal,
     });
+    let outputText = result.ok ? result.value.stdoutTail : '';
+    if (result.ok && outputFile !== undefined) {
+      try {
+        outputText = await readFile(outputFile, 'utf8');
+      } catch {
+        outputText = result.value.stdoutTail;
+      } finally {
+        await rm(outputFile, { force: true }).catch(() => undefined);
+      }
+    }
     if (!result.ok) return result;
     if (result.value.exitCode !== 0)
       return {
         ok: false,
         error: { code: ErrorCode.COMMAND_FAILED, message: `${this.cli} exited unsuccessfully.`, retryable: false },
       };
-    const objects = parseObjects(result.value.stdoutTail);
+    const objects = protocolObjects(outputText, this.cli);
     const ack = objects[0];
     const payload = objects[1];
     if (!ackMatches(ack, envelope))

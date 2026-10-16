@@ -8,11 +8,14 @@ export interface ApiAgentRequest {
 }
 export class ApiAgentAdapter implements IAgentExecutionAdapter {
   readonly id = OrchTransport.API;
+  private readonly dispatch: (
+    request: ApiAgentRequest,
+  ) => Promise<Result<{ readonly payload: unknown; readonly usage: OrchUsage }>>;
   constructor(
-    private readonly dispatch: (
-      request: ApiAgentRequest,
-    ) => Promise<Result<{ readonly payload: unknown; readonly usage: OrchUsage }>>,
-  ) {}
+    dispatch: (request: ApiAgentRequest) => Promise<Result<{ readonly payload: unknown; readonly usage: OrchUsage }>>,
+  ) {
+    this.dispatch = dispatch;
+  }
   probe() {
     return Promise.resolve({ status: 'available' as const });
   }
