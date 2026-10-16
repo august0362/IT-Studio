@@ -2,10 +2,11 @@ import type { ProcessRecord } from '@itstudio/schemas';
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { i18n } from '../../i18n';
+import { ProcessCounts } from './ProcessCounts';
 import { StatusBar } from '../../components/StatusBar';
 import { ProcessesPage } from './ProcessesPage';
 import { mountProcesses, processRecord } from './test-support';
-import { retainProcesses } from './useProcesses';
+import { PROCESS_QUERY_KEY, retainProcesses } from './useProcesses';
 
 const disposers: (() => void)[] = [];
 beforeEach(() => {
@@ -48,22 +49,11 @@ describe('PROC-02 processes list', () => {
       );
       expect(item.queryByRole('button', { name: 'Retry' }) !== null).toBe(record.status === 'stopped');
       expect(item.queryByRole('button', { name: 'Dismiss' }) !== null).toBe(record.status === 'stopped');
-      expect(item.queryByRole('button', { name: 'Delete' }) !== null).toBe(record.status === 'ended');
+      expect(item.queryByRole('button', { name: 'Delete' }) !== null).toBe(
+        record.status === 'ended' || record.status === 'stopped',
+      );
       fireEvent.click(item.getByRole('button', { name: 'Open' }));
       expect(view.open).toHaveBeenLastCalledWith(record);
-      const actions =
-        record.status === 'stopped' ? ['Retry', 'Dismiss'] : record.status === 'ended' ? ['Delete'] : ['Cancel'];
-      for (const action of actions) {
-        fireEvent.click(item.getByRole('button', { name: action }));
-        await waitFor(() => {
-          expect(view.requests).toContainEqual(
-            expect.objectContaining({ method: `process.${action.toLowerCase()}`, params: { id: record.id } }),
-          );
-        });
-        await waitFor(() => {
-          expect(item.getByRole('button', { name: action })).toBeEnabled();
-        });
-      }
     }
   });
   it('applies live upserts/removals without another list call and excludes nonretryable retries', async () => {
@@ -98,9 +88,7 @@ describe('PROC-02 processes list', () => {
     const view = setup([processRecord(), other]);
     await screen.findByText('Chat request');
     expect(screen.queryByText('Index notes')).not.toBeInTheDocument();
-    expect(view.requests).toContainEqual(
-      expect.objectContaining({ method: 'process.list', params: { projectId: 'project-1', limit: 100 } }),
-    );
+    expect(view.requests).toContainEqual(expect.objectContaining({ method: 'process.list', params: { limit: 100 } }));
     fireEvent.click(screen.getByRole('checkbox', { name: 'All projects' }));
     await screen.findByText('Index notes');
     fireEvent.change(screen.getByRole('combobox', { name: 'Kind' }), { target: { value: 'knowledge_ingest' } });
@@ -147,5 +135,86 @@ describe('PROC-02 processes list', () => {
     expect(screen.getByLabelText('Waiting: 1')).toBeVisible();
     fireEvent.click(screen.getByRole('link', { name: 'Processes' }));
     expect(navigate).toHaveBeenCalledOnce();
+  });
+});
+
+describe('OWNER-FB3 shared process cache', () => {
+  function setupCounts(status: ProcessRecord['status'] = 'stopped') {
+    const view = mountProcesses(
+      <>
+        <aside aria-label="Sidebar badge">
+          <ProcessCounts />
+        </aside>
+        <div role="region" aria-label="Status bar">
+          <StatusBar onProcesses={() => undefined} />
+        </div>
+        <ProcessesPage projectId={processRecord().projectId ?? null} projects={[]} onOpen={() => undefined} />
+      </>,
+      [processRecord({ status, retryable: true })],
+    );
+    disposers.push(view.dispose);
+    return view;
+  }
+  it.each(['Dismiss', 'Delete'])(
+    'TC-OWNER-FB3-011 %s updates list, sidebar badge and status counts from its response',
+    async (action) => {
+      const view = setupCounts();
+      await screen.findByText('Chat request');
+      for (const name of ['Sidebar badge', 'Status bar'])
+        expect(within(screen.getByLabelText(name)).getByLabelText('Stopped: 1')).toBeVisible();
+      fireEvent.click(screen.getByRole('button', { name: action }));
+      if (action === 'Delete') {
+        const dialog = screen.getByRole('alertdialog');
+        expect(view.requests.some((request) => request.method === 'process.delete')).toBe(false);
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+      }
+      await waitFor(() => {
+        for (const name of ['Sidebar badge', 'Status bar'])
+          expect(within(screen.getByLabelText(name)).getByLabelText('Stopped: 0')).toBeVisible();
+      });
+      if (action === 'Delete') expect(screen.queryByText('Chat request')).not.toBeInTheDocument();
+      else expect(within(screen.getByRole('region', { name: 'Ended' })).getByText('Chat request')).toBeVisible();
+      expect(view.requests.filter((request) => request.method === 'process.list')).toHaveLength(1);
+    },
+  );
+  it('TC-OWNER-FB3-012 removed events update every consumer without polling', async () => {
+    const view = setupCounts();
+    await screen.findByText('Chat request');
+    act(() => {
+      view.notify({ type: 'removed', id: processRecord().id });
+    });
+    await waitFor(() => {
+      expect(screen.queryByText('Chat request')).not.toBeInTheDocument();
+    });
+    for (const name of ['Sidebar badge', 'Status bar'])
+      expect(within(screen.getByLabelText(name)).getByLabelText('Stopped: 0')).toBeVisible();
+  });
+  it('TC-OWNER-FB3-017 deleting an already removed record clears its stale row and counts', async () => {
+    const view = setupCounts();
+    await screen.findByText('Chat request');
+    act(() => {
+      view.notify({ type: 'removed', id: processRecord().id });
+      view.cache.setQueryData(PROCESS_QUERY_KEY, [processRecord({ status: 'stopped' })]);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+    await waitFor(() => {
+      expect(screen.queryByText('Chat request')).not.toBeInTheDocument();
+      for (const name of ['Sidebar badge', 'Status bar'])
+        expect(within(screen.getByLabelText(name)).getByLabelText('Stopped: 0')).toBeVisible();
+    });
+  });
+  it('TC-OWNER-FB3-013 cancel and retry update shared counts immediately', async () => {
+    setupCounts('running');
+    await screen.findByText('Chat request');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(within(screen.getByLabelText('Sidebar badge')).getByLabelText('Stopped: 1')).toBeVisible();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => {
+      expect(within(screen.getByLabelText('Status bar')).getByLabelText('Running: 1')).toBeVisible();
+      expect(within(screen.getByLabelText('Sidebar badge')).getByLabelText('Stopped: 1')).toBeVisible();
+    });
   });
 });

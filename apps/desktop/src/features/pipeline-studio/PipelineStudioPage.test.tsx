@@ -46,7 +46,7 @@ const node = (name: string) => screen.getByRole('button', { name: new RegExp(`^$
 describe('PSTUDIO-02 page', () => {
   it('has a black fullscreen root and all module names, with no canvas detail panels', async () => {
     const { container, calls } = setup();
-    await screen.findByRole('button', { name: 'Spec — Active' }, { timeout: 10000 });
+    await screen.findByRole('button', { name: 'Clarify — Active' }, { timeout: 10000 });
     expect(screen.getByRole('region', { name: 'Pipeline Studio' })).toHaveClass('fixed', 'inset-0', 'overflow-hidden');
     expect(screen.getByRole('region', { name: 'Pipeline Studio' })).toHaveStyle({ background: 'black' });
     for (const name of [
@@ -222,7 +222,7 @@ describe('PSTUDIO-02 page', () => {
   });
   it('pipeline.event refetches the run and changes the badge; failureReport also refetches', async () => {
     const view = setup();
-    await screen.findByRole('button', { name: 'Spec — Active' });
+    await screen.findByRole('button', { name: 'Clarify — Active' });
     view.setRuns([pipeline({ stage: 'coding' })]);
     act(() => {
       view.notify({ type: 'stage', runId: pipeline().id, stage: 'coding' });
@@ -359,7 +359,7 @@ describe('PSTUDIO-02 page', () => {
   it('Vietnamese labels cover navigation, controls, and module states', async () => {
     await i18n.changeLanguage('vi');
     setup();
-    expect(await screen.findByRole('button', { name: 'Đặc tả — Đang chạy' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Làm rõ — Đang chạy' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Vừa khung nhìn' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '← Quay lại' })).toBeInTheDocument();
     await i18n.changeLanguage('en');
@@ -443,7 +443,7 @@ describe('PSTUDIO-02 page', () => {
   });
   it('shows RPC errors and keeps the request editable', async () => {
     const view = setup();
-    await screen.findByRole('button', { name: 'Spec — Active' });
+    await screen.findByRole('button', { name: 'Clarify — Active' });
     view.fail('pipeline.start');
     fireEvent.change(screen.getByLabelText('New request'), { target: { value: 'Retry me' } });
     fireEvent.click(screen.getByRole('button', { name: 'Start run' }));

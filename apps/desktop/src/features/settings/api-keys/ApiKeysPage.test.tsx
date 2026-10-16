@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RpcClient } from '../../../rpc/rpc-client';
 import { RpcClientProvider } from '../../../rpc/rpc-context';
 import { FakeTransport } from '../../../rpc/transport';
+import { SettingsTargetContext } from '../settings-target';
+import { QwenEndpoint, QWEN_DEFAULT_ENDPOINT } from './QwenEndpoint';
 import { ApiKeysPage } from './ApiKeysPage';
 
 afterEach(cleanup);
@@ -331,4 +333,15 @@ describe('ApiKeysPage', () => {
       expect(transport.sent.some((line) => line.includes('secrets.delete'))).toBe(true);
     });
   });
+});
+
+it('TC-OWNER-FB3-016 search reveals a conditional endpoint field without changing saved preferences', () => {
+  const change = vi.fn();
+  render(
+    <SettingsTargetContext value="qwen-custom-url">
+      <QwenEndpoint endpoint={QWEN_DEFAULT_ENDPOINT} disabled={false} onChange={change} />
+    </SettingsTargetContext>,
+  );
+  expect(screen.getByLabelText('Custom HTTPS endpoint')).toHaveValue(QWEN_DEFAULT_ENDPOINT);
+  expect(change).not.toHaveBeenCalled();
 });

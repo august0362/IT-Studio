@@ -39,6 +39,8 @@ import { isoDateTimeSchema, microUsdSchema, pipelineRunIdSchema, transactionIdSc
 import { normalizeRelative, isForbidden, isWithinAllowed } from '../domain/path-guard.js';
 import { providerName, remediationFor } from '../domain/remediation.js';
 import { renderPipelineDiffs } from '../domain/pipeline-diff.js';
+import { pipelineModules } from '../domain/pipeline-process.js';
+import { augmentPipelineRoles, ROLE_CAPABILITIES } from '../domain/pipeline-models.js';
 
 export interface IPipelineEligibility {
   load(): Promise<
@@ -151,8 +153,9 @@ export class PipelineOrchestrator {
     const eligibility = await this.deps.eligibility.load();
     if (!eligibility.ok) return eligibility;
     const { models, configuredProviders, eligibleModelKeys } = eligibility.value;
+    const roleAssignment = augmentPipelineRoles(settings.value.roleAssignment, models, eligibleModelKeys);
     const unavailableRoles = (['pm', 'coder', 'reviewer'] as const).filter(
-      (role) => !settings.value.roleAssignment[role].some((key) => eligibleModelKeys.includes(key)),
+      (role) => !roleAssignment[role].some((key) => eligibleModelKeys.includes(key)),
     );
     if (unavailableRoles.length > 0) {
       const missingProviders = [
@@ -168,7 +171,13 @@ export class PipelineOrchestrator {
         ),
       ];
       const suggestedModels = models
-        .filter((model) => eligibleModelKeys.includes(model.key))
+        .filter(
+          (model) =>
+            eligibleModelKeys.includes(model.key) &&
+            unavailableRoles.some((role) =>
+              ROLE_CAPABILITIES[role].every((capability) => model.capabilities.includes(capability)),
+            ),
+        )
         .slice(0, 3)
         .map((model) => `${providerName(model.provider)}: ${model.displayName}`);
       return {
@@ -181,7 +190,7 @@ export class PipelineOrchestrator {
             missingProviders.length > 0
               ? remediationFor(ErrorCode.LADDER_EXHAUSTED, { missingProviders, suggestedModels })
               : [
-                  `Add an enabled model with chat and JSON capabilities to each unavailable role in Settings → Pipeline.${suggestedModels.length ? ` Available models: ${suggestedModels.join(', ')}.` : ''}`,
+                  `Add an enabled model with chat and JSON capabilities (plus code for the coder) to each unavailable role in Settings → Pipeline.${suggestedModels.length ? ` Available models: ${suggestedModels.join(', ')}.` : ''}`,
                 ],
         },
       };
@@ -192,7 +201,7 @@ export class PipelineOrchestrator {
       projectId: input.projectId,
       prompt: input.prompt,
       stage: PipelineStage.SPECIFYING,
-      roleAssignment: settings.value.roleAssignment,
+      roleAssignment,
       coderOutputs: [],
       verdicts: [],
       fixAttempts: 0,
@@ -209,18 +218,16 @@ export class PipelineOrchestrator {
     });
     this.activities.set(run.id, activity);
     activity.done('request', 'Build request received');
-    activity.skip('clarify');
     this.runs.set(run.id, run);
     await this.deps.repository.save(run);
-    this.publishStage(run);
     const queued = this.tails.has(input.projectId) || this.clarificationGates.has(input.projectId);
-    if (queued) activity.waiting('Queued behind another pipeline');
+    this.publishStage(run, queued);
     const previous = this.tails.get(input.projectId) ?? Promise.resolve();
     const current = previous
       .catch(() => undefined)
       .then(async () => {
         await this.clarificationGates.get(input.projectId)?.promise;
-        this.activities.get(run.id)?.step('spec');
+        if (queued) this.publishStage(this.current(run.id));
         await this.execute(run.id, project);
         const gate = this.clarificationGates.get(input.projectId);
         if (gate?.runId === run.id) await gate.promise;
@@ -408,6 +415,7 @@ export class PipelineOrchestrator {
       }
       const spec = specCall.value.spec;
       run = await this.update(run, { spec });
+      this.publishStage(run);
       run = await this.move(run, 'spec_ready');
       this.artifact(run, 'spec', 0);
       if (await this.checkBoundary(run)) return;
@@ -419,8 +427,6 @@ export class PipelineOrchestrator {
         return;
       }
       run = await this.update(run, { coderOutputs: [...run.coderOutputs, coding.value] });
-      run = await this.move(run, 'code_ready');
-      this.artifact(run, 'code', 0);
       if (!safeOutput(coding.value, spec)) {
         await this.fail(
           run,
@@ -430,6 +436,9 @@ export class PipelineOrchestrator {
         return;
       }
       if (await this.checkBoundary(run)) return;
+
+      run = await this.move(run, 'code_ready');
+      this.artifact(run, 'code', 0);
 
       let verdict = await this.review(run, project, spec, coding.value);
       run = await this.refreshCost(run);
@@ -750,7 +759,7 @@ export class PipelineOrchestrator {
     this.clarificationGates.delete(projectId);
     gate.release();
   }
-  private publishStage(run: PipelineRun): void {
+  private publishStage(run: PipelineRun, queued = false): void {
     let activity = this.activities.get(run.id);
     if (activity === undefined) {
       const tracker = this.deps.processes ?? NO_PROCESS_TRACKER;
@@ -762,20 +771,26 @@ export class PipelineOrchestrator {
     }
     if (activity !== undefined) {
       activity.annotate({ costText: run.cost.usdText + '\n' + run.cost.vndText });
-      const moduleId = PIPELINE_PROCESS_MODULE[run.stage];
+      const tracker = this.deps.processes ?? NO_PROCESS_TRACKER;
+      const modules = pipelineModules(run, queued);
+      for (const module of [
+        ...modules.filter((item) => item.state !== 'failed'),
+        ...modules.filter((item) => item.state === 'failed'),
+      ])
+        tracker.module(activity.id, module.id, module);
       if (run.stage === PipelineStage.COMPLETED) {
-        activity.step('done');
-        activity.finish('Project build completed');
+        activity.finish('completed · ' + run.cost.usdText);
         this.activities.delete(run.id);
       } else if (isTerminal(run.stage)) {
         activity.fail(run.failureReport?.error ?? 'Pipeline ' + run.stage);
         this.activities.delete(run.id);
-      } else if (moduleId !== undefined) {
-        activity.step(moduleId, undefined, {
-          stage: run.stage,
-          files: run.coderOutputs.at(-1)?.operations.length ?? 0,
-        });
-        if (run.stage === PipelineStage.CLARIFYING) activity.waiting('Waiting for your answers');
+      } else if (queued) {
+        activity.waiting('Queued behind another pipeline');
+      } else if (
+        run.stage === PipelineStage.CLARIFYING &&
+        run.clarifications?.some((question) => question.answer === undefined)
+      ) {
+        activity.waiting('Waiting for your answers');
       }
     }
     this.deps.events.publish('pipeline.event', { type: 'stage', runId: run.id, stage: run.stage });
@@ -820,14 +835,3 @@ function isTerminal(stage: PipelineRun['stage']): boolean {
 }
 
 export const pipelineTransitionTable = PIPELINE_TRANSITIONS;
-
-const PIPELINE_PROCESS_MODULE: Readonly<Partial<Record<PipelineRun['stage'], string>>> = {
-  specifying: 'spec',
-  clarifying: 'clarify',
-  coding: 'code',
-  reviewing: 'review',
-  fixing: 'fix',
-  re_reviewing: 're_review',
-  writing: 'write',
-  validating: 'validate',
-};

@@ -14,6 +14,7 @@ export function VSCodeSettingsPage() {
         <div className="space-y-4">
           <label className="flex items-center gap-3">
             <input
+              id="vscode-auto-launch"
               checked={value.autoLaunch}
               disabled={form.saving}
               onChange={(event) => void form.save({ vscode: { autoLaunch: event.target.checked } })}
@@ -60,6 +61,7 @@ export function VSCodeSettingsPage() {
           <label className="grid gap-1">
             {t('settings.vscode.executable')}
             <input
+              id="vscode-executable"
               className="rounded border border-border bg-bg p-2"
               disabled={form.saving}
               onBlur={(event) => {
@@ -72,6 +74,7 @@ export function VSCodeSettingsPage() {
           </label>
           <label className="flex items-center gap-3">
             <input
+              id="vscode-show-diff"
               checked={value.showDiffBeforeValidate}
               disabled={form.saving}
               onChange={(event) => void form.save({ vscode: { showDiffBeforeValidate: event.target.checked } })}
@@ -81,6 +84,7 @@ export function VSCodeSettingsPage() {
           </label>
           <label className="flex items-center gap-3">
             <input
+              id="vscode-reveal"
               checked={value.revealChangedFiles}
               disabled={form.saving}
               onChange={(event) => void form.save({ vscode: { revealChangedFiles: event.target.checked } })}

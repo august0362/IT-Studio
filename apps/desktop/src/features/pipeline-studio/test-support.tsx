@@ -1,4 +1,4 @@
-import type { PipelineEvent, PipelineRun } from '@itstudio/schemas';
+import type { PipelineEvent, PipelineRun, ProcessRecord } from '@itstudio/schemas';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -6,6 +6,7 @@ import { vi } from 'vitest';
 import { RpcClient } from '../../rpc/rpc-client';
 import { RpcClientProvider } from '../../rpc/rpc-context';
 import { FakeTransport } from '../../rpc/transport';
+import { pipelineModules } from '../../../../sidecar/src/domain/pipeline-process';
 import { pipeline } from './test-fixtures';
 
 let canvasWidth = 1280;
@@ -60,6 +61,41 @@ export function mountStudio(ui: ReactNode, initialRuns: readonly PipelineRun[] =
   transport.setStatus({ running: true, ready: true, restarts: 0 });
   let runs = initialRuns;
   let errorMethod: string | null = null;
+  const processRecords = (): readonly ProcessRecord[] =>
+    runs.map((run): ProcessRecord => ({
+      // @ts-expect-error Readable fixture identifier stands in for a sidecar process ID.
+      id: 'process-' + run.id,
+      projectId: run.projectId,
+      kind: 'code_pipeline',
+      title: run.prompt,
+      status:
+        run.stage === 'completed'
+          ? 'ended'
+          : ['failed', 'rolled_back', 'cancelled'].includes(run.stage)
+            ? 'stopped'
+            : run.stage === 'clarifying'
+              ? 'waiting'
+              : 'running',
+      modules: pipelineModules(
+        ['failed', 'rolled_back'].includes(run.stage) && run.failureReport === undefined
+          ? {
+              ...run,
+              failureReport: {
+                stage: 'validating',
+                rolledBack: true,
+                error: { code: 'INTERNAL', message: 'Failed', retryable: false },
+                nextSteps: ['Retry'],
+                logExcerpt: '',
+              },
+            }
+          : run,
+      ),
+      edges: [],
+      retryable: true,
+      ref: { type: 'pipeline_run', id: run.id },
+      createdAt: run.startedAt,
+      updatedAt: run.startedAt,
+    }));
   transport.send = (line) => {
     transport.sent.push(line);
     const request: unknown = JSON.parse(line);
@@ -68,7 +104,7 @@ export function mountStudio(ui: ReactNode, initialRuns: readonly PipelineRun[] =
     const params = isRecord(request.params) ? request.params : {};
     let result: unknown = undefined;
     if (request.method === 'pipeline.list') result = runs;
-    if (request.method === 'process.list') result = [];
+    if (request.method === 'process.list') result = processRecords();
     if (request.method === 'pipeline.get') result = runs.find((run) => run.id === params.runId) ?? pipeline();
     if (request.method === 'pipeline.start') {
       const run = pipeline({
@@ -125,6 +161,11 @@ export function mountStudio(ui: ReactNode, initialRuns: readonly PipelineRun[] =
           : { jsonrpc: '2.0', id: request.id, result },
       ),
     );
+    if (request.method.startsWith('pipeline.'))
+      for (const process of processRecords())
+        transport.receive(
+          JSON.stringify({ jsonrpc: '2.0', method: 'process.event', params: { type: 'upsert', process } }),
+        );
     return Promise.resolve();
   };
   const query = new QueryClient({ defaultOptions: { queries: { retry: false } } });

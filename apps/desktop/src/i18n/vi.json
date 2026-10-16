@@ -47,7 +47,8 @@
       "image": "Mở ảnh",
       "price_run": "Mở bảng giá",
       "webchat_link": "Mở Web chat"
-    }
+    },
+    "deleteConfirm": "Xóa \"{{title}}\"?"
   },
   "pipelineStudio": {
     "back": "← Quay lại",

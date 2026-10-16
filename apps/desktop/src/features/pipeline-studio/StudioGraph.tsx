@@ -16,7 +16,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { useEffect, useMemo, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { PipelineRun } from '@itstudio/schemas';
+import type { PipelineRun, ProcessModule } from '@itstudio/schemas';
 import {
   badge,
   CONNECTIONS,
@@ -102,25 +102,12 @@ function FlowEdge(props: EdgeProps<StudioEdge>): JSX.Element {
 }
 const nodeTypes = { studio: ModuleNode };
 const edgeTypes = { studio: FlowEdge };
-const FIT_OPTIONS = { padding: 0.15, minZoom: 0.6, maxZoom: 1.2 };
-
-function caption(id: ModuleId, run: PipelineRun | undefined, count: (key: string, value: number) => string): string {
-  if (run === undefined) return '';
-  if (id === 'request') return run.prompt.length > 42 ? `${run.prompt.slice(0, 42)}…` : run.prompt;
-  if (id === 'clarify') return count('questions', run.clarifications?.length ?? 0);
-  if (id === 'spec') return run.spec?.title ?? '';
-  if (id === 'code' || id === 'fix' || id === 'write')
-    return count('files', run.coderOutputs[id === 'code' ? 0 : run.coderOutputs.length - 1]?.operations.length ?? 0);
-  if (id === 'review' || id === 're-review')
-    return count('findings', run.verdicts[id === 'review' ? 0 : 1]?.findings.length ?? 0);
-  if (id === 'validate')
-    return `${String(run.validation?.filter((command) => command.exitCode === 0).length ?? 0)}/${String(run.validation?.length ?? 0)} ${count('commands', run.validation?.length ?? 0)}`;
-  return '';
-}
+const FIT_OPTIONS = { padding: 0.15, maxZoom: 1.2 };
 
 function Graph({
   run,
   statuses,
+  modules,
   packet,
   pulse,
   onSelect,
@@ -130,6 +117,7 @@ function Graph({
 }: {
   readonly run: PipelineRun | undefined;
   readonly statuses: Readonly<Record<ModuleId, ModuleStatus>>;
+  readonly modules?: readonly ProcessModule[] | undefined;
   readonly packet: Packet | undefined;
   readonly pulse: { readonly module: ModuleId; readonly id: number } | null;
   readonly onSelect: (id: ModuleId) => void;
@@ -142,6 +130,7 @@ function Graph({
   const api = useReactFlow<StudioNode, StudioEdge>();
   const width = useStore((state) => state.width);
   const height = useStore((state) => state.height);
+  const nodeCount = useStore((state) => state.nodeLookup.size);
   const ids = run === undefined ? MODULES.slice(0, 1) : MODULES;
   const nodes = useMemo<StudioNode[]>(
     () =>
@@ -154,25 +143,28 @@ function Graph({
         data: {
           module: id,
           status: statuses[id],
-          caption: caption(id, run, (key, value) => t(`pipelineStudio.${key}`, { count: value })),
+          caption: (() => {
+            const module = modules?.find((item) => item.id === (id === 're-review' ? 're_review' : id));
+            return module?.output ?? module?.input ?? '';
+          })(),
           pulse: pulse?.module === id ? pulse.id : 0,
           onSelect,
         },
       })),
-    [ids, layout, statuses, run, t, pulse, onSelect],
+    [ids, layout, statuses, modules, pulse, onSelect],
   );
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      if (width <= 0 || height <= 0) return;
+      if (width <= 0 || height <= 0 || nodeCount !== ids.length) return;
       const bounds = api.getNodesBounds(api.getNodes());
       const viewport = getViewportForBounds(bounds, width, height, 0.15, FIT_OPTIONS.maxZoom, FIT_OPTIONS.padding);
-      // Smaller windows or a spread-out saved layout may need less zoom to show every module.
-      void api.fitView({ ...FIT_OPTIONS, minZoom: Math.min(FIT_OPTIONS.minZoom, viewport.zoom), duration: 0 });
+      // Use all registered nodes, including nodes awaiting their first measurement.
+      void api.setViewport(viewport, { duration: 0 });
     }, 0);
     return () => {
       window.clearTimeout(timer);
     };
-  }, [api, fitRevision, resetRevision, ids.length, width, height]);
+  }, [api, fitRevision, resetRevision, ids.length, nodeCount, width, height]);
   const edges: StudioEdge[] =
     run === undefined
       ? []
@@ -213,8 +205,6 @@ function Graph({
         edges={edges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        fitView
-        fitViewOptions={FIT_OPTIONS}
         minZoom={0.15}
         maxZoom={2}
         nodeClickDistance={5}

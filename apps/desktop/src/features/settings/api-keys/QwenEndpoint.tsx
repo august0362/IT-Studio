@@ -1,5 +1,6 @@
-﻿import { useState, type JSX } from 'react';
+﻿import { useContext, useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
+import { SettingsTargetContext } from '../settings-target';
 
 export const QWEN_DEFAULT_ENDPOINT = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1';
 const REGIONS = [
@@ -26,6 +27,7 @@ export function QwenEndpoint({
   readonly disabled: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
+  const target = useContext(SettingsTargetContext);
   const [custom, setCustom] = useState(false);
   const isCustom = custom || !REGIONS.some((region) => region.url === endpoint);
   return (
@@ -49,7 +51,7 @@ export function QwenEndpoint({
         ))}
         <option value="custom">{t('api.qwenCustom')}</option>
       </select>
-      {isCustom ? (
+      {isCustom || target === 'qwen-custom-url' ? (
         <>
           <label htmlFor="qwen-custom-url">{t('api.qwenCustomUrl')}</label>
           <input

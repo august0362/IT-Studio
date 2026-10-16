@@ -158,7 +158,7 @@ export function ThemePage(): JSX.Element {
             {t('theme.selected', { name: selectedTheme.definition.name, mode: t(`theme.${mode}`) })}
           </p>
         </div>
-        <div className="flex gap-2" aria-label="Theme mode" role="group">
+        <div id="theme-mode" tabIndex={-1} className="flex gap-2" aria-label="Theme mode" role="group">
           {([ThemeMode.SYSTEM, ThemeMode.LIGHT, ThemeMode.DARK] as const).map((option) => (
             <button
               aria-pressed={mode === option}
@@ -189,6 +189,7 @@ export function ThemePage(): JSX.Element {
         <label className="flex items-center gap-2">
           {t('theme.language')}
           <Select
+            id="theme-language"
             aria-label={t('theme.language')}
             className="rounded border border-border bg-bg px-3 py-2 text-text"
             onChange={(event) => {
@@ -232,6 +233,8 @@ export function ThemePage(): JSX.Element {
       ) : null}
       <div
         className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4"
+        id="theme-primary"
+        tabIndex={-1}
         aria-label={t('theme.themes')}
         role="radiogroup"
         onKeyDown={onGridKeyDown}

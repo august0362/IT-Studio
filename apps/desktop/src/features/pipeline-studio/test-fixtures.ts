@@ -1,6 +1,31 @@
 import type { ClarificationQuestion, PipelineRun } from '@itstudio/schemas';
 
 export function pipeline(overrides: Partial<PipelineRun> = {}): PipelineRun {
+  const stage = overrides.failureReport?.stage ?? overrides.stage ?? 'specifying';
+  const order = [
+    'specifying',
+    'clarifying',
+    'coding',
+    'reviewing',
+    'fixing',
+    're_reviewing',
+    'writing',
+    'validating',
+    'completed',
+  ];
+  const index = order.indexOf(stage);
+  const spec = {
+    title: 'Sample specification',
+    userStory: 'Build sample',
+    acceptanceCriteria: ['Works'],
+    allowedPaths: [],
+    contracts: '',
+    constraints: [],
+    testPlan: [],
+    outOfScope: [],
+  };
+  const code = { summary: 'Sample code', operations: [], assumptions: [] };
+  const verdict = { approved: true, findings: [], summary: 'Approved' };
   return {
     // @ts-expect-error Readable fixture stands in for a branded run identifier.
     id: 'run-1',
@@ -24,6 +49,9 @@ export function pipeline(overrides: Partial<PipelineRun> = {}): PipelineRun {
     },
     // @ts-expect-error ISO fixture stands in for a branded timestamp.
     startedAt: '2026-01-01T00:00:00.000Z',
+    ...(index >= 2 ? { spec } : {}),
+    ...(index >= 3 ? { coderOutputs: index >= 5 && overrides.fixAttempts === 1 ? [code, code] : [code] } : {}),
+    ...(index >= 4 ? { verdicts: index >= 6 && overrides.fixAttempts === 1 ? [verdict, verdict] : [verdict] } : {}),
     ...overrides,
   };
 }

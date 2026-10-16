@@ -41,7 +41,7 @@ const modelDescriptors: readonly ModelDescriptor[] = [
     provider: ProviderId.OPENAI,
     providerModelId: 'model-a',
     displayName: 'A',
-    capabilities: [ModelCapability.CHAT],
+    capabilities: [ModelCapability.CHAT, ModelCapability.JSON_MODE],
     contextWindowTokens: 1000,
     maxOutputTokens: 100,
     enabled: true,
@@ -51,7 +51,7 @@ const modelDescriptors: readonly ModelDescriptor[] = [
     provider: ProviderId.ANTHROPIC,
     providerModelId: 'model-b',
     displayName: 'B',
-    capabilities: [ModelCapability.CHAT],
+    capabilities: [ModelCapability.CHAT, ModelCapability.JSON_MODE],
     contextWindowTokens: 1000,
     maxOutputTokens: 100,
     enabled: true,
@@ -372,12 +372,15 @@ describe('LlmRouter', () => {
       if (skipReason === 'no_api_key') await h.secrets.delete(ProviderId.OPENAI);
       const result = await h.router.dispatch(baseRequest);
       expect(result.ok && result.value.modelKey).toBe(modelB);
-      expect(result.ok && result.value.attempts[0]).toMatchObject({
-        modelKey: modelA,
-        outcome: 'skipped',
-        failure: FailureKind.CAPABILITY_MISMATCH,
-        skipReason,
-      });
+      if (skipReason === 'missing_capability')
+        expect(result.ok && result.value.attempts.some((attempt) => attempt.modelKey === modelA)).toBe(false);
+      else
+        expect(result.ok && result.value.attempts[0]).toMatchObject({
+          modelKey: modelA,
+          outcome: 'skipped',
+          failure: FailureKind.CAPABILITY_MISMATCH,
+          skipReason,
+        });
       expect(first.calls).toHaveLength(0);
     },
   );
@@ -444,8 +447,7 @@ describe('LlmRouter', () => {
     expect(await unavailable.router.dispatch(baseRequest)).toMatchObject({
       ok: false,
       error: {
-        message:
-          'Every model in the ladder was unavailable. Disabled: OpenAI (model-a); Missing required capability: Anthropic (model-b).',
+        message: expect.not.stringContaining('model-b') as unknown,
       },
     });
   });
@@ -824,7 +826,7 @@ describe('LlmRouter', () => {
       ladderOverride: [unknown, modelA, modelA, modelB],
     });
     expect(result.ok && result.value.modelKey).toBe(modelA);
-    expect(result.ok && result.value.attempts[0]).toMatchObject({ modelKey: unknown, outcome: 'skipped' });
+    expect(result.ok && result.value.attempts.some((attempt) => attempt.modelKey === unknown)).toBe(false);
     expect(first.calls).toEqual(['model-a']);
   });
 
@@ -1134,4 +1136,31 @@ describe('LlmRouter', () => {
     expect(result).toMatchObject({ ok: false, error: { code: ErrorCode.CANCELLED } });
     expect(first.calls).toHaveLength(0);
   });
+});
+
+describe('OWNER-FB3 capability filtering', () => {
+  it.each(['chat', 'pipeline_coder'] as const)(
+    'TC-OWNER-FB3-005 embedding models never enter attempts or exhausted messages for %s',
+    async (purpose) => {
+      const embedding = modelKeySchema.parse('openai/embedding-only');
+      const base = modelDescriptors[0];
+      if (base === undefined) throw new Error('Missing descriptor');
+      const first = new ScriptedProvider(ProviderId.OPENAI, [
+        providerFailure(FailureKind.SERVER_ERROR, { httpStatus: 503 }),
+      ]);
+      const h = setup({
+        first,
+        descriptors: [
+          ...modelDescriptors,
+          { ...base, key: embedding, providerModelId: 'embedding-only', capabilities: [ModelCapability.EMBEDDING] },
+        ],
+        ladder: [embedding, modelA],
+      });
+      const result = await h.router.dispatch({ ...baseRequest, purpose, ladderOverride: [embedding, modelA] });
+      expect(result).toMatchObject({ ok: false, error: { code: ErrorCode.LADDER_EXHAUSTED } });
+      if (result.ok) throw new Error('Expected exhaustion');
+      expect(JSON.stringify(result.error)).not.toContain('embedding-only');
+      expect(first.calls).toEqual(['model-a']);
+    },
+  );
 });

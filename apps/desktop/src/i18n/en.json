@@ -47,7 +47,8 @@
       "image": "Open image",
       "price_run": "Open pricing",
       "webchat_link": "Open Web chat"
-    }
+    },
+    "deleteConfirm": "Delete \"{{title}}\"?"
   },
   "pipelineStudio": {
     "back": "← Back",

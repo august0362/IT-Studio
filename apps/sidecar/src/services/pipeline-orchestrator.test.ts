@@ -161,7 +161,16 @@ function harness(
         Promise.resolve({
           ok: true,
           value: {
-            models: [],
+            models: ladder.map((key) => ({
+              key,
+              provider: ProviderId.OPENAI,
+              providerModelId: 'gpt-4o-mini',
+              displayName: 'Test coder',
+              capabilities: [ModelCapability.CHAT, ModelCapability.JSON_MODE, ModelCapability.CODE],
+              enabled: true,
+              contextWindowTokens: 1000,
+              maxOutputTokens: 100,
+            })),
             configuredProviders: [ProviderId.OPENAI],
             eligibleModelKeys: ladder,
           },
@@ -358,13 +367,13 @@ describe('PipelineOrchestrator', () => {
     provider: key === google ? ProviderId.GOOGLE : key === coder ? ProviderId.OPENAI : ProviderId.ANTHROPIC,
     providerModelId: key.slice(key.indexOf('/') + 1),
     displayName: key === google ? 'Gemini' : key,
-    capabilities: [ModelCapability.CHAT, ModelCapability.JSON_MODE],
+    capabilities: [ModelCapability.CHAT, ModelCapability.JSON_MODE, ModelCapability.CODE],
     enabled: true,
     contextWindowTokens: 1000,
     maxOutputTokens: 100,
   }));
   it.each(['pm', 'coder', 'reviewer', 'all'] as const)(
-    'TC-UX2-preflight rejects %s before creating a run or calling a role',
+    'TC-OWNER-FB3 preflight augments unavailable %s roles with a keyed provider',
     async (role) => {
       const unavailable = role === 'all' ? (['pm', 'coder', 'reviewer'] as const) : [role];
       const h = harness([accepted], created, {
@@ -386,14 +395,10 @@ describe('PipelineOrchestrator', () => {
             }),
         },
       });
-      const result = await h.orchestrator.start({ projectId, prompt: 'Build' });
-      expect(result).toMatchObject({ ok: false, error: { code: ErrorCode.VALIDATION } });
-      if (result.ok) throw new Error('Expected preflight rejection');
-      for (const name of unavailable) expect(result.error.message).toContain(name);
-      expect(result.error.remediation?.join(' ')).toContain('Google: Gemini');
-      expect(result.error.remediation?.join(' ')).toContain('Settings \u2192 API Keys');
-      expect(h.rows.size).toBe(0);
-      expect(h.calls).toHaveLength(0);
+      const run = await startRun(h.orchestrator, { projectId, prompt: 'Build' });
+      expect((await waitForTerminal(h.orchestrator, run.id)).stage).toBe(PipelineStage.COMPLETED);
+      for (const name of unavailable) expect(run.roleAssignment[name]).toContain(google);
+      expect(h.calls).toHaveLength(3);
     },
   );
   it('TC-UX2-preflight accepts one usable model per role while other candidates are unusable', async () => {
@@ -416,7 +421,13 @@ describe('PipelineOrchestrator', () => {
     expect(h.calls).toHaveLength(3);
   });
   it('TC-UX2-preflight rejects empty ladders and propagates eligibility errors without side effects', async () => {
-    const empty = harness([accepted], created, { assignment: { pm: [], coder: [], reviewer: [] } });
+    const empty = harness([accepted], created, {
+      assignment: { pm: [], coder: [], reviewer: [] },
+      eligibility: {
+        load: () =>
+          Promise.resolve({ ok: true, value: { models: [], eligibleModelKeys: [], configuredProviders: [] } }),
+      },
+    });
     const result = await empty.orchestrator.start({ projectId, prompt: 'Build' });
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error('Expected preflight rejection');
@@ -1028,5 +1039,55 @@ describe('PipelineOrchestrator', () => {
     const run = await startRun(h.orchestrator, { projectId, prompt: 'Create greeting' });
     expect((await waitForTerminal(h.orchestrator, run.id)).stage).toBe(PipelineStage.ROLLED_BACK);
     await expectNoUserWrites(h.fs);
+  });
+});
+
+describe('OWNER-FB3 pipeline process regression', () => {
+  it.each([false, true])('TC-OWNER-FB3-001 questions leave Spec idle until answered (auto=%s)', async (autoClarify) => {
+    const probe = createProcessProbe();
+    const h = harness([accepted], created, { processes: probe.tracker, pmOutput: askOnce, autoClarify });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Build storage' });
+    if (!autoClarify) {
+      await vi.waitFor(() => {
+        expect(h.rows.get(run.id)?.stage).toBe('clarifying');
+      });
+      const latest = (id: string) => probe.module.mock.calls.filter((call) => call[1] === id).at(-1)?.[2];
+      expect(latest('spec')).toMatchObject({ state: 'idle' });
+      expect(latest('clarify')).toMatchObject({ state: 'waiting', output: '1 questions · 0 answered' });
+      expect(probe.status).toHaveBeenLastCalledWith(expect.anything(), 'waiting', 'Waiting for your answers');
+      expect(probe.module.mock.calls.some((call) => call[1] === 'spec' && call[2].state === 'done')).toBe(false);
+      await h.orchestrator.answerClarifications({
+        runId: run.id,
+        answers: [{ questionId: 'storage', optionId: 'local' }],
+      });
+    }
+    await waitForTerminal(h.orchestrator, run.id);
+    const latest = (id: string) => probe.module.mock.calls.filter((call) => call[1] === id).at(-1)?.[2];
+    expect(latest('clarify')).toMatchObject({
+      state: 'done',
+      output: '1 questions · 1 answered' + (autoClarify ? ' (auto)' : ''),
+    });
+    expect(latest('spec')).toMatchObject({ state: 'done', input: 'Request + 1 answers', output: spec.title });
+    expect(latest('code')).toMatchObject({ state: 'done', output: '1 files' });
+    expect(latest('review')).toMatchObject({ state: 'done', output: 'approved · 0 findings' });
+    expect(latest('write')).toMatchObject({ state: 'done', output: '1 files written' });
+    expect(latest('validate')).toMatchObject({ state: 'done', output: '1/1 commands passed' });
+    expect(latest('done')).toMatchObject({
+      state: 'done',
+      output: expect.stringContaining('completed · $') as unknown,
+    });
+    expect(latest('fix')).toMatchObject({ state: 'skipped' });
+    expect(latest('re_review')).toMatchObject({ state: 'skipped' });
+    expect(probe.module.mock.calls.every((call) => call[2].output !== 'spec completed')).toBe(true);
+  });
+  it.each(['coder', 'reviewer'] as const)('TC-OWNER-FB3-002 only the failing %s module fails', async (roleFailure) => {
+    const probe = createProcessProbe();
+    const h = harness([accepted], created, { processes: probe.tracker, roleFailure });
+    const run = await startRun(h.orchestrator, { projectId, prompt: 'Build' });
+    await waitForTerminal(h.orchestrator, run.id);
+    const latest = new Map(probe.module.mock.calls.map((call) => [call[1], call[2]]));
+    const failed = [...latest.entries()].filter(([, module]) => module.state === 'failed').map(([id]) => id);
+    expect(failed).toEqual([roleFailure === 'coder' ? 'code' : 'review']);
+    for (const id of ['write', 'validate', 'done']) expect(latest.get(id)?.state).toBe('idle');
   });
 });

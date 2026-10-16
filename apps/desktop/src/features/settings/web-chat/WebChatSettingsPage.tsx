@@ -1,7 +1,8 @@
 import { WebChatBrowser, type RpcMethodMap, type WebChatLink, type WebChatSettings } from '@itstudio/schemas';
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRpcQuery } from '../../../hooks/use-rpc-query';
+import { SettingsTargetContext } from '../settings-target';
 import { SettingsHeading, useSettingsSave } from '../settings-form';
 
 type BrowserOption = RpcMethodMap['webchat.browsers']['result'][number];
@@ -76,6 +77,7 @@ function WebChatSettingsForm({
 }) {
   const { t } = useTranslation();
   const form = useSettingsSave();
+  const target = useContext(SettingsTargetContext);
   const [value, setValue] = useState(initial);
   const issues = issueMap(form.failure?.details);
 
@@ -106,6 +108,7 @@ function WebChatSettingsForm({
         <label className="grid max-w-lg gap-1">
           {t('settings.webChat.browser')}
           <select
+            id="webchat-browser"
             className="rounded border border-border bg-bg p-2"
             value={value.browser}
             onChange={(event) => {
@@ -126,21 +129,22 @@ function WebChatSettingsForm({
             })}
           </select>
         </label>
-        {value.browser === WebChatBrowser.CUSTOM ? (
+        {value.browser === WebChatBrowser.CUSTOM || target === 'webchat-custom-path' ? (
           <label className="grid max-w-lg gap-1">
             {t('settings.webChat.customPath')}
             <input
+              id="webchat-custom-path"
               className="rounded border border-border bg-bg p-2"
               value={value.customBrowserPath ?? ''}
               onChange={(event) => {
-                setValue({ ...value, customBrowserPath: event.target.value || null });
+                setValue({ ...value, browser: WebChatBrowser.CUSTOM, customBrowserPath: event.target.value || null });
               }}
               type="text"
             />
             {issues.customBrowserPath ? <span className="text-sm text-danger">{issues.customBrowserPath}</span> : null}
           </label>
         ) : null}
-        <div className="overflow-x-auto">
+        <div id="webchat-links" tabIndex={-1} className="overflow-x-auto">
           <table className="w-full border-collapse text-left">
             <thead>
               <tr>
@@ -156,6 +160,7 @@ function WebChatSettingsForm({
                 <tr key={link.id}>
                   <td className="border-b border-border p-2">
                     <input
+                      id={index === 0 ? 'webchat-link-name' : undefined}
                       aria-label={t('settings.webChat.name')}
                       className="w-full rounded border border-border bg-bg p-2"
                       maxLength={40}
@@ -170,6 +175,7 @@ function WebChatSettingsForm({
                   </td>
                   <td className="border-b border-border p-2">
                     <input
+                      id={index === 0 ? 'webchat-link-url' : undefined}
                       aria-label={t('settings.webChat.url')}
                       className="min-w-64 w-full rounded border border-border bg-bg p-2"
                       value={link.url}
@@ -183,6 +189,7 @@ function WebChatSettingsForm({
                   </td>
                   <td className="border-b border-border p-2">
                     <input
+                      id={index === 0 ? 'webchat-link-enabled' : undefined}
                       aria-label={`${t('settings.webChat.enabled')} ${link.name}`}
                       checked={link.enabled}
                       onChange={(event) => {

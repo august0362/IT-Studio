@@ -16,6 +16,7 @@ export function PricingExtractionControl({ extraction, disabled, onSelect }: Pri
       <label className="grid gap-1">
         <span>{t('settings.pricing.extractionModel')}</span>
         <select
+          id="pricing-extraction-model"
           className="rounded border border-border bg-bg p-2"
           disabled={disabled || !extraction || extraction.options.length === 0}
           onChange={(event) => {
