@@ -199,6 +199,8 @@ Work order and QA verdict: `docs/tasks/OWNER-FB1.md`.
 
 - [x] **UX-03** (C) One Settings page with searchable sub-navigation; sidebar keeps main features only (D39).
 
+- [ ] **OWNER-FB3** (C) Process module states/captions, pipeline roles use keyed providers + capability filter, delete updates counts.
+
 ## PROC — Processes *(D40)*
 
 - [x] **PROC-01** (C) Sidecar process registry, module graphs per kind, instrumentation, retention 20, retry/cancel/dismiss, restart sweep.
