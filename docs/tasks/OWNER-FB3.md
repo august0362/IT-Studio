@@ -121,26 +121,25 @@ Append `## Result` per AGENTS.md §3.
 - Test environment: Shell-local Git configuration points core.excludesFile at an empty file under .npm-cache and preserves safe.directory for this worktree, avoiding inaccessible global Git configuration during secret-scanner checks. No global Git settings were changed.
 - CHANGELOG draft for the Architect: Fix process pipeline states, capable keyed-provider fallback, synchronized process deletion/counts and Settings search suggestions (OWNER-FB3).
 
-## Blocked
-
-- Verification dependency: `npm.cmd --cache .npm-cache test` passes the application Vitest suites (1,533 passed, one existing skip), then `scripts/build/polish.test.mjs` fails before its tests run because `scripts/build/make-icon.mjs` cannot import `sharp` (`ERR_MODULE_NOT_FOUND`). `npm.cmd --cache .npm-cache ls sharp --all` returns an empty tree, and neither the root nor sidecar has an installed `sharp` package. The existing lockfile contains sharp, but it is absent from this worktree's installed dependencies.
-- Precise question for the Architect: Can the pre-installed dependency set be repaired so the existing build-script tests can resolve the locked `sharp` package, then QA rerun `npm --cache .npm-cache test`? AGENTS.md §5 says deps-pre-installed tasks must report missing packages as blocked; no package installation, manifest/lockfile edit, or tooling workaround was attempted in this continuation.
-- Separate sandbox verification limit: the requested `processes.test.ts`, `pipeline.test.ts`, and `router.test.ts` integration files all fail before `system.ready` because tsx calls `os.userInfo()` and receives `uv_os_get_passwd` / `ENOMEM`. QA must rerun them outside this sandbox per AGENTS.md §5.
-
 ## Result
 
-- Summary: Reviewed the interrupted implementation against every OWNER-FB3 requirement. Completed the remaining Settings search targets for individual Web Chat fields and the Router model-enabled control, added Vietnamese theme-mode matching, handled deletion of an already absent process without retaining stale rows/counts, and updated the existing Google-only pipeline integration case to verify automatic role-ladder augmentation. The preceding Result describes the full implementation; validation remains blocked as detailed above.
-- Files changed: All files enumerated in the preceding Result, plus `apps/desktop/src/features/settings/router/RouterSettingsPage.test.tsx` and `apps/desktop/src/features/settings/web-chat/WebChatSettingsPage.test.tsx`. All code/test edits are inside `apps/desktop/src/**` and `apps/sidecar/**`; only this task document was appended outside those paths.
-- Dependencies added (with reason): None. `node_modules` was present at continuation startup. No dependencies were installed or package manifests/lockfiles changed during this continuation.
-- Decisions taken within scope: Repeated Web Chat settings and Router enable toggles have one stable search target on the first visible row, so selection focuses the actual control. A successful idempotent delete response clears the local process regardless of its `deleted` flag. Pipeline augmentation applies to a run without rewriting the user's saved role ladders; the superseded Google-only rejection integration assertion now tests that behavior.
-- Validation:
-  - `npm.cmd --cache .npm-cache exec -- prettier --write <changed files>`: passed before checks; Markdown files follow the repository's existing formatter exclusion.
-  - `npm.cmd --cache .npm-cache run typecheck`: passed on the final code, including integration test types.
-  - Latest full `npm.cmd --cache .npm-cache test`: application suites passed (167 files passed, one existing skipped file; 1,533 tests passed, one existing skip). The subsequent Node build-script suite passed 24 tests and failed to load `polish.test.mjs` because sharp is missing. No complete npm-test pass is claimed.
-  - After the final search-target changes, targeted Settings, Web Chat, Router and Processes UI suites passed: four files, 50 tests, exit code 0.
-  - An initial concurrent full-suite run timed out in unchanged `CodePage.test.tsx` case `QA-BREAK-02-D04`; its isolated rerun passed all six tests, and the subsequent full application run passed that case.
-  - Requested processes/pipeline/router integration files were attempted: all 36 cases were blocked before sidecar startup by the documented tsx/os.userInfo sandbox limitation.
-  - `git diff --check`: passed. No commit, push, reset or tooling changes were made.
-- Open issues / follow-ups: Architect must repair the missing pre-installed sharp dependency and rerun the full npm test command; QA must run the three integration files outside the sandbox. See the precise question in Blocked above.
-- CHANGELOG draft for the Architect: Fix process pipeline states and summaries, capable keyed-provider fallback, synchronized process deletion/counts, and bilingual Settings search suggestions (OWNER-FB3).
-- Final checks after correcting an unnecessary async test callback: `npm.cmd --cache .npm-cache run lint` passed (ESLint, repository Prettier check and secret scan, exit code 0); typecheck passed again; the final Settings suite passed all 29 tests. Full-test and integration blockers above remain unresolved.
+- Summary: Corrected the keyed-coder integration fixture and assertions for the augmented DeepSeek ladder.
+- Files changed: `apps/sidecar/test/integration/pipeline.test.ts`, `docs/tasks/OWNER-FB3.md`.
+- Dependencies added (with reason): None.
+- Decisions taken within scope: The fixture assigns TaskSpec generation to Mistral, scripts both DeepSeek coder candidates with CoderOutput, and confirms usage of any DeepSeek coder candidate.
+- Validation: `npm.cmd --cache .npm-cache exec -- prettier --write apps/sidecar/test/integration/pipeline.test.ts`, `npm.cmd --cache .npm-cache run typecheck`, and `npm.cmd --cache .npm-cache run lint` passed. Full test suite not run.
+- Open issues / follow-ups: None for QA round 1.
+
+## QA round 1 (Architect, 2026-10-22) — test-only, exact fix
+
+Merge conflicts with main (UX-05/WC-02) were resolved by QA. Settings tests 74/74, typecheck, lint pass. The `## Blocked` (`sharp` missing) is a sandbox install artefact — ignore it. One integration failure:
+
+`apps/sidecar/test/integration/pipeline.test.ts` **TC-OWNER-FB3-014** fails: the coder ladder augmentation appends keyed models in seed order, so the coder first tries `deepseek/deepseek-v4-pro`, whose scripted text is the **TaskSpec** (it was scripted as the PM) → "The role returned an invalid response after one retry" at stage `coding`. Product behaviour is correct; the fixture is wrong.
+
+Make exactly these changes in the `keyedCoder` branch of `setup()` and in the test:
+1. `scriptedTexts` for `keyedCoder`: `'mistral-large-latest': JSON.stringify(taskSpec)`, `'deepseek-v4-pro': JSON.stringify(coderOutput)`, `'deepseek-v4-flash': JSON.stringify(coderOutput)`, `'mistral-small-latest': JSON.stringify(reviewVerdict)`.
+2. `roleAssignment` for `keyedCoder`: `pm: ['mistral/mistral-large-latest']`, `coder: ['openai/gpt-5.3-codex']`, `reviewer: ['mistral/mistral-small-latest']`.
+3. Also `secrets.delete` for `google` in the `keyedCoder` branch (so only deepseek + mistral are keyed).
+4. In the test, replace the two exact-model assertions with: `run.roleAssignment.coder` contains `'deepseek/deepseek-v4-flash'` **and** `'deepseek/deepseek-v4-pro'`, and the ledger has an item with `purpose: 'pipeline_coder'` whose `modelKey` starts with `'deepseek/'`.
+
+No other file changes. Remove the `## Blocked` section and update `## Result`.

@@ -84,7 +84,8 @@ async function setup(
     ...responseTexts,
     ...(options.keyedCoder
       ? {
-          'deepseek-v4-pro': JSON.stringify(taskSpec),
+          'mistral-large-latest': JSON.stringify(taskSpec),
+          'deepseek-v4-pro': JSON.stringify(coderOutput),
           'deepseek-v4-flash': JSON.stringify(coderOutput),
           'mistral-small-latest': JSON.stringify(reviewVerdict),
         }
@@ -141,6 +142,7 @@ async function setup(
   if (options.keyedCoder) {
     await sidecar.call('secrets.delete', { provider: providerIdSchema.parse('openai') });
     await sidecar.call('secrets.delete', { provider: providerIdSchema.parse('anthropic') });
+    await sidecar.call('secrets.delete', { provider: providerIdSchema.parse('google') });
     for (const provider of ['deepseek', 'mistral'])
       await sidecar.call('secrets.set', { provider: providerIdSchema.parse(provider), apiKey: 'integration-only-key' });
   }
@@ -151,7 +153,7 @@ async function setup(
         ...(options.keyedCoder
           ? {
               roleAssignment: {
-                pm: [modelKeySchema.parse('deepseek/deepseek-v4-pro')],
+                pm: [modelKeySchema.parse('mistral/mistral-large-latest')],
                 coder: [modelKeySchema.parse('openai/gpt-5.3-codex')],
                 reviewer: [modelKeySchema.parse('mistral/mistral-small-latest')],
               },
@@ -443,11 +445,12 @@ it('TC-OWNER-FB3-014 a keyed DeepSeek coder is appended and used when configured
   const run = pipelineRunSchema.parse((await sidecar?.call('pipeline.get', { runId: started.id }))?.result);
   expect(run.stage).toBe('completed');
   expect(run.roleAssignment.coder).toContain('deepseek/deepseek-v4-flash');
+  expect(run.roleAssignment.coder).toContain('deepseek/deepseek-v4-pro');
   const ledger = await sidecar?.call('ledger.query', { projectId, limit: 100 });
   const items = z
     .object({ items: z.array(z.object({ purpose: z.string(), modelKey: z.string() })) })
     .parse(ledger?.result).items;
-  expect(items).toContainEqual({ purpose: 'pipeline_coder', modelKey: 'deepseek/deepseek-v4-flash' });
+  expect(items.some((item) => item.purpose === 'pipeline_coder' && item.modelKey.startsWith('deepseek/'))).toBe(true);
   expect(await readFile(resolve(workspace, 'src/greeting.txt'), 'utf8')).toBe('hello from pipeline');
   const processes = processRecordSchema
     .array()
