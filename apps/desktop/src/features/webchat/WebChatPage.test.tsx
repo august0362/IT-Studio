@@ -10,6 +10,7 @@ import { WebChatPage } from './WebChatPage';
 import type { IWebChatHost } from './webchat-host';
 
 beforeEach(() => {
+  vi.stubGlobal('PointerEvent', MouseEvent);
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
     if (this.hasAttribute('data-offscreen')) return new DOMRect(1200, 200, 400, 500);
     if (this.hasAttribute('data-webchat-content')) return new DOMRect(250, 200, 400, 500);
@@ -22,6 +23,7 @@ afterEach(() => {
   cleanup();
   localStorage.clear();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 function setup({ native = true, failMethod = '' } = {}) {
@@ -84,7 +86,8 @@ function setup({ native = true, failMethod = '' } = {}) {
   const closeAll = vi.fn(() => Promise.resolve());
   const setVisible = vi.fn<IWebChatHost['setVisible']>(() => Promise.resolve());
   const setPaneVisible = vi.fn(() => Promise.resolve());
-  const host: IWebChatHost = { available: native, sync, reload, closeAll, setVisible, setPaneVisible };
+  const raise = vi.fn(() => Promise.resolve());
+  const host: IWebChatHost = { available: native, sync, reload, raise, closeAll, setVisible, setPaneVisible };
   const client = new RpcClient(transport);
   const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const page = (suspended: boolean, layoutRevision = '') => (
@@ -97,10 +100,56 @@ function setup({ native = true, failMethod = '' } = {}) {
     </QueryClientProvider>
   );
   const rendered = render(page(false));
-  return { ...rendered, transport, updates, sync, reload, closeAll, setVisible, setPaneVisible, page };
+  return { ...rendered, transport, updates, sync, reload, raise, closeAll, setVisible, setPaneVisible, page };
 }
 
 describe('WebChatPage', () => {
+  it('WC-03 commits a floating drag only on window pointerup, then raises it', async () => {
+    const view = setup();
+    fireEvent.change(await screen.findByRole('combobox', { name: 'Web chat layout' }), { target: { value: 'free' } });
+    await waitFor(() => {
+      expect(view.updates.at(-1)?.mode).toBe('free');
+    });
+    view.raise.mockClear();
+    const bar = screen.getByRole('group', { name: 'ChatGPT' });
+    const down = new Event('pointerdown', { bubbles: true });
+    Object.defineProperties(down, { clientX: { value: 250 }, clientY: { value: 110 }, button: { value: 0 } });
+    fireEvent(bar, down);
+    const move = new Event('pointermove');
+    Object.defineProperties(move, { clientX: { value: 300 }, clientY: { value: 140 } });
+    fireEvent(window, move);
+    expect(screen.getByRole('status', { name: 'ChatGPT moving' })).toBeVisible();
+    expect(
+      view.updates.every((layout) => {
+        const windowLayout = layout.windows?.[0];
+        return windowLayout?.x === 24 && windowLayout.y === 24;
+      }),
+    ).toBe(true);
+    fireEvent(window, new Event('pointerup'));
+    await waitFor(() => {
+      expect(view.updates.at(-1)?.windows?.[0]?.x).toBe(74);
+    });
+    expect(view.updates.at(-1)?.windows?.[0]).toMatchObject({ x: 74, y: 54 });
+    expect(view.raise).toHaveBeenCalled();
+  });
+
+  it('WC-03 keyboard moves and resizes a focused floating window', async () => {
+    const view = setup();
+    fireEvent.change(await screen.findByRole('combobox', { name: 'Web chat layout' }), { target: { value: 'free' } });
+    await waitFor(() => {
+      expect(view.updates.at(-1)?.mode).toBe('free');
+    });
+    const bar = screen.getByRole('group', { name: 'ChatGPT' });
+    fireEvent.keyDown(bar, { key: 'ArrowRight', altKey: true });
+    await waitFor(() => {
+      expect(view.updates.at(-1)?.windows?.[0]?.x).toBe(48);
+    });
+    fireEvent.keyDown(bar, { key: 'ArrowDown', altKey: true, shiftKey: true });
+    await waitFor(() => {
+      expect(view.updates.at(-1)?.windows?.[0]?.height).toBe(424);
+    });
+  });
+
   it('WC-03 persists free mode and restores minimized windows from the dock', async () => {
     const view = setup();
     fireEvent.change(await screen.findByRole('combobox', { name: 'Web chat layout' }), { target: { value: 'free' } });

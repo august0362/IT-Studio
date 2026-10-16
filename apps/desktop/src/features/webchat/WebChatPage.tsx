@@ -341,7 +341,9 @@ function WebChatWorkspace({ host, initial, suspended, layoutRevision, onSettings
                   disabled={saving || suspended}
                   front={item.zIndex === Math.max(-1, ...freeWindows.map((windowItem) => windowItem.zIndex))}
                   minimized={item.minimized}
-                  onRaise={() =>
+                  onRaise={() => {
+                    const pending = host.raise?.(index);
+                    if (pending) void pending.catch(nativeError);
                     saveWindows(
                       freeWindows.map((windowItem) => ({
                         ...windowItem,
@@ -352,8 +354,8 @@ function WebChatWorkspace({ host, initial, suspended, layoutRevision, onSettings
                               ? freeWindows.length - 1
                               : windowItem.zIndex,
                       })),
-                    )
-                  }
+                    );
+                  }}
                   onDragStart={() => {
                     const pending = host.setPaneVisible?.(index, false);
                     if (pending) void pending.catch(nativeError);
@@ -362,29 +364,35 @@ function WebChatWorkspace({ host, initial, suspended, layoutRevision, onSettings
                     const pending = host.setPaneVisible?.(index, true);
                     if (pending) void pending.catch(nativeError);
                   }}
-                  onChange={(updated) =>
+                  onChange={(updated) => {
                     saveWindows(
                       freeWindows.map((windowItem) => (windowItem.linkId === item.linkId ? updated : windowItem)),
-                    )
-                  }
-                  onClose={() => saveWindows(freeWindows.filter((windowItem) => windowItem.linkId !== item.linkId))}
-                  onReload={() => void host.reload(index)}
-                  onOpen={() => void openBrowser(index, item.linkId)}
-                  onSelect={(linkId) =>
+                    );
+                  }}
+                  onClose={() => {
+                    saveWindows(freeWindows.filter((windowItem) => windowItem.linkId !== item.linkId));
+                  }}
+                  onReload={() => {
+                    void host.reload(index);
+                  }}
+                  onOpen={() => {
+                    void openBrowser(index, item.linkId);
+                  }}
+                  onSelect={(linkId) => {
                     saveWindows(
                       freeWindows.map((windowItem) =>
                         windowItem.linkId === item.linkId ? { ...windowItem, linkId } : windowItem,
                       ),
-                    )
-                  }
-                  onMinimize={() =>
+                    );
+                  }}
+                  onMinimize={() => {
                     saveWindows(
                       freeWindows.map((windowItem) =>
                         windowItem.linkId === item.linkId ? { ...windowItem, minimized: true } : windowItem,
                       ),
-                    )
-                  }
-                  onMaximize={() =>
+                    );
+                  }}
+                  onMaximize={() => {
                     saveWindows(
                       freeWindows.map((windowItem) =>
                         windowItem.linkId === item.linkId
@@ -398,8 +406,8 @@ function WebChatWorkspace({ host, initial, suspended, layoutRevision, onSettings
                             }
                           : windowItem,
                       ),
-                    )
-                  }
+                    );
+                  }}
                 />
               ))}
               <div
@@ -412,15 +420,15 @@ function WebChatWorkspace({ host, initial, suspended, layoutRevision, onSettings
                     <button
                       key={item.linkId}
                       className="rounded border border-border px-2 py-1 text-xs"
-                      onClick={() =>
+                      onClick={() => {
                         saveWindows(
                           freeWindows.map((windowItem) =>
                             windowItem.linkId === item.linkId
                               ? { ...windowItem, minimized: false, zIndex: freeWindows.length }
                               : windowItem,
                           ),
-                        )
-                      }
+                        );
+                      }}
                       type="button"
                     >
                       {links.find((link) => link.id === item.linkId)?.name}

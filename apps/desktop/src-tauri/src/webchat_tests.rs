@@ -34,7 +34,7 @@ fn hidden_retained_slots_are_preserved_but_removed_layout_slots_are_closed() {
     );
     assert!(retained_slots(Some(&[1]), &planned).is_err());
     assert!(retained_slots(Some(&[0, 0]), &planned).is_err());
-    assert!(retained_slots(Some(&[0, 4]), &planned).is_err());
+    assert!(retained_slots(Some(&[0, 6]), &planned).is_err());
 }
 
 fn pane(slot: u8, link_id: &str) -> WebChatPaneRequest {
@@ -158,7 +158,8 @@ fn initial_panes_require_enabled_saved_link_ids_and_unique_slots() {
     assert!(plan_panes(&saved, &[pane(0, "disabled")]).is_err());
     assert!(plan_panes(&saved, &[pane(0, "unknown")]).is_err());
     assert!(plan_panes(&saved, &[pane(0, "chatgpt"), pane(0, "chatgpt")]).is_err());
-    assert!(plan_panes(&saved, &[pane(4, "chatgpt")]).is_err());
+    assert!(plan_panes(&saved, &[pane(5, "chatgpt")]).is_ok());
+    assert!(plan_panes(&saved, &[pane(6, "chatgpt")]).is_err());
     let mut duplicate_links = links();
     duplicate_links[1].id = "chatgpt".into();
     assert!(plan_panes(&duplicate_links, &[pane(0, "chatgpt")]).is_err());
@@ -169,12 +170,13 @@ fn initial_panes_require_enabled_saved_link_ids_and_unique_slots() {
 
 #[test]
 fn rejects_invalid_slots_and_nonfinite_negative_or_empty_bounds() {
-    for slot in 0..=3 {
+    for slot in 0..=5 {
         assert!(validate_slot(slot).is_ok());
     }
-    for slot in [4, 255] {
+    for slot in [6, u8::MAX] {
         assert!(validate_slot(slot).is_err());
     }
+    assert!(retained_slots(Some(&[u8::MAX]), &std::collections::BTreeMap::new()).is_err());
     let valid = pane(0, "chatgpt").bounds;
     assert!(validate_bounds(valid).is_ok());
     for bounds in [
