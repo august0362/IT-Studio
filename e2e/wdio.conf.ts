@@ -1,5 +1,5 @@
 import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve, sep } from 'node:path';
@@ -18,6 +18,27 @@ const npmCliPath = process.env.npm_execpath;
 const driversByWorker = new Map<string, ChildProcess[]>();
 let e2eTempRoot: string | undefined;
 const tauriCapabilities: TauriCapabilities[] = [{ browserName: 'wry', 'tauri:options': { application: appPath } }];
+
+function newestSourceMtime(path: string): number {
+  const info = statSync(path);
+  if (!info.isDirectory()) return info.mtimeMs;
+  return readdirSync(path).reduce((newest, entry) => {
+    const childPath = join(path, entry);
+    return Math.max(newest, newestSourceMtime(childPath));
+  }, info.mtimeMs);
+}
+
+function appNeedsRebuild(): boolean {
+  if (!existsSync(appPath)) return true;
+  const appMtime = statSync(appPath).mtimeMs;
+  const sourcePaths = [
+    'apps/desktop/src',
+    'apps/desktop/src-tauri/src',
+    'apps/desktop/index.html',
+    'src/types/schemas.ts',
+  ];
+  return sourcePaths.some((path) => newestSourceMtime(join(root, path)) > appMtime);
+}
 
 // Each tauri-driver needs its own native (msedgedriver) port; the default 4445 collides with a second driver on 4445.
 function startDriver(
@@ -59,6 +80,7 @@ function startDriver(
         ITSTUDIO_DATA_DIR: join(workerRoot, `data-${String(port)}`),
         WEBVIEW2_USER_DATA_FOLDER: join(workerRoot, `webview-${String(port)}`),
         ITSTUDIO_E2E: '1',
+        ...(process.env.ITSTUDIO_E2E_VISIBLE === '1' ? {} : { ITSTUDIO_E2E_OFFSCREEN: '1' }),
         ITSTUDIO_E2E_VERIFIER_OUTCOME: options.verifierOutcome ?? 'success',
         ...(llmScriptPath === undefined
           ? options.llmScript === undefined
@@ -156,7 +178,7 @@ export const config: Options.Testrunner & { capabilities: Capabilities.Requested
     e2eTempRoot = mkdtempSync(join(tmpdir(), 'itstudio-e2e-'));
     process.env.ITSTUDIO_E2E_EVIDENCE_DIR = mkdtempSync(join(tmpdir(), 'itstudio-e2e-evidence-'));
     console.log(`E2E failure evidence: ${process.env.ITSTUDIO_E2E_EVIDENCE_DIR}`);
-    if (!existsSync(appPath)) {
+    if (appNeedsRebuild()) {
       if (npmCliPath === undefined) throw new Error('npm_execpath is unavailable; run E2E through npm run test:e2e.');
       execFileSync(
         process.execPath,
