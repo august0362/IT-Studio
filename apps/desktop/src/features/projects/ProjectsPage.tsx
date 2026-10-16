@@ -94,9 +94,9 @@ export function ProjectsPage({
       ) : projectsQuery.isError ? (
         <ErrorPanel error={projectsQuery.error.appError} />
       ) : projects.length === 0 ? (
-        <p>{t('projects.empty')}</p>
+        <p className="studio-empty">{t('projects.empty')}</p>
       ) : filtered.length === 0 ? (
-        <p>{t('projects.noMatches')}</p>
+        <p className="studio-empty">{t('projects.noMatches')}</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">

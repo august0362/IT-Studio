@@ -41,7 +41,7 @@ export function MainNav({
   return (
     <nav
       aria-label={t('nav.main')}
-      className="flex w-56 shrink-0 flex-col overflow-y-auto border-r border-border bg-surface p-4"
+      className="studio-sidebar flex w-56 shrink-0 flex-col overflow-y-auto border-r border-border bg-surface p-4"
     >
       <h1 className="mb-6 text-lg font-semibold">{t('app.name')}</h1>
       <div className="space-y-1">

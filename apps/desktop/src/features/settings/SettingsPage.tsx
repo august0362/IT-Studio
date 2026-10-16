@@ -1,3 +1,4 @@
+import { Input, Select } from '../../components/ui/primitives';
 import { useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ResolvedWebChatSettingsPage } from '../webchat/ResolvedWebChatSettingsPage';
@@ -80,12 +81,15 @@ export function SettingsPage({
   }
 
   return (
-    <section aria-labelledby="settings-page-heading" className="flex min-w-0 flex-col gap-6 lg:flex-row">
+    <section
+      aria-labelledby="settings-page-heading"
+      className="studio-settings flex min-w-0 flex-col gap-6 lg:flex-row"
+    >
       <div className="shrink-0 space-y-3 lg:w-52">
         <label className="block text-sm font-medium" htmlFor="settings-search">
           {t('settings.search')}
         </label>
-        <input
+        <Input
           className="w-full rounded border border-border bg-surface px-3 py-2 text-text"
           id="settings-search"
           type="search"
@@ -98,7 +102,7 @@ export function SettingsPage({
           <label className="mb-1 block text-sm" htmlFor="settings-section">
             {t('settings.section')}
           </label>
-          <select
+          <Select
             className="w-full rounded border border-border bg-surface px-3 py-2 text-text"
             id="settings-section"
             disabled={sections.length === 0}
@@ -115,7 +119,7 @@ export function SettingsPage({
                 {title(route)}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <nav aria-label={t('settings.section')} className="hidden lg:block">
           <ul className="space-y-1">

@@ -1,4 +1,13 @@
-import type { ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, JSX, ReactNode, Ref } from 'react';
+import type {
+  ButtonHTMLAttributes,
+  HTMLAttributes,
+  InputHTMLAttributes,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+  JSX,
+  ReactNode,
+  Ref,
+} from 'react';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   readonly tone?: 'primary' | 'secondary' | 'danger';
@@ -42,4 +51,12 @@ export function KpiTile({ label, value, children, className = '', ...props }: Kp
       {children}
     </Card>
   );
+}
+
+export function Select({ className = '', ...props }: SelectHTMLAttributes<HTMLSelectElement>): JSX.Element {
+  return <select className={`studio-input ${className}`} {...props} />;
+}
+
+export function Textarea({ className = '', ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>): JSX.Element {
+  return <textarea className={`studio-input ${className}`} {...props} />;
 }

@@ -52,7 +52,7 @@ exports[`shared glow primitives > snapshots semantic dark primitives for neon-cy
   </div>,
   "mode": "dark",
   "theme": "neon-cyan",
-  "variables": "--color-bg: #0c1217; --color-surface: #011f24; --color-surface-alt: #09282e; --color-border: #1f3d42; --color-text: #e7f0f2; --color-text-muted: #99b4b9; --color-primary: #47d8ef; --color-primary-fg: #0c1217; --color-primary-hover: #62e8fe; --color-accent: #69a7ff; --color-focus-ring: #47d8ef; --color-success: #71c575; --color-warning: #e1a035; --color-danger: #fa8880; --color-info: #68b3fe; --color-glow: #47d8ef; --color-surface-glass: #011f24; --color-border-glow: #47d8ef; --color-gradient-start: #0c1217; --color-gradient-end: #09282e; --color-chart-1: #47d8ef; --color-chart-2: #69a7ff; --color-chart-3: #626a70; --color-chart-4: #cbf4ff;",
+  "variables": "--ui-scale: 1; color-scheme: dark; --color-bg: #0e1517; --color-surface: #1a1f20; --color-surface-alt: #222b2c; --color-border: #767f81; --color-text: #e6f1f3; --color-text-muted: #a0aaac; --color-primary: #47d8ef; --color-primary-fg: #0e1517; --color-primary-hover: #47d8ef; --color-accent: #86bafe; --color-focus-ring: #47d8ef; --color-success: #49d3a1; --color-warning: #eba941; --color-danger: #ff958e; --color-info: #7cbdff; --color-glow: #47d8ef; --color-surface-glass: #1a1f20; --color-border-glow: #47d8ef; --color-gradient-start: #0e1517; --color-gradient-end: #222b2c; --color-chart-1: #47d8ef; --color-chart-2: #86bafe; --color-chart-3: #62d0a4; --color-chart-4: #e4ac59; --color-chart-5: #fb9890; --color-chart-6: #7cbdff;",
 }
 `;
 
@@ -108,7 +108,7 @@ exports[`shared glow primitives > snapshots semantic dark primitives for neon-go
   </div>,
   "mode": "dark",
   "theme": "neon-gold",
-  "variables": "--color-bg: #12100d; --color-surface: #221702; --color-surface-alt: #2c2109; --color-border: #40351d; --color-text: #f1eee7; --color-text-muted: #b7ad99; --color-primary: #f6c65b; --color-primary-fg: #12100d; --color-primary-hover: #ffd989; --color-accent: #f6c65b; --color-focus-ring: #f6c65b; --color-success: #71c575; --color-warning: #f49157; --color-danger: #fa8880; --color-info: #68b3fe; --color-glow: #f6c65b; --color-surface-glass: #221702; --color-border-glow: #f6c65b; --color-gradient-start: #12100d; --color-gradient-end: #2c2109; --color-chart-1: #f6c65b; --color-chart-2: #696763; --color-chart-3: #ef9850; --color-chart-4: #ffe7a5;",
+  "variables": "--ui-scale: 1; color-scheme: dark; --color-bg: #16130e; --color-surface: #201e1a; --color-surface-alt: #2c2822; --color-border: #807d75; --color-text: #f2eee6; --color-text-muted: #aba79f; --color-primary: #f6c65b; --color-primary-fg: #16130e; --color-primary-hover: #f6c65b; --color-accent: #9ec773; --color-focus-ring: #f6c65b; --color-success: #49d3a1; --color-warning: #eba941; --color-danger: #ff958e; --color-info: #7cbdff; --color-glow: #f6c65b; --color-surface-glass: #201e1a; --color-border-glow: #f6c65b; --color-gradient-start: #16130e; --color-gradient-end: #2c2822; --color-chart-1: #f6c65b; --color-chart-2: #9ec773; --color-chart-3: #62d0a4; --color-chart-4: #e4ac59; --color-chart-5: #fb9890; --color-chart-6: #7cbdff;",
 }
 `;
 
@@ -164,6 +164,6 @@ exports[`shared glow primitives > snapshots semantic dark primitives for neon-vi
   </div>,
   "mode": "dark",
   "theme": "neon-violet",
-  "variables": "--color-bg: #12101b; --color-surface: #1c162e; --color-surface-alt: #252038; --color-border: #39344e; --color-text: #efedf4; --color-text-muted: #b1aabf; --color-primary: #bc92ff; --color-primary-fg: #12101b; --color-primary-hover: #c8a9ff; --color-accent: #bc92ff; --color-focus-ring: #bc92ff; --color-success: #71c575; --color-warning: #e1a035; --color-danger: #fa8880; --color-info: #68b3fe; --color-glow: #bc92ff; --color-surface-glass: #1c162e; --color-border-glow: #bc92ff; --color-gradient-start: #12101b; --color-gradient-end: #252038; --color-chart-1: #bc92ff; --color-chart-2: #666473; --color-chart-3: #906ee8; --color-chart-4: #e7dcff;",
+  "variables": "--ui-scale: 1; color-scheme: dark; --color-bg: #151318; --color-surface: #1f1d21; --color-surface-alt: #2a282e; --color-border: #7e7c83; --color-text: #efedf6; --color-text-muted: #a9a6ae; --color-primary: #bc92ff; --color-primary-fg: #151318; --color-primary-hover: #bc92ff; --color-accent: #ee97c8; --color-focus-ring: #bc92ff; --color-success: #49d3a1; --color-warning: #eba941; --color-danger: #ff958e; --color-info: #7cbdff; --color-glow: #bc92ff; --color-surface-glass: #1f1d21; --color-border-glow: #bc92ff; --color-gradient-start: #151318; --color-gradient-end: #2a282e; --color-chart-1: #bc92ff; --color-chart-2: #ee97c8; --color-chart-3: #62d0a4; --color-chart-4: #e4ac59; --color-chart-5: #fb9890; --color-chart-6: #7cbdff;",
 }
 `;
