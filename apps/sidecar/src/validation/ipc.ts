@@ -87,6 +87,7 @@ const orchAttemptSchema = z.custom<OrchAttempt>(
 );
 const orchEventSchema = z.custom<OrchEvent>((value) => typeof value === 'object' && value !== null && 'type' in value);
 export const rpcParamsSchemas = {
+  'orch.adapters': empty,
   'orch.plan': z.strictObject({ projectId: projectIdSchema, request: z.string().min(1) }).readonly(),
   'orch.start': z.strictObject({ runId: orchRunIdSchema }).readonly(),
   'orch.cancel': z.strictObject({ runId: orchRunIdSchema }).readonly(),
@@ -281,6 +282,18 @@ export const rpcNotificationParamsSchemas = {
 } satisfies { [N in RpcNotificationName]: z.ZodType<RpcNotificationMap[N]> };
 
 export const rpcResultSchemas = {
+  'orch.adapters': z
+    .array(
+      z
+        .strictObject({
+          transport: z.enum(['api', 'claude-cli', 'codex-cli', 'mock']),
+          status: z.enum(['available', 'unavailable', 'unsupported']),
+          version: z.string().exactOptional(),
+          reason: z.string().exactOptional(),
+        })
+        .readonly(),
+    )
+    .readonly(),
   'orch.plan': orchRunSchema,
   'orch.start': orchRunSchema,
   'orch.cancel': orchRunSchema,

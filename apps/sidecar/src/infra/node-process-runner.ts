@@ -25,6 +25,7 @@ function safeEnv(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
 function resolveExecutable(
   executable: string,
 ): { readonly file: string; readonly prefixArgs: readonly string[] } | null {
+  if (['git', 'claude', 'codex', 'where.exe'].includes(executable)) return { file: executable, prefixArgs: [] };
   if (executable === 'node') return { file: process.execPath, prefixArgs: [] };
   if (executable === 'npm')
     return {

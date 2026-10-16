@@ -6,6 +6,7 @@ import { blockFailedDependents, pickRunnable } from './scheduler.js';
 
 export interface OrchestrationEngineDependencies {
   readonly adapter: IAgentExecutionAdapter;
+  readonly adapters?: ReadonlyMap<string, IAgentExecutionAdapter>;
   readonly validate: PlanValidationOptions;
   readonly now?: () => string;
   readonly id?: () => string;
@@ -36,6 +37,7 @@ function isVerdict(value: unknown): value is Verdict {
 export class OrchestrationEngine {
   private readonly deps: OrchestrationEngineDependencies;
   private readonly attemptsByRun = new Map<string, readonly OrchAttempt[]>();
+  private readonly controllers = new Map<string, AbortController>();
   constructor(deps: OrchestrationEngineDependencies) {
     this.deps = deps;
   }
@@ -44,6 +46,12 @@ export class OrchestrationEngine {
   }
   attempts(runId: string): readonly OrchAttempt[] {
     return this.attemptsByRun.get(runId) ?? [];
+  }
+  cancel(runId: string): boolean {
+    const controller = this.controllers.get(runId);
+    if (controller === undefined) return false;
+    controller.abort();
+    return true;
   }
   async run(run: OrchRun, onChange?: (run: OrchRun, attempts: readonly OrchAttempt[]) => void): Promise<OrchRun> {
     if (!transitionRun(run.state, 'running').ok) return run;
@@ -55,6 +63,8 @@ export class OrchestrationEngine {
     const reviewer = run.agents.find((agent) => agent.role === 'reviewer');
     let calls = run.agentCalls;
     let exhausted = false;
+    const controller = new AbortController();
+    this.controllers.set(run.id, controller);
     const nextId = () => (this.deps.id ?? (() => `mock-${String(attempts.length + 1)}`))();
     const now = () => (this.deps.now ?? (() => new Date().toISOString()))();
     const invoke = async (
@@ -73,7 +83,7 @@ export class OrchestrationEngine {
         roleVersion: '1',
         modelId: agent.modelId ?? 'mock',
         providerId: agent.providerId ?? 'mock',
-        transportId: 'mock' as const,
+        transportId: agent.transport,
         projectId: run.projectId,
         orchestrationRunId: run.id,
         taskId: task.id,
@@ -90,26 +100,84 @@ export class OrchestrationEngine {
         timeoutMs: task.timeoutMs,
         contextReferences: [],
       };
-      const result = await this.deps.adapter.run(envelope, input, new AbortController().signal, () => undefined);
-      const payload = result.ok ? result.value.payload : undefined;
+      const selected =
+        this.deps.adapters?.get(agent.transport) ??
+        (agent.transport === this.deps.adapter.id ? this.deps.adapter : undefined);
+      if (selected === undefined) {
+        const attempt: OrchAttempt = {
+          id: id as OrchAttempt['id'],
+          taskId: task.id,
+          role,
+          agent,
+          state: 'failed',
+          reason: 'ADAPTER_UNAVAILABLE',
+          changedFiles: [],
+          evidence: [],
+          usage: unknownUsage,
+          startedAt: startedAt as OrchAttempt['startedAt'],
+          endedAt: now() as OrchAttempt['startedAt'],
+        };
+        attempts.push(attempt);
+        return { ok: false, payload: undefined, usage: unknownUsage, attempt };
+      }
+      const probed = await selected.probe();
+      if (probed.status !== 'available') {
+        const attempt: OrchAttempt = {
+          id: id as OrchAttempt['id'],
+          taskId: task.id,
+          role,
+          agent,
+          state: 'failed',
+          reason: 'ADAPTER_UNAVAILABLE',
+          changedFiles: [],
+          evidence: [],
+          usage: unknownUsage,
+          startedAt: startedAt as OrchAttempt['startedAt'],
+          endedAt: now() as OrchAttempt['startedAt'],
+        };
+        attempts.push(attempt);
+        return { ok: false, payload: undefined, usage: unknownUsage, attempt };
+      }
+      const result = await selected.run(envelope, input, controller.signal, () => undefined);
+      const expectedAck = {
+        ack: true,
+        roleId: envelope.roleId,
+        taskId: envelope.taskId,
+        attemptId: envelope.attemptId,
+        allowedPaths: envelope.allowedPaths,
+      };
+      const ackMatches = result.ok && JSON.stringify(result.value.ack) === JSON.stringify(expectedAck);
+      const safeResult =
+        result.ok && !ackMatches
+          ? {
+              ok: false as const,
+              error: {
+                code: 'ROLE_ACK_MISMATCH' as const,
+                message: 'Agent acknowledgement did not match its assignment.',
+                retryable: false,
+              },
+            }
+          : result;
+      const payload = safeResult.ok ? safeResult.value.payload : undefined;
       const attempt: OrchAttempt = {
         id: id as OrchAttempt['id'],
         taskId: task.id,
         role,
         agent,
-        state: result.ok ? 'succeeded' : 'failed',
-        ...(result.ok ? {} : { reason: result.error.message }),
+        state: controller.signal.aborted ? 'cancelled' : safeResult.ok ? 'succeeded' : 'failed',
+        ...(safeResult.ok ? {} : { reason: safeResult.error.code }),
         changedFiles: [],
         evidence: [],
-        usage: result.ok ? result.value.usage : unknownUsage,
+        usage: safeResult.ok ? safeResult.value.usage : unknownUsage,
         startedAt: startedAt as OrchAttempt['startedAt'],
-        ...(result.ok ? { endedAt: now() as OrchAttempt['startedAt'] } : {}),
+        endedAt: now() as OrchAttempt['startedAt'],
       };
       attempts.push(attempt);
       onChange?.({ ...run, state: 'running', tasks, agentCalls: calls }, attempts);
-      return { ok: result.ok, payload, usage: result.ok ? result.value.usage : unknownUsage, attempt };
+      return { ok: safeResult.ok, payload, usage: safeResult.ok ? safeResult.value.usage : unknownUsage, attempt };
     };
     for (let schedulerStep = 0; schedulerStep < tasks.length + run.limits.maxAgentCalls; schedulerStep += 1) {
+      if (controller.signal.aborted) break;
       tasks = [...blockFailedDependents(tasks)];
       const runnable = pickRunnable(
         tasks,
@@ -196,10 +264,15 @@ export class OrchestrationEngine {
     const allComplete = tasks.every((task) => task.state === 'completed');
     this.attemptsByRun.set(run.id, attempts);
     const paused = !allComplete;
+    this.controllers.delete(run.id);
     return {
       ...run,
-      state: allComplete ? 'awaiting_approval' : 'paused',
-      ...(paused ? { stateReason: exhausted ? 'NEEDS_OWNER' : 'TASK_FAILURE' } : {}),
+      state: controller.signal.aborted ? 'cancelled' : allComplete ? 'awaiting_approval' : 'paused',
+      ...(controller.signal.aborted
+        ? { stateReason: 'CANCELLED' }
+        : paused
+          ? { stateReason: exhausted ? 'NEEDS_OWNER' : 'TASK_FAILURE' }
+          : {}),
       tasks,
       agentCalls: calls,
       costMicroUsd: run.costMicroUsd,

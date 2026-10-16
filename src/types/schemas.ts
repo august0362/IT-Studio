@@ -80,6 +80,8 @@ export const ErrorCode = {
   FALLBACK_DECLINED: 'FALLBACK_DECLINED',
   BUDGET_HARD_STOP: 'BUDGET_HARD_STOP',
   PATH_OUTSIDE_WORKSPACE: 'PATH_OUTSIDE_WORKSPACE',
+  PATH_DENIED: 'PATH_DENIED',
+  ROLE_ACK_MISMATCH: 'ROLE_ACK_MISMATCH',
   PATCH_CONFLICT: 'PATCH_CONFLICT',
   COMMAND_FAILED: 'COMMAND_FAILED',
   ROLLBACK_FAILED: 'ROLLBACK_FAILED',
@@ -1033,6 +1035,7 @@ type Empty = Readonly<Record<string, never>>;
 
 /** Exhaustive request/response catalog. Adding a method = additive change (no ADR needed). */
 export interface RpcMethodMap {
+  'orch.adapters': { params: Empty; result: readonly { readonly transport: OrchTransport; readonly status: 'available' | 'unavailable' | 'unsupported'; readonly version?: string; readonly reason?: string }[] };
   'orch.plan': { params: { readonly projectId: ProjectId; readonly request: string }; result: OrchRun };
   'orch.start': { params: { readonly runId: OrchRunId }; result: OrchRun };
   'orch.cancel': { params: { readonly runId: OrchRunId }; result: OrchRun };
