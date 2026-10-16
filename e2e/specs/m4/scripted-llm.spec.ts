@@ -51,7 +51,7 @@ async function createProject(session: Session, name: string): Promise<void> {
   await session.$('aria/Folder path').setValue(createTemporaryProjectFolder());
   await session.$('button=Create project').click();
   await session.waitUntil(async () => (await session.$('[role="tab"][aria-selected="true"]').getText()) === name);
-  await session.$('nav[aria-label="Main navigation"] a[href="#chat"]').click();
+  await session.$('nav a[href="#chat"]').click();
 }
 
 async function selectOpenAiModel(session: Session): Promise<void> {
@@ -96,9 +96,9 @@ describe('M4 scripted LLM cases', () => {
     if (await autoFallback.isSelected()) await autoFallback.click();
     await session.waitUntil(async () => !(await autoFallback.isSelected()));
     await ensureProviderKeys(undefined, session);
-    await session.$('nav[aria-label="Main navigation"] a[href="#chat"]').click();
+    await session.$('nav a[href="#chat"]').click();
     await createProject(session, 'Fallback Modal Project');
-    await session.$('nav[aria-label="Main navigation"] a[href="#chat"]').click();
+    await session.$('nav a[href="#chat"]').click();
     await session.$('button=New chat').click();
     await selectOpenAiModel(session);
     await session.$('aria/Message').setValue('use fallback');

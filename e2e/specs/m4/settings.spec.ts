@@ -75,13 +75,13 @@ describe('M4 Settings', () => {
     await browser.waitUntil(
       async () => (await browser.$('[role="tab"][aria-selected="true"]').getText()) === 'Hard Stop Project',
     );
-    await browser.$('nav[aria-label="Main navigation"] a[href="#cost"]').click();
+    await browser.$('nav a[href="#cost"]').click();
     await browser.$('aria/Limit (USD)').setValue('0.000001');
     await browser.$('button=Save budget').click();
     await openSettings('budget', browser);
     const hardStop = browser.$('aria/Hard Stop');
     if (!(await hardStop.isSelected())) await hardStop.click();
-    await browser.$('nav[aria-label="Main navigation"] a[href="#chat"]').click();
+    await browser.$('nav a[href="#chat"]').click();
     await browser.$('button=New chat').click();
     await browser.$('aria/Message').setValue('over budget');
     await browser.$('button=Send').click();
@@ -144,7 +144,7 @@ describe('M4 Settings', () => {
     await browser.waitUntil(
       async () => (await browser.$('[role="tab"][aria-selected="true"]').getText()) === 'FX Project',
     );
-    await browser.$('nav[aria-label="Main navigation"] a[href="#cost"]').click();
+    await browser.$('nav a[href="#cost"]').click();
     await browser.$('aria/Amount').setValue('1');
     await browser.$('aria/Description').setValue('FX test revenue');
     await browser.$('form[aria-label="Revenue entries"] button[type="submit"]').click();
@@ -159,7 +159,7 @@ describe('M4 Settings', () => {
     await browser.$('input[type="number"]').setValue('25000');
     await browser.$('button=Save').click();
     await browser.waitUntil(async () => (await browser.$('body').getText()).includes('25,000 VND per USD'));
-    await browser.$('nav[aria-label="Main navigation"] a[href="#cost"]').click();
+    await browser.$('nav a[href="#cost"]').click();
     await browser.waitUntil(async () => (await vndText()) !== beforeVnd);
     expect(await vndText()).not.to.equal(beforeVnd);
     await openSettings('fx', browser);

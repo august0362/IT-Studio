@@ -9,7 +9,7 @@ export function statusBar() {
 }
 
 export async function openSettings(section: string, session = browser): Promise<void> {
-  await session.$('nav[aria-label="Main navigation"] a[href="#settings"]').click();
+  await session.$('nav a[href="#settings"]').click();
   const selector = `a[href="#settings-${section}"]`;
   const sectionLink = session.$(`main ${selector}`);
   if (await sectionLink.isDisplayed()) {
@@ -20,7 +20,7 @@ export async function openSettings(section: string, session = browser): Promise<
 }
 
 export async function openSystemMap(session = browser): Promise<void> {
-  await session.$('nav[aria-label="Main navigation"] a[href="#processes"]').click();
+  await session.$('nav a[href="#processes"]').click();
   await session.$('aria/System map').click();
 }
 
