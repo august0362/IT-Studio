@@ -10,7 +10,7 @@ async function createChatProject(name: string): Promise<void> {
   await browser.$('aria/Folder path').setValue(folder);
   await browser.$('button=Create project').click();
   await browser.waitUntil(async () => (await browser.$('[role="tab"][aria-selected="true"]').getText()) === name);
-  await browser.$('nav[aria-label="Main navigation"] a[href="#chat"]').click();
+  await browser.$('nav a[href="#chat"]').click();
 }
 
 describe('M4 chat', () => {
@@ -29,7 +29,7 @@ describe('M4 chat', () => {
       async () =>
         (await browser.$('[role="tablist"] [role="tab"][aria-selected="true"]').getText()) === 'Chat E2E Project',
     );
-    await browser.$('nav[aria-label="Main navigation"] a[href="#chat"]').click();
+    await browser.$('nav a[href="#chat"]').click();
     await browser.$('button=New chat').click();
     await browser.$('aria/Message').setValue('hello');
     await browser.$('button=Send').click();
