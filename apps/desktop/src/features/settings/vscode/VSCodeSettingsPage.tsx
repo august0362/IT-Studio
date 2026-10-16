@@ -21,6 +21,42 @@ export function VSCodeSettingsPage() {
             />
             {t('settings.vscode.autoLaunch')}
           </label>
+          {(
+            [
+              [
+                'closeWithStudio',
+                'Close VS Code when IT Studio quits',
+                'Closes project windows launched by IT Studio on a normal exit.',
+              ],
+              [
+                'closeWithProject',
+                'Close VS Code when a project closes',
+                'Closes the related windows when you close its tab or delete the project.',
+              ],
+              [
+                'closeManuallyOpened',
+                'Also close VS Code windows I opened myself for that project',
+                'Includes connected windows with the same project folder.',
+              ],
+            ] as const
+          ).map(([key, label, explanation]) => (
+            <label key={key} className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                disabled={form.saving}
+                checked={value[key]}
+                onChange={(event) => void form.save({ vscode: { [key]: event.target.checked } })}
+              />
+              <span>
+                {label}
+                <span className="block text-sm text-muted">{explanation}</span>
+              </span>
+            </label>
+          ))}
+          <p className="text-sm text-muted">
+            IT Studio never closes VS Code windows by force; unsaved work prompts as usual. Windows stay open if IT
+            Studio crashes or is killed.
+          </p>
           <label className="grid gap-1">
             {t('settings.vscode.executable')}
             <input

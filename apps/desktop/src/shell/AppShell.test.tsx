@@ -28,7 +28,7 @@ afterEach(() => {
   void i18n.changeLanguage('en');
 });
 
-function setup({ history = false, empty = false, conflict = false, delayed = false } = {}) {
+function setup({ history = false, empty = false, conflict = false, delayed = false, closeWithProject = true } = {}) {
   const transport = new FakeTransport();
   transport.setStatus({ running: true, ready: true, restarts: 0 });
   const project = {
@@ -47,6 +47,7 @@ function setup({ history = false, empty = false, conflict = false, delayed = fal
   };
   let projects = empty ? [] : history ? [secondProject, project] : [project];
   const settings = {
+    vscode: { closeWithProject },
     activeProjectId: project.id,
     ui: { themeId: 'arctic-focus', mode: 'system', locale: 'en' },
     webChat: {
@@ -86,7 +87,8 @@ function setup({ history = false, empty = false, conflict = false, delayed = fal
       }
       projects = projects.filter((item) => item.id !== message.params.projectId);
       result = { deleted: true };
-    } else if (message.method === 'project.create')
+    } else if (message.method === 'vscode.closeForProject') result = { accepted: true };
+    else if (message.method === 'project.create')
       result = { ...project, id: 'project-2', name: message.params.name, workspaceRoot: message.params.workspaceRoot };
     else if (message.method === 'secrets.status') result = [];
     else if (message.method === 'system.ping') result = { version: '0.1.0' };
@@ -349,5 +351,20 @@ describe('AppShell', () => {
     await waitFor(() => {
       expect(localStorage.getItem('itstudio.openProjects')).toBe('[]');
     });
+  });
+});
+
+describe('VSC-01 project tab close', () => {
+  it.each([true, false])('sends the close RPC only when closeWithProject is %s', async (enabled) => {
+    const transport = setup({ closeWithProject: enabled });
+    await screen.findByRole('tab', { name: 'Project One' });
+    fireEvent.click(screen.getByRole('button', { name: 'Close Project One' }));
+    expect(
+      transport.sent
+        .filter((line) => line.includes('vscode.closeForProject'))
+        .map((line) => JSON.parse(line) as unknown),
+    ).toEqual(
+      enabled ? [expect.objectContaining({ params: { projectId: 'project-1', reason: 'project_closed' } })] : [],
+    );
   });
 });

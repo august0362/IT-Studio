@@ -279,3 +279,42 @@ describe('WC-02 one-time presets upgrade', () => {
     },
   );
 });
+
+describe('VSC-01 settings migration', () => {
+  it('adds close defaults to legacy settings without resetting saved choices and persists toggles', async () => {
+    const { opened, service, loaded } = createService();
+    try {
+      const defaults = buildDefaultSettings(loaded.value);
+      const repository = new SettingsRepository(opened.db);
+      const legacy = {
+        ...defaults,
+        vscode: {
+          autoLaunch: false,
+          codeExecutable: 'C:/custom/code.exe',
+          showDiffBeforeValidate: false,
+          revealChangedFiles: false,
+        },
+      };
+      await repository.save(JSON.stringify(legacy), '2026-01-01T00:00:00.000Z');
+      expect(await service.get()).toMatchObject({
+        ok: true,
+        value: {
+          vscode: { ...legacy.vscode, closeWithStudio: true, closeWithProject: true, closeManuallyOpened: false },
+        },
+      });
+      expect(
+        await service.update({
+          vscode: { closeWithStudio: false, closeWithProject: false, closeManuallyOpened: true },
+        }),
+      ).toMatchObject({ ok: true });
+      expect(await service.get()).toMatchObject({
+        ok: true,
+        value: {
+          vscode: { ...legacy.vscode, closeWithStudio: false, closeWithProject: false, closeManuallyOpened: true },
+        },
+      });
+    } finally {
+      opened.client.close();
+    }
+  });
+});

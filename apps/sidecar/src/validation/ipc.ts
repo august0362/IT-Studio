@@ -202,6 +202,9 @@ export const rpcParamsSchemas = {
     })
     .readonly(),
   'workspace.openInVSCode': z.strictObject({ projectId: projectIdSchema }).readonly(),
+  'vscode.closeForProject': z
+    .strictObject({ projectId: projectIdSchema, reason: z.enum(['project_closed', 'project_deleted']) })
+    .readonly(),
 } satisfies { [M in RpcMethod]: z.ZodType<RpcMethodMap[M]['params']> };
 export const rpcRequestEnvelopeSchema = z
   .object({ jsonrpc: z.literal('2.0'), id: z.number().int().nonnegative(), method: z.string() })
@@ -332,4 +335,5 @@ export const rpcResultSchemas = {
   'workflow.graph': workflowGraphSchema,
   'workflow.activity': z.array(activityEventSchema).readonly(),
   'workspace.openInVSCode': vscodeStatusSchema,
+  'vscode.closeForProject': z.strictObject({ accepted: z.literal(true) }).readonly(),
 } satisfies { [M in RpcMethod]: z.ZodType<RpcMethodMap[M]['result']> };

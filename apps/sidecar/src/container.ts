@@ -609,6 +609,12 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     ids,
     logger,
     events: {
+      windowClosed: (_projectId, root, reason) => {
+        vscodeLauncher.windowClosed(root, reason);
+      },
+      windowDisconnected: (root) => {
+        vscodeLauncher.windowDisconnected(root);
+      },
       publishStatus: (value) => {
         vscodeConnected = value.connected;
         vscodeStatus = {
@@ -631,6 +637,10 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     },
   });
   const vscodeLauncher = new VSCodeLauncher({
+    clock,
+    onLaunched: (projectId, root, launchedAt) => {
+      vscodeBridge.recordLaunch(projectId, root, launchedAt);
+    },
     processes: processRegistry,
     fileSystem,
     runner: new NodeCodeCliRunner(env),
@@ -995,9 +1005,12 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     startedAt: clock.monotonicMs(),
     logger,
     shutdownHooks: [
-      () => {
+      async () => {
         fxJobStopped = true;
-        return vscodeBridge.stop();
+        const settings = await settingsService.get();
+        if (settings.ok) await vscodeBridge.closeWindows(settings.value.vscode, 'studio_exit');
+        await vscodeBridge.stop();
+        processRegistry.stop();
       },
       () => {
         fxJobStopped = true;
@@ -1005,7 +1018,6 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
       },
       () => {
         activityRecorder.stop();
-        processRegistry.stop();
       },
     ],
     ...(dependencies.exit === undefined ? {} : { exit: dependencies.exit }),
@@ -1053,9 +1065,20 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     Promise.resolve({ ok: true, value: fallbackDecider.resolve(decision) }),
   );
   server.register('project.list', () => projectService.list());
+  server.register('vscode.closeForProject', async ({ projectId, reason }) => {
+    const settings = await settingsService.get();
+    if (!settings.ok) return settings;
+    void vscodeBridge.closeWindows(settings.value.vscode, reason, projectId);
+    return { ok: true, value: { accepted: true } };
+  });
   server.register('project.delete', async ({ projectId }) => {
     await startupRecovery;
-    return projectService.delete(projectId);
+    const result = await projectService.delete(projectId);
+    if (result.ok) {
+      const settings = await settingsService.get();
+      if (settings.ok) void vscodeBridge.closeWindows(settings.value.vscode, 'project_deleted', projectId);
+    }
+    return result;
   });
   server.register('project.create', ({ name, workspaceRoot }) => projectService.create(name, workspaceRoot));
   server.register('project.setActive', async ({ projectId }) => {

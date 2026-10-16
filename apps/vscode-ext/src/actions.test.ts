@@ -23,6 +23,13 @@ class FakeEditor implements EditorPort {
   public sentDiagnostics: readonly unknown[] = [];
   public diagnostics: ReturnType<EditorPort['getDiagnostics']> = [];
   public revealSetting = true;
+  public closeResult = true;
+  public closeCalls = 0;
+  public closedAcks: (boolean | undefined)[] = [];
+  public closeWindow(): Promise<boolean> {
+    this.closeCalls += 1;
+    return Promise.resolve(this.closeResult);
+  }
   public cleared = 0;
 
   public async reveal(absolutePath: string, line?: number): Promise<void> {
@@ -48,7 +55,8 @@ class FakeEditor implements EditorPort {
   public sendDiagnostics(diagnostics: Parameters<EditorPort['sendDiagnostics']>[0]): void {
     this.sentDiagnostics = diagnostics;
   }
-  public ack(ref: number): void {
+  public ack(ref: number, closed?: boolean): void {
+    this.closedAcks.push(closed);
     this.acknowledgements.push(ref);
   }
   public revealChangedFiles(): boolean {
@@ -230,5 +238,17 @@ describe('diff content LRU', () => {
     expect(store.get('0')).toBeDefined();
     expect(store.get('1')).toBeUndefined();
     expect(store.get('20')).toBeDefined();
+  });
+});
+
+describe('VSC-01 close window', () => {
+  it.each([true, false])('acks close outcome %s including a cancelled prompt', async (closed) => {
+    const state = setup();
+    state.editor.closeResult = closed;
+    state.dispatch({ type: 'close_window', ref: 91, reason: 'project_closed' });
+    await Promise.resolve();
+    expect(state.editor.closeCalls).toBe(1);
+    expect(state.editor.acknowledgements).toEqual([91]);
+    expect(state.editor.closedAcks).toEqual([closed]);
   });
 });

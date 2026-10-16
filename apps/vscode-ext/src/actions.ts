@@ -25,7 +25,8 @@ export interface EditorPort {
   notify(level: 'info' | 'warning' | 'error', message: string): void;
   getDiagnostics(): readonly DiagnosticFile[];
   sendDiagnostics(diagnostics: readonly DiagnosticMessage[]): void;
-  ack(ref: number): void;
+  ack(ref: number, closed?: boolean): void;
+  closeWindow(): Promise<boolean>;
   revealChangedFiles(): boolean;
   log(message: string): void;
 }
@@ -84,6 +85,17 @@ export function registerActions(
 ): () => void {
   return onMessage((message) => {
     switch (message.type) {
+      case 'close_window':
+        void editor
+          .closeWindow()
+          .then((closed) => {
+            editor.ack(message.ref, closed);
+          })
+          .catch((error: unknown) => {
+            editor.log(`Could not close VS Code window: ${error instanceof Error ? error.message : 'unknown'}`);
+            editor.ack(message.ref, false);
+          });
+        return;
       case 'reveal': {
         const safe = resolveWorkspacePath(editor.workspaceRoot, message.path);
         if (safe) void editor.reveal(safe.absolutePath, message.line);

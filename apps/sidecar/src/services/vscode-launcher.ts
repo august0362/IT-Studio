@@ -1,9 +1,10 @@
 import type { ProjectId } from '@itstudio/schemas';
 import type { IProcessTracker } from '../ports/process-tracker.js';
-import { trackProcess } from './process-activity.js';
+import { trackProcess, type ProcessActivity } from './process-activity.js';
 import { delimiter, dirname, join, resolve } from 'node:path';
 import type { VSCodeSettings, VSCodeStatus } from '@itstudio/schemas';
 import type { Logger } from 'pino';
+import { systemClock, type IClock } from '../infra/clock.js';
 import type { IFileSystem } from '../ports/file-system.js';
 import type { ICodeCliRunner } from '../ports/code-cli-runner.js';
 import { makeResolvedCodeCli, parseCodeCmd, type ResolvedCodeCli } from '../domain/code-cli.js';
@@ -25,6 +26,8 @@ export interface VscodeLauncherDependencies {
   readonly repositoryRoot: string;
   readonly e2e?: boolean;
   readonly connected: () => boolean;
+  readonly clock?: IClock;
+  readonly onLaunched?: (projectId: ProjectId, workspaceRoot: string, launchedAt: number) => void;
 }
 
 export interface VscodeActivation {
@@ -37,7 +40,11 @@ export class VSCodeLauncher {
   private readonly dependencies: VscodeLauncherDependencies;
   private readonly extensionVersion: string;
   private extensionCheck: Promise<boolean> | undefined;
-  private readonly launchedProjects = new Set<string>();
+  private readonly launchedProjects = new Map<
+    string,
+    { readonly projectId?: ProjectId; readonly workspaceRoot: string; readonly launchedAt: number }
+  >();
+  private readonly activities = new Map<string, ProcessActivity>();
 
   constructor(dependencies: VscodeLauncherDependencies, extensionVersion = '0.1.0') {
     this.dependencies = dependencies;
@@ -67,7 +74,10 @@ export class VSCodeLauncher {
     if (this.dependencies.e2e) {
       activity?.step('launch');
       activity?.step('session');
-      activity?.finish('VS Code session ready');
+      // Keep the process open while its VS Code window is connected.
+      if (settings.autoLaunch && !this.launchedProjects.has(root)) {
+        this.recordLaunch(root, projectId, activity);
+      }
       this.dependencies.events.publishStatus({ installed: true, extensionInstalled: true, ...baseStatus });
       return;
     }
@@ -95,15 +105,45 @@ export class VSCodeLauncher {
     }
     this.dependencies.events.publishStatus({ installed: true, extensionInstalled, ...baseStatus });
     if (this.launchedProjects.has(root)) return;
-    const launched = this.dependencies.runner.launch(cli, [root]);
+    const launched = this.dependencies.runner.launch(cli, ['--new-window', root]);
     if (!launched.ok) {
       activity?.fail(launched.error);
       this.warnOnce('Visual Studio Code could not be launched. Check the installation and try again.');
       return;
     }
-    this.launchedProjects.add(root);
+    this.recordLaunch(root, projectId, activity);
     activity?.step('session', undefined, { extensionInstalled, connected: this.dependencies.connected() });
-    activity?.finish('VS Code launched');
+    // The session module completes when the window closes.
+  }
+
+  private recordLaunch(
+    workspaceRoot: string,
+    projectId: ProjectId | undefined,
+    activity: ProcessActivity | undefined,
+  ): void {
+    const launchedAt = (this.dependencies.clock ?? systemClock).monotonicMs();
+    this.launchedProjects.set(workspaceRoot, {
+      workspaceRoot,
+      launchedAt,
+      ...(projectId === undefined ? {} : { projectId }),
+    });
+    if (activity) this.activities.set(workspaceRoot, activity);
+    if (projectId !== undefined) this.dependencies.onLaunched?.(projectId, workspaceRoot, launchedAt);
+  }
+
+  windowClosed(workspaceRoot: string, reason: 'studio_exit' | 'project_closed' | 'project_deleted'): void {
+    const root = resolve(workspaceRoot);
+    const output = `closed by IT Studio (${reason.replaceAll('_', ' ')})`;
+    this.activities.get(root)?.finish(output);
+    this.activities.delete(root);
+    this.launchedProjects.delete(root);
+  }
+
+  windowDisconnected(workspaceRoot: string): void {
+    const root = resolve(workspaceRoot);
+    this.activities.get(root)?.finish('VS Code window disconnected');
+    this.activities.delete(root);
+    this.launchedProjects.delete(root);
   }
 
   private async ensureExtension(cli: ResolvedCodeCli): Promise<boolean> {

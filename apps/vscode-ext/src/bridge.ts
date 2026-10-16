@@ -161,6 +161,11 @@ function parseMessage(data: unknown): SidecarToExt | undefined {
       return typeof parsed.sessionId === 'string' ? (parsed as unknown as SidecarToExt) : undefined;
     case 'ping':
       return { type: 'ping' };
+    case 'close_window':
+      if (!Number.isSafeInteger(parsed.ref) || typeof parsed.ref !== 'number' || parsed.ref < 0) return undefined;
+      if (parsed.reason !== 'studio_exit' && parsed.reason !== 'project_closed' && parsed.reason !== 'project_deleted')
+        return undefined;
+      return { type: 'close_window', ref: parsed.ref, reason: parsed.reason };
     case 'request_diagnostics':
       return Number.isInteger(parsed.ref) ? { type: 'request_diagnostics', ref: parsed.ref as number } : undefined;
     case 'reveal':

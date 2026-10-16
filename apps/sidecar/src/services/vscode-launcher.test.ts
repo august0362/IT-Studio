@@ -1,13 +1,18 @@
 import { createProcessProbe } from './process-test-helper.js';
 import type { IProcessTracker } from '../ports/process-tracker.js';
 import { join } from 'node:path';
-import type { VSCodeSettings } from '@itstudio/schemas';
-import { describe, expect, it } from 'vitest';
+import type { VSCodeSettings, RpcNotificationMap } from '@itstudio/schemas';
+import { createFakeClock, type IClock } from '../infra/clock.js';
+import { projectIdSchema } from '../validation/brand.js';
+import { createFakeIdGenerator } from '../infra/id.js';
+import { EventBus } from '../rpc/event-bus.js';
+import { ProcessRegistry } from './process-registry.js';
+import { describe, expect, it, vi } from 'vitest';
 import { createLogger } from '../infra/logger.js';
 import type { FileStat, IFileSystem } from '../ports/file-system.js';
 import type { CodeCliOutput, ICodeCliRunner } from '../ports/code-cli-runner.js';
 import type { ResolvedCodeCli } from '../domain/code-cli.js';
-import { VSCodeLauncher } from './vscode-launcher.js';
+import { VSCodeLauncher, type VscodeLauncherDependencies } from './vscode-launcher.js';
 
 class FakeFileSystem implements IFileSystem {
   readonly files = new Map<string, Uint8Array>();
@@ -82,6 +87,9 @@ class FakeRunner implements ICodeCliRunner {
 }
 
 const settings: VSCodeSettings = {
+  closeWithStudio: true,
+  closeWithProject: true,
+  closeManuallyOpened: false,
   autoLaunch: true,
   codeExecutable: null,
   showDiffBeforeValidate: true,
@@ -91,6 +99,8 @@ const settings: VSCodeSettings = {
 function setup(
   options: {
     readonly processes?: IProcessTracker;
+    readonly onLaunched?: VscodeLauncherDependencies['onLaunched'];
+    readonly clock?: IClock;
     readonly files?: readonly string[];
     readonly env?: NodeJS.ProcessEnv;
     readonly platform?: NodeJS.Platform;
@@ -104,6 +114,8 @@ function setup(
   runner.listed = options.output ?? '';
   const statuses: unknown[] = [];
   const launcher = new VSCodeLauncher({
+    ...(options.clock === undefined ? {} : { clock: options.clock }),
+    ...(options.onLaunched === undefined ? {} : { onLaunched: options.onLaunched }),
     ...(options.processes === undefined ? {} : { processes: options.processes }),
     fileSystem,
     runner,
@@ -125,9 +137,24 @@ describe('VSCodeLauncher', () => {
     const h = setup({ files: [cli], processes: probe.tracker });
     await h.launcher.activate({ workspaceRoot: process.cwd(), settings: { ...settings, codeExecutable: cli } });
     expect(probe.start).toHaveBeenCalledWith('vscode_launch', expect.objectContaining({ title: 'Open VS Code' }));
-    for (const module of ['locate', 'launch', 'session'])
+    for (const module of ['locate', 'launch'])
       expect(probe.module).toHaveBeenCalledWith(expect.anything(), module, expect.objectContaining({ state: 'done' }));
-    expect(probe.end).toHaveBeenCalledOnce();
+    expect(probe.module).toHaveBeenCalledWith(
+      expect.anything(),
+      'session',
+      expect.objectContaining({ state: 'active' }),
+    );
+    expect(probe.end).not.toHaveBeenCalled();
+    expect(h.runner.launches[0]?.args).toEqual(['--new-window', process.cwd()]);
+    h.launcher.windowClosed(process.cwd(), 'project_closed');
+    expect(probe.end).toHaveBeenCalledWith(expect.anything(), 'closed by IT Studio (project closed)');
+    expect(probe.module).toHaveBeenCalledWith(
+      expect.anything(),
+      'session',
+      expect.objectContaining({ output: 'closed by IT Studio (project closed)' }),
+    );
+    await h.launcher.activate({ workspaceRoot: process.cwd(), settings: { ...settings, codeExecutable: cli } });
+    expect(h.runner.launches).toHaveLength(2);
   });
   it('TC-M7-041 resolves a configured executable before PATH and default locations', async () => {
     const configured = join(process.cwd(), 'custom', 'code');
@@ -253,5 +280,61 @@ describe('VSCodeLauncher', () => {
     expect(instance.runner.runs).toHaveLength(0);
     expect(instance.runner.launches).toHaveLength(0);
     expect(instance.statuses[0]).toMatchObject({ installed: true, extensionInstalled: true });
+  });
+});
+
+describe('VSC-01 launch process lifecycle', () => {
+  it('persists the final session output in the real process registry when Studio closes the window', async () => {
+    const registry = new ProcessRegistry({
+      repository: { load: () => [], save: () => undefined },
+      events: new EventBus<RpcNotificationMap>(),
+      clock: createFakeClock(),
+      ids: createFakeIdGenerator(['10000000-0000-4000-8000-000000000001']),
+      logger: createLogger({ streams: [] }),
+      dispatch: () => Promise.resolve({ ok: true, value: undefined }),
+      cancelRecovered: () => Promise.resolve({ ok: true, value: undefined }),
+    });
+    try {
+      const instance = setup({ e2e: true, processes: registry });
+      await instance.launcher.activate({ workspaceRoot: process.cwd(), settings });
+      expect(registry.list({ limit: 10 })).toMatchObject({
+        ok: true,
+        value: [{ status: 'running', kind: 'vscode_launch' }],
+      });
+      instance.launcher.windowClosed(process.cwd(), 'project_closed');
+      const result = registry.list({ limit: 10 });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error('Expected process records');
+      expect(result.value[0]?.status).toBe('ended');
+      expect(result.value[0]?.modules.find((module) => module.id === 'session')).toMatchObject({
+        state: 'done',
+        output: 'closed by IT Studio (project closed)',
+      });
+    } finally {
+      registry.stop();
+    }
+  });
+});
+
+describe('VSC-01 launcher ownership metadata', () => {
+  it('records only successful launches with project, workspace, and injected launch time', async () => {
+    const cli = join(process.cwd(), 'ownership-cli', 'code');
+    const clock = createFakeClock();
+    clock.advance(123);
+    const onLaunched = vi.fn<NonNullable<VscodeLauncherDependencies['onLaunched']>>();
+    const instance = setup({ files: [cli], onLaunched, clock });
+    const projectId = projectIdSchema.parse('20000000-0000-4000-8000-000000000001');
+    const activation = { projectId, workspaceRoot: process.cwd(), settings: { ...settings, codeExecutable: cli } };
+    await instance.launcher.activate(activation);
+    await instance.launcher.activate(activation);
+    expect(onLaunched).toHaveBeenCalledExactlyOnceWith(projectId, process.cwd(), 123);
+    instance.launcher.windowDisconnected(process.cwd());
+    clock.advance(10);
+    await instance.launcher.activate(activation);
+    expect(onLaunched).toHaveBeenLastCalledWith(projectId, process.cwd(), 133);
+    const missing = setup({ onLaunched });
+    await missing.launcher.activate({ ...activation, settings: { ...settings, codeExecutable: null } });
+    await instance.launcher.activate({ ...activation, settings: { ...activation.settings, autoLaunch: false } });
+    expect(onLaunched).toHaveBeenCalledTimes(2);
   });
 });
