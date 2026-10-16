@@ -148,7 +148,7 @@
   color: #ffacba;
   border-radius: 8px;
 }
-.studio-empty {
+.studio-root .studio-empty {
   padding: 14px 22px;
   color: #a6bdc8;
 }

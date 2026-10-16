@@ -13,6 +13,7 @@ import { IngestProgress } from './IngestProgress';
 import { ingestReducer, initialIngestState } from './ingest-store';
 import { TestQueryPanel } from './TestQueryPanel';
 import { useNavigationIntent } from '../../state/navigation-intent';
+import { PageHeader } from '../../components/ui/PageHeader';
 
 export function KnowledgePage({
   project,
@@ -73,7 +74,7 @@ export function KnowledgePage({
     documentsQuery.error instanceof RpcCallError ? documentsQuery.error.appError : null;
   return (
     <section className="space-y-6" aria-label={t('knowledge.heading')}>
-      <h1 className="text-xl font-semibold">{t('knowledge.heading')}</h1>
+      <PageHeader icon="knowledge" title={t('knowledge.heading')} subtitle={t('character.knowledge')} />
       {projectId === null ? <p role="status">{t('knowledge.pickProject')}</p> : null}
       {storedError !== null ? (
         <p className="text-danger" role="alert">

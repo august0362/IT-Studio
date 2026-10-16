@@ -201,7 +201,7 @@ Work order and QA verdict: `docs/tasks/OWNER-FB1.md`.
 
 - [x] **OWNER-FB3** (C) Process module states/captions, pipeline roles use keyed providers + capability filter, delete updates counts.
 
-- [ ] **UX-04** (C) Workflow map becomes the "System map" tab of Processes; sidebar entry removed.
+- [x] **UX-04** (C) Workflow map becomes the "System map" tab of Processes; sidebar entry removed.
 
 - [x] **WC-02** (C) Nine more built-in web chats (DeepSeek, Qwen, Le Chat, Copilot, Kimi, Meta AI, Poe, HuggingChat, Z.ai), upgrade-safe one-time merge.
 
@@ -211,7 +211,7 @@ Work order and QA verdict: `docs/tasks/OWNER-FB1.md`.
 
 - [x] **VSC-01** (C) Close Studio-launched VS Code windows on project close/delete and on Studio exit via the extension bridge (never kill processes).
 
-- [ ] **UX-06** (C, gpt-6.1-sol high) Theme round 2: icons, page headers, empty states, micro-interactions, collapsible sidebar, logomark.
+- [x] **UX-06** (C, gpt-6.1-sol high) Theme round 2: icons, page headers, empty states, micro-interactions, collapsible sidebar, logomark.
 - [ ] **DX-02** (C) Vite ignores `src-tauri` (done in worktree; land when the owner is not running dev).
 
 ## PROC — Processes *(D40)*

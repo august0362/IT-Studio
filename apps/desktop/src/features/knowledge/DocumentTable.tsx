@@ -5,6 +5,9 @@ import { useTranslation } from 'react-i18next';
 import { formatDate } from '../../i18n/format';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useRpcClient } from '../../rpc/rpc-context';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Icon } from '../../components/ui/Icon';
+import { Button } from '../../components/ui/primitives';
 
 function relativeSource(source: string, root: string): string | null {
   const normalizedRoot = root.replace(/[\\/]+$/, '');
@@ -120,7 +123,30 @@ export function DocumentTable({
           </tbody>
         </table>
       </div>
-      {documents.length === 0 ? <p className="text-text-muted">{t('knowledge.noDocuments')}</p> : null}
+      {documents.length === 0 ? (
+        <EmptyState
+          icon="knowledge"
+          description={t('knowledge.noDocuments')}
+          action={
+            projectId === null ? (
+              <a className="studio-button studio-button-primary" href="#projects">
+                <Icon name="projects" />
+                {t('nav.projects')}
+              </a>
+            ) : (
+              <Button
+                tone="primary"
+                onClick={() => {
+                  document.getElementById('knowledge-paths')?.focus();
+                }}
+              >
+                <Icon name="plus" />
+                {t('knowledge.addHeading')}
+              </Button>
+            )
+          }
+        />
+      ) : null}
       <ConfirmDialog
         cancelLabel={t('knowledge.cancel')}
         confirmLabel={t('knowledge.delete')}

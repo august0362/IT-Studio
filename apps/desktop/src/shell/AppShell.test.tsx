@@ -119,7 +119,6 @@ describe('AppShell', () => {
       '#knowledge',
       '#gallery',
       '#cost',
-      '#workflow',
       '#processes',
       '#settings',
     ]);
@@ -128,6 +127,27 @@ describe('AppShell', () => {
       within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('link', { name: 'Web chat' }),
     ).toHaveAttribute('href', '#webchat');
     expect(document.querySelector('footer[role="status"]')).toBeVisible();
+  });
+
+  it('removes Workflow from navigation and opens its legacy hash in the System map tab', async () => {
+    window.history.replaceState(null, '', '#workflow');
+    setup();
+    const nav = within(screen.getByRole('navigation', { name: 'Main navigation' }));
+    expect(nav.queryByRole('link', { name: 'Workflow' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('tab', { name: 'System map' })).toHaveAttribute('aria-selected', 'true');
+    expect(window.location.hash).toBe('#processes');
+    expect(localStorage.getItem('itstudio.processesTab')).toBe('system-map');
+  });
+
+  it('persists the selected Processes tab and restores it on the next visit', async () => {
+    setup();
+    const nav = within(screen.getByRole('navigation', { name: 'Main navigation' }));
+    fireEvent.click(nav.getByRole('link', { name: 'Processes' }));
+    fireEvent.click(await screen.findByRole('tab', { name: 'System map' }));
+    expect(localStorage.getItem('itstudio.processesTab')).toBe('system-map');
+    fireEvent.click(nav.getByRole('link', { name: 'Chat' }));
+    fireEvent.click(nav.getByRole('link', { name: 'Processes' }));
+    expect(await screen.findByRole('tab', { name: 'System map' })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('opens and activates project tabs through RPC, and allows closing them', async () => {

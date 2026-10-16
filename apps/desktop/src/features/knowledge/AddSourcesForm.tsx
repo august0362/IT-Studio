@@ -3,6 +3,7 @@ import type { JSX } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ErrorPanel } from '../../components/ErrorPanel';
+import { Icon } from '../../components/ui/Icon';
 import { RpcCallError } from '../../rpc/rpc-client';
 import { useRpcClient } from '../../rpc/rpc-context';
 
@@ -94,13 +95,14 @@ export function AddSourcesForm({
       />
       {projectId === null ? <p role="status">{t('knowledge.pickProject')}</p> : null}
       <button
-        className="rounded border border-border px-3 py-2 disabled:opacity-50"
+        className="studio-button studio-button-primary disabled:opacity-50"
         disabled={projectId === null || busy || paths.trim().length === 0}
         onClick={() => {
           void submit();
         }}
         type="button"
       >
+        <Icon name="plus" />
         {t('knowledge.add')}
       </button>
       {error !== null ? <ErrorPanel error={error} /> : null}

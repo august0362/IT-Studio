@@ -3,6 +3,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ErrorPanel } from '../../components/ErrorPanel';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Icon } from '../../components/ui/Icon';
+import { Button } from '../../components/ui/primitives';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useRpcQuery } from '../../hooks/use-rpc-query';
 import { RpcCallError } from '../../rpc/rpc-client';
@@ -71,12 +75,19 @@ export function ProjectsPage({
 
   return (
     <section aria-label={t('nav.projects')} className="space-y-4">
-      <header className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold">{t('nav.projects')}</h1>
-        <button className="rounded bg-primary px-3 py-2 text-primary-fg" onClick={onNew} type="button">
-          {t('projects.new')}
-        </button>
-      </header>
+      <PageHeader
+        icon="projects"
+        title={t('nav.projects')}
+        subtitle={t('character.projects')}
+        action={
+          projects.length > 0 || !projectsQuery.isSuccess ? (
+            <Button tone="primary" onClick={onNew}>
+              <Icon name="plus" />
+              {t('projects.new')}
+            </Button>
+          ) : undefined
+        }
+      />
       <label className="block">
         {t('projects.search')}
         <input
@@ -94,7 +105,16 @@ export function ProjectsPage({
       ) : projectsQuery.isError ? (
         <ErrorPanel error={projectsQuery.error.appError} />
       ) : projects.length === 0 ? (
-        <p className="studio-empty">{t('projects.empty')}</p>
+        <EmptyState
+          icon="projects"
+          description={t('projects.empty')}
+          action={
+            <Button tone="primary" onClick={onNew}>
+              <Icon name="plus" />
+              {t('projects.new')}
+            </Button>
+          }
+        />
       ) : filtered.length === 0 ? (
         <p className="studio-empty">{t('projects.noMatches')}</p>
       ) : (

@@ -1,6 +1,26 @@
 {
+  "character": {
+    "workspace": "Workspace",
+    "toggleSidebar": "Toggle sidebar",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar",
+    "projects": "A home for every idea, from first conversation to finished work.",
+    "chat": "Think it through. Make something good.",
+    "webchat": "Your web conversations, together in one workspace.",
+    "code": "Turn an idea into working code, one reviewed step at a time.",
+    "knowledge": "Keep the context that makes your answers better.",
+    "gallery": "Your ideas, made visible. Create images from a chat.",
+    "cost": "A clear view of what you spend and what you earn.",
+    "processes": "Follow the work happening across your studio.",
+    "workflow": "See how each part of your studio connects.",
+    "settings": "Make the studio work your way.",
+    "noProcesses": "No matching activity yet. Start in Chat to see your work here.",
+    "startChat": "Start a conversation",
+    "openChat": "Open Chat"
+  },
   "processes": {
     "heading": "Processes",
+    "tabs": { "label": "Process views", "processes": "Processes", "system-map": "System map" },
     "counts": "Process counts",
     "allProjects": "All projects",
     "kind": "Kind",
@@ -736,6 +756,7 @@
     "applyFilters": "Apply filters"
   },
   "workflow": {
+    "showProcesses": "Show processes",
     "heading": "Workflow",
     "graphLabel": "Workflow graph",
     "minimapLabel": "Workflow minimap",

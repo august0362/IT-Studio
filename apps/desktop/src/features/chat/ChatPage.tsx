@@ -13,6 +13,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { JSX } from 'react';
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { ErrorPanel } from '../../components/ErrorPanel';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Icon } from '../../components/ui/Icon';
+import { Button } from '../../components/ui/primitives';
 import { RpcCallError } from '../../rpc/rpc-client';
 import { useTranslation } from 'react-i18next';
 import { useRpcQuery } from '../../hooks/use-rpc-query';
@@ -233,8 +237,22 @@ function ProjectChatPage({ projectId, onNavigate = () => undefined }: ChatPagePr
   if (projectId === null) {
     return (
       <section aria-label={t('chat.heading')} className="rounded border border-border bg-surface p-6">
-        <h1 className="mb-2 text-xl">{t('chat.heading')}</h1>
-        <p>{t('chat.pickProject')}</p>
+        <PageHeader icon="chat" title={t('chat.heading')} subtitle={t('character.chat')} />
+        <EmptyState
+          icon="chat"
+          description={t('chat.pickProject')}
+          action={
+            <Button
+              tone="primary"
+              onClick={() => {
+                onNavigate('projects');
+              }}
+            >
+              <Icon name="projects" />
+              {t('nav.projects')}
+            </Button>
+          }
+        />
       </section>
     );
   }
@@ -254,46 +272,68 @@ function ProjectChatPage({ projectId, onNavigate = () => undefined }: ChatPagePr
         selectedId={conversationId}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-4 border-b border-border p-3">
-          <h1 className="truncate font-semibold">{active?.title ?? t('chat.heading')}</h1>
-          <WebChatMenu
-            onEdit={() => {
-              onNavigate('settings-web-chat');
-            }}
-            projectId={projectId}
-          />
-          {active !== undefined ? (
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                aria-label={t('chat.useKnowledge')}
-                checked={active.ragEnabled}
-                onChange={(event) => {
-                  void rpc
-                    .call('chat.setRagEnabled', { conversationId: active.id, enabled: event.target.checked })
-                    .then((updated) => {
-                      queryClient.setQueryData<readonly Conversation[]>(
-                        ['chat.listConversations', { projectId }],
-                        (current) => (current ?? []).map((item) => (item.id === updated.id ? updated : item)),
-                      );
-                    });
+        <PageHeader
+          icon="chat"
+          title={active?.title ?? t('chat.heading')}
+          subtitle={t('character.chat')}
+          action={
+            <div className="flex flex-wrap items-center gap-3">
+              <WebChatMenu
+                onEdit={() => {
+                  onNavigate('settings-web-chat');
                 }}
-                type="checkbox"
+                projectId={projectId}
               />
-              {t('chat.useKnowledge')}
-            </label>
-          ) : null}
-          <ModelPicker
-            config={routerConfig}
-            models={modelsQuery.data ?? []}
-            onChange={(model) => {
-              void changeModel(model);
-            }}
-            onLock={(locked) => void lockModel(locked)}
-            value={selectedModel}
-          />
-        </header>
+              {active !== undefined ? (
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    aria-label={t('chat.useKnowledge')}
+                    checked={active.ragEnabled}
+                    onChange={(event) => {
+                      void rpc
+                        .call('chat.setRagEnabled', { conversationId: active.id, enabled: event.target.checked })
+                        .then((updated) => {
+                          queryClient.setQueryData<readonly Conversation[]>(
+                            ['chat.listConversations', { projectId }],
+                            (current) => (current ?? []).map((item) => (item.id === updated.id ? updated : item)),
+                          );
+                        });
+                    }}
+                    type="checkbox"
+                  />
+                  {t('chat.useKnowledge')}
+                </label>
+              ) : null}
+              <ModelPicker
+                config={routerConfig}
+                models={modelsQuery.data ?? []}
+                onChange={(model) => {
+                  void changeModel(model);
+                }}
+                onLock={(locked) => void lockModel(locked)}
+                value={selectedModel}
+              />
+            </div>
+          }
+        />
         {conversationId === null ? (
-          <div className="studio-empty m-4 grid flex-1 place-items-center">{t('chat.chooseConversation')}</div>
+          <div className="m-4 grid flex-1 place-items-center overflow-auto">
+            <EmptyState
+              icon="chat"
+              description={t('chat.chooseConversation')}
+              action={
+                <Button
+                  tone="primary"
+                  onClick={() => {
+                    void createConversation();
+                  }}
+                >
+                  <Icon name="plus" />
+                  {t('character.startChat')}
+                </Button>
+              }
+            />
+          </div>
         ) : (
           <MessageList
             bubbles={state.bubbles}

@@ -1,5 +1,6 @@
 import type { JSX, KeyboardEvent } from 'react';
 import { Button, Textarea } from '../../components/ui/primitives';
+import { Icon } from '../../components/ui/Icon';
 import { useTranslation } from 'react-i18next';
 
 export function Composer({
@@ -38,10 +39,12 @@ export function Composer({
       />
       {busy ? (
         <Button onClick={onStop} type="button">
+          <Icon name="stop" />
           {t('chat.stop')}
         </Button>
       ) : (
         <Button tone="primary" disabled={!value.trim()} onClick={onSend} type="button">
+          <Icon name="send" />
           {t('chat.send')}
         </Button>
       )}

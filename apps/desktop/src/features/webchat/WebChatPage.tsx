@@ -1,4 +1,5 @@
 import type { AppError, ProjectId, WebChatLayout, WebChatSettings, WebChatWindowLayout } from '@itstudio/schemas';
+import { PageHeader } from '../../components/ui/PageHeader';
 import { useQueryClient } from '@tanstack/react-query';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -194,104 +195,110 @@ function WebChatWorkspace({ host, initial, suspended, layoutRevision, onSettings
 
   return (
     <section aria-labelledby="webchat-heading" className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-2xl font-semibold" id="webchat-heading">
-          {t('nav.webChat')}
-        </h2>
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2">
-            Layout
-            <select
-              aria-label="Web chat layout"
-              className="rounded border border-border bg-surface px-3 py-2"
-              value={layout.mode ?? 'tiled'}
-              disabled={saving || suspended}
-              onChange={(event) => {
-                if (event.target.value === 'free') {
-                  const windows = freeWindows.length
-                    ? freeWindows
-                    : layout.panes.map((linkId, index) => ({
-                        linkId,
-                        x: 24 + index * 34,
-                        y: 24 + index * 34,
-                        width: 560,
-                        height: 400,
-                        maximized: false,
-                        minimized: false,
-                        zIndex: index,
-                      }));
-                  saveWindows(windows);
-                } else void persist({ ...layout, mode: 'tiled' });
-              }}
-            >
-              <option value="tiled">Tiled</option>
-              <option value="free">Free</option>
-            </select>
-          </label>
-          {layout.mode === 'free' ? (
+      <PageHeader
+        icon="web"
+        title={t('nav.webChat')}
+        subtitle={t('character.webchat')}
+        id="webchat-heading"
+        level={2}
+        action={
+          <div className="flex items-center gap-3">
             <label className="flex items-center gap-2">
-              Add window
+              Layout
               <select
-                aria-label="Add web chat window"
-                value=""
-                onChange={(event) => {
-                  const id = links.find((item) => item.id === event.target.value)?.id;
-                  if (!id) return;
-                  const found = freeWindows.find((item) => item.linkId === id);
-                  if (found)
-                    saveWindows(freeWindows.map((item) => (item.linkId === id ? { ...item, minimized: false } : item)));
-                  else if (freeWindows.length < 6)
-                    saveWindows([
-                      ...freeWindows,
-                      {
-                        linkId: id,
-                        x: 24 + freeWindows.length * 30,
-                        y: 24 + freeWindows.length * 30,
-                        width: 560,
-                        height: 400,
-                        maximized: false,
-                        minimized: false,
-                        zIndex: freeWindows.length,
-                      },
-                    ]);
-                  event.target.value = '';
-                }}
-              >
-                <option value="">Choose site</option>
-                {links.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-          {layout.mode !== 'free' ? (
-            <label className="flex items-center gap-2">
-              {t('webChat.paneCount')}
-              <select
+                aria-label="Web chat layout"
                 className="rounded border border-border bg-surface px-3 py-2"
-                disabled={saving || suspended || links.length === 0}
-                value={layout.panes.length}
+                value={layout.mode ?? 'tiled'}
+                disabled={saving || suspended}
                 onChange={(event) => {
-                  void persist(withPaneCount(layout, links, Number(event.target.value)));
+                  if (event.target.value === 'free') {
+                    const windows = freeWindows.length
+                      ? freeWindows
+                      : layout.panes.map((linkId, index) => ({
+                          linkId,
+                          x: 24 + index * 34,
+                          y: 24 + index * 34,
+                          width: 560,
+                          height: 400,
+                          maximized: false,
+                          minimized: false,
+                          zIndex: index,
+                        }));
+                    saveWindows(windows);
+                  } else void persist({ ...layout, mode: 'tiled' });
                 }}
               >
-                {[1, 2, 3, 4].map((count) => (
-                  <option key={count} value={count}>
-                    {count}
-                  </option>
-                ))}
+                <option value="tiled">Tiled</option>
+                <option value="free">Free</option>
               </select>
             </label>
-          ) : null}
-          {onSettings ? (
-            <button className="rounded border border-border px-3 py-2" onClick={onSettings} type="button">
-              {t('chat.webChat.editLinks')}
-            </button>
-          ) : null}
-        </div>
-      </div>
+            {layout.mode === 'free' ? (
+              <label className="flex items-center gap-2">
+                Add window
+                <select
+                  aria-label="Add web chat window"
+                  value=""
+                  onChange={(event) => {
+                    const id = links.find((item) => item.id === event.target.value)?.id;
+                    if (!id) return;
+                    const found = freeWindows.find((item) => item.linkId === id);
+                    if (found)
+                      saveWindows(
+                        freeWindows.map((item) => (item.linkId === id ? { ...item, minimized: false } : item)),
+                      );
+                    else if (freeWindows.length < 6)
+                      saveWindows([
+                        ...freeWindows,
+                        {
+                          linkId: id,
+                          x: 24 + freeWindows.length * 30,
+                          y: 24 + freeWindows.length * 30,
+                          width: 560,
+                          height: 400,
+                          maximized: false,
+                          minimized: false,
+                          zIndex: freeWindows.length,
+                        },
+                      ]);
+                    event.target.value = '';
+                  }}
+                >
+                  <option value="">Choose site</option>
+                  {links.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {layout.mode !== 'free' ? (
+              <label className="flex items-center gap-2">
+                {t('webChat.paneCount')}
+                <select
+                  className="rounded border border-border bg-surface px-3 py-2"
+                  disabled={saving || suspended || links.length === 0}
+                  value={layout.panes.length}
+                  onChange={(event) => {
+                    void persist(withPaneCount(layout, links, Number(event.target.value)));
+                  }}
+                >
+                  {[1, 2, 3, 4].map((count) => (
+                    <option key={count} value={count}>
+                      {count}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {onSettings ? (
+              <button className="rounded border border-border px-3 py-2" onClick={onSettings} type="button">
+                {t('chat.webChat.editLinks')}
+              </button>
+            ) : null}
+          </div>
+        }
+      />
       {warning ? (
         <div className="flex items-start gap-3 rounded border border-warning bg-surface p-3" role="status">
           <p className="flex-1 text-sm">{t('webChat.signInWarning')}</p>
