@@ -1,6 +1,6 @@
 # M9-FIX6 — Honor an explicit MSI installation directory
 
-Milestone: M9 · Depends on: M9-FIX2 and M9-QA installer smoke · Roles: Architect, Implementer, QA/Reviewer (../ROLES.md §§1.1–1.3)
+Milestone: M9 · Depends on: M9-FIX2 and M9-QA installer smoke · Roles: Architect, Implementer, QA/Reviewer (../../../ROLES.md §§1.1–1.3)
 
 ## Goal
 
@@ -8,8 +8,8 @@ Keep per-user MSI install location under the caller's control when `INSTALLDIR` 
 
 ## Read first
 
-- `AGENTS.md`, `../CONTEXT.md` D33, `../CONVENTIONS.md` §10, `../ARCHITECTURE.md` §14.2, `../TESTING.md` §7, `docs/qa/M9-test-cases.md` TC-M9-009/010.
-- `apps/desktop/src-tauri/wix/main.wxs`, `scripts/build/wix-template.test.mjs`, `docs/tasks/M9-FIX2.md`.
+- `AGENTS.md`, `../../../CONTEXT.md` D33, `../../../CONVENTIONS.md` §10, `../../../ARCHITECTURE.md` §14.2, `../../../TESTING.md` §7, `../../../qa/archive/M9-test-cases.md` TC-M9-009/010.
+- `apps/desktop/src-tauri/wix/main.wxs`, `scripts/build/wix-template.test.mjs`, `M9-FIX2.md`.
 
 ## Scope — files you may create/modify
 
@@ -46,7 +46,7 @@ No package manifest, lockfile, schema, NSIS template, or generated bundle is in 
 
 - Architect: writes this work order and documents the observed installer log/property transition.
 - Implementer: edits only the WiX template and focused test in `C:/Users/admin/itstudio-wt/M9-FIX6`; its scope is disjoint from the M9-QA report and exploratory evidence.
-- QA/Reviewer: validates against ../CONVENTIONS.md §10, builds the final installers, then checks the explicit-path MSI install/Ready/uninstall and the M9-QA source gates.
+- QA/Reviewer: validates against ../../../CONVENTIONS.md §10, builds the final installers, then checks the explicit-path MSI install/Ready/uninstall and the M9-QA source gates.
 
 ## Result
 

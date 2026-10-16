@@ -4,7 +4,7 @@ Role: Implementer · Size S · **Deps pre-installed** · **Broad scope: path-tex
 
 ## What changed (commit "docs: archive completed task and QA files by milestone")
 
-- Completed task files moved from `docs/tasks/<ID>.md` to `docs/tasks/archive/<group>/<ID>.md`, groups: `M1`…`M9` (by ID prefix), `MW`, `owner-feedback` (OWNER-*, UX-*, WC-*, PROV-*, PROC-*, PSTUDIO-*, VSC-*), `hardening` (everything else that was completed).
+- Completed task files moved from `docs/tasks/<ID>.md` to ``, groups: `M1`…`M9` (by ID prefix), `MW`, `owner-feedback` (OWNER-*, UX-*, WC-*, PROV-*, PROC-*, PSTUDIO-*, VSC-*), `hardening` (everything else that was completed).
 - Still in `docs/tasks/`: future/active tasks (M10–M19, MOD-*, LLMPOOL-*, REL-V2/V3, README, REPO-02, ORCH-* when added).
 - `docs/qa/M*-*.md` and `docs/qa/MW-*.md` moved to `docs/qa/archive/`.
 
@@ -18,3 +18,10 @@ Role: Implementer · Size S · **Deps pre-installed** · **Broad scope: path-tex
 ## Acceptance criteria
 
 - [ ] `npx prettier --write` on changed non-Markdown files; `npm run typecheck`, `npm run lint`, and `node --test scripts/dev/*.test.mjs` pass.
+
+## Result
+- Summary: Updated references to archived task and QA files, corrected links from archived documents to their new relative locations, documented the task archive, and added a check that relative Markdown links in `docs/**` resolve to existing files.
+- Files changed: `docs/**` references and `docs/tasks/README.md`; `scripts/dev/repo-layout.test.mjs`; this task file.
+- Dependencies added (with reason): None. Ran `npm --cache .npm-cache install` because `node_modules` was absent.
+- Decisions taken within scope: The moved-file reference guard now uses paths relative to each document’s current location; active task paths remain in `docs/tasks/`.
+- Open issues / follow-ups: `npm run typecheck`, `npm run lint`, and `node --test scripts/dev/*.test.mjs` passed. Lint emitted the sandbox warning that it cannot access `C:\Users\admin\.config\git\ignore`. `bash -n scripts/dev/run-task.sh` passed; the launcher still checks `docs/tasks/$ID.md` before creating a worktree. No commit or git write command was run.

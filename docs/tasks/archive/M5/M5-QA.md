@@ -3,7 +3,7 @@
 Milestone: M5 · Role: Implementer (ROLES §1.3) · **Deps pre-installed**
 
 ## Read first
-- `AGENTS.md`, `../TESTING.md`, **`docs/qa/M5-test-cases.md`** (your work order), existing tests under `apps/sidecar/src/**/*.test.ts` and `apps/sidecar/test/integration/{rag-ingest,rag-retrieval}.test.ts`
+- `AGENTS.md`, `../../../TESTING.md`, **`../../../qa/archive/M5-test-cases.md`** (your work order), existing tests under `apps/sidecar/src/**/*.test.ts` and `apps/sidecar/test/integration/{rag-ingest,rag-retrieval}.test.ts`
 
 ## Scope
 - Tests only: `apps/sidecar/src/**/*.test.ts` (RAG, chunker, parsers, embeddings, vector store), `apps/sidecar/test/integration/rag-*.test.ts` (+ new `rag-*.test.ts` files), `apps/sidecar/test/fixtures/rag/**`, `e2e/specs/m5/**`. Another QA task edits other sidecar tests in parallel — do not touch M3 test files. Production code **only** if a new test exposes a defect — then fix minimally and list it under *Decisions*.
@@ -22,7 +22,7 @@ Append `## Result` per AGENTS.md §3 including a table: case ID → test file �
 
 ## Result
 - Summary: Automated the M5 parser, chunker, ingest, retrieval, vector-store, and Knowledge UI cases. Split TC-M5-001/002/003 and TC-M5-010/011 into individual tests. No production code or dependencies changed.
-- Files changed: `apps/sidecar/src/domain/chunker.test.ts`, `apps/sidecar/src/infra/lancedb/vector-store.test.ts`, `apps/sidecar/src/services/chat-service.test.ts`, `apps/sidecar/src/services/embedding-dispatcher.test.ts`, `apps/sidecar/src/services/rag/discover-files.test.ts`, `apps/sidecar/src/services/rag/parsers/parse-document.test.ts`, `apps/sidecar/src/services/rag/rag-service.test.ts`, `apps/sidecar/test/integration/rag-ingest.test.ts`, `apps/sidecar/test/integration/rag-retrieval.test.ts`, `e2e/specs/m5/knowledge.spec.ts`, `docs/tasks/M5-QA.md`.
+- Files changed: `apps/sidecar/src/domain/chunker.test.ts`, `apps/sidecar/src/infra/lancedb/vector-store.test.ts`, `apps/sidecar/src/services/chat-service.test.ts`, `apps/sidecar/src/services/embedding-dispatcher.test.ts`, `apps/sidecar/src/services/rag/discover-files.test.ts`, `apps/sidecar/src/services/rag/parsers/parse-document.test.ts`, `apps/sidecar/src/services/rag/rag-service.test.ts`, `apps/sidecar/test/integration/rag-ingest.test.ts`, `apps/sidecar/test/integration/rag-retrieval.test.ts`, `e2e/specs/m5/knowledge.spec.ts`, `M5-QA.md`.
 - Dependencies added (with reason): None.
 - Decisions taken within scope: Used deterministic fake embeddings and temporary local storage in L3 specs. Kept the prompt-sanitization and citation-order checks in the existing chat-service unit test. Did not run E2E as requested.
 - Open issues / follow-ups: The integration suite could not launch sidecar child processes in this sandbox: Node failed in `os.userInfo()` with `uv_os_get_passwd returned ENOMEM`, matching the documented sandbox limitation. QA should rerun L3 outside the sandbox. TC-M5-009 is covered by the embedding-dispatcher fallback unit test; an L3 503 case needs fake-provider failure scripting, which the current integration harness does not expose. QA should execute TC-M5-020 through TC-M5-023 in the planned E2E session, with a scripted assistant response containing `[1]` for TC-M5-023.
@@ -84,7 +84,7 @@ Append `## Result` per AGENTS.md §3 including a table: case ID → test file �
 ## Result (fix round 1)
 
 - Summary: Fixed BUG-M5-001 by creating LanceDB tables with an explicit Apache Arrow schema, including fixed-size float32 vectors and list<utf8> section paths. Added a first-upsert regression test with an empty section path followed by a mixed row, and added TC-M5-036 for a TypeScript-only fresh-project ingest.
-- Files changed: `apps/sidecar/src/infra/lancedb/vector-store.ts`, `apps/sidecar/src/infra/lancedb/vector-store.test.ts`, `apps/sidecar/test/integration/rag-ingest.test.ts`, `docs/tasks/M5-QA.md`.
+- Files changed: `apps/sidecar/src/infra/lancedb/vector-store.ts`, `apps/sidecar/src/infra/lancedb/vector-store.test.ts`, `apps/sidecar/test/integration/rag-ingest.test.ts`, `M5-QA.md`.
 - Dependencies added (with reason): None; imported the existing `apache-arrow` dependency.
 - Decisions taken within scope: Normalized table creation through `createEmptyTable(schema)` followed by `add(records)` so Arrow types do not depend on initial row values.
 - Open issues / follow-ups: `npm.cmd --cache .npm-cache run test:integration -- apps/sidecar/test/integration/rag-ingest.test.ts` was blocked for all 9 tests because sidecar startup hit the known sandbox failure `uv_os_get_passwd returned ENOMEM` in `tsx`/`os.userInfo()`. Rerun L3 outside the sandbox. E2E was not run as requested.

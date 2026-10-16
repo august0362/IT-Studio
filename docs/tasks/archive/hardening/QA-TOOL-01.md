@@ -8,14 +8,14 @@ Make the existing StrykerJS 10 / Vitest 5 setup execute relevant sidecar tests a
 
 ## Read first
 
-- `AGENTS.md`, `../CONTEXT.md`, `../CONVENTIONS.md`, `../TESTING.md` §4, `docs/qa/M6-report.md`, `docs/tasks/M6-QA.md`.
+- `AGENTS.md`, `../../../CONTEXT.md`, `../../../CONVENTIONS.md`, `../../../TESTING.md` §4, `../../../qa/archive/M6-report.md`, `M6-QA.md`.
 - `stryker.config.mjs`, `vitest.config.ts`, `package.json` (read-only), and the tests for `apps/sidecar/src/domain/template.ts`.
 
 ## Scope — files you may create/modify
 
 - `stryker.config.mjs`.
 - `vitest.stryker.config.ts` (new, only if a dedicated Vitest config is needed).
-- `docs/tasks/QA-TOOL-01.md` (append `## Result` or `## Blocked` only).
+- `QA-TOOL-01.md` (append `## Result` or `## Blocked` only).
 
 ## Contracts
 
@@ -47,7 +47,7 @@ Append `## Result` per AGENTS.md §3, including exact commands, counts, cause, f
 ## Result
 
 - Summary: Restored meaningful Stryker results for the four sidecar targets. Vitest 5 builds a nested `fullTestName` such as `renderTemplate > TC-M6-060 ...`, while the pinned Stryker 10 runner filters with `renderTemplate TC-M6-060 ...`. `npx vitest run --config vitest.stryker.config.ts apps/sidecar/src/domain/template.test.ts -t "renderTemplate TC-M6-060" --reporter=dot` skipped all four tests during diagnosis, matching Stryker's original `0.00 tests per mutant` and `0 killed / 48 survived` baseline. The configured adapter retains Stryker's covering-file selection and runs all tests in each selected file; the existing root Vitest workspace provides the sidecar project.
-- Files changed: `stryker.config.mjs`, `docs/tasks/QA-TOOL-01.md`. No application source, existing tests, manifests, lockfiles, or schema contracts changed.
+- Files changed: `stryker.config.mjs`, `QA-TOOL-01.md`. No application source, existing tests, manifests, lockfiles, or schema contracts changed.
 - Dependencies added (with reason): None. The adapter uses the API and Vitest runner already installed by the pinned Stryker packages.
 - Decisions taken within scope: Limited Stryker to two workers. Kept `coverageAnalysis: 'perTest'` and `vitest.related: true`; expanded mutant execution from a covering test name to all tests in its covering file because Stryker 10 and Vitest 5 disagree on the suite separator. The `stryker.config.mjs` default export is required by Stryker's config loader.
 - Mutation evidence: `npx stryker run --mutate apps/sidecar/src/domain/template.ts --logLevel info` completed with 47 killed, 1 survived, 0 uncovered, 0 errors, 97.92% score, and 3.88 tests per mutant. Final `npm run test:mutation` completed in 5m34s with 584 killed, 110 survived, 3 timed out, 2 uncovered, 0 errors, 83.98% total score (84.22% covered), and 14.19 tests per mutant. Per file (killed / survived / timed out / uncovered): `path-guard.ts` 132 / 16 / 2 / 0; `pipeline-machine.ts` 13 / 0 / 0 / 0; `template.ts` 47 / 1 / 0 / 0; `write-transaction.ts` 392 / 93 / 1 / 2. This is a measured score; the remaining mutants are not addressed by this configuration task.
@@ -57,4 +57,4 @@ Append `## Result` per AGENTS.md §3, including exact commands, counts, cause, f
 ## QA review (2026-10-11)
 
 - Reviewer: Verified the committed scope contains only this task file and `stryker.config.mjs`; generated `.stryker-tmp` is absent from the staged change. `git diff --check`, `npx prettier --write stryker.config.mjs`, `npm run typecheck`, `npm run lint`, and `npm test` passed in the clean main checkout with the task merge prepared. The unit gate reported 922 passed and 1 skipped, plus 6 passing Node build/release tests.
-- Verdict: Pass for the QA tooling repair. The measured 83.98% mutation score exceeds the 70% periodic target in ../TESTING.md §4; surviving mutants remain a separate test-quality follow-up, not a runner failure.
+- Verdict: Pass for the QA tooling repair. The measured 83.98% mutation score exceeds the 70% periodic target in ../../../TESTING.md §4; surviving mutants remain a separate test-quality follow-up, not a runner failure.

@@ -3,7 +3,7 @@
 Milestone: M6 · Role: Implementer (ROLES §1.3) · **Deps pre-installed** (`@stryker-mutator/core` + `vitest-runner` ~10.0)
 
 ## Read first
-- `AGENTS.md`, `../TESTING.md`, **`docs/qa/M6-test-cases.md`** (your work order), existing pipeline / worker tests, `apps/sidecar/test/integration/pipeline.test.ts`
+- `AGENTS.md`, `../../../TESTING.md`, **`../../../qa/archive/M6-test-cases.md`** (your work order), existing pipeline / worker tests, `apps/sidecar/test/integration/pipeline.test.ts`
 
 ## Scope
 - Tests: `apps/sidecar/src/{domain,services}/**/*.test.ts` for pipeline, worker, command runner, path guard, template, role caller, journal; `apps/sidecar/src/container.test.ts` (temp dataDir only); `apps/sidecar/test/integration/pipeline*.test.ts` (+ new `pipeline-*.test.ts`), `apps/sidecar/test/fixtures/sample-project/**`, `e2e/specs/m6/**`. Other QA tasks edit M3 / RAG tests in parallel — do not touch them.
@@ -25,7 +25,7 @@ Append `## Result` per AGENTS.md §3 including a table: case ID → test file �
 
 ## Result
 - Summary: Added M6 QA coverage, fixed case-insensitive context-tag neutralization, added test-gated crash hooks and validation cancellation, and published rollback reports for startup recovery.
-- Files changed: `apps/sidecar/src/container.test.ts`, `apps/sidecar/src/container.ts`, `apps/sidecar/src/domain/path-guard.test.ts`, `apps/sidecar/src/domain/template.test.ts`, `apps/sidecar/src/domain/template.ts`, `apps/sidecar/src/services/command-runner.test.ts`, `apps/sidecar/src/services/command-runner.ts`, `apps/sidecar/src/services/journal-recovery.test.ts`, `apps/sidecar/src/services/pipeline-orchestrator.test.ts`, `apps/sidecar/src/services/pipeline-orchestrator.ts`, `apps/sidecar/src/services/role-caller.test.ts`, `apps/sidecar/src/services/write-transaction.test.ts`, `apps/sidecar/src/services/write-transaction.ts`, `apps/sidecar/test/integration/pipeline.test.ts`, `e2e/specs/m6/code.spec.ts`, `package.json`, `stryker.config.mjs`, `docs/tasks/M6-QA.md`.
+- Files changed: `apps/sidecar/src/container.test.ts`, `apps/sidecar/src/container.ts`, `apps/sidecar/src/domain/path-guard.test.ts`, `apps/sidecar/src/domain/template.test.ts`, `apps/sidecar/src/domain/template.ts`, `apps/sidecar/src/services/command-runner.test.ts`, `apps/sidecar/src/services/command-runner.ts`, `apps/sidecar/src/services/journal-recovery.test.ts`, `apps/sidecar/src/services/pipeline-orchestrator.test.ts`, `apps/sidecar/src/services/pipeline-orchestrator.ts`, `apps/sidecar/src/services/role-caller.test.ts`, `apps/sidecar/src/services/write-transaction.test.ts`, `apps/sidecar/src/services/write-transaction.ts`, `apps/sidecar/test/integration/pipeline.test.ts`, `e2e/specs/m6/code.spec.ts`, `package.json`, `stryker.config.mjs`, `M6-QA.md`.
 - Dependencies added (with reason): None. Existing preinstalled Stryker dependencies used.
 - Decisions taken within scope: Crash injection exits only when both `ITSTUDIO_E2E=1` and the requested crash stage match. Validation cancellation now passes an `AbortSignal` to the process runner. Startup recovery emits a `pipeline.failureReport` for each restored transaction. No shared schemas changed.
 - Open issues / follow-ups:

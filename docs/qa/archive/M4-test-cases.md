@@ -1,6 +1,6 @@
 # M4 — Test Case Specification (desktop UI: shell, themes, chat, cost, settings)
 
-> QA gate `M4-QA` · Author: QA (Claude) · 2026-10-02 · Strategy: `../TESTING.md`
+> QA gate `M4-QA` · Author: QA (Claude) · 2026-10-02 · Strategy: `../../TESTING.md`
 > Scope: M4-01, M4-01b, M4-02…M4-05 and the UI parts of M5-07 / M6-07 that live in the shell. Levels: **L2** component tests (Testing Library, fake RPC client) · **L4** real app via WebdriverIO + tauri-driver (`ITSTUDIO_E2E=1`, in-memory secrets, scripted LLM, temp data dir) — **executed only in the batched E2E session with the user's permission** (opens app windows).
 > Status: **exists** / **new**.
 

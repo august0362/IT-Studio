@@ -8,7 +8,7 @@ Try to break state consistency with races, interleavings, process kills and data
 
 ## Read first
 
-`AGENTS.md`, `../CONTEXT.md` D4, D7, D10, D11, D13, D21, D32, `../ARCHITECTURE.md` (router, ledger/budget, pipeline + journal, RAG ingest, workflow map, settings), `src/types/schemas.ts`, `apps/sidecar/test/integration/harness.ts` (read-only) and the existing integration tests (`chat.test.ts`, `budget.test.ts`, `pipeline.test.ts`, `rag-ingest.test.ts`, `settings-projects.test.ts`, `workflow.test.ts`, `startup.test.ts`), `apps/sidecar/src/services/write-transaction.ts` (`ITSTUDIO_E2E_CRASH_AT`).
+`AGENTS.md`, `../../../CONTEXT.md` D4, D7, D10, D11, D13, D21, D32, `../../../ARCHITECTURE.md` (router, ledger/budget, pipeline + journal, RAG ingest, workflow map, settings), `src/types/schemas.ts`, `apps/sidecar/test/integration/harness.ts` (read-only) and the existing integration tests (`chat.test.ts`, `budget.test.ts`, `pipeline.test.ts`, `rag-ingest.test.ts`, `settings-projects.test.ts`, `workflow.test.ts`, `startup.test.ts`), `apps/sidecar/src/services/write-transaction.ts` (`ITSTUDIO_E2E_CRASH_AT`).
 
 ## Scope — files you may create/modify
 
@@ -72,7 +72,7 @@ Append `## Result` per AGENTS.md §3, including the defect table.
 
 ## Read first
 
-`AGENTS.md`, `../CONTEXT.md` D4, D7, D10, D11, D13, D21, D32, `../ARCHITECTURE.md` (router, ledger/budget, pipeline + journal, RAG ingest, workflow map, settings), `src/types/schemas.ts`, `apps/sidecar/test/integration/harness.ts` (read-only) and the existing integration tests (`chat.test.ts`, `budget.test.ts`, `pipeline.test.ts`, `rag-ingest.test.ts`, `settings-projects.test.ts`, `workflow.test.ts`, `startup.test.ts`), `apps/sidecar/src/services/write-transaction.ts` (`ITSTUDIO_E2E_CRASH_AT`).
+`AGENTS.md`, `../../../CONTEXT.md` D4, D7, D10, D11, D13, D21, D32, `../../../ARCHITECTURE.md` (router, ledger/budget, pipeline + journal, RAG ingest, workflow map, settings), `src/types/schemas.ts`, `apps/sidecar/test/integration/harness.ts` (read-only) and the existing integration tests (`chat.test.ts`, `budget.test.ts`, `pipeline.test.ts`, `rag-ingest.test.ts`, `settings-projects.test.ts`, `workflow.test.ts`, `startup.test.ts`), `apps/sidecar/src/services/write-transaction.ts` (`ITSTUDIO_E2E_CRASH_AT`).
 
 ## Scope — files you may create/modify
 
@@ -161,7 +161,7 @@ Required now: implement BRK-C01…C12, BRK-D01…D07 and BRK-U01…U04 as real t
 
 ## Result — round 2
 - Summary: Replaced the prior integration skips with executable concurrency, restart, data corruption, migration, and UI race scenarios. Added the sidecar exit-code getter needed to observe configured crash points. BRK-U01 is an expected-failure regression because repeated revenue submissions currently issue duplicate RPC requests.
-- Files changed: `apps/sidecar/test/integration/break-concurrency.test.ts`, `apps/sidecar/test/integration/break-durability.test.ts`, `apps/sidecar/test/integration/break-helpers-02.ts`, `apps/sidecar/test/integration/harness.ts`, `apps/desktop/src/features/break-ui-races.test.tsx`, `docs/tasks/QA-BREAK-02.md`.
+- Files changed: `apps/sidecar/test/integration/break-concurrency.test.ts`, `apps/sidecar/test/integration/break-durability.test.ts`, `apps/sidecar/test/integration/break-helpers-02.ts`, `apps/sidecar/test/integration/harness.ts`, `apps/desktop/src/features/break-ui-races.test.tsx`, `QA-BREAK-02.md`.
 - Dependencies added (with reason): None.
 - Decisions taken within scope: Used generated v0.1.0 migration SQL and a temporary SQLite database for BRK-D06; no binary fixture was added. Used the scripted pricing HTTP failure path in BRK-C10 to verify simultaneous failed refreshes leave the previous price rows intact. Preserved UTF-8 without a BOM.
 - Open issues / follow-ups: The integration suite was not run in this sandbox; QA should run `npx vitest run --config vitest.integration.config.ts apps/sidecar/test/integration/break-*.test.ts` in its supported runtime. BRK-C06 uses 50 valid settings patches, but the contract exposes fewer than 50 distinct patchable leaf fields.
@@ -178,7 +178,7 @@ Required now: implement BRK-C01…C12, BRK-D01…D07 and BRK-U01…U04 as real t
 
 ## Result — round 3
 - Summary: Tightened the settings race to patch 19 distinct fields exposed by the current SettingsPatch contract, with final assertions for every patched value; the requested 50 distinct fields are not representable by the current contract. Budget concurrency now computes actual ledger spend and asserts overspend is bounded by completed-call costs. Split BRK-U01 into four independent deferred-RPC tests, isolating the known revenue duplicate-submit defect (D01) from passing chat, API-key, and pipeline checks.
-- Files changed: `apps/sidecar/test/integration/break-concurrency.test.ts`, `apps/sidecar/test/integration/break-durability.test.ts`, `apps/desktop/src/features/break-ui-races.test.tsx`, `docs/tasks/QA-BREAK-02.md` (plus the previously approved additive `harness.ts` exit-code getter from round 2).
+- Files changed: `apps/sidecar/test/integration/break-concurrency.test.ts`, `apps/sidecar/test/integration/break-durability.test.ts`, `apps/desktop/src/features/break-ui-races.test.tsx`, `QA-BREAK-02.md` (plus the previously approved additive `harness.ts` exit-code getter from round 2).
 - Dependencies added (with reason): None.
 - Decisions taken within scope: No product implementation changes. Used deferred RPC responses for deterministic UI double-submit checks. Kept the settings case at the actual number of independent contract fields rather than inventing invalid patch keys.
 - Open issues / follow-ups: The integration adversarial suite has not yet been executed; C09 currently starts concurrent ingestion requests but deletes after indexing, so it does not deterministically cover delete-during-ingest. D04 combines corruption variants in one test and should be split for independent diagnostics. D05 currently verifies integrity after concurrent opens but does not force concurrent writes. D07 uses POSIX chmod, which may not enforce read-only permissions on Windows. C10 covers concurrent failed refreshes only, not a successful concurrent refresh. C11 checks history count but does not assert ordering or final status against the last completed operation. D03 duplicate detection should parse query results rather than count a regex occurrence. U02 still does not directly verify that switching project clears ChatPage's selected conversation, clears CodePage's selected run, or prevents out-of-order `pipeline.get` responses from regressing stage state; these are explicit untested risks requiring additional deterministic UI coverage. These cases need stronger integration coverage before sign-off.
@@ -186,7 +186,7 @@ Required now: implement BRK-C01…C12, BRK-D01…D07 and BRK-U01…U04 as real t
 
 ## Result — round 4
 - Summary: Triaged the supported-runtime integration failures, corrected invalid fixtures and asynchronous assertions, and confirmed three additional defects. BRK-C01 confirms same-project pipeline starts can both be admitted; BRK-C06 confirms a valid concurrent settings patch can be lost; BRK-C12 exceeds the stated ping p95 under the burst. Fixed C08 to calibrate its budget from a real ledger entry and inspect asynchronous `chat.failed` events; fixed C11's history limit, C12's activity limit, D03's retry setup, D06 legacy price metadata/revenue matching, and D07's Windows read-only ACL setup.
-- Files changed: `apps/sidecar/test/integration/break-concurrency.test.ts`, `apps/sidecar/test/integration/break-durability.test.ts`, `docs/tasks/QA-BREAK-02.md`.
+- Files changed: `apps/sidecar/test/integration/break-concurrency.test.ts`, `apps/sidecar/test/integration/break-durability.test.ts`, `QA-BREAK-02.md`.
 - Dependencies added (with reason): None.
 - Decisions taken within scope: Kept product code unchanged. Converted the confirmed C01, C06, and C12 defects to expected failures D06, D08, and D07. The D07 read-only test uses `icacls.exe` with argument arrays on Windows and restores inherited ACLs in `finally`; the targeted Windows run passed.
 - Open issues / follow-ups: C06's 50-distinct-fields requirement exceeds the 18 independently patchable fields/objects in the current SettingsPatch contract; its 18-field race is executable and confirms one lost update. C10 still tests concurrent failed refreshes only; it does not prove ordering of successful refreshes. C11 currently proves operation history reaches 20 rows with a valid limit but does not prove the final status matches the last completed operation or exact event ordering. D04 still combines its three corruption modes in one test.

@@ -8,7 +8,7 @@ The owner wants keys for **DeepSeek, OpenRouter, Qwen (Alibaba Cloud Model Studi
 
 ## Read first
 
-`AGENTS.md`, `../CONTEXT.md` D15, D31, D38, `src/types/schemas.ts` (`ProviderId`, settings), `config/models.seed.json`, `config/pricing.seed.json`, `config/pricing.sources.json`, `apps/sidecar/src/providers/**` (how `xai`/`groq`/`together` get their base URL and the OpenAI SDK client), `apps/sidecar/src/services/secrets-service.ts` (+ its verifier), `apps/desktop/src/features/settings/api-keys/**`.
+`AGENTS.md`, `../../../CONTEXT.md` D15, D31, D38, `src/types/schemas.ts` (`ProviderId`, settings), `config/models.seed.json`, `config/pricing.seed.json`, `config/pricing.sources.json`, `apps/sidecar/src/providers/**` (how `xai`/`groq`/`together` get their base URL and the OpenAI SDK client), `apps/sidecar/src/services/secrets-service.ts` (+ its verifier), `apps/desktop/src/features/settings/api-keys/**`.
 
 ## Scope (broad)
 

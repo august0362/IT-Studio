@@ -46,7 +46,7 @@
 | **MW** Workflow map (D32) | 6/6 | ✅ | exploratory follow-up open |
 | **WC** Web chat (D34) | 1/1 | ✅ | |
 | **M8** image generation | 6/6 | ✅ | exploratory follow-up open |
-| **M9** packaging | 7/7 | ✅ signed off 2026-10-14 | `docs/qa/M9-report.md` |
+| **M9** packaging | 7/7 | ✅ signed off 2026-10-14 | `` |
 | **OWNER-FB1** owner feedback | 5/5 packages | ✅ landed 2026-10-14 | native web-chat / theme follow-ups open |
 | **V1 hardening** | 2/6 | 🟡 in progress | §4 |
 | **v2** M10–M14 (+ REL-V2) | 0/46 | ⏸ not started | SRS, plan and all 46 task files written (see §7) |

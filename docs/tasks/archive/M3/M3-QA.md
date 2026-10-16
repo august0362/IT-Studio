@@ -3,7 +3,7 @@
 Milestone: M3 · Role: Implementer (ROLES §1.3) · **Deps pre-installed**
 
 ## Read first
-- `AGENTS.md`, `../TESTING.md`, **`docs/qa/M3-test-cases.md`** (your work order), existing tests under `apps/sidecar/src/**/*.test.ts` and `apps/sidecar/test/integration/{ledger,budget,pricing,pnl}.test.ts`
+- `AGENTS.md`, `../../../TESTING.md`, **`../../../qa/archive/M3-test-cases.md`** (your work order), existing tests under `apps/sidecar/src/**/*.test.ts` and `apps/sidecar/test/integration/{ledger,budget,pricing,pnl}.test.ts`
 
 ## Scope
 - Tests only: `apps/sidecar/src/**/*.test.ts`, `apps/sidecar/test/integration/**`, `apps/sidecar/test/fixtures/**`. Production code **only** if a new test exposes a defect — then fix minimally and list it under *Decisions*.

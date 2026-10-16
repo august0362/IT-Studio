@@ -2,7 +2,7 @@
 
 - Date: 2026-10-04
 - Status: Accepted by owner instruction
-- Work order: `docs/tasks/OWNER-FB1.md`
+- Work order: ``
 
 ## Context
 

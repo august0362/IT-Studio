@@ -1,6 +1,6 @@
 # Running IT Studio
 
-> Current status (2026-10-04): v1 implementation and OWNER-FB1 installer builds are delivered. Release sign-off remains pending M9-QA, runtime-isolated install smoke and the native provider/theme follow-ups recorded in `docs/tasks/OWNER-FB1.md` and `docs/HANDOFF.md`.
+> Current status (2026-10-04): v1 implementation and OWNER-FB1 installer builds are delivered. Release sign-off remains pending M9-QA, runtime-isolated install smoke and the native provider/theme follow-ups recorded in `` and `docs/HANDOFF.md`.
 
 ## Install IT Studio
 

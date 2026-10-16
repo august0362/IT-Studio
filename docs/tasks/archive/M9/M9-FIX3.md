@@ -1,6 +1,6 @@
 # M9-FIX3 — Keep the Windows lint secret scan below the command-line limit
 
-Milestone: M9 · Depends on: M9-QA discovery · Roles: Architect, Implementer, QA/Reviewer (../ROLES.md §§1.1–1.3)
+Milestone: M9 · Depends on: M9-QA discovery · Roles: Architect, Implementer, QA/Reviewer (../../../ROLES.md §§1.1–1.3)
 
 ## Goal
 
@@ -8,7 +8,7 @@ Restore the required `npm run lint` gate on Windows after the tracked file list 
 
 ## Read first
 
-- `AGENTS.md`, `../CONTEXT.md`, `../CONVENTIONS.md` §10, `../TESTING.md`, `docs/tasks/M9-QA.md`.
+- `AGENTS.md`, `../../../CONTEXT.md`, `../../../CONVENTIONS.md` §10, `../../../TESTING.md`, `M9-QA.md`.
 - `package.json`, `scripts/scan-secrets.mjs`, and `scripts/lint-fixtures/selftest.mjs`.
 
 ## Scope — files you may create/modify
@@ -45,7 +45,7 @@ The package lockfile, scanner implementation, and all product code are out of sc
 
 - Architect: writes this work order and records the observed failure.
 - Implementer: edits only the `lint` script and its focused self-test in a dedicated `M9-FIX3` worktree. This scope is disjoint from M9-QA's tests and report.
-- QA/Reviewer: checks ../CONVENTIONS.md §10, reruns the gates, then merges the fix before resuming M9-QA.
+- QA/Reviewer: checks ../../../CONVENTIONS.md §10, reruns the gates, then merges the fix before resuming M9-QA.
 
 ## Result
 

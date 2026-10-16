@@ -6,7 +6,7 @@ Milestone: M1 · Depends on: M1-QA · Role: Implementer (ROLES §1.3) · **Deps 
 Test code is held to the same strict TypeScript standard as product code, and the M1 E2E specs actually run against the real Tauri app.
 
 ## Read first
-- `AGENTS.md`, `../TESTING.md` §1–§2 (E2E drivers), `docs/qa/M1-test-cases.md`, `docs/tasks/M1-QA.md` (QA sign-off notes)
+- `AGENTS.md`, `../../../TESTING.md` §1–§2 (E2E drivers), `../../../qa/archive/M1-test-cases.md`, `M1-QA.md` (QA sign-off notes)
 
 ## Scope
 - `apps/sidecar/test/**`, `e2e/**`, root `package.json` (scripts only)
@@ -26,7 +26,7 @@ Append `## Result` per AGENTS.md §3.
 
 ## Result
 - Summary: Added `typecheck:tests` to the root typecheck, narrowed integration RPC responses through Zod, fixed the protocol test's sidecar narrowing, converted all M1 E2E specs and their helper to TypeScript, and updated WDIO to select `.spec.ts` files with typed Tauri capabilities. The E2E config builds the debug app only when absent, launches tauri-driver with the configured/default Edge WebDriver path, and stops drivers in `onComplete`.
-- Files changed: `apps/sidecar/test/integration/harness.ts`, `apps/sidecar/test/integration/protocol.test.ts`, `e2e/**` (renamed the three specs and helper from `.mjs` to `.ts`), `package.json`, `docs/tasks/M1-QA2.md`.
+- Files changed: `apps/sidecar/test/integration/harness.ts`, `apps/sidecar/test/integration/protocol.test.ts`, `e2e/**` (renamed the three specs and helper from `.mjs` to `.ts`), `package.json`, `M1-QA2.md`.
 - Dependencies added (with reason): None.
 - Decisions taken within scope: Added DOM library types for browser E2E specs. Kept the secret scan comprehensive while filtering deleted tracked paths and the scanner's designated fixture directory; the existing scanner otherwise fails on renamed, unstaged files.
 - Open issues / follow-ups: `npm run typecheck`, `npm run lint`, and `npm test` pass (275 tests passed, 1 skipped). `npm run test:e2e` reaches WDIO, but the sandbox blocks its `tsx` loader at `os.userInfo()` (`uv_os_get_passwd returned ENOMEM`); QA must run the L4 suite outside the sandbox to verify the real Tauri app.
@@ -41,7 +41,7 @@ You cannot run E2E in the sandbox — make changes carefully; QA re-runs `npm ru
 
 ## Result — fix round 1
 - Summary: Kept QA's corrected WDIO specs path and separate native-driver ports. TC-M1-040 now waits for Enter-to-save and has component coverage for form submission. TC-M1-007 uses a deliberately pending verifier request so killing the sidecar exercises rejected-mutation alert rendering, with a component regression test. TC-M1-041 has 70-second banner wait and longer WDIO command/session timeouts; `StatusBar.tsx` already renders the fatal banner as `footer[role="alert"]`. TC-M1-006 checks desktop and sidecar process exit from Node within 7 seconds after closing the window, without further WebDriver calls.
-- Files changed: `apps/desktop/src/features/settings/api-keys/ApiKeysPage.test.tsx`, `e2e/helpers/ui.ts`, `e2e/specs/m1/api-keys.spec.ts`, `e2e/specs/m1/fatal.spec.ts`, `e2e/specs/m1/startup.spec.ts`, `e2e/wdio.conf.ts`, `docs/tasks/M1-QA2.md`.
+- Files changed: `apps/desktop/src/features/settings/api-keys/ApiKeysPage.test.tsx`, `e2e/helpers/ui.ts`, `e2e/specs/m1/api-keys.spec.ts`, `e2e/specs/m1/fatal.spec.ts`, `e2e/specs/m1/startup.spec.ts`, `e2e/wdio.conf.ts`, `M1-QA2.md`.
 - Dependencies added (with reason): None.
 - Decisions taken within scope: E2E verifier requests use the existing scripted `timeout` outcome to create a deterministic in-flight request for crash coverage.
 - Open issues / follow-ups: `npm run typecheck`, `npm run lint`, and `npm test` pass (278 passed, 1 skipped). L4 E2E was not run in the sandbox; QA should rerun `npm run test:e2e` outside the sandbox.

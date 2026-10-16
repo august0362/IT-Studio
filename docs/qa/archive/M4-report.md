@@ -1,6 +1,6 @@
 # M4 — QA Report — CONDITIONAL SIGN-OFF (E2E follow-up open)
 
-> Gate `M4-QA` · QA: Claude · 2026-10-03 · Test cases: `docs/qa/M4-test-cases.md`
+> Gate `M4-QA` · QA: Claude · 2026-10-03 · Test cases: ``
 
 ## Results
 | Level | Result |

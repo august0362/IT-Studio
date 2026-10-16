@@ -7,7 +7,7 @@ When the desktop process dies without sending `system.shutdown` (crash, kill, We
 Repro: E2E `shell.spec.ts` (creates + activates a project) followed by `shutdown.spec.ts` → orphan `node …sidecar/src/main.ts` with a dead parent survives until the run ends; `TC-M1-006` then fails because `sidecarPid()` picks the orphan.
 
 ## Read first
-- `AGENTS.md`, `../ARCHITECTURE.md` §2.3 (supervision / shutdown), `apps/sidecar/src/{main,container}.ts`, `rpc/line-transport.ts`, `services/system-service.ts`, `e2e/helpers/ui.ts`, `e2e/specs/m1/shutdown.spec.ts`
+- `AGENTS.md`, `../../../ARCHITECTURE.md` §2.3 (supervision / shutdown), `apps/sidecar/src/{main,container}.ts`, `rpc/line-transport.ts`, `services/system-service.ts`, `e2e/helpers/ui.ts`, `e2e/specs/m1/shutdown.spec.ts`
 
 ## Scope
 - `apps/sidecar/src/rpc/line-transport.ts` (+ test)
@@ -34,7 +34,7 @@ Append `## Result` per AGENTS.md §3.
 
 ## Result
 - Summary: Added once-only stdin EOF/close shutdown handling after pending RPC lines finish; made shutdown idempotent with isolated hook failures, a 3 s injectable deadline, reason logging, and exit logging; wired stdin EOF to shutdown and updated E2E sidecar PID selection to require a running desktop parent.
-- Files changed: `apps/sidecar/src/rpc/line-transport.ts`, `apps/sidecar/src/rpc/line-transport.test.ts`, `apps/sidecar/src/services/system-service.ts`, `apps/sidecar/src/services/system-service.test.ts`, `apps/sidecar/src/container.ts`, `apps/sidecar/test/integration/shutdown.test.ts`, `e2e/helpers/ui.ts`, `docs/tasks/M1-FIX4.md`.
+- Files changed: `apps/sidecar/src/rpc/line-transport.ts`, `apps/sidecar/src/rpc/line-transport.test.ts`, `apps/sidecar/src/services/system-service.ts`, `apps/sidecar/src/services/system-service.test.ts`, `apps/sidecar/src/container.ts`, `apps/sidecar/test/integration/shutdown.test.ts`, `e2e/helpers/ui.ts`, `M1-FIX4.md`.
 - Dependencies added (with reason): None.
 - Decisions taken within scope: EOF and close share a guarded finish path; shutdown hooks run independently so one failure cannot prevent other hooks; the integration case directly spawns the sidecar to exercise actual stdin closure and bridge teardown.
 - Open issues / follow-ups: `npm run typecheck`, `npm run lint`, and `npm test` pass (509 passed, 1 skipped). The new integration test and the broader integration suite cannot start sidecar child processes in this sandbox: Node `tsx` fails in `os.userInfo()` with `uv_os_get_passwd` / `ENOMEM`, a documented sandbox limit. QA should rerun integration and full E2E outside the sandbox.

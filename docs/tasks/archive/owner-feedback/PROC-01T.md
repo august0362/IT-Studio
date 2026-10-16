@@ -20,7 +20,7 @@ Milestone: PROC (D40) · Role: Implementer · Size XS · **Deps pre-installed** 
 ## Result
 
 - Summary: Script both keyed Google chat models with identical outcomes so TC-PROC-002 exhausts Auto candidates before stopping. In TC-PROC-003, restore the in-memory provider key after restart so the reloaded delayed script remains active for retry; wait for running before cancellation and verify stopped afterward.
-- Files changed: `apps/sidecar/test/integration/processes.test.ts`, `docs/tasks/PROC-01T.md`.
+- Files changed: `apps/sidecar/test/integration/processes.test.ts`, `PROC-01T.md`.
 - Dependencies added (with reason): None. Restored the missing `node_modules` using `npm.cmd --cache .npm-cache install`; dependency manifests and lockfile are unchanged.
 - Decisions taken within scope: Reuse the existing `delay:30000` scripted response, whose cursor resets on sidecar restart. Only Google is keyed by this test setup, so both seeded Google chat models receive the same script.
 - Validation: Prettier run on both changed files; `npm.cmd --cache .npm-cache run typecheck` and `npm.cmd --cache .npm-cache run lint` passed. Lint emitted the Git global-ignore permission warning described below but exited successfully.

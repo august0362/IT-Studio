@@ -3,10 +3,10 @@
 Milestone: M1 · Depends on: M1-01…M1-07 · Role: Implementer (ROLES §1.3) · **Deps: allowed to add dev dependencies listed below** (this task owns root `package.json` / lockfile changes; no other task may run in parallel that edits them)
 
 ## Goal
-Build the reusable L3 (sidecar integration) and L4 (Tauri E2E) test harnesses and automate every M1 test case marked `integration` / `e2e` in `docs/qa/M1-test-cases.md`.
+Build the reusable L3 (sidecar integration) and L4 (Tauri E2E) test harnesses and automate every M1 test case marked `integration` / `e2e` in `../../../qa/archive/M1-test-cases.md`.
 
 ## Read first
-- `AGENTS.md`, `../TESTING.md` (all), `docs/qa/M1-test-cases.md` (your work list), `../ARCHITECTURE.md` §2–§3, existing `apps/sidecar/src/container.ts`, `apps/desktop/src-tauri/src/sidecar/**`, `apps/desktop/src/rpc/**`
+- `AGENTS.md`, `../../../TESTING.md` (all), `../../../qa/archive/M1-test-cases.md` (your work list), `../../../ARCHITECTURE.md` §2–§3, existing `apps/sidecar/src/container.ts`, `apps/desktop/src-tauri/src/sidecar/**`, `apps/desktop/src/rpc/**`
 
 ## Scope — files you may create/modify
 - `apps/sidecar/test/integration/**` (new), `apps/sidecar/src/container.ts` + `apps/sidecar/src/main.ts` (only to add the `ITSTUDIO_E2E` / `ITSTUDIO_E2E_CRASH_ON_START` switches)
@@ -19,7 +19,7 @@ Build the reusable L3 (sidecar integration) and L4 (Tauri E2E) test harnesses an
 1. **`ITSTUDIO_E2E=1`** in the composition root: `MemorySecretStore`, fake provider-key verifier (scripted from `apps/sidecar/test/fixtures/verifier.json`), temp `ITSTUDIO_DATA_DIR` respected, no network. `ITSTUDIO_E2E_CRASH_ON_START=1`: exit(1) immediately after start (for TC-M1-041).
 2. **L3 harness** `apps/sidecar/test/integration/harness.ts`: spawns `node --import tsx apps/sidecar/src/main.ts` with a fresh temp data dir, typed `call(method, params)`, `notifications` stream, raw `writeLine`, `kill()`, `restart()`, captures stderr. Vitest project `integration` (`npm run test:integration`), sequential, 30 s timeout per test.
 3. **L4 harness** `e2e/wdio.conf.ts`: builds the debug app (`npm run tauri -w @itstudio/desktop -- build --debug --no-bundle`) once, launches via `tauri-driver`, env `ITSTUDIO_E2E=1`; helpers for status bar, nav, API Keys page; `npm run test:e2e`.
-4. Implement every TC in `docs/qa/M1-test-cases.md` whose *Auto?* column is `integration` or `e2e`; test titles start with the TC id. Cases already covered by existing unit tests (TC-M1-005, TC-M1-007 L2) need no duplicate.
+4. Implement every TC in `../../../qa/archive/M1-test-cases.md` whose *Auto?* column is `integration` or `e2e`; test titles start with the TC id. Cases already covered by existing unit tests (TC-M1-005, TC-M1-007 L2) need no duplicate.
 5. Add the missing branch tests for `rpc-client.ts` (lines 63, 131, 196 per QA) → 100 % branch coverage for that file.
 6. Root scripts: `test:integration`, `test:e2e`, `test:all` (= `test` + `test:integration` + `test:e2e`).
 
@@ -62,7 +62,7 @@ Append `## Result — fix round 1`.
 
 ## Result — fix round 1
 - Summary: Kept integration response dispatch matched to pending requests by JSON-RPC id and corrected TC-M1-022 to compare settings results rather than response envelopes with different request ids. Made sidecar shutdown idempotent with SIGTERM/SIGKILL escalation, replaced TC-M1-014's fixed sleep with stdout polling, and excluded integration tests from the default Vitest projects.
-- Files changed: `apps/sidecar/test/integration/harness.ts`, `apps/sidecar/test/integration/protocol.test.ts`, `apps/sidecar/test/integration/settings-projects.test.ts`, `vitest.config.ts`, `docs/tasks/M1-QA.md`.
+- Files changed: `apps/sidecar/test/integration/harness.ts`, `apps/sidecar/test/integration/protocol.test.ts`, `apps/sidecar/test/integration/settings-projects.test.ts`, `vitest.config.ts`, `M1-QA.md`.
 - Dependencies added (with reason): None.
 - Decisions taken within scope: `waitFor` polls every 20 ms and defaults to a 10 second timeout; sidecar shutdown waits up to 3 seconds after SIGTERM before sending SIGKILL.
 - Open issues / follow-ups: `npm run test:integration` was not run in the sandbox; QA should run it three consecutive times outside the sandbox as specified. Typecheck, lint, and the default unit/component suite pass in the sandbox.
