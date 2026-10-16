@@ -10,6 +10,8 @@ import {
   ImageProviderId,
   ProviderId,
   type PriceEntry,
+  type OrchRunId,
+  type MicroUsd,
   type ProjectId,
   type RpcNotificationMap,
   type VSCodeStatus,
@@ -99,6 +101,8 @@ import { microUsd, toMoneyDisplay } from './domain/money.js';
 import { OpenAiEmbeddingProvider } from './providers/embedding/openai.js';
 import { GoogleEmbeddingProvider } from './providers/embedding/google.js';
 import { FakeEmbeddingProvider } from './infra/fake-embedding-provider.js';
+import { createOrchestrationModule } from './modules/orchestration/index.js';
+import { OrchRepository } from './modules/orchestration/storage/orch-repository.js';
 import { EmbeddingDispatcher } from './services/embedding-dispatcher.js';
 import { LanceDbVectorStore } from './infra/lancedb/vector-store.js';
 import { DocumentRepository } from './infra/sqlite/document-repository.js';
@@ -999,6 +1003,44 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   });
   const server = new RpcServer(transport, events, logger);
   serverRef.current = server;
+  const orchestration = createOrchestrationModule({
+    repository: new OrchRepository(database.db),
+    processes: processRegistry,
+    validate: { workspaceRoot: dataDir, allowedCommands: [] },
+    createRun: (projectId, request, specs) => {
+      const now = isoDateTimeSchema.parse(clock.now().toISOString());
+      return {
+        id: ids.uuid() as OrchRunId,
+        projectId,
+        request,
+        state: 'plan_ready',
+        agents: [
+          { agentId: 'mock-supervisor', role: 'supervisor', transport: 'mock' },
+          { agentId: 'mock-worker', role: 'worker', transport: 'mock' },
+          { agentId: 'mock-reviewer', role: 'reviewer', transport: 'mock' },
+        ],
+        tasks: specs.map((spec) => ({ ...spec, state: 'ready' as const, fixRounds: 0, attempts: [] })),
+        limits: {
+          maxCostMicroUsd: 2_000_000 as MicroUsd,
+          maxWallClockMs: 3_600_000,
+          maxAgentCalls: 40,
+          maxConcurrentWorkers: 2,
+          maxFixRounds: 2,
+          transientRetries: 1,
+          hardStop: false,
+        },
+        targetBranch: 'main',
+        costMicroUsd: 0 as MicroUsd,
+        agentCalls: 0,
+        createdAt: now,
+        updatedAt: now,
+      };
+    },
+    publish: (event) => {
+      events.publish('orch.event', event);
+    },
+  });
+  orchestration.register(server);
   let fxJobStopped = false;
   const service = new SystemService({
     clock,

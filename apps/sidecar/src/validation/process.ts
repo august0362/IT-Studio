@@ -40,7 +40,15 @@ export const processRecordSchema = z
     costText: z.string().max(500).exactOptional(),
     ref: z
       .strictObject({
-        type: z.enum(['conversation', 'pipeline_run', 'ingest_job', 'image', 'price_run', 'webchat_link']),
+        type: z.enum([
+          'conversation',
+          'pipeline_run',
+          'ingest_job',
+          'image',
+          'price_run',
+          'webchat_link',
+          'orchestration_run',
+        ]),
         id: z.string(),
       })
       .readonly()

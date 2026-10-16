@@ -9,6 +9,7 @@ export const PROCESS_MODULES: Readonly<Record<ProcessKind, readonly string[]>> =
   key_verify: ['input', 'request', 'result'],
   vscode_launch: ['locate', 'launch', 'session'],
   web_chat: ['open', 'load', 'active', 'closed'],
+  orchestration: [],
 };
 export function processGraph(kind: ProcessKind): { modules: readonly ProcessModule[]; edges: readonly ProcessEdge[] } {
   const ids = PROCESS_MODULES[kind];

@@ -79,13 +79,13 @@ ORCH-001, ORCH-003, ORCH-004, ORCH-009 (unit, names prefixed), plus state-machin
 Append `## Result` per AGENTS.md §3.
 
 ## Result
-- Summary: Added orchestration contracts, validation and IPC schemas, task/run state machines, DAG checks, path-lock scheduling, the mock execution adapter, SQLite tables/repository, RPC registration, and a plan/start smoke test. Mock worker attempts are persisted. The current engine supports the mock worker path and reaches `AWAITING_APPROVAL` for successful tasks.
-- Files changed: `src/types/schemas.ts`; `apps/sidecar/src/{container.ts,domain/remediation.ts,infra/sqlite/schema.ts,infra/sqlite/migrations/0014_orchestration.sql,infra/sqlite/migrations/meta/_journal.json,modules/orchestration/**,ports/agent-execution.ts,validation/errors.ts,validation/ipc.ts}`; `apps/sidecar/test/integration/orchestration.test.ts`; `docs/tasks/ORCH-01.md`.
-- Dependencies added (with reason): None. Ran `npm --cache .npm-cache install` because `node_modules` was absent.
-- Decisions taken within scope: Plan errors use the additive `PLAN_INVALID` error code and include a structured error list. Mock runs use a deterministic one-task supervisor plan by default; tests can inject role scripts.
-- Open issues / follow-ups: The engine does not yet run reviewer attempts, fix rounds, supervisor escalation/reassignment, parallel scheduling, or transient/budget enforcement. Startup recovery and full event-level persistence/coalescing are incomplete. The `orchestration` process kind was not added because it would require updating the desktop process-kind map outside this task's Scope. `npm test` stopped in `pretest`: its lint selftests fail because Git reports that it cannot read `C:\Users\admin\.config\git\ignore` in this sandbox. `npm run lint`, `npm run typecheck`, scoped ESLint, and focused orchestration tests (7) passed.
+- Summary: Completed mock worker/reviewer attempts, bounded fix rounds, supervisor escalation to `NEEDS_OWNER`, dependency blocking, critical path scheduling and process graph upserts for orchestration runs.
+- Files changed: `src/types/schemas.ts`; `apps/sidecar/src/{container.ts,domain/process-graphs.ts,domain/remediation.ts,infra/sqlite/**,modules/orchestration/**,ports/agent-execution.ts,services/process-registry.ts,validation/**}`; `apps/sidecar/test/integration/orchestration.test.ts`; `apps/desktop/src/features/processes/ProcessesPage.tsx`; this task record.
+- Dependencies added (with reason): None. `node_modules` was already present.
+- Decisions taken within scope: Escalation records one supervisor reassignment decision and pauses for owner input without launching an extra worker attempt, matching ORCH-009.
+- Open issues / follow-ups: Startup recovery and real merges remain ORCH-03. `npm test` is blocked in its `pretest` lint selftests because Git cannot read `C:\Users\admin\.config\git\ignore` in this sandbox. `npm run typecheck`, `npm run lint`, the requested orchestration Vitest suite (7 tests), and the integration smoke (2 tests) pass. The desktop process icon map was a necessary shared-contract consumer update.
 
-## QA round 1 (Architect, 2026-10-22) — finish the remaining requirements
+## QA round 1
 
 Your Result lists gaps. Complete exactly these (budget enforcement beyond the agent-call/worker counters, recovery and real merges stay in ORCH-03):
 
