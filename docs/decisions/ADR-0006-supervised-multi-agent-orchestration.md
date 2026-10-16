@@ -2,7 +2,7 @@
 
 - Date: 2026-10-22
 - Status: Accepted by owner instruction (master implementation prompt, 2026-10-22; answers in chat)
-- Decision record: `docs/CONTEXT.md` D41
+- Decision record: `../CONTEXT.md` D41
 - Canonical roles: `docs/governance/MULTI_AGENT_ORCHESTRATION.md`
 - Work orders: `docs/tasks/ORCH-01.md` … `ORCH-04.md`; test cases `docs/qa/ORCH-test-cases.md`
 

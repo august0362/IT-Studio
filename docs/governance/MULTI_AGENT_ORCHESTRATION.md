@@ -1,6 +1,6 @@
 # Multi-agent orchestration — canonical roles, handoff protocol and security (runtime feature)
 
-Canonical source for the runtime orchestration roles (ADR-0006, CONTEXT D41). `docs/ROLES.md` and `AGENTS.md` describe the *development* process of IT Studio itself and only link here. If this file and a prompt disagree, this file and the engine's code win.
+Canonical source for the runtime orchestration roles (ADR-0006, CONTEXT D41). `../ROLES.md` and `AGENTS.md` describe the *development* process of IT Studio itself and only link here. If this file and a prompt disagree, this file and the engine's code win.
 
 ## 1. Roles
 
