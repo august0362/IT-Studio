@@ -23,7 +23,7 @@ describe('M5 knowledge', () => {
     await browser.$('aria/Project name').setValue('Knowledge E2E Project');
     await browser.$('aria/Folder path').setValue(folder);
     await browser.$('button=Create project').click();
-    await browser.$('nav[aria-label="Main navigation"] a[href="#knowledge"]').click();
+    await browser.$('nav a[href="#knowledge"]').click();
     await browser.$('aria/Workspace-relative file or folder paths (one per line)').setValue('guide.md');
     await browser.$('button=Add sources').click();
     const progress = browser.$('section[aria-label="Ingestion progress"] article');
@@ -43,7 +43,7 @@ describe('M5 knowledge', () => {
     await waitForReady();
     const folder = createTemporaryProjectFolder();
     await openProject(folder, 'Knowledge validation project');
-    await browser.$('nav[aria-label="Main navigation"] a[href="#knowledge"]').click();
+    await browser.$('nav a[href="#knowledge"]').click();
     await browser.$('aria/Workspace-relative file or folder paths (one per line)').setValue('../outside.md');
     await browser.$('button=Add sources').click();
     const alert = browser.$('[role="alert"]');
@@ -57,7 +57,7 @@ describe('M5 knowledge', () => {
     const folder = createTemporaryProjectFolder();
     writeFileSync(join(folder, 'delete-me.md'), '# Delete me\n\nTemporary content.');
     await openProject(folder, 'Knowledge deletion project');
-    await browser.$('nav[aria-label="Main navigation"] a[href="#knowledge"]').click();
+    await browser.$('nav a[href="#knowledge"]').click();
     await browser.$('aria/Workspace-relative file or folder paths (one per line)').setValue('delete-me.md');
     await browser.$('button=Add sources').click();
     const row = browser.$('table tbody tr');
@@ -75,7 +75,7 @@ describe('M5 knowledge', () => {
     const folder = createTemporaryProjectFolder();
     writeFileSync(join(folder, 'lantern.md'), '# Lantern\n\nThe blue lantern is in the north archive room.');
     await openProject(folder, 'Knowledge chat project');
-    await browser.$('nav[aria-label="Main navigation"] a[href="#knowledge"]').click();
+    await browser.$('nav a[href="#knowledge"]').click();
     await browser.$('aria/Workspace-relative file or folder paths (one per line)').setValue('lantern.md');
     await browser.$('button=Add sources').click();
     const progress = browser.$('section[aria-label="Ingestion progress"] article');
@@ -84,7 +84,7 @@ describe('M5 knowledge', () => {
     );
     const row = browser.$('table tbody tr');
     await browser.waitUntil(async () => (await row.isExisting()) && (await row.getText()).includes('Lantern'));
-    await browser.$('nav[aria-label="Main navigation"] a[href="#chat"]').click();
+    await browser.$('nav a[href="#chat"]').click();
     await browser.$('button=New chat').click();
     await browser.$('aria/Use knowledge').click();
     await browser.$('aria/Message').setValue('The blue lantern is in the north archive room.');

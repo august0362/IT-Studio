@@ -45,7 +45,7 @@ async function createProject(session: Session, name: string, folder: string): Pr
   await session.waitUntil(
     async () => (await session.$('[role="tablist"] [role="tab"][aria-selected="true"]').getText()) === name,
   );
-  await session.$('nav[aria-label="Main navigation"] a[href="#code"]').click();
+  await session.$('nav a[href="#code"]').click();
 }
 
 function configureValidation(folder: string, shouldPass: boolean, slow = false): void {

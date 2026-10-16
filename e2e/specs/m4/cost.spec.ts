@@ -24,7 +24,7 @@ describe('M4 cost and P&L', () => {
       async () =>
         (await browser.$('[role="tablist"] [role="tab"][aria-selected="true"]').getText()) === 'Cost E2E Project',
     );
-    await browser.$('nav[aria-label="Main navigation"] a[href="#cost"]').click();
+    await browser.$('nav a[href="#cost"]').click();
     await browser.$('aria/Amount').setValue('100');
     await browser.$('aria/Description').setValue('Project work');
     await browser.$('form[aria-label="Revenue entries"] button[type="submit"]').click();
@@ -41,7 +41,7 @@ describe('M4 cost and P&L', () => {
     await browser.waitUntil(
       async () => (await browser.$('[role="tab"][aria-selected="true"]').getText()) === 'Budget E2E Project',
     );
-    await browser.$('nav[aria-label="Main navigation"] a[href="#cost"]').click();
+    await browser.$('nav a[href="#cost"]').click();
     const limit = browser.$('aria/Limit (USD)');
     await limit.setValue('12.5');
     await browser.$('button=Save budget').click();
@@ -71,14 +71,14 @@ describe('M4 cost and P&L', () => {
       await browser.$('aria/Folder path').setValue(createTemporaryProjectFolder());
       await browser.$('button=Create project').click();
       await browser.waitUntil(async () => (await browser.$('[role="tab"][aria-selected="true"]').getText()) === name);
-      await browser.$('nav[aria-label="Main navigation"] a[href="#cost"]').click();
+      await browser.$('nav a[href="#cost"]').click();
       await browser.$('aria/Amount').setValue(amount);
       await browser.$('aria/Description').setValue(`${name} revenue`);
       await browser.$('form[aria-label="Revenue entries"] button[type="submit"]').click();
       await browser.waitUntil(async () => (await browser.$('body').getText()).includes(`$${amount}.00`));
     }
     await browser.$('button=All projects').click();
-    await browser.$('nav[aria-label="Main navigation"] a[href="#cost"]').click();
+    await browser.$('nav a[href="#cost"]').click();
     await browser.waitUntil(async () => (await browser.$('body').getText()).includes(lowName));
     const rows = await browser.$$('table tbody tr').map((row) => row.getText());
     const lowIndex = rows.findIndex((row) => row.includes(lowName));
@@ -100,18 +100,18 @@ describe('M4 cost and P&L', () => {
     await browser.waitUntil(
       async () => (await browser.$('[role="tab"][aria-selected="true"]').getText()) === 'Live Cost Project',
     );
-    await browser.$('nav[aria-label="Main navigation"] a[href="#chat"]').click();
+    await browser.$('nav a[href="#chat"]').click();
     await browser.$('button=New chat').click();
     await browser.$('aria/Message').setValue('refresh ledger');
     await browser.$('button=Send').click();
     await browser.waitUntil(async () => (await browser.$('body').getText()).includes('Scripted assistant reply.'));
-    await browser.$('nav[aria-label="Main navigation"] a[href="#cost"]').click();
+    await browser.$('nav a[href="#cost"]').click();
     await browser.waitUntil(async () => (await browser.$('body').getText()).includes('Tokens in'), { timeout: 15_000 });
     expect(await browser.$('body').getText()).to.include('GPT-5.4 mini');
   });
 
   it('TC-M9-015 keeps Cost and the Ready shell visible while custom dates are reversed', async () => {
-    await browser.$('nav[aria-label="Main navigation"] a[href="#cost"]').click();
+    await browser.$('nav a[href="#cost"]').click();
     await browser.$('aria/Date range').selectByVisibleText('Custom');
     const from = browser.$('aria/From');
     const to = browser.$('aria/To');

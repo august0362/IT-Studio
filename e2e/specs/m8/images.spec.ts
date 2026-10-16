@@ -50,7 +50,7 @@ async function enableImages(active: Session): Promise<void> {
 }
 
 async function sendScriptedImageRequest(active: Session): Promise<void> {
-  await active.$('nav[aria-label="Main navigation"] a[href="#chat"]').click();
+  await active.$('nav a[href="#chat"]').click();
   await active.$('button=New chat').click();
   await active.$('#chat-model').selectByAttribute('value', 'openai/gpt-5.4-mini');
   await active.$('aria/Message').setValue('Generate a blue bird image');
@@ -132,7 +132,7 @@ describe('M8 image generation', () => {
     await enableImages(active);
     await sendScriptedImageRequest(active);
     await active.waitUntil(async () => active.$('img[alt*="blue bird"]').isDisplayed(), { timeout: 30_000 });
-    await active.$('nav[aria-label="Main navigation"] a[href="#gallery"]').click();
+    await active.$('nav a[href="#gallery"]').click();
     await active.waitUntil(async () => (await active.$('body').getText()).includes('A blue bird on a branch'));
     const cost = active.$('[aria-label^="USD "]');
     await active.waitUntil(async () => cost.isDisplayed());
