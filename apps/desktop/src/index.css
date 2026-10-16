@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme inline {
   --color-bg: var(--color-bg);
@@ -30,163 +30,202 @@
 }
 
 :root {
-  --radius-control: 12px;
-  --radius-panel: 16px;
-  --shadow-low: 0 4px 16px color-mix(in srgb, var(--color-text) 6%, transparent);
-  --shadow-panel: 0 12px 36px color-mix(in srgb, var(--color-text) 10%, transparent);
-  --shadow-dialog: 0 24px 72px color-mix(in srgb, var(--color-text) 16%, transparent);
-  --shadow-glow: 0 0 22px color-mix(in srgb, var(--color-glow, var(--color-primary)) 16%, transparent);
+  --font-ui: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-code: 'Cascadia Code', Consolas, ui-monospace, monospace;
+  --ui-scale: 1;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --text-caption: 0.75rem;
+  --text-body: 0.875rem;
+  --text-title: 1.5rem;
+  --radius-control: 8px;
+  --radius-panel: 12px;
+  --radius-pill: 999px;
+  --control-height: 38px;
+  --control-padding: 0.375rem;
+  --row-padding: 0.75rem;
+  --duration-fast: 120ms;
+  --duration-normal: 180ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --z-sticky: 10;
+  --z-popover: 30;
+  --z-dialog: 50;
+  --z-toast: 60;
+  --shadow-low: 0 1px 2px color-mix(in srgb, var(--color-text) 7%, transparent);
+  --shadow-panel: 0 2px 6px color-mix(in srgb, var(--color-text) 5%, transparent);
+  --shadow-dialog: 0 24px 64px color-mix(in srgb, var(--color-text) 22%, transparent);
+  font-family: var(--font-ui);
+  font-size: calc(16px * var(--ui-scale));
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+:root[data-density='compact'] {
+  --control-height: 30px;
+  --control-padding: 0.1875rem;
+  --row-padding: 0.4375rem;
 }
 
 body {
-  background-color: var(--color-bg);
+  margin: 0;
+  background: var(--color-bg);
   color: var(--color-text);
+  font-size: var(--text-body);
+  line-height: 1.6;
 }
 
-/* Existing controls share the same focus treatment without feature logic changes. */
-:where(button, input, select, textarea, a[href], [tabindex]):focus-visible {
+::selection {
+  background: var(--color-primary);
+  color: var(--color-primary-fg);
+}
+
+:where(button, input, select, textarea, a[href], [tabindex], summary):focus-visible {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 3px;
-  box-shadow: var(--shadow-glow);
 }
 
 :where(button, input, select, textarea) {
   border-radius: var(--radius-control);
+  accent-color: var(--color-primary);
 }
 
 :where(button:not(:disabled), a[href]) {
   transition:
-    background-color 150ms ease,
-    border-color 150ms ease,
-    box-shadow 150ms ease;
+    background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
 }
 
-:where(button:not(:disabled)):hover {
-  box-shadow: 0 0 14px color-mix(in srgb, var(--color-glow, var(--color-primary)) 12%, transparent);
+:where(button:not(:disabled), select:not(:disabled), summary) {
+  cursor: pointer;
 }
-
 :where(button:disabled, input:disabled, select:disabled, textarea:disabled) {
   cursor: not-allowed;
 }
-
-.studio-card {
-  border: 1px solid color-mix(in srgb, var(--color-border-glow, var(--color-border)) 35%, var(--color-border));
-  border-radius: var(--radius-panel);
-  background: var(--color-surface-glass, var(--color-surface));
+:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']), select, textarea) {
+  min-height: var(--control-height);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
   color: var(--color-text);
-  box-shadow: var(--shadow-panel);
+}
+:where(input, textarea)::placeholder {
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+:where(input[type='checkbox'], input[type='radio']) {
+  width: 1rem;
+  height: 1rem;
+}
+:where([role='switch']) {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+}
+:where([role='switch'][aria-checked='true']) {
+  background: var(--color-primary);
+  color: var(--color-primary-fg);
 }
 
-@supports (backdrop-filter: blur(12px)) {
-  .studio-card,
-  .studio-bar {
-    background-color: color-mix(in srgb, var(--color-surface-glass, var(--color-surface)) 96%, transparent);
-    backdrop-filter: blur(12px);
-  }
+.studio-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-panel);
 }
 
 .studio-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  min-height: 40px;
+  gap: var(--space-2);
+  min-height: var(--control-height);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
-  padding: 0.5rem 0.875rem;
+  padding: var(--control-padding) 0.875rem;
+  font-size: var(--text-body);
   font-weight: 600;
+  line-height: 1.4;
 }
-
 .studio-button-primary {
   border-color: var(--color-primary);
   background: var(--color-primary);
   color: var(--color-primary-fg);
 }
-
 .studio-button-primary:not(:disabled):hover {
   background: var(--color-primary-hover);
-  box-shadow: var(--shadow-glow);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
-
 .studio-button-secondary {
   background: var(--color-surface);
   color: var(--color-text);
 }
-
 .studio-button-secondary:not(:disabled):hover {
-  border-color: var(--color-border-glow, var(--color-border));
   background: var(--color-surface-alt);
 }
-
 .studio-button-danger {
   border-color: var(--color-danger);
   background: var(--color-surface);
   color: var(--color-danger);
 }
-
 .studio-button-danger:not(:disabled):hover {
-  box-shadow: 0 0 16px color-mix(in srgb, var(--color-danger) 18%, transparent);
+  background: var(--color-surface-alt);
 }
-
 .studio-button:disabled {
-  box-shadow: none;
+  color: var(--color-text-muted);
+  background: var(--color-surface-alt);
+  border-color: var(--color-border);
 }
 
 .studio-input {
-  min-height: 40px;
+  min-height: var(--control-height);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
-  background: var(--color-bg);
-  padding: 0.5rem 0.75rem;
+  background: var(--color-surface);
+  padding: var(--control-padding) 0.75rem;
+  line-height: 1.4;
   color: var(--color-text);
 }
-
-.studio-input::placeholder {
-  color: var(--color-text-muted);
-}
-
 .studio-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
   border: 1px solid currentColor;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--color-surface);
-  padding: 0.25rem 0.625rem;
-  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  font-size: var(--text-caption);
   font-weight: 600;
 }
-
 .studio-chip-neutral {
   color: var(--color-text-muted);
 }
-
 .studio-chip-success {
   color: var(--color-success);
 }
-
 .studio-chip-warning {
   color: var(--color-warning);
 }
-
 .studio-chip-danger {
   color: var(--color-danger);
 }
-
 .studio-kpi {
-  padding: 1.25rem;
-  background-image: linear-gradient(135deg, var(--color-gradient-start, var(--color-bg)), var(--color-gradient-end, var(--color-surface-alt)));
+  padding: var(--space-6);
+  background: var(--color-surface);
 }
-
 .studio-kpi-value {
-  margin-block: 0.625rem;
+  margin-block: var(--space-2);
   font-size: clamp(1.75rem, 3vw, 2.5rem);
-  font-weight: 700;
-  line-height: 1.1;
+  font-weight: 650;
+  line-height: 1.2;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.035em;
 }
 
+:where(table),
 .studio-table {
   width: 100%;
   border-collapse: collapse;
@@ -194,61 +233,262 @@ body {
   color: var(--color-text);
   font-variant-numeric: tabular-nums;
 }
-
+:where(table) :where(th, td),
 .studio-table :where(th, td) {
   border-bottom: 1px solid var(--color-border);
-  padding: 0.75rem;
+  padding: var(--row-padding) var(--space-4);
   text-align: start;
 }
-
-.studio-table th {
+:where(table) th {
   background: var(--color-surface-alt);
+  font-size: var(--text-caption);
   font-weight: 600;
 }
-
-.studio-table tbody tr:hover {
+:where(table) tbody tr:hover {
   background: var(--color-surface-alt);
 }
-
 .studio-code {
   border-radius: var(--radius-control);
-  box-shadow: var(--shadow-low);
+  box-shadow: none;
 }
-
+:where(code, pre, kbd) {
+  font-family: var(--font-code);
+  font-size: 0.875em;
+}
+.studio-markdown {
+  overflow-wrap: anywhere;
+  line-height: 1.75;
+}
+.studio-markdown :where(h1, h2, h3, h4) {
+  font-weight: 650;
+  line-height: 1.4;
+  margin-block: 1.25em 0.5em;
+}
+.studio-markdown h1 {
+  font-size: 1.5em;
+}
+.studio-markdown h2 {
+  font-size: 1.25em;
+}
+.studio-markdown :where(ul, ol) {
+  padding-inline-start: 1.5rem;
+}
+.studio-markdown ul {
+  list-style: disc;
+}
+.studio-markdown ol {
+  list-style: decimal;
+}
+.studio-markdown a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.studio-markdown blockquote {
+  border-inline-start: 3px solid var(--color-border);
+  padding-inline-start: var(--space-4);
+  color: var(--color-text-muted);
+}
+.studio-markdown pre {
+  margin-block: var(--space-4);
+  line-height: 1.6;
+}
 .studio-bar {
-  border-color: var(--color-border-glow, var(--color-border));
+  border-color: var(--color-border);
 }
-
 .studio-dialog-backdrop {
-  background: color-mix(in srgb, var(--color-bg) 72%, transparent);
-  backdrop-filter: blur(4px);
+  background: color-mix(in srgb, var(--color-bg) 85%, transparent);
+  z-index: var(--z-dialog);
 }
-
 .studio-dialog-backdrop .studio-card {
   background: var(--color-surface);
-  box-shadow: var(--shadow-dialog), var(--shadow-glow);
+  box-shadow: var(--shadow-dialog);
+}
+:where([role='tooltip'], [role='alert'], [data-toast]) {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+:where([role='tooltip']) {
+  padding: var(--space-2) var(--space-3);
+  box-shadow: var(--shadow-panel);
+  z-index: var(--z-popover);
+}
+:where([role='alert']) {
+  border-inline-start: 3px solid var(--color-danger);
+}
+:where([data-toast]) {
+  box-shadow: var(--shadow-dialog);
+  z-index: var(--z-toast);
 }
 
-:where([role="tab"][aria-selected="true"], nav [aria-current="page"]) {
-  border-color: var(--color-border-glow, var(--color-primary));
-  box-shadow: inset 0 -2px 0 var(--color-primary), var(--shadow-glow);
+.studio-sidebar {
+  background: var(--color-surface);
+  gap: var(--space-4);
+}
+.studio-sidebar h1 {
+  margin-bottom: var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  letter-spacing: -0.035em;
+  border-bottom: 2px solid var(--color-primary);
+}
+.studio-sidebar a {
+  font-weight: 500;
+  padding-block: var(--row-padding);
+}
+:where(nav [aria-current='page']) {
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+:where([role='tab'][aria-selected='true']) {
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  box-shadow: inset 0 -2px 0 var(--color-primary);
+}
+.studio-project-tabs {
+  gap: var(--space-1);
+}
+.studio-status {
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+}
+.studio-settings {
+  padding: var(--space-2);
+}
+.studio-messages > li {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  padding: var(--row-padding) var(--space-4);
+  box-shadow: none;
+}
+.studio-messages > li.ml-auto {
+  border-start-end-radius: 3px;
+}
+.studio-messages > li:not(.ml-auto) {
+  border-start-start-radius: 3px;
+}
+.studio-empty {
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-panel);
+  padding: var(--space-8);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  text-align: center;
 }
 
+.studio-appearance-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-4);
+}
+.studio-appearance-controls label {
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--text-body);
+  font-weight: 500;
+}
+.studio-theme-card {
+  box-shadow: none;
+  transition: transform var(--duration-normal) var(--ease-standard);
+}
+.studio-theme-card:hover {
+  transform: translateY(-2px);
+}
+.studio-theme-card[aria-checked='true'] {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+.studio-theme-card:focus-visible {
+  outline: 3px solid var(--color-focus-ring);
+  outline-offset: 4px;
+}
+.studio-mini {
+  display: grid;
+  grid-template-columns: 22% 1fr;
+  min-height: 112px;
+  overflow: hidden;
+  border: 1px solid;
+  border-radius: var(--radius-control);
+  font-size: 0.625rem;
+}
+.studio-mini-nav {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  padding: 12px 8px;
+  border-inline-end: 1px solid;
+}
+.studio-mini-line {
+  height: 3px;
+  border-radius: 2px;
+}
+.studio-mini-content {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  padding: 12px;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) var(--color-bg);
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border: 2px solid var(--color-bg);
+  border-radius: var(--radius-pill);
+}
+
+/* Respect the OS even if full motion was selected. No continuous decoration. */
 @media (prefers-reduced-motion: reduce) {
-  :where(button, input, select, textarea, a[href], [tabindex]) {
-    animation: none;
-    transition: none;
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
   }
+  .studio-theme-card:hover {
+    transform: none;
+  }
+}
+:root[data-motion='reduced'] *,
+:root[data-motion='reduced'] *::before,
+:root[data-motion='reduced'] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+:root[data-motion='reduced'] .studio-theme-card:hover {
+  transform: none;
 }
 
 @media (forced-colors: active) {
-  .studio-card,
-  .studio-button,
-  .studio-input,
-  .studio-chip {
+  :where(input[type='checkbox'], input[type='radio']) {
+    appearance: auto;
+  }
+  :where(input[type='checkbox'], input[type='radio'])::after {
+    content: none;
+  }
+  :where(.studio-card, .studio-button, .studio-input, .studio-chip) {
     border-color: CanvasText;
     background: Canvas;
     color: CanvasText;
     box-shadow: none;
+  }
+  :where(button, input, select, textarea, a[href], [tabindex]):focus-visible {
+    outline-color: Highlight;
+  }
+  :where([aria-checked='true'], [aria-selected='true'], [aria-current='page']) {
+    outline: 2px solid Highlight;
   }
 }

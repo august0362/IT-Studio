@@ -4,6 +4,7 @@ import { useEffect, type JSX } from 'react';
 import { useRpcQuery } from '../hooks/use-rpc-query';
 import { applyTheme, enableThemeTransitions } from './apply-theme';
 import { resolveTheme, themeCatalog } from './catalog';
+import { APPEARANCE_EVENT, writeThemeCache } from './appearance';
 
 const STORAGE_KEY = 'itstudio.theme';
 
@@ -36,7 +37,7 @@ export function ThemeSync(): JSX.Element | null {
     };
     const updateCache = () => {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ themeId, mode }));
+        writeThemeCache({ themeId, mode });
       } catch {
         // Storage is an optimization for startup only.
       }
@@ -45,6 +46,8 @@ export function ThemeSync(): JSX.Element | null {
       apply();
     };
     preference.addEventListener('change', onPreferenceChange);
+    window.addEventListener(APPEARANCE_EVENT, apply);
+    window.addEventListener('storage', apply);
     apply();
     if (settings.data !== undefined) {
       themeId = settings.data.ui.themeId;
@@ -54,6 +57,8 @@ export function ThemeSync(): JSX.Element | null {
     }
     return () => {
       preference.removeEventListener('change', onPreferenceChange);
+      window.removeEventListener(APPEARANCE_EVENT, apply);
+      window.removeEventListener('storage', apply);
     };
   }, [settings.data]);
 

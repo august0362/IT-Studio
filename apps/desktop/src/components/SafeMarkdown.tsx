@@ -33,7 +33,7 @@ const markdownComponents: Components = {
 
 export function SafeMarkdown({ source }: SafeMarkdownProps): JSX.Element {
   return (
-    <div className="space-y-3">
+    <div className="studio-markdown space-y-3">
       <ReactMarkdown
         components={markdownComponents}
         rehypePlugins={[rehypeSanitize]}

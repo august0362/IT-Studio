@@ -1,12 +1,15 @@
 import { ThemeMode } from '@itstudio/schemas';
 import type { ThemeId, ThemeTokens } from '@itstudio/schemas';
-import { useState, type JSX, type KeyboardEvent } from 'react';
+import { useState, useSyncExternalStore, type JSX, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRpcQuery } from '../../../hooks/use-rpc-query';
 import { useRpcClient } from '../../../rpc/rpc-context';
 import { resolveTheme, themeCatalog } from '../../../theme/catalog';
 import { applyTheme } from '../../../theme/apply-theme';
+import { Select } from '../../../components/ui/primitives';
+import { AppearanceControls } from './AppearanceControls';
+import { APPEARANCE_EVENT, appearanceTokens, readAppearance, writeThemeCache } from '../../../theme/appearance';
 import { ErrorPanel } from '../../../components/ErrorPanel';
 import '../../../i18n';
 
@@ -20,20 +23,54 @@ const FILTER_IDS: Readonly<Record<(typeof FILTERS)[number], readonly string[]>> 
   'Dark-native': [],
 };
 
+function subscribeMode(listener: () => void): () => void {
+  const media = window.matchMedia('(prefers-color-scheme: dark)');
+  media.addEventListener('change', listener);
+  return () => {
+    media.removeEventListener('change', listener);
+  };
+}
+function subscribeAppearance(listener: () => void): () => void {
+  window.addEventListener(APPEARANCE_EVENT, listener);
+  return () => {
+    window.removeEventListener(APPEARANCE_EVENT, listener);
+  };
+}
+function getAccent() {
+  return readAppearance().accent;
+}
+function getMode(): boolean {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
 function MiniPreview({ tokens, label }: { readonly tokens: ThemeTokens; readonly label: string }): JSX.Element {
   return (
     <div
-      className="studio-card p-3"
-      style={{ backgroundColor: tokens.bg, borderColor: tokens.border, color: tokens.text }}
+      className="studio-mini"
+      aria-hidden="true"
+      style={{ background: tokens.bg, borderColor: tokens.border, color: tokens.text }}
     >
-      <div className="mb-2 h-2 rounded" style={{ backgroundColor: tokens.surface }} />
-      <span
-        className="inline-block rounded px-2 py-1 text-xs"
-        style={{ backgroundColor: tokens.primary, color: tokens.primaryFg }}
-      >
-        {label}
-      </span>
-      <div className="mt-2 h-1 w-3/4 rounded" style={{ backgroundColor: tokens.textMuted }} />
+      <div className="studio-mini-nav" style={{ background: tokens.surface, borderColor: tokens.border }}>
+        <span className="studio-mini-line" style={{ background: tokens.primary }} />
+        <span className="studio-mini-line" style={{ background: tokens.textMuted }} />
+        <span className="studio-mini-line" style={{ background: tokens.textMuted, width: '70%' }} />
+      </div>
+      <div className="studio-mini-content">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-semibold">IT Studio</span>
+          <span style={{ color: tokens.textMuted }}>•••</span>
+        </div>
+        <div className="rounded border p-2" style={{ background: tokens.surface, borderColor: tokens.border }}>
+          <span className="block studio-mini-line w-4/5" style={{ background: tokens.textMuted }} />
+          <span className="mt-2 block studio-mini-line w-1/2" style={{ background: tokens.textMuted }} />
+        </div>
+        <span
+          className="ml-auto rounded px-2 py-1 font-semibold"
+          style={{ background: tokens.primary, color: tokens.primaryFg }}
+        >
+          {label}
+        </span>
+      </div>
     </div>
   );
 }
@@ -51,9 +88,11 @@ export function ThemePage(): JSX.Element {
   const locale = ui?.locale ?? 'en';
   const mode = ui?.mode ?? ThemeMode.SYSTEM;
   const selectedId = ui?.themeId ?? themeCatalog.defaultLight;
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const prefersDark = useSyncExternalStore(subscribeMode, getMode);
+  const accent = useSyncExternalStore(subscribeAppearance, getAccent);
   const activeThemeId = previewId ?? selectedId;
-  const active = resolveTheme(activeThemeId, mode, prefersDark);
+  const resolvedPreview = resolveTheme(activeThemeId, mode, prefersDark);
+  const active = { ...resolvedPreview, tokens: appearanceTokens(resolvedPreview.tokens, accent) };
   const selectedTheme = resolveTheme(selectedId, mode, prefersDark);
   const themes = themeCatalog.themes.filter((item) =>
     filter === 'All'
@@ -78,7 +117,7 @@ export function ThemePage(): JSX.Element {
       queryClient.setQueryData(['settings.get', {}], result);
       if (patch.locale !== undefined) await i18n.changeLanguage(patch.locale);
       try {
-        localStorage.setItem('itstudio.theme', JSON.stringify({ themeId: result.ui.themeId, mode: result.ui.mode }));
+        writeThemeCache({ themeId: result.ui.themeId, mode: result.ui.mode });
       } catch {
         /* Startup cache is optional. */
       }
@@ -149,7 +188,7 @@ export function ThemePage(): JSX.Element {
         <h3 className="font-semibold">{t('theme.appearance')}</h3>
         <label className="flex items-center gap-2">
           {t('theme.language')}
-          <select
+          <Select
             aria-label={t('theme.language')}
             className="rounded border border-border bg-bg px-3 py-2 text-text"
             onChange={(event) => {
@@ -159,9 +198,10 @@ export function ThemePage(): JSX.Element {
           >
             <option value="en">{t('theme.english')}</option>
             <option value="vi">{t('theme.vietnamese')}</option>
-          </select>
+          </Select>
         </label>
       </section>
+      <AppearanceControls />
       <div className="flex flex-wrap gap-2" aria-label={t('theme.filtersLabel')}>
         {FILTERS.map((item) => (
           <button
@@ -191,7 +231,7 @@ export function ThemePage(): JSX.Element {
         />
       ) : null}
       <div
-        className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4"
+        className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4"
         aria-label={t('theme.themes')}
         role="radiogroup"
         onKeyDown={onGridKeyDown}
@@ -210,7 +250,7 @@ export function ThemePage(): JSX.Element {
             >
               <button
                 aria-checked={selectedId === item.id}
-                className="studio-card w-full space-y-3 p-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+                className="studio-theme-card studio-card w-full space-y-3 p-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
                 data-theme-id={item.id}
                 onClick={() => {
                   void save({ themeId: item.id });
@@ -227,7 +267,7 @@ export function ThemePage(): JSX.Element {
                     />
                   ))}
                 </span>
-                <MiniPreview label={t('theme.cardPreview')} tokens={variant.tokens} />
+                <MiniPreview label={t('theme.cardPreview')} tokens={appearanceTokens(variant.tokens, accent)} />
                 <span className="block font-medium">
                   {item.name}
                   {selectedId === item.id ? ' ✓' : ''}

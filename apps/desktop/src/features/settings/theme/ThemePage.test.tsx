@@ -5,8 +5,12 @@ import { RpcClient } from '../../../rpc/rpc-client';
 import { RpcClientProvider } from '../../../rpc/rpc-context';
 import { FakeTransport } from '../../../rpc/transport';
 import { ThemePage } from './ThemePage';
+import { ThemeSync } from '../../../theme/ThemeSync';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+});
 
 function setup() {
   const transport = new FakeTransport();
@@ -33,6 +37,7 @@ function setup() {
   render(
     <QueryClientProvider client={queryClient}>
       <RpcClientProvider client={client}>
+        <ThemeSync />
         <ThemePage />
       </RpcClientProvider>
     </QueryClientProvider>,
@@ -78,4 +83,35 @@ describe('ThemePage', () => {
     });
     expect(transport.sent.find((line) => line.includes('settings.update'))).toContain('midnight-focus');
   });
+});
+
+it('UX-05 appearance controls apply immediately and persist across remounts and theme changes', async () => {
+  const { transport } = setup();
+  await screen.findByRole('radio', { name: /Arctic Focus/ });
+  fireEvent.change(screen.getByRole('combobox', { name: 'Density' }), { target: { value: 'compact' } });
+  fireEvent.change(screen.getByRole('combobox', { name: 'UI font size' }), { target: { value: 'large' } });
+  fireEvent.change(screen.getByRole('combobox', { name: 'Accent colour' }), { target: { value: 'ocean' } });
+  fireEvent.change(screen.getByRole('combobox', { name: 'Motion' }), { target: { value: 'reduced' } });
+  expect(document.documentElement.dataset.density).toBe('compact');
+  expect(document.documentElement.dataset.motion).toBe('reduced');
+  expect(document.documentElement.style.getPropertyValue('--ui-scale')).toBe('1.125');
+  expect(document.documentElement.style.getPropertyValue('--color-primary')).toBe(
+    document.documentElement.style.getPropertyValue('--color-info'),
+  );
+  fireEvent.click(screen.getByRole('radio', { name: /Midnight Focus/ }));
+  await waitFor(() => {
+    expect(transport.sent.some((line) => line.includes('settings.update'))).toBe(true);
+  });
+  expect(JSON.parse(localStorage.getItem('itstudio.theme') ?? '{}')).toMatchObject({
+    density: 'compact',
+    fontScale: 'large',
+    accent: 'ocean',
+    motion: 'reduced',
+  });
+  cleanup();
+  setup();
+  expect(screen.getByRole('combobox', { name: 'Density' })).toHaveValue('compact');
+  expect(screen.getByRole('combobox', { name: 'Motion' })).toHaveValue('reduced');
+  expect(screen.getByRole('combobox', { name: 'UI font size' })).toHaveValue('large');
+  expect(screen.getByRole('combobox', { name: 'Accent colour' })).toHaveValue('ocean');
 });

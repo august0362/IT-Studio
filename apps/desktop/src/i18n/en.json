@@ -24,7 +24,12 @@
     "viewer": "Process viewer",
     "canvas": "Process modules",
     "removed": "This process was removed.",
-    "status": { "running": "Running", "waiting": "Waiting", "stopped": "Stopped", "ended": "Ended" },
+    "status": {
+      "running": "Running",
+      "waiting": "Waiting",
+      "stopped": "Stopped",
+      "ended": "Ended"
+    },
     "kinds": {
       "chat": "Chat",
       "code_pipeline": "Code pipeline",
@@ -804,6 +809,30 @@
       "workspace_fs": "Workspace files",
       "vscode_bridge": "VS Code bridge",
       "storage": "Storage"
+    }
+  },
+  "appearance": {
+    "customize": "Make it yours",
+    "description": "Fine-tune your workspace. These preferences are saved on this device.",
+    "accent": "Accent colour",
+    "density": "Density",
+    "fontScale": "UI font size",
+    "motion": "Motion",
+    "storageError": "Preferences could not be saved. Enable local storage and try again.",
+    "options": {
+      "theme": "Theme default",
+      "ocean": "Ocean blue",
+      "grove": "Grove green",
+      "ember": "Ember amber",
+      "alternate": "Palette companion",
+      "comfortable": "Comfortable",
+      "compact": "Compact",
+      "small": "Small · 94%",
+      "default": "Default · 100%",
+      "large": "Large · 113%",
+      "system": "Follow system",
+      "full": "Full",
+      "reduced": "Reduced"
     }
   }
 }
