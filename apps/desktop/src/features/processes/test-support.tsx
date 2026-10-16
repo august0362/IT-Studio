@@ -60,8 +60,24 @@ export function mountProcesses(ui: ReactNode, initial: readonly ProcessRecord[] 
     if (['process.cancel', 'process.dismiss', 'process.retry'].includes(method)) {
       const record = records.find((item) => item.id === params.id);
       result = record;
+      if (record !== undefined && method !== fail) {
+        const updated: ProcessRecord = {
+          ...record,
+          // @ts-expect-error Readable identifier models the distinct process returned by retry.
+          id: method === 'process.retry' ? record.id + '-retry' : record.id,
+          status: method === 'process.cancel' ? 'stopped' : method === 'process.dismiss' ? 'ended' : 'running',
+        };
+        records =
+          method === 'process.retry'
+            ? [...records, updated]
+            : records.map((item) => (item.id === record.id ? updated : item));
+        result = updated;
+      }
     }
-    if (method === 'process.delete') result = { deleted: true };
+    if (method === 'process.delete') {
+      result = { deleted: records.some((record) => record.id === params.id) };
+      if (method !== fail) records = records.filter((record) => record.id !== params.id);
+    }
     if (method === fail)
       transport.receive(
         JSON.stringify({

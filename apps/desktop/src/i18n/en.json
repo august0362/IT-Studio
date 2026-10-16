@@ -24,7 +24,12 @@
     "viewer": "Process viewer",
     "canvas": "Process modules",
     "removed": "This process was removed.",
-    "status": { "running": "Running", "waiting": "Waiting", "stopped": "Stopped", "ended": "Ended" },
+    "status": {
+      "running": "Running",
+      "waiting": "Waiting",
+      "stopped": "Stopped",
+      "ended": "Ended"
+    },
     "kinds": {
       "chat": "Chat",
       "code_pipeline": "Code pipeline",
@@ -42,7 +47,8 @@
       "image": "Open image",
       "price_run": "Open pricing",
       "webchat_link": "Open Web chat"
-    }
+    },
+    "deleteConfirm": "Delete \"{{title}}\"?"
   },
   "pipelineStudio": {
     "back": "← Back",

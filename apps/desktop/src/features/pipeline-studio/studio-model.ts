@@ -1,4 +1,4 @@
-import type { PipelineRun, PipelineStage } from '@itstudio/schemas';
+import type { PipelineRun, PipelineStage, ProcessModule } from '@itstudio/schemas';
 
 export const MODULES = [
   'request',
@@ -77,48 +77,14 @@ export function runPath(run: PipelineRun, enteredStages: readonly PipelineStage[
   return path.slice(0, path.indexOf(final) + 1);
 }
 
-/** Snapshot artifacts establish passed stages; observed events disambiguate terminal runs. */
-export function moduleStatuses(
-  run: PipelineRun | undefined,
-  enteredStages: readonly PipelineStage[],
-  finished: boolean,
-  queued = false,
-): Readonly<Record<ModuleId, ModuleStatus>> {
-  const states: Record<ModuleId, ModuleStatus> = {
-    request: 'idle',
-    clarify: 'idle',
-    spec: 'idle',
-    code: 'idle',
-    review: 'idle',
-    fix: 'idle',
-    're-review': 'idle',
-    write: 'idle',
-    validate: 'idle',
-    done: 'idle',
-  };
-  if (run === undefined) return states;
-  if (queued && !finished) {
-    states.request = 'waiting';
-    return states;
-  }
-  states.request = 'done';
-  const path = runPath(run, enteredStages);
-  for (const id of path) states[id] = 'done';
-  if (!run.clarifications?.length && run.stage !== 'clarifying') states.clarify = 'skipped';
-  if (!path.includes('fix')) {
-    states.fix = 'skipped';
-    states['re-review'] = 'skipped';
-  }
-  const current = finalModule(run, enteredStages);
-  if (!finished) states[current] = run.stage === 'clarifying' ? 'waiting' : 'active';
-  else if (run.stage !== 'completed') {
-    states[current] = run.stage === 'cancelled' ? 'cancelled' : 'failed';
-    states.done = run.stage === 'cancelled' ? 'cancelled' : 'idle';
-  }
-  // The first PM call can ask questions before it has produced a spec.
-  if (run.stage === 'clarifying') states.spec = 'idle';
-  if (run.stage === 'specifying' && run.clarifications?.some((q) => q.answer === undefined)) states.clarify = 'idle';
-  return states;
+/** The sidecar's process modules are authoritative for both viewers. */
+export function moduleStatuses(modules: readonly ProcessModule[] = []): Readonly<Record<ModuleId, ModuleStatus>> {
+  return Object.fromEntries(
+    MODULES.map((id) => [
+      id,
+      modules.find((module) => module.id === (id === 're-review' ? 're_review' : id))?.state ?? 'idle',
+    ]),
+  ) as Record<ModuleId, ModuleStatus>;
 }
 
 export const badge = (id: ModuleId, status: ModuleStatus): string =>

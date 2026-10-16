@@ -189,7 +189,15 @@ export class LlmRouter {
     if (!configResult.ok) return configResult;
     const config = configResult.value;
     const started = this.deps.clock.monotonicMs();
-    const candidates = makeCandidates(config, request);
+    const required = [
+      ...new Set([
+        ...request.requiredCapabilities,
+        ...(request.responseFormat === 'json' ? [ModelCapability.JSON_MODE] : []),
+      ]),
+    ];
+    const candidates = makeCandidates(config, request).filter((candidate) =>
+      this.deps.models.supports(candidate.modelKey, required),
+    );
     if (
       request.purpose === 'chat' &&
       request.ladderOverride === undefined &&
@@ -198,7 +206,7 @@ export class LlmRouter {
     ) {
       const present = new Set(candidates.map((candidate) => candidate.modelKey));
       for (const model of this.deps.models.list()) {
-        if (!model.enabled || !model.capabilities.includes(ModelCapability.CHAT) || present.has(model.key)) continue;
+        if (!model.enabled || !this.deps.models.supports(model.key, required) || present.has(model.key)) continue;
         const key = await this.deps.secrets.get(model.provider);
         if (key.ok && key.value !== null) {
           candidates.push({ modelKey: model.key, maxRetries: 0, timeoutMs: 30_000, enabled: true });
@@ -233,7 +241,7 @@ export class LlmRouter {
       const health =
         model === undefined
           ? { eligible: false, reason: 'unknown_model' as const }
-          : this.deps.models.eligibility(candidate.modelKey, request.requiredCapabilities, () => true);
+          : this.deps.models.eligibility(candidate.modelKey, required, () => true);
       const circuitStatus = circuit.status(candidate.modelKey);
       if (!candidate.enabled || !health.eligible || circuitStatus === 'open') {
         const circuitKey =
@@ -697,8 +705,14 @@ export class LlmRouter {
         if (!stored.ok || stored.value === null) continue;
         for (const model of models.filter((item) => item.provider === provider)) {
           if (
-            this.deps.models.eligibility(model.key, [ModelCapability.CHAT, ModelCapability.JSON_MODE], () => true)
-              .eligible
+            this.deps.models.eligibility(
+              model.key,
+              [
+                ...request.requiredCapabilities,
+                ...(request.responseFormat === 'json' ? [ModelCapability.JSON_MODE] : []),
+              ],
+              () => true,
+            ).eligible
           )
             suggestedModels.push(`${providerName(provider)}: ${model.displayName}`);
         }

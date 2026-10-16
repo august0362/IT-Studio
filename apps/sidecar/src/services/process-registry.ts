@@ -132,7 +132,11 @@ export class ProcessRegistry implements IProcessTracker {
 
   status(id: ProcessId | undefined, status: ProcessStatus, reason?: string): void {
     const current = id === undefined ? undefined : this.records.get(id)?.process;
-    if (current === undefined || current.status === 'ended' || current.status === 'stopped') return;
+    if (current === undefined || current.status === 'ended') return;
+    if (current.status === 'stopped') {
+      if (status === 'stopped' && reason !== undefined) this.put({ ...current, statusReason: summary(reason) });
+      return;
+    }
     if (status === 'ended') {
       this.end(id, reason);
       return;
@@ -246,19 +250,28 @@ export class ProcessRegistry implements IProcessTracker {
   }
 
   dismiss(id: ProcessId): Result<ProcessRecord> {
+    return this.dismissStopped(id, true);
+  }
+
+  private dismissStopped(id: ProcessId, prune: boolean): Result<ProcessRecord> {
     const current = this.get(id);
     if (!current.ok) return current;
     if (current.value.status !== 'stopped') return failure('Only stopped processes can be dismissed.');
     const ended = { ...current.value, status: 'ended' as const, endedAt: this.now(), updatedAt: this.now() };
     this.put(ended);
-    this.prune();
+    if (prune) this.prune();
     return { ok: true, value: ended };
   }
 
   delete(id: ProcessId): Result<{ readonly deleted: boolean }> {
     const current = this.records.get(id);
     if (current === undefined) return { ok: true, value: { deleted: false } };
-    if (current.process.status !== 'ended') return failure('Only ended processes can be deleted.');
+    if (current.process.status !== 'ended' && current.process.status !== 'stopped')
+      return failure('Only stopped or ended processes can be deleted.');
+    if (current.process.status === 'stopped') {
+      const dismissed = this.dismissStopped(id, false);
+      if (!dismissed.ok) return dismissed;
+    }
     this.remove(id);
     return { ok: true, value: { deleted: true } };
   }

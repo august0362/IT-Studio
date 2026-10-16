@@ -1,6 +1,5 @@
 import {
   ErrorCode,
-  ModelCapability,
   type AppError,
   type CoderOutput,
   type LlmRequest,
@@ -15,6 +14,7 @@ import {
 import type { Logger } from 'pino';
 import { z, ZodError } from 'zod';
 import { contextBlock, renderTemplate } from '../domain/template.js';
+import { ROLE_CAPABILITIES } from '../domain/pipeline-models.js';
 import { systemIdGenerator, type IIdGenerator } from '../infra/id.js';
 import { CODER_ROLE_PROMPT } from '../prompts/coder.js';
 import { PM_ROLE_PROMPT } from '../prompts/pm.js';
@@ -229,7 +229,7 @@ export class RoleCaller {
           },
         ],
         systemPrompt: prompt,
-        requiredCapabilities: [ModelCapability.CHAT],
+        requiredCapabilities: ROLE_CAPABILITIES[role],
         responseFormat: 'json',
         ladderOverride: options.ladder,
         stream: false,

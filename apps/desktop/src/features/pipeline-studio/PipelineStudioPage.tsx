@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Money } from '../../components/Money';
 import { useNotification } from '../../hooks/use-notification';
 import { formatDateTime } from '../../i18n/format';
+import { useProcesses } from '../processes/useProcesses';
 import { StudioGraph } from './StudioGraph';
 import { StudioPanel } from './StudioPanel';
 import {
@@ -36,7 +37,9 @@ function StudioPage({ projectId, projectName, onBack }: PageProps): JSX.Element 
   const [resetRevision, setResetRevision] = useState(0);
   const run = data.selected;
   const finished = run !== undefined && isFinished(run);
-  const statuses = moduleStatuses(run, data.entered, finished, data.queued);
+  const processes = useProcesses(projectId ?? undefined);
+  const process = processes.records.find((record) => record.kind === 'code_pipeline' && record.ref?.id === run?.id);
+  const statuses = moduleStatuses(process?.modules);
   const previous = useRef<{ readonly runId: string; readonly module: ModuleId } | null>(null);
   const current = run === undefined ? 'request' : data.queued ? 'request' : finalModule(run, data.entered);
   useEffect(() => {
@@ -188,6 +191,7 @@ function StudioPage({ projectId, projectName, onBack }: PageProps): JSX.Element 
             key={resetRevision}
             run={run}
             statuses={statuses}
+            modules={process?.modules}
             packet={animation.packet}
             pulse={animation.pulse}
             onSelect={select}

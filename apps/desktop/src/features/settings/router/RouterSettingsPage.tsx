@@ -27,11 +27,13 @@ function LadderRow({
   entry,
   name,
   saving,
+  searchTarget,
   onChange,
 }: {
   readonly entry: LadderEntry;
   readonly name: string;
   readonly saving: boolean;
+  readonly searchTarget: boolean;
   readonly onChange: (entry: LadderEntry) => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -55,6 +57,7 @@ function LadderRow({
       <span className="min-w-0 flex-1">{name}</span>
       <label className="flex items-center gap-2">
         <input
+          id={searchTarget ? 'router-model-enabled' : undefined}
           aria-label={t('settings.router.enabled', { name })}
           checked={entry.enabled}
           disabled={saving}
@@ -126,6 +129,7 @@ export function RouterSettingsPage(): JSX.Element {
       <p className="text-sm text-text-muted">{t('settings.router.description')}</p>
       <label className="flex items-center gap-3">
         <input
+          id="router-auto-fallback"
           checked={current.autoFallback}
           disabled={saving}
           onChange={(event) => {
@@ -139,6 +143,7 @@ export function RouterSettingsPage(): JSX.Element {
       <label className="grid max-w-md gap-1">
         {t('settings.router.lockModel')}
         <select
+          id="router-lock-model"
           className="rounded border border-border bg-bg p-2"
           disabled={saving}
           onChange={(event) => {
@@ -157,6 +162,7 @@ export function RouterSettingsPage(): JSX.Element {
       <label className="grid max-w-xs gap-1">
         {t('settings.router.timeout')}
         <input
+          id="router-timeout"
           className="rounded border border-border bg-bg p-2"
           disabled={saving}
           max={300}
@@ -197,10 +203,11 @@ export function RouterSettingsPage(): JSX.Element {
         }}
       >
         <SortableContext items={current.ladder.map((entry) => entry.modelKey)} strategy={verticalListSortingStrategy}>
-          <ol className="space-y-2">
-            {current.ladder.map((entry) => (
+          <ol id="router-ladder" tabIndex={-1} className="space-y-2">
+            {current.ladder.map((entry, index) => (
               <LadderRow
                 entry={entry}
+                searchTarget={index === 0}
                 key={entry.modelKey}
                 name={names.get(entry.modelKey) ?? entry.modelKey}
                 onChange={(changed) => {

@@ -211,6 +211,7 @@ export function PricingSettingsPage({ projectActive }: { readonly projectActive:
         onSelect={(modelKey) => void selectExtractionModel(modelKey)}
       />
       <button
+        id="pricing-update"
         className="rounded bg-primary px-4 py-2 text-primary-fg disabled:opacity-50"
         disabled={
           running ||
@@ -227,7 +228,7 @@ export function PricingSettingsPage({ projectActive }: { readonly projectActive:
       >
         {running ? t('settings.pricing.updating') : t('settings.pricing.update')}
       </button>
-      <div className="overflow-x-auto rounded border border-border">
+      <div id="pricing-overrides" tabIndex={-1} className="overflow-x-auto rounded border border-border">
         <table className="w-full text-left text-sm">
           <thead className="bg-surface">
             <tr>

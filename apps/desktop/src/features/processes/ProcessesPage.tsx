@@ -1,5 +1,6 @@
 import { ProcessKind, type ProcessId, type ProcessRecord, type Project, type ProjectId } from '@itstudio/schemas';
 import { useState } from 'react';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useTranslation } from 'react-i18next';
 import { useRpcClient } from '../../rpc/rpc-context';
 import { formatDateTime } from '../../i18n/format';
@@ -36,6 +37,7 @@ export function ProcessesPage({
   const [search, setSearch] = useState('');
   const [statuses, setStatuses] = useState<readonly string[]>(STATUSES);
   const [busy, setBusy] = useState<ProcessId | null>(null);
+  const [deleting, setDeleting] = useState<ProcessRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
   async function action(
     method: 'process.cancel' | 'process.retry' | 'process.dismiss' | 'process.delete',
@@ -44,8 +46,13 @@ export function ProcessesPage({
     setBusy(id);
     setError(null);
     try {
-      await rpc.call(method, { id });
-      await query.refetch();
+      if (method === 'process.delete') {
+        await rpc.call(method, { id });
+        await query.applyChange({ type: 'removed', id });
+      } else {
+        const process = await rpc.call(method, { id });
+        await query.applyChange({ type: 'upsert', process });
+      }
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : t('processes.error'));
     } finally {
@@ -214,12 +221,12 @@ export function ProcessesPage({
                         {t('processes.dismiss')}
                       </button>
                     ) : null}
-                    {status === 'ended' ? (
+                    {status === 'ended' || status === 'stopped' ? (
                       <button
                         type="button"
                         disabled={busy !== null}
                         onClick={() => {
-                          void action('process.delete', record.id);
+                          setDeleting(record);
                         }}
                       >
                         {t('processes.delete')}
@@ -231,6 +238,21 @@ export function ProcessesPage({
           </ul>
         </section>
       ))}
+      <ConfirmDialog
+        open={deleting !== null}
+        title={t('processes.delete')}
+        message={t('processes.deleteConfirm', { title: deleting?.title ?? '' })}
+        confirmLabel={t('processes.delete')}
+        cancelLabel={t('api.cancel')}
+        tone="danger"
+        onCancel={() => {
+          setDeleting(null);
+        }}
+        onConfirm={() => {
+          if (deleting !== null) void action('process.delete', deleting.id);
+          setDeleting(null);
+        }}
+      />
     </section>
   );
 }

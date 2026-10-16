@@ -7,8 +7,9 @@ import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { appSettingsSchema } from '../../src/validation/settings.js';
 import { projectSchema } from '../../src/validation/projects.js';
+import { processRecordSchema } from '../../src/validation/process.js';
 import { pipelineRunSchema } from '../../src/validation/pipeline.js';
-import { providerIdSchema } from '../../src/validation/common.js';
+import { modelKeySchema, providerIdSchema } from '../../src/validation/common.js';
 import { isoDateTimeSchema } from '../../src/validation/brand.js';
 import { startSidecar, waitFor, type SidecarHarness } from './harness.js';
 
@@ -76,9 +77,19 @@ async function setup(
     readonly validationArgs?: readonly string[];
     readonly validationTimeoutMs?: number;
     readonly parentSecret?: string;
+    readonly keyedCoder?: boolean;
   } = {},
 ) {
-  const scriptedTexts = { ...responseTexts };
+  const scriptedTexts: Record<string, string> = {
+    ...responseTexts,
+    ...(options.keyedCoder
+      ? {
+          'deepseek-v4-pro': JSON.stringify(taskSpec),
+          'deepseek-v4-flash': JSON.stringify(coderOutput),
+          'mistral-small-latest': JSON.stringify(reviewVerdict),
+        }
+      : {}),
+  };
   if (options.twoFiles || options.coderPath !== undefined || options.invalidCoder || options.nestedFile) {
     const multiFileCoder = {
       ...coderOutput,
@@ -127,10 +138,25 @@ async function setup(
     const provider = providerIdSchema.parse(modelKey.split('/')[0]);
     await sidecar.call('secrets.set', { provider, apiKey: `integration-only-${provider}-key` });
   }
+  if (options.keyedCoder) {
+    await sidecar.call('secrets.delete', { provider: providerIdSchema.parse('openai') });
+    await sidecar.call('secrets.delete', { provider: providerIdSchema.parse('anthropic') });
+    for (const provider of ['deepseek', 'mistral'])
+      await sidecar.call('secrets.set', { provider: providerIdSchema.parse(provider), apiKey: 'integration-only-key' });
+  }
   const defaultValidationArgs = ['-e', `process.exit(${String(validationExitCode)})`];
   await sidecar.call('settings.update', {
     patch: {
       pipeline: {
+        ...(options.keyedCoder
+          ? {
+              roleAssignment: {
+                pm: [modelKeySchema.parse('deepseek/deepseek-v4-pro')],
+                coder: [modelKeySchema.parse('openai/gpt-5.3-codex')],
+                reviewer: [modelKeySchema.parse('mistral/mistral-small-latest')],
+              },
+            }
+          : {}),
         validationCommands: [
           {
             kind: 'build',
@@ -361,7 +387,7 @@ describe('pipeline integration', () => {
   }, 30_000);
 });
 
-it('TC-UX2-001 Google-only keys reject default ladders, then Google role models start a scripted run', async () => {
+it('TC-UX2-001 TC-OWNER-FB3-020 Google-only keys augment default role ladders and start a scripted run', async () => {
   const googleModel = 'google/gemini-3.8-flash';
   // Each role validates its own fields and ignores the other roles' fixture fields.
   const reply = { kind: 'spec', spec: taskSpec, ...coderOutput, ...reviewVerdict };
@@ -385,39 +411,46 @@ it('TC-UX2-001 Google-only keys reject default ladders, then Google role models 
     ).result,
   ).id;
   await sidecar.call('secrets.set', { provider: 'google', apiKey: 'integration-only-google-key' });
-  const rejected = await sidecar.call('pipeline.start', { projectId, prompt: 'Write a greeting' });
-  const error = z
-    .object({ code: z.literal('VALIDATION'), message: z.string(), remediation: z.array(z.string()) })
-    .parse(rejected.error?.data);
-  expect(error.message).toContain('pm');
-  expect(error.message).toContain('coder');
-  expect(error.remediation[0]).toContain('Anthropic, OpenAI');
-  expect(error.remediation[1]).toContain('Google: Gemini 3.8 Flash');
-  expect(error.remediation[1]).toContain('Settings \u2192 Pipeline');
-  expect((await sidecar.call('pipeline.list', { projectId, limit: 20 })).result).toEqual([]);
-  expect(observed('router.event')).toHaveLength(0);
-  expect(observed('pipeline.event')).toHaveLength(0);
-  expect((await sidecar.call('ledger.query', { projectId, limit: 20 })).result).toMatchObject({ items: [] });
   const settings = appSettingsSchema.parse((await sidecar.call('settings.get')).result);
   await sidecar.call('settings.update', {
-    patch: {
-      pipeline: {
-        roleAssignment: {
-          pm: [...settings.pipeline.roleAssignment.pm, googleModel],
-          coder: [...settings.pipeline.roleAssignment.coder, googleModel],
-          reviewer: [...settings.pipeline.roleAssignment.reviewer, googleModel],
-        },
-        validationCommands: [],
-      },
-    },
+    patch: { pipeline: { validationCommands: [] } },
   });
   const run = pipelineRunSchema.parse(
     (await sidecar.call('pipeline.start', { projectId, prompt: 'Write a greeting' })).result,
   );
   expect(run.stage).toBe('specifying');
+  for (const role of ['pm', 'coder', 'reviewer'] as const) {
+    expect(run.roleAssignment[role]).toContain(googleModel);
+    expect(run.roleAssignment[role]).not.toContain('google/gemini-embedding-2');
+  }
+  expect(appSettingsSchema.parse((await sidecar.call('settings.get')).result).pipeline.roleAssignment).toEqual(
+    settings.pipeline.roleAssignment,
+  );
   await waitFor(() => observed('pipeline.event').some((value) => JSON.stringify(value).includes('completed')));
   expect(pipelineRunSchema.parse((await sidecar.call('pipeline.get', { runId: run.id })).result).stage).toBe(
     'completed',
   );
   expect(await readFile(resolve(workspace, 'src/greeting.txt'), 'utf8')).toBe('hello from pipeline');
 }, 30_000);
+
+it('TC-OWNER-FB3-014 a keyed DeepSeek coder is appended and used when configured OpenAI has no key', async () => {
+  const { projectId, workspace } = await setup(0, { keyedCoder: true });
+  const started = pipelineRunSchema.parse(
+    (await sidecar?.call('pipeline.start', { projectId, prompt: 'Create greeting using available keyed providers' }))
+      ?.result,
+  );
+  await waitFor(() => observed('pipeline.event').some((event) => JSON.stringify(event).includes('completed')));
+  const run = pipelineRunSchema.parse((await sidecar?.call('pipeline.get', { runId: started.id }))?.result);
+  expect(run.stage).toBe('completed');
+  expect(run.roleAssignment.coder).toContain('deepseek/deepseek-v4-flash');
+  const ledger = await sidecar?.call('ledger.query', { projectId, limit: 100 });
+  const items = z
+    .object({ items: z.array(z.object({ purpose: z.string(), modelKey: z.string() })) })
+    .parse(ledger?.result).items;
+  expect(items).toContainEqual({ purpose: 'pipeline_coder', modelKey: 'deepseek/deepseek-v4-flash' });
+  expect(await readFile(resolve(workspace, 'src/greeting.txt'), 'utf8')).toBe('hello from pipeline');
+  const processes = processRecordSchema
+    .array()
+    .parse((await sidecar?.call('process.list', { projectId, kind: ['code_pipeline'], limit: 100 }))?.result);
+  expect(processes[0]?.modules.find((module) => module.id === 'spec')?.output).toBe(taskSpec.title);
+}, 30000);

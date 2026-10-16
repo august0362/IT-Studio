@@ -7,7 +7,6 @@ export class ProcessActivity {
   readonly id: ProcessId | undefined;
   private readonly tracker: IProcessTracker;
   private current: string | undefined;
-  private lastOutput: string | undefined;
   constructor(tracker: IProcessTracker, id: ProcessId | undefined, current?: string) {
     this.tracker = tracker;
     this.id = id;
@@ -18,19 +17,18 @@ export class ProcessActivity {
     this.current = moduleId;
     this.tracker.module(this.id, moduleId, {
       state: 'active',
-      input: input ?? this.lastOutput ?? 'Request received',
+      input: input ?? MODULE_INPUTS[moduleId] ?? 'Operation request',
       ...(detail === undefined ? {} : { detail }),
     });
     this.tracker.status(this.id, 'running');
   }
   done(moduleId: string, output?: string, detail?: JsonObject): void {
-    const summary = output ?? `${moduleId.replaceAll('_', ' ')} completed`;
+    const summary = output ?? MODULE_OUTPUTS[moduleId] ?? 'Result available';
     this.tracker.module(this.id, moduleId, {
       state: 'done',
       output: summary,
       ...(detail === undefined ? {} : { detail }),
     });
-    this.lastOutput = summary;
     if (this.current === moduleId) this.current = undefined;
   }
   skip(moduleId: string): void {
@@ -62,3 +60,46 @@ export function trackProcess(
   const port = tracker ?? NO_PROCESS_TRACKER;
   return new ProcessActivity(port, port.start(kind, init), PROCESS_MODULES[kind][0]);
 }
+
+const MODULE_INPUTS: Readonly<Record<string, string>> = {
+  context: 'Conversation + knowledge settings',
+  router: 'Messages + model requirements',
+  provider: 'Model request',
+  stream: 'Provider response stream',
+  cost: 'Model usage',
+  output: 'Response + usage',
+  budget: 'Estimated generation cost',
+  download: 'Generated image locations',
+  store: 'Processed assets',
+  gallery: 'Saved images',
+  fetch: 'Provider pricing sources',
+  extract: 'Provider pricing pages',
+  validate: 'Proposed prices',
+  save: 'Validated prices',
+  parse: 'Discovered documents',
+  chunk: 'Parsed document text',
+  embed: 'Text chunks',
+  done: 'Stored document vectors',
+  launch: 'Workspace + editor executable',
+  session: 'Editor launch + companion extension',
+  result: 'Provider verification response',
+};
+const MODULE_OUTPUTS: Readonly<Record<string, string>> = {
+  context: 'Conversation context prepared',
+  router: 'Model selected',
+  provider: 'Provider response received',
+  stream: 'Response stream received',
+  budget: 'Budget check passed',
+  download: 'Image downloads available',
+  store: 'Assets saved',
+  fetch: 'Pricing pages fetched',
+  extract: 'Prices extracted',
+  validate: 'Price checks passed',
+  save: 'Prices saved',
+  discover: 'Document paths discovered',
+  parse: 'Document text parsed',
+  embed: 'Chunk embeddings received',
+  locate: 'Editor executable located',
+  launch: 'Editor launch accepted',
+  request: 'Verification response received',
+};

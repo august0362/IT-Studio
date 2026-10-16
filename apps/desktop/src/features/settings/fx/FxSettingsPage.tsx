@@ -65,6 +65,7 @@ export function FxSettingsPage() {
         <label className="grid gap-1">
           {t('settings.fx.override')}
           <input
+            id="fx-override"
             className="rounded border border-border bg-bg p-2"
             disabled={saving}
             inputMode="decimal"
@@ -84,6 +85,7 @@ export function FxSettingsPage() {
           {t('settings.save')}
         </button>
         <button
+          id="fx-clear"
           className="rounded border border-border px-4 py-2 disabled:opacity-50"
           disabled={saving || query.data?.source !== 'manual_override'}
           onClick={() => {

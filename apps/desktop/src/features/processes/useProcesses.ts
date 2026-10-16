@@ -1,6 +1,6 @@
 import type { ProcessEvent, ProcessId, ProcessRecord, ProjectId } from '@itstudio/schemas';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useRpcClient } from '../../rpc/rpc-context';
 
 export function retainProcesses(records: readonly ProcessRecord[]): readonly ProcessRecord[] {
@@ -16,34 +16,45 @@ export function applyProcessEvent(records: readonly ProcessRecord[], event: Proc
   return retainProcesses(event.type === 'upsert' ? [...rest, event.process] : rest);
 }
 
-/** Subscribe before taking the snapshot; notifications received during the request win. */
+export const PROCESS_QUERY_KEY = ['process.list', { limit: 100 }] as const;
+
+/** All consumers share one snapshot; project filters are views of that snapshot. */
 export function useProcesses(projectId?: ProjectId) {
   const rpc = useRpcClient();
   const cache = useQueryClient();
-  const events = useRef(new Map<ProcessId, ProcessEvent>());
-  const params = projectId === undefined ? { limit: 100 } : { projectId, limit: 100 };
-  const matchesProject = (records: readonly ProcessRecord[]): readonly ProcessRecord[] =>
-    records.filter((record) => projectId === undefined || record.projectId === projectId);
   const query = useQuery({
-    queryKey: ['process.list', params],
+    queryKey: PROCESS_QUERY_KEY,
     queryFn: async () => {
-      const records = await rpc.call('process.list', params);
-      return matchesProject([...events.current.values()].reduce(applyProcessEvent, retainProcesses(records)));
+      const pending = new Map<ProcessId, ProcessEvent>();
+      const unsubscribe = rpc.on('process.event', (event) => {
+        pending.set(event.type === 'upsert' ? event.process.id : event.id, event);
+      });
+      try {
+        const records = await rpc.call('process.list', { limit: 100 });
+        return [...pending.values()].reduce(applyProcessEvent, retainProcesses(records));
+      } finally {
+        unsubscribe();
+      }
     },
   });
   useEffect(
     () =>
       rpc.on('process.event', (event) => {
-        events.current.set(event.type === 'upsert' ? event.process.id : event.id, event);
-        const key = projectId === undefined ? { limit: 100 } : { projectId, limit: 100 };
-        cache.setQueryData<readonly ProcessRecord[]>(['process.list', key], (current) =>
-          applyProcessEvent(current ?? [], event).filter(
-            (record) => projectId === undefined || record.projectId === projectId,
-          ),
+        cache.setQueryData<readonly ProcessRecord[]>(PROCESS_QUERY_KEY, (current) =>
+          applyProcessEvent(current ?? [], event),
         );
       }),
-    [rpc, cache, projectId],
+    [rpc, cache],
   );
-  const records = matchesProject([...events.current.values()].reduce(applyProcessEvent, query.data ?? []));
-  return { ...query, records };
+  const applyChange = async (event: ProcessEvent): Promise<void> => {
+    await cache.cancelQueries({ queryKey: PROCESS_QUERY_KEY });
+    cache.setQueryData<readonly ProcessRecord[]>(PROCESS_QUERY_KEY, (current) =>
+      applyProcessEvent(current ?? [], event),
+    );
+  };
+  return {
+    ...query,
+    records: (query.data ?? []).filter((record) => projectId === undefined || record.projectId === projectId),
+    applyChange,
+  };
 }

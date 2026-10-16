@@ -24,7 +24,12 @@
     "viewer": "Trình xem tiến trình",
     "canvas": "Mô-đun tiến trình",
     "removed": "Tiến trình này đã bị xóa.",
-    "status": { "running": "Đang chạy", "waiting": "Đang chờ", "stopped": "Đã dừng", "ended": "Đã kết thúc" },
+    "status": {
+      "running": "Đang chạy",
+      "waiting": "Đang chờ",
+      "stopped": "Đã dừng",
+      "ended": "Đã kết thúc"
+    },
     "kinds": {
       "chat": "Trò chuyện",
       "code_pipeline": "Quy trình mã",
@@ -42,7 +47,8 @@
       "image": "Mở ảnh",
       "price_run": "Mở bảng giá",
       "webchat_link": "Mở Web chat"
-    }
+    },
+    "deleteConfirm": "Xóa \"{{title}}\"?"
   },
   "pipelineStudio": {
     "back": "← Quay lại",

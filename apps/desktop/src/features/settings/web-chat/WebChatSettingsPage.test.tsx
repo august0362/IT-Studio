@@ -81,6 +81,22 @@ function renderPage(rejectUpdate = false, withLayout = false) {
 }
 
 describe('WebChatSettingsPage', () => {
+  it('TC-OWNER-FB3-019 search targets identify each link control after reordering', async () => {
+    renderPage();
+    await screen.findByRole('button', { name: 'Move down ChatGPT' });
+    for (const [label, id] of [
+      ['Name', 'webchat-link-name'],
+      ['URL', 'webchat-link-url'],
+      ['Enabled ChatGPT', 'webchat-link-enabled'],
+    ]) {
+      expect(screen.getAllByLabelText(label ?? '')[0]).toHaveAttribute('id', id);
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Move down ChatGPT' }));
+    expect(document.getElementById('webchat-link-name')).toHaveValue('Gemini');
+    expect(document.getElementById('webchat-link-url')).toHaveValue('https://gemini.google.com/app');
+    expect(document.getElementById('webchat-link-enabled')).toHaveAccessibleName('Enabled Gemini');
+    expect(document.querySelectorAll('#webchat-link-url')).toHaveLength(1);
+  });
   it('reorders links, resets to defaults, and saves via settings.update', async () => {
     const { transport, saved } = renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'Move down ChatGPT' }));

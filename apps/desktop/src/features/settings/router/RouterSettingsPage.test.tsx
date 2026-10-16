@@ -77,6 +77,14 @@ function setup() {
 }
 
 describe('RouterSettingsPage', () => {
+  it('TC-OWNER-FB3-021 the model-enabled search target focuses the ladder checkbox', async () => {
+    setup();
+    const enabled = await screen.findByRole('checkbox', { name: 'Enable First' });
+    expect(enabled).toHaveAttribute('id', 'router-model-enabled');
+    enabled.focus();
+    expect(enabled).toHaveFocus();
+    expect(document.querySelectorAll('#router-model-enabled')).toHaveLength(1);
+  });
   it('saves Auto Fallback and renumbered keyboard reorder priorities', async () => {
     const { transport } = setup();
     const toggle = await screen.findByRole('checkbox', { name: 'Auto Fallback' });

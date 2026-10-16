@@ -13,6 +13,7 @@ export function BudgetSettingsPage() {
       <p className="text-text-muted">{t('settings.budget.description')}</p>
       <label className="flex items-center gap-3">
         <input
+          id="budget-hard-stop"
           checked={hardStop}
           disabled={form.saving || settings.isLoading}
           onChange={(event) => void form.save({ budget: { hardStop: event.target.checked } })}

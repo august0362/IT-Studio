@@ -35,7 +35,12 @@ export function PipelineSettingsPage() {
       {assignment !== undefined ? (
         <div className="space-y-5">
           {ROLES.map((role) => (
-            <fieldset className="space-y-2 rounded border border-border bg-surface p-4" key={role}>
+            <fieldset
+              id={`pipeline-${role}`}
+              tabIndex={-1}
+              className="space-y-2 rounded border border-border bg-surface p-4"
+              key={role}
+            >
               <legend className="px-2 font-semibold">{t(`settings.pipeline.roles.${role}`)}</legend>
               <div className="grid gap-2 sm:grid-cols-2">
                 {(models.data ?? []).map((model) => (
@@ -87,6 +92,7 @@ export function PipelineSettingsPage() {
           ))}
           <label className="flex items-center gap-2 rounded border border-border bg-surface p-4">
             <input
+              id="pipeline-auto-clarify"
               checked={settings.data?.pipeline.autoClarify ?? false}
               disabled={form.saving || settings.data === undefined}
               onChange={(event) => {
@@ -97,11 +103,17 @@ export function PipelineSettingsPage() {
             {t('settings.pipeline.autoClarify')}
           </label>
           <p className="text-sm text-text-muted">{t('settings.pipeline.validationCommands')}</p>
-          <pre className="overflow-auto rounded border border-border bg-surface p-3 text-xs">
+          <pre
+            id="pipeline-validation"
+            tabIndex={-1}
+            className="overflow-auto rounded border border-border bg-surface p-3 text-xs"
+          >
             {JSON.stringify(settings.data?.pipeline.validationCommands ?? [], null, 2)}
           </pre>
           <p className="text-sm text-text-muted">{t('settings.pipeline.editLater')}</p>
-          <p>{t('settings.pipeline.maxFix', { count: settings.data?.pipeline.maxFixAttempts ?? 1 })}</p>
+          <p id="pipeline-max-fix" tabIndex={-1}>
+            {t('settings.pipeline.maxFix', { count: settings.data?.pipeline.maxFixAttempts ?? 1 })}
+          </p>
           <button
             className="rounded bg-primary px-4 py-2 text-primary-fg disabled:opacity-50"
             disabled={!valid || form.saving}

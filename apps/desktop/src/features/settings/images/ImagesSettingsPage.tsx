@@ -114,6 +114,7 @@ export function ImagesSettingsPage(): JSX.Element {
       <SettingsHeading section="images" />
       <label className="flex items-center gap-3">
         <input
+          id="images-enabled"
           aria-label={t('settings.images.enabled')}
           checked={image.enabled}
           disabled={saving}
@@ -137,7 +138,7 @@ export function ImagesSettingsPage(): JSX.Element {
         accessibility={{ screenReaderInstructions: { draggable: t('settings.images.keyboardHelp') } }}
       >
         <SortableContext items={[...image.providerOrder]} strategy={verticalListSortingStrategy}>
-          <ol className="space-y-2">
+          <ol id="images-provider-order" tabIndex={-1} className="space-y-2">
             {image.providerOrder.map((id) => (
               <ProviderRow
                 configured={keyStatus(PROVIDERS.find((provider) => provider.id === id)?.keyProvider ?? null)}

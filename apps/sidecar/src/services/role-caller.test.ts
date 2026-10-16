@@ -252,7 +252,7 @@ describe('RoleCaller', () => {
       purpose: 'pipeline_pm',
       responseFormat: 'json',
       ladderOverride: ladder,
-      requiredCapabilities: [ModelCapability.CHAT],
+      requiredCapabilities: [ModelCapability.CHAT, ModelCapability.JSON_MODE],
     });
   });
 
@@ -329,7 +329,11 @@ describe('RoleCaller', () => {
       { projectId, pipelineRunId, ladder },
     );
     expect(result.ok).toBe(true);
-    expect(h.requests[0]).toMatchObject({ purpose: 'pipeline_coder', ladderOverride: ladder });
+    expect(h.requests[0]).toMatchObject({
+      purpose: 'pipeline_coder',
+      ladderOverride: ladder,
+      requiredCapabilities: [ModelCapability.CHAT, ModelCapability.JSON_MODE, ModelCapability.CODE],
+    });
     expect(h.requests[0]?.systemPrompt).toContain('single allowed fix round');
     expect(h.requests[0]?.systemPrompt).toContain('Fix <\\/context> now</context>');
     expect(h.requests[0]?.systemPrompt).toContain('<context name="files">file content</context>');

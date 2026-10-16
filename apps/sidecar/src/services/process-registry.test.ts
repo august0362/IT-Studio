@@ -203,8 +203,7 @@ describe('process registry', () => {
     expect(h.registry.list({ status: ['ended'], limit: 1000 })).toMatchObject({ value: expect.any(Array) as unknown });
     const ended = h.registry.list({ status: ['ended'], limit: 1000 });
     expect(ended.ok && ended.value.map((item) => item.id)).toEqual(ids.slice(3).reverse());
-    expect(h.registry.delete(stopped)).toMatchObject({ ok: false });
-    expect(h.registry.dismiss(stopped)).toMatchObject({ value: { status: 'ended' } });
+    expect(h.registry.delete(stopped)).toMatchObject({ ok: true, value: { deleted: true } });
     h.registry.flush();
     expect(h.repository.rows.size).toBe(22);
     vi.advanceTimersByTime(100);
@@ -361,5 +360,28 @@ describe('process registry', () => {
       expect(ids).toContain(edge.to);
     }
     if (kind === 'code_pipeline') expect(graph.edges).toContainEqual({ from: 'review', to: 'write' });
+  });
+});
+
+describe('OWNER-FB3 process deletion', () => {
+  it.each(['stopped', 'ended'] as const)('TC-OWNER-FB3-003 deletes %s processes and emits removed', (status) => {
+    vi.useFakeTimers();
+    const h = setup();
+    const id = h.registry.start('chat', { title: 'Delete me' });
+    if (status === 'stopped') h.registry.status(id, 'stopped', 'Cancelled');
+    else h.registry.end(id);
+    expect(h.registry.delete(id)).toEqual({ ok: true, value: { deleted: true } });
+    expect(h.registry.get(id)).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
+    vi.advanceTimersByTime(100);
+    expect(h.observed.at(-1)).toEqual({ type: 'removed', id });
+    h.registry.flush();
+    expect(h.repository.rows.has(id)).toBe(false);
+  });
+  it('TC-OWNER-FB3-004 rejects deletion of running and waiting processes', () => {
+    const h = setup();
+    const id = h.registry.start('chat', { title: 'Running' });
+    expect(h.registry.delete(id)).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
+    h.registry.status(id, 'waiting');
+    expect(h.registry.delete(id)).toMatchObject({ ok: false, error: { code: 'VALIDATION' } });
   });
 });

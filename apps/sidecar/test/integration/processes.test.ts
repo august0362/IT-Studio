@@ -8,7 +8,8 @@ import { appSettingsSchema } from '../../src/validation/settings.js';
 import { projectSchema } from '../../src/validation/projects.js';
 import { conversationSchema } from '../../src/validation/chat.js';
 import { processEventSchema, processRecordSchema } from '../../src/validation/process.js';
-import { providerIdSchema } from '../../src/validation/common.js';
+import { pipelineRunSchema } from '../../src/validation/pipeline.js';
+import { modelKeySchema, providerIdSchema } from '../../src/validation/common.js';
 
 let sidecar: SidecarHarness | undefined;
 afterEach(async () => {
@@ -130,3 +131,50 @@ describe('processes integration', () => {
     await waitForStatus(h, retried.id, 'stopped');
   });
 });
+
+it('TC-OWNER-FB3-015 PM questions keep Spec idle, Clarify waiting, and stopped deletion emits removed', async () => {
+  const questions = [
+    {
+      id: 'storage',
+      question: 'Where to store data?',
+      why: 'Choose storage',
+      options: [
+        { id: 'local', label: 'Local' },
+        { id: 'cloud', label: 'Cloud' },
+      ],
+      recommendedOptionId: 'local',
+      recommendationReason: 'Offline',
+    },
+  ];
+  sidecar = await startSidecar({ ITSTUDIO_E2E_LLM_TEXT: JSON.stringify({ kind: 'questions', questions }) });
+  const h = sidecar;
+  const root = resolve(h.dataDir, 'questions-project');
+  await mkdir(root);
+  const project = projectSchema.parse(
+    (await h.call('project.create', { name: 'Questions', workspaceRoot: root })).result,
+  );
+  await h.call('secrets.set', { provider: providerIdSchema.parse('deepseek'), apiKey: 'integration-only-key' });
+  const key = modelKeySchema.parse('deepseek/deepseek-v4-flash');
+  await h.call('settings.update', {
+    patch: { pipeline: { autoClarify: false, roleAssignment: { pm: [key], coder: [key], reviewer: [key] } } },
+  });
+  const run = pipelineRunSchema.parse(
+    (await h.call('pipeline.start', { projectId: project.id, prompt: 'Build notes' })).result,
+  );
+  await waitFor(() => h.stdoutLines.some((line) => line.includes('clarifying')));
+  const record = processRecordSchema
+    .array()
+    .parse((await h.call('process.list', { projectId: project.id, kind: ['code_pipeline'], limit: 100 })).result)[0];
+  if (record === undefined) throw new Error('Missing process');
+  const waiting = await waitForStatus(h, record.id, 'waiting');
+  expect(waiting.modules.find((module) => module.id === 'spec')).toMatchObject({ state: 'idle' });
+  expect(waiting.modules.find((module) => module.id === 'clarify')).toMatchObject({
+    state: 'waiting',
+    output: '1 questions · 0 answered',
+  });
+  expect((await h.call('process.delete', { id: record.id })).error?.data).toMatchObject({ code: 'VALIDATION' });
+  await h.call('pipeline.cancel', { runId: run.id });
+  await waitForStatus(h, record.id, 'stopped');
+  expect((await h.call('process.delete', { id: record.id })).result).toEqual({ deleted: true });
+  await waitFor(() => h.stdoutLines.some((line) => line.includes('removed') && line.includes(record.id)));
+}, 30000);
