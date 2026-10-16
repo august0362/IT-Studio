@@ -12,3 +12,10 @@ Role: Implementer · Size M · Model: gpt-6-luna medium · **Deps pre-installed*
 ## Acceptance criteria
 
 - [ ] `npx prettier --write` changed files; `npm run typecheck`, `npm run lint`, `npm test` pass. QA reruns the full E2E (14/14) and `break-durability` integration.
+
+## Result
+- Summary: Replaced stale E2E settings and workflow navigation with shared helpers; distinguished the empty-state revenue CTA from form submission; guaranteed chat process finalization and added lifecycle coverage for success, provider failure, budget hard stop, ladder exhaustion, and cancellation; updated BRK-D06 to verify migration 0011 is applied and compare the latest migration against the highest journal index.
+- Files changed: `e2e/helpers/ui.ts`; `e2e/specs/m4/cost.spec.ts`; `e2e/specs/m4/scripted-llm.spec.ts`; `e2e/specs/m4/settings.spec.ts`; `e2e/specs/m4/shell.spec.ts`; `e2e/specs/m8/images.spec.ts`; `e2e/specs/mw/workflow.spec.ts`; `apps/desktop/src/features/cost/CostPage.tsx`; `apps/desktop/src/features/cost/RevenueForm.tsx`; `apps/sidecar/src/services/chat-service.ts`; `apps/sidecar/src/services/chat-service.test.ts`; `apps/sidecar/test/integration/break-durability.test.ts`.
+- Dependencies added (with reason): None. Installed existing lockfile dependencies because `node_modules` was missing.
+- Decisions taken within scope: Kept the CTA translation in the cost component because the task's explicit scope excludes the shared locale files. Added the revenue form's accessible label so E2E can target its submit button.
+- Open issues / follow-ups: `npm run typecheck`, `npm run lint`, and `npm test` passed (the test command used a process-local empty `XDG_CONFIG_HOME` because Git's global ignore file is unreadable in the sandbox). E2E and `break-durability` integration were not run; the task identifies GUI E2E and integration execution as QA work outside this sandbox.

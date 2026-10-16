@@ -126,7 +126,7 @@ function ProjectCostView({
   } | null;
   readonly onLedgerSelectionApplied: () => void;
 }): JSX.Element {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const client = useQueryClient();
   const refreshTimer = useRef<number | null>(null);
   const projectPnl = useRpcQuery('pnl.get', { projectId, ...range });
@@ -177,7 +177,7 @@ function ProjectCostView({
               }}
             >
               <Icon name="plus" />
-              {t('cost.addRevenue')}
+              {i18n.language.startsWith('vi') ? 'Nhập doanh thu đầu tiên' : 'Enter first revenue'}
             </Button>
           }
         />

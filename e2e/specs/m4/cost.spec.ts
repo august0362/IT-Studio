@@ -27,7 +27,7 @@ describe('M4 cost and P&L', () => {
     await browser.$('nav[aria-label="Main navigation"] a[href="#cost"]').click();
     await browser.$('aria/Amount').setValue('100');
     await browser.$('aria/Description').setValue('Project work');
-    await browser.$('button=Add revenue').click();
+    await browser.$('form[aria-label="Revenue entries"] button[type="submit"]').click();
     await browser.waitUntil(async () => (await browser.$('body').getText()).includes('$100.00'));
     expect(await browser.$('body').getText()).to.include('Margin');
   });
@@ -74,7 +74,7 @@ describe('M4 cost and P&L', () => {
       await browser.$('nav[aria-label="Main navigation"] a[href="#cost"]').click();
       await browser.$('aria/Amount').setValue(amount);
       await browser.$('aria/Description').setValue(`${name} revenue`);
-      await browser.$('button=Add revenue').click();
+      await browser.$('form[aria-label="Revenue entries"] button[type="submit"]').click();
       await browser.waitUntil(async () => (await browser.$('body').getText()).includes(`$${amount}.00`));
     }
     await browser.$('button=All projects').click();

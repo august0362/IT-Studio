@@ -2,7 +2,7 @@ import { expect } from 'chai';
 import { Key, remote } from 'webdriverio';
 import { setDiagnosticSession } from '../../helpers/diagnostics.js';
 import { ensureProviderKeys } from '../../helpers/keys.js';
-import { createTemporaryProjectFolder } from '../../helpers/ui.js';
+import { createTemporaryProjectFolder, openSettings } from '../../helpers/ui.js';
 
 interface TauriCapabilities extends WebdriverIO.Capabilities {
   browserName: 'wry';
@@ -91,7 +91,7 @@ describe('M4 scripted LLM cases', () => {
   it('TC-M4-023 lists a priced fallback candidate and handles Use and Escape', async () => {
     const session = await openScriptedSession(4447);
     await ensureProviderKeys(['openai', 'anthropic', 'google', 'groq'], session);
-    await session.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
+    await openSettings('router', session);
     const autoFallback = session.$('aria/Auto Fallback');
     if (await autoFallback.isSelected()) await autoFallback.click();
     await session.waitUntil(async () => !(await autoFallback.isSelected()));
@@ -117,7 +117,7 @@ describe('M4 scripted LLM cases', () => {
 
     const cancelSession = await openScriptedSession(4451);
     await ensureProviderKeys(['openai', 'anthropic', 'google', 'groq'], cancelSession);
-    await cancelSession.$('nav[aria-label="Main navigation"] a[href="#settings-router"]').click();
+    await openSettings('router', cancelSession);
     const cancelFallbackToggle = cancelSession.$('aria/Auto Fallback');
     if (await cancelFallbackToggle.isSelected()) await cancelFallbackToggle.click();
     await cancelSession.waitUntil(async () => !(await cancelFallbackToggle.isSelected()));

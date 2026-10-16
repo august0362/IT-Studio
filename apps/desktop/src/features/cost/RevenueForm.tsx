@@ -48,6 +48,7 @@ export function RevenueForm({
     <section className="space-y-3 rounded border border-border bg-surface p-4">
       <h2 className="font-semibold">{t('cost.revenueEntries')}</h2>
       <form
+        aria-label={t('cost.revenueEntries')}
         className="flex flex-wrap items-end gap-2"
         onSubmit={(event) => {
           event.preventDefault();

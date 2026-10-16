@@ -4,7 +4,7 @@ import { expect } from 'chai';
 import { remote } from 'webdriverio';
 import { setDiagnosticSession } from '../../helpers/diagnostics.js';
 import { ensureProviderKeys } from '../../helpers/keys.js';
-import { createTemporaryProjectFolder, waitForReady } from '../../helpers/ui.js';
+import { createTemporaryProjectFolder, openSystemMap, waitForReady } from '../../helpers/ui.js';
 
 interface TauriCapabilities extends WebdriverIO.Capabilities {
   browserName: 'wry';
@@ -146,7 +146,7 @@ describe('MW workflow map', () => {
       const body = await browser.$('body').getText();
       throw new Error(`TC-MW-010 chat failed; body: ${body.slice(-1_500)}`, { cause: error });
     }
-    await browser.$('nav a[href="#workflow"]').click();
+    await openSystemMap(browser);
     await browser.waitUntil(async () => (await browser.$('body').getText()).includes('Router'));
     // OWNER-FB1 P2: nodes show name and status only; the 24 h counters live in the module panel.
     await browser.waitUntil(
@@ -212,7 +212,7 @@ describe('MW workflow map', () => {
       { timeout: 70_000, timeoutMsg: 'Scripted MW pipeline did not complete validation' },
     );
 
-    await session.$('nav a[href="#workflow"]').click();
+    await openSystemMap(session);
     await session.waitUntil(async () => (await session.$('body').getText()).includes('Workflow'));
     const embeddingHistory = await assertRecent(session, 'embeddings', /Embedded \d+ chunks with /);
     expect(embeddingHistory).not.to.include(documentText);

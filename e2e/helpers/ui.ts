@@ -8,12 +8,28 @@ export function statusBar() {
   return browser.$('footer[role="status"]');
 }
 
+export async function openSettings(section: string, session = browser): Promise<void> {
+  await session.$('nav[aria-label="Main navigation"] a[href="#settings"]').click();
+  const selector = `a[href="#settings-${section}"]`;
+  const sectionLink = session.$(`main ${selector}`);
+  if (await sectionLink.isDisplayed()) {
+    await sectionLink.click();
+    return;
+  }
+  await session.$('main select').selectByAttribute('value', `settings-${section}`);
+}
+
+export async function openSystemMap(session = browser): Promise<void> {
+  await session.$('nav[aria-label="Main navigation"] a[href="#processes"]').click();
+  await session.$('aria/System map').click();
+}
+
 export async function navigateToSettings() {
   await browser.$('nav a[href="#settings-api-keys"]').click();
 }
 
 export async function resetLocaleToEnglish(session = browser): Promise<void> {
-  await session.$('nav a[href="#settings-theme"]').click();
+  await openSettings('theme', session);
   const locale = session.$('select:has(option[value="vi"])');
   await locale.waitForDisplayed();
   if ((await locale.getValue()) !== 'en') await locale.selectByAttribute('value', 'en');
