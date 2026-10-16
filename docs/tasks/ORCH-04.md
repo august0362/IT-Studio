@@ -1,6 +1,6 @@
 # ORCH-04 — Orchestration UI: Code tab view, Settings section, Processes hooks
 
-Milestone: ORCH (ADR-0006, D41) · **After ORCH-03** · Role: Implementer · Size M–L · Model: gpt-6-luna medium · **Deps pre-installed** · **Broad scope inside `apps/desktop/src/**`, settings contracts/validation for the orchestration settings (additive) — list cross-module edits in Result**
+Milestone: ORCH (ADR-0006, D41) · **Runs in parallel with ORCH-02/03** — if `orch.adapters` is not in `schemas.ts` yet, add exactly: `'orch.adapters': { params: Empty; result: readonly { readonly transport: OrchTransport; readonly status: 'available' | 'unavailable' | 'unsupported'; readonly version?: string; readonly reason?: string }[] }` (+ its `validation/ipc.ts` entries); approve/discard may return errors until ORCH-03 lands — handle them in the UI · Role: Implementer · Size M–L · Model: gpt-6-luna medium · **Deps pre-installed** · **Broad scope inside `apps/desktop/src/**`, settings contracts/validation for the orchestration settings (additive) — list cross-module edits in Result**
 
 ## Read first
 
