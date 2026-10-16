@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import { Key, remote } from 'webdriverio';
 import { ensureProviderKeys } from '../../helpers/keys.js';
-import { createTemporaryProjectFolder } from '../../helpers/ui.js';
+import { createTemporaryProjectFolder, openSettings } from '../../helpers/ui.js';
 
 interface TauriCapabilities extends WebdriverIO.Capabilities {
   browserName: 'wry';
@@ -26,7 +26,7 @@ async function openImageSession(): Promise<Session> {
     timeout: 30_000,
     timeoutMsg: 'The M8 app did not become ready within 30 seconds',
   });
-  await active.$('nav[aria-label="Main navigation"] a[href="#settings-images"]').click();
+  await openSettings('images', active);
   const toggle = active.$('aria/Enable image generation');
   await active.waitUntil(async () => toggle.isExisting());
   originalEnabled = await toggle.isSelected();
@@ -43,7 +43,7 @@ async function createProject(active: Session, name: string): Promise<void> {
 }
 
 async function enableImages(active: Session): Promise<void> {
-  await active.$('nav[aria-label="Main navigation"] a[href="#settings-images"]').click();
+  await openSettings('images', active);
   const toggle = active.$('aria/Enable image generation');
   if (!(await toggle.isSelected())) await toggle.click();
   await active.waitUntil(async () => toggle.isSelected());
@@ -58,7 +58,7 @@ async function sendScriptedImageRequest(active: Session): Promise<void> {
 }
 
 async function restoreImageSettings(active: Session): Promise<void> {
-  await active.$('nav[aria-label="Main navigation"] a[href="#settings-images"]').click();
+  await openSettings('images', active);
   const toggle = active.$('aria/Enable image generation');
   if ((await toggle.isSelected()) !== originalEnabled) await toggle.click();
   await active.waitUntil(async () => (await toggle.isSelected()) === originalEnabled);
@@ -147,7 +147,7 @@ describe('M8 image generation', () => {
   it('TC-M8-012 persists the image toggle and keyboard provider order after reload', async () => {
     const active = await openImageSession();
     await createProject(active, 'M8 Image Settings');
-    await active.$('nav[aria-label="Main navigation"] a[href="#settings-images"]').click();
+    await openSettings('images', active);
     const toggle = active.$('aria/Enable image generation');
     const initial = await toggle.isSelected();
     await toggle.click();
@@ -160,7 +160,7 @@ describe('M8 image generation', () => {
     await active.keys(Key.ArrowDown);
     await active.keys(Key.Space);
     await active.refresh();
-    await active.$('nav[aria-label="Main navigation"] a[href="#settings-images"]').click();
+    await openSettings('images', active);
     await active.waitUntil(async () => (await active.$('aria/Enable image generation').isSelected()) !== initial);
     const reordered = await active.$$('ol li > span:first-of-type').map((entry) => entry.getText());
     expect(reordered[0]).to.equal(providers[1]);

@@ -48,6 +48,8 @@ function makeService(
     readonly reply?: string;
     readonly hits?: readonly RetrievalHit[];
     readonly retrievalFailure?: ErrorCode;
+    readonly routerFailure?: ErrorCode;
+    readonly waitForCancel?: boolean;
   } = {},
 ) {
   const selectedConversation = conversationSchema.parse({ ...conversation, ragEnabled: options.ragEnabled ?? false });
@@ -88,9 +90,48 @@ function makeService(
     ...(options.processes === undefined ? {} : { processes: options.processes }),
     repository,
     router: {
-      dispatch: (request, options) => {
+      dispatch: (request, dispatchOptions) => {
         capturedRequest = request;
-        options?.onDelta?.('Hello');
+        dispatchOptions?.onDelta?.('Hello');
+        if (options.waitForCancel === true) {
+          const signal = dispatchOptions?.signal;
+          if (signal === undefined) throw new Error('Chat dispatch did not receive an abort signal');
+          return new Promise((resolve) => {
+            const cancelled = () => {
+              resolve({
+                ok: false as const,
+                error: {
+                  code: ErrorCode.CANCELLED,
+                  message: 'cancelled',
+                  retryable: false,
+                  remediation: ['Retry.'],
+                },
+              });
+            };
+            if (signal.aborted) cancelled();
+            else signal.addEventListener('abort', cancelled, { once: true });
+          });
+        }
+        if (dispatchOptions?.signal?.aborted === true)
+          return Promise.resolve({
+            ok: false as const,
+            error: {
+              code: ErrorCode.CANCELLED,
+              message: 'cancelled',
+              retryable: false,
+              remediation: ['Retry.'],
+            },
+          });
+        if (options.routerFailure !== undefined)
+          return Promise.resolve({
+            ok: false as const,
+            error: {
+              code: options.routerFailure,
+              message: 'provider failure',
+              retryable: false,
+              remediation: ['Retry.'],
+            },
+          });
         return Promise.resolve({
           ok: true,
           value: {
@@ -160,7 +201,7 @@ afterEach(() => {
 });
 
 describe('ChatService', () => {
-  it('PROC-01 instruments chat modules and formatted cost with an injected tracker', async () => {
+  it('PROC-01 instruments successful chat and ends its process', async () => {
     const probe = createProcessProbe();
     const h = makeService({ processes: probe.tracker });
     const completed = new Promise<void>((resolve) => {
@@ -185,6 +226,69 @@ describe('ChatService', () => {
       expect.objectContaining({ costText: expect.stringContaining('$') as unknown }),
     );
     expect(probe.end).toHaveBeenCalledOnce();
+    expect(probe.status).not.toHaveBeenCalledWith(expect.anything(), 'stopped', expect.anything());
+  });
+
+  it('PROC-02 stops the process after a provider failure', async () => {
+    const probe = createProcessProbe();
+    const h = makeService({ processes: probe.tracker, routerFailure: ErrorCode.PROVIDER_AUTH });
+    const failed = new Promise<void>((resolve) => {
+      h.events.subscribe('chat.failed', () => {
+        resolve();
+      });
+    });
+    await h.service.send(conversationId, 'Provider failure');
+    await failed;
+    expect(probe.status).toHaveBeenCalledWith(expect.anything(), 'stopped', expect.stringContaining('PROVIDER_AUTH'));
+  });
+
+  it('PROC-03 stops the process after a budget hard stop', async () => {
+    const probe = createProcessProbe();
+    const h = makeService({ processes: probe.tracker, ragEnabled: true, retrievalFailure: ErrorCode.BUDGET_HARD_STOP });
+    const failed = new Promise<void>((resolve) => {
+      h.events.subscribe('chat.failed', () => {
+        resolve();
+      });
+    });
+    await h.service.send(conversationId, 'Budget stop');
+    await failed;
+    expect(probe.status).toHaveBeenCalledWith(
+      expect.anything(),
+      'stopped',
+      expect.stringContaining('BUDGET_HARD_STOP'),
+    );
+  });
+
+  it('PROC-04 stops the process when the router ladder is exhausted', async () => {
+    const probe = createProcessProbe();
+    const h = makeService({ processes: probe.tracker, routerFailure: ErrorCode.PROVIDER_RATE_LIMITED });
+    const failed = new Promise<void>((resolve) => {
+      h.events.subscribe('chat.failed', () => {
+        resolve();
+      });
+    });
+    await h.service.send(conversationId, 'Ladder exhausted');
+    await failed;
+    expect(probe.status).toHaveBeenCalledWith(
+      expect.anything(),
+      'stopped',
+      expect.stringContaining('PROVIDER_RATE_LIMITED'),
+    );
+  });
+
+  it('PROC-05 stops the process after user cancellation', async () => {
+    const probe = createProcessProbe();
+    const h = makeService({ processes: probe.tracker, waitForCancel: true });
+    const failed = new Promise<void>((resolve) => {
+      h.events.subscribe('chat.failed', () => {
+        resolve();
+      });
+    });
+    const sent = await h.service.send(conversationId, 'Cancel this turn');
+    if (!sent.ok) throw new Error('Chat send failed before cancellation');
+    await h.service.cancel(sent.value.requestId);
+    await failed;
+    expect(probe.status).toHaveBeenCalledWith(expect.anything(), 'stopped', expect.stringContaining('CANCELLED'));
   });
   it('maps the chat model override to a preferred model while preserving the router ladder', async () => {
     const { service } = makeService();
