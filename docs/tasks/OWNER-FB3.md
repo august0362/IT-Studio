@@ -1,4 +1,4 @@
-# OWNER-FB3 — Process pipeline correctness, pipeline roles use keyed providers, delete updates counts
+# OWNER-FB3 — Process pipeline correctness, pipeline roles use keyed providers, delete updates counts, settings search suggestions
 
 Milestone: v1 owner acceptance feedback (2026-10-16, round 3) · Role: Implementer · Size M · **Deps pre-installed** · **Broad scope inside `apps/sidecar/**` and `apps/desktop/src/**`: do not stop for edits needed to meet a requirement — list them in Result**
 
@@ -35,6 +35,13 @@ Milestone: v1 owner acceptance feedback (2026-10-16, round 3) · Role: Implement
    - `process.delete` accepts `stopped` and `ended`. For `stopped` it first performs dismiss semantics, then removes the record.
    - The desktop shows **Delete** for stopped and ended rows, with a confirm.
    - After cancel / retry / dismiss / delete — and on every `process.event` (`upsert` or `removed`) — the Processes list, the sidebar badge and the status-bar counts update immediately, sharing one query cache key.
+7. **Settings search suggestions (owner, same round):**
+   - From the **first character** typed in the Settings search box, show a suggestion dropdown (combobox pattern, `role="listbox"`).
+   - It lists matching **sections** and **individual settings inside them**, e.g. "p" → *Pipeline*, *Pricing*, *Pipeline → Auto-answer clarifying questions*, *Appearance → Primary theme*.
+   - Matching: case- and diacritic-insensitive substring on the title, the setting label (en + vi) and keywords. Rank prefix matches first, then word-start matches, then the rest. Highlight the matched letters. Show at most 8 results, each with its section as a secondary line.
+   - Keyboard ↑/↓/Enter/Esc and mouse click. Choosing a result opens that section and scrolls to + focuses the exact field (via a stable `id` per setting).
+   - Build the index from a static list in `settings-sections.ts` (section id, setting id, en/vi labels, keywords) covering every visible setting.
+   - Tests: "p" suggestions and ordering, a diacritic-insensitive Vietnamese query, keyboard selection focuses the field, Esc closes.
 6. **Legacy Pipeline Studio code view** (rich panels) shows the same states as the process viewer. Reuse one mapping, no duplicate logic.
 
 ## Tests (lean)
