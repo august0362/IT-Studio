@@ -14,6 +14,8 @@ export PATH="$USERPROFILE/.cargo/bin:$PATH"
 [ -f "$ROOT/docs/tasks/$ID.md" ] || { echo "missing docs/tasks/$ID.md" >&2; exit 2; }
 git -C "$ROOT" diff --quiet HEAD -- "docs/tasks/$ID.md" || { echo "commit docs/tasks/$ID.md before running" >&2; exit 2; }
 if [ ! -d "$WT" ]; then git -C "$ROOT" worktree add -q -b "task/$ID" "$WT" main; fi
+# Install deps outside the Codex sandbox so native modules (better-sqlite3) are built.
+if [ ! -d "$WT/node_modules/better-sqlite3/build" ]; then (cd "$WT" && npm --cache .npm-cache install >/dev/null 2>&1) || echo "warning: npm install failed in $WT" >&2; fi
 
 PROMPT="Implement docs/tasks/$ID.md. Follow AGENTS.md strictly. Do not commit. Use 'npm --cache .npm-cache' for npm commands. Run npm install first if node_modules is missing. $EXTRA"
 codex exec -s workspace-write \
