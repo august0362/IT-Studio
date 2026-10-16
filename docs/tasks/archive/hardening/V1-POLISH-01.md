@@ -4,11 +4,11 @@ Milestone: v1 polish (after the M9 sign-off) · Role: Implementer (ROLES §1.3) 
 
 ## Goal
 
-Fix the S3 observations left open by the M9 exploratory session (`docs/qa/M9-report.md`, *Open observations*) and the HANDOFF backlog items below. First reproduce each one on current `main` with a failing test; OWNER-FB1 may already have fixed some. If an item is already fixed, add the regression test only and say so in `## Result`.
+Fix the S3 observations left open by the M9 exploratory session (`../../../qa/archive/M9-report.md`, *Open observations*) and the HANDOFF backlog items below. First reproduce each one on current `main` with a failing test; OWNER-FB1 may already have fixed some. If an item is already fixed, add the regression test only and say so in `## Result`.
 
 ## Read first
 
-`AGENTS.md`, `../CONTEXT.md` D9, D32, `docs/qa/M9-report.md` (M9-OBS-02…06), `apps/desktop/src/features/{cost,workflow,settings/pricing}/**`, `apps/sidecar/src/services/pricing-service.ts`, `scripts/build/{smoke-sidecar,make-icon,build-app}.mjs`.
+`AGENTS.md`, `../../../CONTEXT.md` D9, D32, `../../../qa/archive/M9-report.md` (M9-OBS-02…06), `apps/desktop/src/features/{cost,workflow,settings/pricing}/**`, `apps/sidecar/src/services/pricing-service.ts`, `scripts/build/{smoke-sidecar,make-icon,build-app}.mjs`.
 
 ## Scope — files you may create/modify
 

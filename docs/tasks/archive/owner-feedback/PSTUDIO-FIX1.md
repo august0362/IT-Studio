@@ -34,7 +34,7 @@ Append `## Result` per AGENTS.md §3.
 ## Result
 
 - Summary: PM parsing now tries the existing envelopes first, then validates a bare `TaskSpec` and returns `{ kind: 'spec', spec }`. This works before and after clarification answers and preserves existing invalid-output retries. Added six regression cases covering both calls, envelope precedence, garbage, and invalid spec paths; replaced the obsolete bare-spec rejection case with an invalid field type.
-- Files changed: `apps/sidecar/src/services/role-caller.ts`, `apps/sidecar/src/services/role-caller.test.ts`, `docs/tasks/PSTUDIO-FIX1.md`. Integration fixtures, shared contracts, manifests, and lockfile are unchanged.
+- Files changed: `apps/sidecar/src/services/role-caller.ts`, `apps/sidecar/src/services/role-caller.test.ts`, `PSTUDIO-FIX1.md`. Integration fixtures, shared contracts, manifests, and lockfile are unchanged.
 - Dependencies added (with reason): None. Restored the existing dependencies with `npm.cmd --cache .npm-cache install` because `node_modules` was missing. Used `npm.cmd` because PowerShell blocks `npm.ps1`.
 - Decisions taken within scope: Reuse `taskSpecSchema` only after envelope validation fails; retain the existing prompt schemas and validation error details. No changes to `validation/pipeline.ts` were needed.
 - Verification: Prettier on the changed paths, `npm.cmd --cache .npm-cache run typecheck`, `npm.cmd --cache .npm-cache run lint`, and `git diff --check` passed. All 33 role-caller unit tests passed. The separately invoked build/release Node tests passed (15 tests).

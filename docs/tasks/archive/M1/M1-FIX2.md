@@ -22,7 +22,7 @@ Append `## Result` per AGENTS.md §3.
 
 ## Result
 - Summary: Added structured sidecar startup, migration, seed, readiness, shutdown, and exit lifecycle logs; verified logs stay off stdout and daily log files are created.
-- Files changed: `apps/sidecar/src/main.ts`, `apps/sidecar/src/container.ts`, `apps/sidecar/src/services/system-service.ts`, `apps/sidecar/src/container.test.ts`, `docs/tasks/M1-FIX2.md`.
+- Files changed: `apps/sidecar/src/main.ts`, `apps/sidecar/src/container.ts`, `apps/sidecar/src/services/system-service.ts`, `apps/sidecar/src/container.test.ts`, `M1-FIX2.md`.
 - Dependencies added (with reason): None.
 - Decisions taken within scope: The migration count is the number of SQL migration files, all of which are applied during container initialization; the service logs that count after initialization.
 - Open issues / follow-ups: None. `npm run typecheck`, `npm run lint`, and `npm test` passed with the repo-local npm cache. No changelog file was changed because it is outside this task's Scope.

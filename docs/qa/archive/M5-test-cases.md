@@ -1,6 +1,6 @@
 # M5 — Test Case Specification (RAG: parse, chunk, embed, ingest, retrieve, Knowledge UI)
 
-> QA gate `M5-QA` · Author: QA (Claude) · 2026-10-02 · Strategy: `../TESTING.md`
+> QA gate `M5-QA` · Author: QA (Claude) · 2026-10-02 · Strategy: `../../TESTING.md`
 > Scope: M5-01…M5-07. Levels: **L1/L2** unit · **L3** real sidecar + real SQLite + real LanceDB in a temp dir, `ITSTUDIO_E2E=1` fake embeddings (deterministic, no network) · **L4** real app (Knowledge tab, chat citations) — executed by QA in the batched E2E session.
 > Status: **exists** = automated already · **new** = automate in M5-QA · **split** = currently combined in one `it`, split per ID for traceability.
 

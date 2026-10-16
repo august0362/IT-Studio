@@ -1,6 +1,6 @@
 # M2 — Test Case Specification (LLM router, providers, chat)
 
-> QA gate `M2-QA` · Author: QA (Claude) · 2026-10-02 · Strategy: `../TESTING.md`
+> QA gate `M2-QA` · Author: QA (Claude) · 2026-10-02 · Strategy: `../../TESTING.md`
 > Scope: M2-01…M2-10 — provider port + 3 adapters, model/provider registry, router machine + service, circuit breaker, Auto Fallback OFF decisions, router config RPC, ChatService.
 > Levels: **L3** = real sidecar over stdio with `ITSTUDIO_E2E=1` scripted LLM fixtures (extend `apps/sidecar/test/fixtures/llm/*.json` to script per-model outcomes) · **L4** = real app (UI for chat/fallback arrives in M4 → M2 L4 cases are limited to RPC-visible behaviour through the existing UI shell; full UI cases move to M4-QA).
 

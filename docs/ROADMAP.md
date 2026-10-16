@@ -64,8 +64,8 @@
 - [x] **M1-05** (C) SQLite infra (better-sqlite3 + Drizzle, WAL, migrations); repositories for `projects`, `settings`; `SettingsService` with complete defaults; `ProjectService` (`project.*`, `settings.*`). Ref: ARCH §12.
 - [x] **M1-06** (C) `ISecretStore` + keychain impl (`@napi-rs/keyring`, service name `itstudio`) + in-memory impl for tests; `secrets.set/delete/status/verify` (verify = cheapest list-models call). Ref: ARCH §11, D2.
 - [x] **M1-07** (C) UI status bar: sidecar connection state + version; minimal Settings → API Keys page (write-only inputs, status chips with hint).
-- [x] **M1-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M1-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M1-report.md` sign-off. Scope: Build the L3 sidecar integration harness (spawn sidecar, NDJSON client, temp data dir, `ITSTUDIO_E2E=1` fakes) and the L4 E2E harness (WebdriverIO + tauri-driver + Edge WebDriver); scripts `test:integration`, `test:e2e`, `test:all`. Cases: app launch → sidecar ready, status bar, API Keys save/verify/delete, sidecar crash → auto-restart, settings persistence across restart.
-  - Gate sub-tasks (defects found by QA, see docs/qa/M1-report.md): [x] M1-QA integration harness (20/20 ×3) · [x] M1-FIX1 flaky test (BUG-001) · [x] M1-FIX2 lifecycle logs (BUG-003) · [x] BUG-004 S1 RpcClient params (fixed in M1-QA) · [x] M1-QA2 typed tests + runnable E2E (5/8) · [x] M1-FIX3 accessible confirm dialog (BUG-005) · [x] M1-QA3 E2E test defects TC-006/007 · [x] sign-off report (E2E 8/8)
+- [x] **M1-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `` sign-off. Scope: Build the L3 sidecar integration harness (spawn sidecar, NDJSON client, temp data dir, `ITSTUDIO_E2E=1` fakes) and the L4 E2E harness (WebdriverIO + tauri-driver + Edge WebDriver); scripts `test:integration`, `test:e2e`, `test:all`. Cases: app launch → sidecar ready, status bar, API Keys save/verify/delete, sidecar crash → auto-restart, settings persistence across restart.
+  - Gate sub-tasks (defects found by QA, see ): [x] M1-QA integration harness (20/20 ×3) · [x] M1-FIX1 flaky test (BUG-001) · [x] M1-FIX2 lifecycle logs (BUG-003) · [x] BUG-004 S1 RpcClient params (fixed in M1-QA) · [x] M1-QA2 typed tests + runnable E2E (5/8) · [x] M1-FIX3 accessible confirm dialog (BUG-005) · [x] M1-QA3 E2E test defects TC-006/007 · [x] sign-off report (E2E 8/8)
 
 ## M2 — LLM router & providers
 
@@ -81,7 +81,7 @@
 - [x] **M2-08** (C) Auto Fallback OFF: `FallbackDecisionRequest` with candidate cost estimates, `router.resolveFallback`, expiry → `FALLBACK_DECLINED`.
 - [x] **M2-09** (C) `router.getConfig` / `router.updateConfig` with validation (unique priorities, existing models).
 - [x] **M2-10** (C) `ChatService`: conversations/messages repos, `chat.*` RPC, streaming via router (`chat.delta/completed/failed`), optional RAG context, per-message cost. *(Gap found 2026-10-02: backend for M4-04.)*
-- [x] **M2-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M2-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M2-report.md` sign-off. Scope: Router & providers: fallback decision table, Auto Fallback OFF modal flow, circuit breaker, lock/ladder order, chat streaming via `chat.*` with fake providers; contract suite rerun for all adapters.
+- [x] **M2-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `` sign-off. Scope: Router & providers: fallback decision table, Auto Fallback OFF modal flow, circuit breaker, lock/ladder order, chat streaming via `chat.*` with fake providers; contract suite rerun for all adapters.
 
 ## M3 — Cost, pricing, FX, budget, P&L
 
@@ -94,7 +94,7 @@
 - [x] **M3-05** (C) `FxService`: daily fetch from `open.er-api.com` (no LLM), manual override, `fx.get`, `fx.override`; MoneyDisplay uses latest rate.
 - [x] **M3-06** (C) `BudgetGuard` + budgets repo: estimate, levels, once-per-threshold alerts, Hard Stop rejection, `budget.set/status`. Ref: ARCH §6.4.
 - [x] **M3-07** (C) Revenue entries (`revenue.add`, VND→µUSD at entry), `PnLService`, `pnl.get` breakdowns, **`pnl.getAll` aggregate across projects** (add RPC method + validator, D13).
-- [x] **M3-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M3-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M3-report.md` sign-off. Scope: Ledger/P&L: cost frozen per price version, budget BVA (thresholds) × Hard Stop decision table, manual price update with validation reject, FX override, revenue in VND, per-project and aggregate P&L numbers vs hand-computed oracle.
+- [x] **M3-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `` sign-off. Scope: Ledger/P&L: cost frozen per price version, budget BVA (thresholds) × Hard Stop decision table, manual price update with validation reject, FX override, revenue in VND, per-project and aggregate P&L numbers vs hand-computed oracle.
 
 ## M4 — UI shell, Settings, Chat, P&L
 
@@ -107,7 +107,7 @@
 - [x] **M4-03** (C) Settings: Router ladder (dnd-kit), **Auto Fallback** toggle, lock model, Budget (+ **Hard Stop** toggle), Pricing (table, refresh, override), FX (rate, override), VS Code options, Pipeline role assignment.
 - [x] **M4-04** (C) Chat tab: conversation list, unified model dropdown (+ Lock), streaming with cancel, fallback badge + partial-reset handling, fallback modal (Auto OFF), per-message cost `<Money>`.
 - [x] **M4-05** (C) Cost & P&L tab: revenue/cost/margin KPIs, charts by model/purpose/day (Recharts), budget bars with warning states, revenue entry form (USD/VND), ledger table with filters; live refresh on `ledger.entry`. Plus **All-projects dashboard**: per-project margin table, portfolio totals, top spend by project/model.
-- [x] **M4-QA** (A+C) *(conditional sign-off — E2E follow-up QA-E2E-FIX2)* Milestone QA gate (TESTING.md §7): A writes `docs/qa/M4-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M4-report.md` sign-off. Scope: UI system tests: project tabs open/switch/close, theme switching (all 36 theme/mode pairs smoke + contrast), Settings flows, chat with fallback badge & modal, P&L dashboards; XSS corpus through chat rendering; keyboard-only navigation.
+- [x] **M4-QA** (A+C) *(conditional sign-off — E2E follow-up QA-E2E-FIX2)* Milestone QA gate (TESTING.md §7): A writes `` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `` sign-off. Scope: UI system tests: project tabs open/switch/close, theme switching (all 36 theme/mode pairs smoke + contrast), Settings flows, chat with fallback badge & modal, P&L dashboards; XSS corpus through chat rendering; keyboard-only navigation.
 
 ## M5 — RAG
 
@@ -120,7 +120,7 @@
 - [x] **M5-05** (C) `RagService` ingest jobs: discovery, hash skip, progress events, per-file failure isolation, `rag.*` RPC.
 - [x] **M5-06** (C) Retrieval: minScore filter, MMR, context injection, citation parts, `search_knowledge` tool; chat `ragEnabled` toggle.
 - [x] **M5-07** (C) Knowledge tab: add files/folder, document list (format, chunks, model, date), re-index, delete, test-query panel.
-- [x] **M5-QA** (A+C) *(conditional sign-off — E2E follow-up QA-E2E-FIX2)* Milestone QA gate (TESTING.md §7): A writes `docs/qa/M5-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M5-report.md` sign-off. Scope: RAG: ingest md/pdf/docx/code, unchanged-file skip, per-file failure isolation, cited answers, embedding cost in P&L, re-index on model change.
+- [x] **M5-QA** (A+C) *(conditional sign-off — E2E follow-up QA-E2E-FIX2)* Milestone QA gate (TESTING.md §7): A writes `` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `` sign-off. Scope: RAG: ingest md/pdf/docx/code, unchanged-file skip, per-file failure isolation, cited answers, embedding cost in P&L, re-index on model change.
 
 ## M6 — Agent pipeline & Worker
 
@@ -134,7 +134,7 @@
 - [x] **M6-06** (C) `FailureReportBuilder` + remediation table for every `ErrorCode`.
 - [x] **M6-08** (C) Pipeline cost attribution: `LlmRouter` forwards `pipelineRunId` to the ledger; `PipelineRun` cost = sum of its ledger rows (follow-up from M6-05 QA).
 - [x] **M6-07** (C) Code tab: prompt box, stage timeline, spec/review viewers, Monaco diff viewer, live command output, failure report panel, run history.
-- [x] **M6-QA** (A+C) *(conditional sign-off — E2E follow-up QA-E2E-FIX2)* Milestone QA gate (TESTING.md §7): A writes `docs/qa/M6-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M6-report.md` sign-off. Scope: Pipeline: happy path to COMPLETED, review-reject → fix → approve, failing validation → byte-identical rollback, crash mid-commit recovery, path-traversal corpus, cancel at every stage; StrykerJS on worker/domain (score reported). **Carry-over:** case-insensitive `</context>` neutralisation (from M6-04 QA); chunker branch coverage ≥ 90 % (from M5-02 QA) belongs to M5-QA.
+- [x] **M6-QA** (A+C) *(conditional sign-off — E2E follow-up QA-E2E-FIX2)* Milestone QA gate (TESTING.md §7): A writes `` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `` sign-off. Scope: Pipeline: happy path to COMPLETED, review-reject → fix → approve, failing validation → byte-identical rollback, crash mid-commit recovery, path-traversal corpus, cancel at every stage; StrykerJS on worker/domain (score reported). **Carry-over:** case-insensitive `</context>` neutralisation (from M6-04 QA); chunker branch coverage ≥ 90 % (from M5-02 QA) belongs to M5-QA.
 
 ## M7 — VS Code companion extension
 
@@ -145,12 +145,12 @@
 - [x] **M7-03** (C) Launcher (`code` resolve, `shell:false`) + installer (`--list-extensions`, `--install-extension` bundled vsix) + vsix build script; `.itstudio/` gitignore guard.
 - [x] **M7-04** (C) `reveal`, `show_diff`, `transaction` decorations, `notify`.
 - [x] **M7-05** (C) Diagnostics streaming (debounced) + `file_saved_by_user` → stale-run conflict marking.
-- [x] **M7-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `docs/qa/M7-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M7-report.md` sign-off. Scope: VS Code (`@vscode/test-electron`): auto-launch, handshake, reveal/diff on commit, diagnostics forwarded, VS Code closed mid-run does not fail the pipeline, bad token rejected.
+- [x] **M7-QA** (A+C) Milestone QA gate (TESTING.md §7): A writes `` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `` sign-off. Scope: VS Code (`@vscode/test-electron`): auto-launch, handshake, reveal/diff on commit, diagnostics forwarded, VS Code closed mid-run does not fail the pipeline, bad token rejected.
 
 ## MW — Workflow map *(v1 addendum, D32 — start after the v1 hand-over, on the user's go-ahead)*
 Ref: ARCHITECTURE §13.1, schemas §12b. Per-project graph of modules, links and data contracts; click a module → realtime in-flight work + history + metrics + deep links.
 
-- [x] **MW-00** (A) Pre-install `@xyflow/react`; task specs MW-01…MW-04; test-case spec `docs/qa/MW-test-cases.md`.
+- [x] **MW-00** (A) Pre-install `@xyflow/react`; task specs MW-01…MW-04; test-case spec ``.
 - [x] **MW-01** (C) Sidecar: `domain/workflow-topology.ts` (static catalogue of nodes / lanes / typed edges), `services/activity-recorder.ts` (maps existing events → `ActivityEvent`, redaction, in-flight sets, batching ≤ 4/s), `activity_events` table + retention (7 d / 20 000 per project), RPC `workflow.graph`, `workflow.activity`, notification `workflow.activity` + validators.
 - [x] **MW-02** (C) Workflow tab: React Flow graph by lanes, theme tokens, node status / counters, edge animation on live events, zoom / pan / fit, keyboard navigation, "All projects" aggregate with project filter chips.
 - [x] **MW-03** (C) Module side panel: Now (in-flight with progress), Recent (filters, load-more from history), Metrics 24 h (calls, errors, p50 / p95, cost via `<Money>`), Links in / out with contract + last payload summary, deep links to Chat / Code / Knowledge / Cost.
@@ -164,7 +164,7 @@ Open ChatGPT / Gemini / Grok / … in the owner's browser (default Cốc Cốc) 
 
 ## OWNER-FB1 — Owner feedback (2026-10-04)
 
-Work order and QA verdict: `docs/tasks/OWNER-FB1.md`.
+Work order and QA verdict: ``.
 
 - [x] **OWNER-FB1** (C) *(landed 2026-10-14 after merging current `main`; full gates green)* P1 verify-before-save with one 25-second provider request, masked key history and migration `0011`. P5 keyed extractor fallback, per-provider refresh outcomes, persistent row provenance. P2 simplified workflow nodes with activity dots. P4 three Neon glow themes (21 in total, dark default Neon Gold) and shared UI primitives. P3 resolved Cốc Cốc default and 1–4 embedded web-chat panes.
 - **Open native follow-ups:** provider sign-in/popups inside embedded panes with real accounts; full-page/dialog visual review of the Neon themes. Unconfirmed seed prices (`xai/grok-4.1-fast`, two Groq models) stay marked unverified until an app refresh confirms them.
@@ -255,7 +255,7 @@ Spec: ARCH §14.1, `schemas.ts` §13.
 - [x] **M8-03** (C) `generate_image` tool dispatch: validation, BudgetGuard, provider fallback, download-and-store, ledger (`purpose=image`).
 - [x] **M8-04** (C) Chat inline image rendering via asset protocol.
 - [x] **M8-05** (C) Gallery tab.
-- [x] **M8-QA** (A+C) *(conditional sign-off; automated cases and coverage pass, separate 20-minute exploratory follow-up remains — see `docs/qa/M8-report.md`)* Milestone QA gate (TESTING.md §7): A writes `docs/qa/M8-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M8-report.md` sign-off. Scope: Image generation: tool call → image stored locally, provider fallback, cost per image, gallery.
+- [x] **M8-QA** (A+C) *(conditional sign-off; automated cases and coverage pass, separate 20-minute exploratory follow-up remains — see ``)* Milestone QA gate (TESTING.md §7): A writes `` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `` sign-off. Scope: Image generation: tool call → image stored locally, provider fallback, cost per image, gallery.
 
 ## M9 — Packaging & release
 
@@ -278,7 +278,7 @@ Spec: ARCH §14.2.
 - [x] **M9-04** (A) *(not needed — D33 single user; updater key pair deferred until auto-update is wanted)* Code-signing setup (user supplies certificate) + updater key pair (private key outside repo).
 - [x] **M9-05** (C) Version bump script (4 manifests) + release CHANGELOG automation.
 - [x] **M9-06** (C) *(D33: replaced by the temp-directory install smoke — no system Node on PATH, no repo node_modules reachable; final-build rerun recorded in M9-QA)* Clean-VM smoke test checklist and execution.
-- [x] **M9-QA** (A+C) *(signed off 2026-10-14 — `docs/qa/M9-report.md`; S3 observations moved to V1-POLISH-01)* Milestone QA gate (TESTING.md §7): A writes `docs/qa/M9-test-cases.md` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `docs/qa/M9-report.md` sign-off. Scope: Packaging: install on clean VM, first run, sidecar SEA starts, native modules load, update flow.
+- [x] **M9-QA** (A+C) *(signed off 2026-10-14 — ``; S3 observations moved to V1-POLISH-01)* Milestone QA gate (TESTING.md §7): A writes `` (black-box + white-box, traceability) → C automates L3/L4 → A executes, exploratory session, `` sign-off. Scope: Packaging: install on clean VM, first run, sidecar SEA starts, native modules load, update flow.
 
 ---
 

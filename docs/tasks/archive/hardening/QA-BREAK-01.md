@@ -8,7 +8,7 @@ Try to break the sidecar and its security boundaries with hostile, malformed and
 
 ## Read first
 
-`AGENTS.md`, `../CONTEXT.md` D2, D11, D13, D16, D34, `../ARCHITECTURE.md` §3 (IPC), §8 (Worker), §11 (VS Code bridge), `src/types/schemas.ts`, `apps/sidecar/test/integration/harness.ts` (read-only), the existing integration tests for patterns (`protocol.test.ts`, `settings-projects.test.ts`, `secrets.test.ts`, `pipeline.test.ts`, `vscode-bridge.test.ts`, `web-chat.test.ts`).
+`AGENTS.md`, `../../../CONTEXT.md` D2, D11, D13, D16, D34, `../../../ARCHITECTURE.md` §3 (IPC), §8 (Worker), §11 (VS Code bridge), `src/types/schemas.ts`, `apps/sidecar/test/integration/harness.ts` (read-only), the existing integration tests for patterns (`protocol.test.ts`, `settings-projects.test.ts`, `secrets.test.ts`, `pipeline.test.ts`, `vscode-bridge.test.ts`, `web-chat.test.ts`).
 
 ## Scope — files you may create/modify
 

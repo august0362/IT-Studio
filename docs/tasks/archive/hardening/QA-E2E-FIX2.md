@@ -1,6 +1,6 @@
 # QA-E2E-FIX2 — Finish the remaining E2E cases
 
-Role: Implementer (ROLES §1.3) · **Deps pre-installed** · Source: QA E2E session 2026-10-03 (5 specs) and `docs/qa/M4-report.md`, `M5-report.md`, `M6-report.md`.
+Role: Implementer (ROLES §1.3) · **Deps pre-installed** · Source: QA E2E session 2026-10-03 (5 specs) and `../../../qa/archive/M4-report.md`, `M5-report.md`, `M6-report.md`.
 
 ## Remaining failures (product behaviour passes at L2/L3 — these are E2E setup issues)
 | Case | Last page state | Required fix |

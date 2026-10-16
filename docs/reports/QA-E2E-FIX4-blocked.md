@@ -4,9 +4,9 @@ Date: 2026-10-11 · Status: Reopened by owner for a distinct harness approach
 
 ## Evidence
 
-- `docs/qa/M4-report.md` says remaining L4 cases were skipped after the sixth fix attempt; their behavior passes at L2/L3.
-- `docs/qa/M5-report.md` says TC-M5-020/022/023 were skipped and reported after six attempts; TC-M5-020 had a search-step setup failure while ingest reached Indexed.
-- `docs/qa/M6-report.md` says TC-M6-071/072 still failed at validation-shim setup after the sixth attempt and were skipped; L3 coverage exists.
+- `` says remaining L4 cases were skipped after the sixth fix attempt; their behavior passes at L2/L3.
+- `` says TC-M5-020/022/023 were skipped and reported after six attempts; TC-M5-020 had a search-step setup failure while ingest reached Indexed.
+- `` says TC-M6-071/072 still failed at validation-shim setup after the sixth attempt and were skipped; L3 coverage exists.
 - `docs/HANDOFF.md` §5 proposes one fresh app and data directory per spec plus a DOM snapshot and screenshot on failure. It labels the backlog as 13 cases, but enumerates 15 IDs: TC-M4-022/023/031/033/041–046, TC-M5-020/022/023, and TC-M6-071/072.
 
 ## Impact

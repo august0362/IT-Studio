@@ -108,7 +108,7 @@ Append `## Result` per AGENTS.md §3.
   - `apps/sidecar/src/services/role-caller.ts`
   - `apps/sidecar/test/integration/pipeline.test.ts`
   - `apps/sidecar/test/integration/processes.test.ts`
-  - `docs/tasks/OWNER-FB3.md`
+  - `OWNER-FB3.md`
 - Dependencies added (with reason): None. Restored the existing locked dependencies with `npm --cache .npm-cache install` because this worktree had no node_modules; package manifests and lockfiles are unchanged.
 - Decisions taken within scope:
   - The first PM pass is represented by Clarify until its output is known. Spec stays idle on questions and becomes active for specification production; only real artifacts complete modules. Unentered fix/re-review modules are skipped. Unsafe coder paths fail Code before Review is entered.
@@ -124,7 +124,7 @@ Append `## Result` per AGENTS.md §3.
 ## Result
 
 - Summary: Corrected the keyed-coder integration fixture and assertions for the augmented DeepSeek ladder.
-- Files changed: `apps/sidecar/test/integration/pipeline.test.ts`, `docs/tasks/OWNER-FB3.md`.
+- Files changed: `apps/sidecar/test/integration/pipeline.test.ts`, `OWNER-FB3.md`.
 - Dependencies added (with reason): None.
 - Decisions taken within scope: The fixture assigns TaskSpec generation to Mistral, scripts both DeepSeek coder candidates with CoderOutput, and confirms usage of any DeepSeek coder candidate.
 - Validation: `npm.cmd --cache .npm-cache exec -- prettier --write apps/sidecar/test/integration/pipeline.test.ts`, `npm.cmd --cache .npm-cache run typecheck`, and `npm.cmd --cache .npm-cache run lint` passed. Full test suite not run.

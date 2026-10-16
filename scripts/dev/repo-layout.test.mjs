@@ -19,7 +19,7 @@ function isWorkspaceConvention(file, line) {
       line.trim() === `const conventionsPath = join(root, '${conventionsFile}');`) ||
     (file === 'apps/sidecar/src/services/project-context.test.ts' &&
       line.trim() === 'await fs.writeFile(`${root}/' + conventionsFile + "`, 'x'.repeat(2100));") ||
-    (file === 'docs/tasks/M6-05.md' &&
+    (file === 'docs/tasks/archive/M6/M6-05.md' &&
       (line.startsWith('3. Role calls') || line.includes('Add `project-context.test.ts`')))
   );
 }
@@ -68,6 +68,34 @@ test('REPO-01 reference guard distinguishes root paths from docs sibling paths',
   assert.deepEqual(staleReferences('docs/tasks/example.md', `Read ../${name}`), []);
   assert.deepEqual(staleReferences('docs/HANDOFF.md', `Read ${name}`), []);
   assert.deepEqual(staleReferences('src/example.ts', `See docs/${name}`), []);
+});
+
+test('REPO-02 relative Markdown links in docs resolve to files', () => {
+  const files = execFileSync('git', ['ls-files', 'docs'], {
+    cwd: root,
+    encoding: 'utf8',
+  })
+    .split(/\r?\n/u)
+    .filter((file) => file.endsWith('.md'));
+  const linkPattern = /\]\(\s*(?:<([^>]+)>|([^\s)]+))(?:\s+[^)]*)?\)/gu;
+  const broken = [];
+
+  for (const file of files) {
+    const content = readFileSync(resolve(root, file), 'utf8');
+    for (const match of content.matchAll(linkPattern)) {
+      const href = match[1] ?? match[2];
+      if (!href || /^(?:https?:\/\/|#)/iu.test(href)) continue;
+      if (/[<>]/u.test(href)) continue;
+
+      const target = decodeURIComponent(href.split(/[?#]/u, 1)[0] ?? '');
+      if (!target) continue;
+
+      const destination = resolve(root, posix.dirname(file), target);
+      if (!existsSync(destination)) broken.push(`${file}: ${href}`);
+    }
+  }
+
+  assert.deepEqual(broken, []);
 });
 
 test('REPO-01 Windows launcher anchors its directory, starts dev and pauses on errors', () => {

@@ -3,11 +3,11 @@
 Milestone: MW (D32) · Depends on: MW-01, MW-02, MW-04, M8-QA · Role: QA / Implementer · **Deps pre-installed**
 
 ## Read first
-`AGENTS.md`, `../CONTEXT.md` D32, `../CONVENTIONS.md`, `../TESTING.md`, `../ARCHITECTURE.md` §13.1, `docs/HANDOFF.md` §4, and `docs/qa/MW-test-cases.md`.
+`AGENTS.md`, `../../../CONTEXT.md` D32, `../../../CONVENTIONS.md`, `../../../TESTING.md`, `../../../ARCHITECTURE.md` §13.1, `docs/HANDOFF.md` §4, and `../../../qa/archive/MW-test-cases.md`.
 
 ## Scope
-- `docs/qa/MW-test-cases.md`
-- `docs/tasks/MW-QA.md` (this task file; append `## Result` only)
+- `../../../qa/archive/MW-test-cases.md`
+- `MW-QA.md` (this task file; append `## Result` only)
 - `apps/sidecar/src/domain/workflow-topology.test.ts`
 - `apps/sidecar/src/services/workflow-qa.test.ts` (new)
 - `apps/sidecar/src/infra/sqlite/activity-repository.test.ts`
@@ -22,7 +22,7 @@ Milestone: MW (D32) · Depends on: MW-01, MW-02, MW-04, M8-QA · Role: QA / Impl
 1. Specify and automate MW cases TC-MW-005 through TC-MW-009 for the exact topology, event mapping and redaction, retention boundaries, a 100-event notification burst, and deep-link selection.
 2. Reuse the existing TC-MW-003 and TC-MW-004 regression coverage; do not edit the TC-MW-004 integration test.
 3. Preserve existing TC-MW-010. Add TC-MW-011 as an E2E spec for ingest + RAG retrieval + pipeline validation activity and its redacted module histories.
-4. Do not modify production code, `apps/sidecar/test/integration/workflow.test.ts`, `docs/tasks/MW-04.md`, or run any E2E test while M8-QA owns WebDriver.
+4. Do not modify production code, `apps/sidecar/test/integration/workflow.test.ts`, `MW-04.md`, or run any E2E test while M8-QA owns WebDriver.
 
 ## Tests
 - Format only changed files with `npx prettier --write <changed files>`.
@@ -39,7 +39,7 @@ Append `## Result` per `AGENTS.md` §3 with changed files, checks, and the E2E f
 
 ## Result
 - Summary: Added the MW QA matrix and automated TC-MW-005…009 for exact topology, internal event mapping/redaction, per-project retention, a 100-event animation-frame burst, and deep-link selection. Added the scripted TC-MW-011 composite E2E spec.
-- Files changed: `docs/qa/MW-test-cases.md`; `docs/tasks/MW-QA.md`; `apps/sidecar/src/domain/workflow-topology.test.ts`; `apps/sidecar/src/services/workflow-qa.test.ts`; `apps/sidecar/src/infra/sqlite/activity-repository.test.ts`; `apps/desktop/src/features/workflow/WorkflowPage.test.tsx`; `apps/desktop/src/features/chat/ChatPage.test.tsx`; `apps/desktop/src/features/code/CodePage.test.tsx`; `apps/desktop/src/features/knowledge/knowledge-components.test.tsx`; `apps/desktop/src/features/cost/LedgerTable.test.tsx`; `e2e/specs/mw/workflow.spec.ts`.
+- Files changed: `../../../qa/archive/MW-test-cases.md`; `MW-QA.md`; `apps/sidecar/src/domain/workflow-topology.test.ts`; `apps/sidecar/src/services/workflow-qa.test.ts`; `apps/sidecar/src/infra/sqlite/activity-repository.test.ts`; `apps/desktop/src/features/workflow/WorkflowPage.test.tsx`; `apps/desktop/src/features/chat/ChatPage.test.tsx`; `apps/desktop/src/features/code/CodePage.test.tsx`; `apps/desktop/src/features/knowledge/knowledge-components.test.tsx`; `apps/desktop/src/features/cost/LedgerTable.test.tsx`; `e2e/specs/mw/workflow.spec.ts`.
 - Dependencies added (with reason): None.
 - Decisions taken within scope: Kept TC-MW-004 and its task report untouched; public-event mapping corpus and TC-MW-003/004 regressions are referenced as existing coverage. TC-MW-009 adds an explicit WorkflowPage assertion that activity refs reach the route callback. TC-MW-011 uses the scripted LLM driver on port 4448 and harmless validation shims in its temporary project folder. The first TC-MW-011 run exposed an offscreen node click; the selector now focuses Chat programmatically, follows the app's ArrowRight traversal, verifies target focus, then presses Enter.
 
@@ -60,14 +60,14 @@ Append `## Result` per `AGENTS.md` §3 with changed files, checks, and the E2E f
 
 ## Result (QA continuation)
 - Summary: Re-ran all changed/new MW-QA unit and component tests; all passed.
-- Files changed: `docs/tasks/MW-QA.md`.
+- Files changed: `MW-QA.md`.
 - Dependencies added (with reason): None.
 - Decisions taken within scope: Re-ran only the changed test files listed by the task.
 - Open issues / follow-ups: Sidecar tests passed (3 files, 7 tests); desktop tests passed (5 files, 19 tests). Merging and roadmap updates remain Architect/QA integration work.
 
 ## Result (final E2E recheck)
 - Summary: Fixed TC-MW-010's WebDriver assertion to read the Router node's DOM text; WebView2 `getText()` omitted the visible React Flow node metrics. Confirmed the RPC response and DOM both contain the Router call count. Used keyboard focus and Enter to open the Router panel when a canvas click was intercepted.
-- Files changed: `e2e/specs/mw/workflow.spec.ts`; `docs/tasks/MW-QA.md`.
+- Files changed: `e2e/specs/mw/workflow.spec.ts`; `MW-QA.md`.
 - Dependencies added (with reason): None.
 - Decisions taken within scope: Removed temporary runtime diagnostics and did not retain the speculative ActivityRecorder correlation change; the E2E failure was in WebDriver text extraction and click interaction.
 - Verification: `npm run typecheck` and `npm run lint` passed; debug app build passed; `e2e/specs/mw/workflow.spec.ts` passed TC-MW-010 and TC-MW-011 (2/2). Earlier MW-QA unit/component suites passed (7 sidecar tests; 19 desktop tests), and MW-04 integration passed 109/109.

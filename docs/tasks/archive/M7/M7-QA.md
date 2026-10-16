@@ -3,7 +3,7 @@
 Milestone: M7 · Role: Implementer (ROLES §1.3) · **Deps pre-installed** (`@vscode/test-electron` ~3.1)
 
 ## Read first
-- `AGENTS.md`, `../TESTING.md`, **`docs/qa/M7-test-cases.md`** (your work order), `apps/vscode-ext/src/**`, `apps/sidecar/src/services/{vscode-bridge,vscode-launcher}.ts`, `apps/sidecar/test/integration/vscode-bridge.test.ts`
+- `AGENTS.md`, `../../../TESTING.md`, **`../../../qa/archive/M7-test-cases.md`** (your work order), `apps/vscode-ext/src/**`, `apps/sidecar/src/services/{vscode-bridge,vscode-launcher}.ts`, `apps/sidecar/test/integration/vscode-bridge.test.ts`
 
 ## Scope
 - Tests: `apps/vscode-ext/src/**/*.test.ts`, `apps/sidecar/src/services/vscode-*.test.ts`, `apps/sidecar/src/domain/code-cli.test.ts`, `apps/sidecar/test/integration/vscode-*.test.ts` (+ new files with that prefix). Other QA tasks edit M3 / RAG / pipeline tests in parallel — do not touch them.

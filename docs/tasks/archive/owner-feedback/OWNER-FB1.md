@@ -10,7 +10,7 @@ The owner explicitly authorized editing all project files without the previous r
 
 ## Global rules
 
-- Follow `AGENTS.md` and `../CONVENTIONS.md` strictly.
+- Follow `AGENTS.md` and `../../../CONVENTIONS.md` strictly.
 - Contracts are additive in `src/types/schemas.ts`; every new RPC method has a Zod validator under `apps/sidecar/src/validation/`. Existing equality tests must pass.
 - No `any`, `@ts-ignore`, TS `enum`, default exports, `eslint-disable`, `shell: true`, raw SQL, or `dangerouslySetInnerHTML`. Secrets never enter UI state after save, logs, database rows, or error text.
 - UI uses theme CSS tokens only, includes English and Vietnamese for new strings, is keyboard accessible, never communicates status by color alone, and respects `prefers-reduced-motion`.
@@ -160,7 +160,7 @@ The final integration audit also updates E2E key selectors/verifier sessions and
 ## QA (Claude) — final, 2026-10-14
 
 - Merged current `main` (M9 sign-off, M9-FIX2…7, QA-E2E-FIX4) into the branch. Conflicts resolved: `e2e/wdio.conf.ts` (kept the per-worker drivers from QA-E2E-FIX4; the verifier-timeout session for `m1/startup.spec.ts` moved to port 4452 because 4450 is used by `m4/scripted-llm.spec.ts`), `CHANGELOG.md`, `docs/RUNNING.md`, `docs/HANDOFF.md`.
-- Governance: the edits to `AGENTS.md` and to the development-pipeline rows of `../CONTEXT.md` were reverted. The Architect/QA (Claude) and Implementer (Codex) split of `../ROLES.md` stays in force. Product decision updates (D12, D17, D34) and ADR-0005 are kept.
+- Governance: the edits to `AGENTS.md` and to the development-pipeline rows of `../../../CONTEXT.md` were reverted. The Architect/QA (Claude) and Implementer (Codex) split of `../../../ROLES.md` stays in force. Product decision updates (D12, D17, D34) and ADR-0005 are kept.
 - Stale E2E assertions after intended UI changes: TC-M4-044 (the user-facing text no longer carries the internal "D31:" prefix) and TC-MW-010 (24 h counters moved from the node to the module panel's Metrics tab, P2). Both specs were updated; no product change.
 - Gates: typecheck ✔, lint ✔, unit 1 041 passed + 1 skipped ✔, Rust 28/28 ✔, integration 115/115 ✔, full E2E 14 specs: 11 passed on the first run, TC-M1-041 was a WebDriver session flake (passes alone), TC-M4-044 and TC-MW-010 pass after the assertion updates.
 - Remaining native follow-ups (not blocking): embedded provider sign-in/popups in real accounts and a full-page visual review of the three Neon themes; owner hands-on check.

@@ -7,7 +7,7 @@ Role: Implementer (ROLES §1.3) · **Deps pre-installed** · Found in the QA bat
 - **BUG-M6-001 (S3):** when a pipeline fails in SPECIFYING, the Code tab timeline shows Code / Review / Write changes / Validate as **done** and only the final node as failed, although those stages never ran (report correctly says "Failed during Specify"). Stages that were never entered must render as *skipped/not run*.
 
 ## Read first
-- `AGENTS.md`, CONTEXT D10, `../ARCHITECTURE.md` §5.3–§5.4, §8.1, `schemas.ts` §5 (`LlmRequest`, `RouterConfig`), `apps/sidecar/src/services/{chat-service,llm-router}.ts`, `apps/desktop/src/features/code/{StageTimeline.tsx,pipeline-store.ts}`
+- `AGENTS.md`, CONTEXT D10, `../../../ARCHITECTURE.md` §5.3–§5.4, §8.1, `schemas.ts` §5 (`LlmRequest`, `RouterConfig`), `apps/sidecar/src/services/{chat-service,llm-router}.ts`, `apps/desktop/src/features/code/{StageTimeline.tsx,pipeline-store.ts}`
 
 ## Scope
 - `src/types/schemas.ts` — **additive only**: in `LlmRequest` add `/** Chat model choice: tried first, then the rest of the ladder (fallback per autoFallback). */ readonly preferredModelKey?: ModelKey;`

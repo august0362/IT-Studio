@@ -40,7 +40,7 @@ Append `## Result` per AGENTS.md §3 with a table: case → change made.
 | TC-M1-006, TC-M4-021 | Added scripted-session teardown in `afterEach`, cleanup of suite-started desktop process trees in `onComplete`, and shutdown checks limited to the desktop/sidecar PIDs captured for the tested session. |
 
 - Summary: Fixed E2E key setup, selectors, assertions, portfolio isolation, and scripted driver process cleanup without changing test IDs or intent.
-- Files changed: `docs/tasks/QA-E2E-FIX1.md`, `e2e/helpers/keys.ts`, `e2e/helpers/ui.ts`, `e2e/specs/m4/chat.spec.ts`, `e2e/specs/m4/cost.spec.ts`, `e2e/specs/m4/scripted-llm.spec.ts`, `e2e/specs/m4/settings.spec.ts`, `e2e/specs/m4/shell.spec.ts`, `e2e/specs/m5/knowledge.spec.ts`, `e2e/specs/m6/code.spec.ts`, `e2e/wdio.conf.ts`.
+- Files changed: `QA-E2E-FIX1.md`, `e2e/helpers/keys.ts`, `e2e/helpers/ui.ts`, `e2e/specs/m4/chat.spec.ts`, `e2e/specs/m4/cost.spec.ts`, `e2e/specs/m4/scripted-llm.spec.ts`, `e2e/specs/m4/settings.spec.ts`, `e2e/specs/m4/shell.spec.ts`, `e2e/specs/m5/knowledge.spec.ts`, `e2e/specs/m6/code.spec.ts`, `e2e/wdio.conf.ts`.
 - Dependencies added (with reason): None.
 - Decisions taken within scope: Budget bars display `BudgetStatus.spent` using compact `Money`; the regression assertion matches that rendered spent value and usage label for a newly budgeted active project.
 - Open issues / follow-ups: E2E suite not run as requested; QA should rerun it in the short session. `npm install` reported 34 existing dependency audit findings.
@@ -74,7 +74,7 @@ Do only these test fixes (e2e/** only), type-check and lint `e2e`. Do not run E2
 | VS Code E2E | Removed `ELECTRON_RUN_AS_NODE` from the extension test child environment and ignored `.vscode-test/`. |
 
 - Summary: Fixed the round 2 E2E regressions and VS Code test child environment.
-- Files changed: `.gitignore`, `apps/vscode-ext/test/e2e/run.mjs`, `e2e/specs/m4/chat.spec.ts`, `e2e/specs/m4/cost.spec.ts`, `e2e/specs/m4/settings.spec.ts`, `e2e/specs/m5/knowledge.spec.ts`, `e2e/specs/m6/code.spec.ts`, `e2e/wdio.conf.ts`, `docs/tasks/QA-E2E-FIX1.md`.
+- Files changed: `.gitignore`, `apps/vscode-ext/test/e2e/run.mjs`, `e2e/specs/m4/chat.spec.ts`, `e2e/specs/m4/cost.spec.ts`, `e2e/specs/m4/settings.spec.ts`, `e2e/specs/m5/knowledge.spec.ts`, `e2e/specs/m6/code.spec.ts`, `e2e/wdio.conf.ts`, `QA-E2E-FIX1.md`.
 - Dependencies added (with reason): None.
 - Decisions taken within scope: M6 cases use a separate scripted driver so their structured role replies do not alter chat fixture behavior; the validation failure is deterministic and project-local.
 - Open issues / follow-ups: E2E was not run as requested. E2E TypeScript check and lint passed.
@@ -103,7 +103,7 @@ e2e/** only; type-check and lint; do not run E2E.
 | TC-M4-023 | Keeps Auto Fallback OFF for the scripted fallback modal case; scripted-session teardown restores it ON before deleting the session. |
 
 - Summary: Addressed the round 3 scripted model selection, all-provider test keys, and settings state leakage.
-- Files changed: `e2e/helpers/keys.ts`, `e2e/specs/m4/cost.spec.ts`, `e2e/specs/m4/scripted-llm.spec.ts`, `e2e/specs/m4/settings.spec.ts`, `docs/tasks/QA-E2E-FIX1.md`.
+- Files changed: `e2e/helpers/keys.ts`, `e2e/specs/m4/cost.spec.ts`, `e2e/specs/m4/scripted-llm.spec.ts`, `e2e/specs/m4/settings.spec.ts`, `QA-E2E-FIX1.md`.
 - Dependencies added: None.
 - Verification: E2E TypeScript check and ESLint passed. E2E was not run as requested.
 - Open issues / follow-ups: The pricing settings UI has no clear-override action, so cleanup restores GPT-5.5's seeded values; the row remains marked overridden. No out-of-scope product change was made.

@@ -1,6 +1,6 @@
 # M9-FIX7 — Keep Cost & P&L usable for incomplete custom dates
 
-Milestone: M9 · Depends on: M9-QA exploratory finding · Roles: Architect, Implementer, QA/Reviewer (../ROLES.md §§1.1–1.3)
+Milestone: M9 · Depends on: M9-QA exploratory finding · Roles: Architect, Implementer, QA/Reviewer (../../../ROLES.md §§1.1–1.3)
 
 ## Goal
 
@@ -8,7 +8,7 @@ Prevent the Cost & P&L page from unmounting while a custom date is being edited 
 
 ## Read first
 
-- `AGENTS.md`, `../CONTEXT.md`, `../CONVENTIONS.md` §10, `../ARCHITECTURE.md` cost/P&L sections, `../TESTING.md` §7, `docs/qa/M4-test-cases.md` and `docs/qa/M9-test-cases.md` when available in the QA branch.
+- `AGENTS.md`, `../../../CONTEXT.md`, `../../../CONVENTIONS.md` §10, `../../../ARCHITECTURE.md` cost/P&L sections, `../../../TESTING.md` §7, `../../../qa/archive/M4-test-cases.md` and `../../../qa/archive/M9-test-cases.md` when available in the QA branch.
 - `apps/desktop/src/features/cost/CostPage.tsx`, `date-range.ts`, their tests, and `e2e/specs/m4/cost.spec.ts`.
 
 ## Scope — files you may create/modify
@@ -49,7 +49,7 @@ The M9-QA reviewer will add the `TC-M9-015` row to its own test-case document an
 
 - Architect: writes this work order and records the observed WebView failure.
 - Implementer: changes only Cost page/date-range logic and corresponding tests in `C:/Users/admin/itstudio-wt/M9-FIX7`.
-- QA/Reviewer: checks ../CONVENTIONS.md §10, source and GUI gates, and repeats the dates in the final M9-QA app. This scope does not overlap M9-FIX6's WiX template or test.
+- QA/Reviewer: checks ../../../CONVENTIONS.md §10, source and GUI gates, and repeats the dates in the final M9-QA app. This scope does not overlap M9-FIX6's WiX template or test.
 
 ## Result
 

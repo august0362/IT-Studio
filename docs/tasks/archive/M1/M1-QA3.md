@@ -18,7 +18,7 @@ Append `## Result` per AGENTS.md §3.
 
 ## Result
 - Summary: Made TC-M1-007 save the OpenAI key before verification and wait for the in-flight UI state before killing the sidecar; isolated TC-M1-006 in a final shutdown spec that checks process exit from Node after closing the window.
-- Files changed: `e2e/specs/m1/startup.spec.ts`, `e2e/specs/m1/shutdown.spec.ts`, `e2e/wdio.conf.ts`, `docs/tasks/M1-QA3.md`.
+- Files changed: `e2e/specs/m1/startup.spec.ts`, `e2e/specs/m1/shutdown.spec.ts`, `e2e/wdio.conf.ts`, `M1-QA3.md`.
 - Dependencies added (with reason): None.
 - Decisions taken within scope: Kept the existing 10-second scripted verifier timeout and E2E environment wiring; explicitly ordered the shutdown spec last.
 - Open issues / follow-ups: QA must rerun `npm run test:e2e` outside the sandbox to verify TC-M1-006 and TC-M1-007 against the real app.

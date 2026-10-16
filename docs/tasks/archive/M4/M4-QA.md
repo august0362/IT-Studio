@@ -3,7 +3,7 @@
 Milestone: M4 · Role: Implementer (ROLES §1.3) · **Deps pre-installed**
 
 ## Read first
-- `AGENTS.md`, `../TESTING.md`, **`docs/qa/M4-test-cases.md`** (your work order), `apps/desktop/src/**`, `e2e/**`
+- `AGENTS.md`, `../../../TESTING.md`, **`../../../qa/archive/M4-test-cases.md`** (your work order), `apps/desktop/src/**`, `e2e/**`
 
 ## Scope
 - Tests: `apps/desktop/src/**/*.test.{ts,tsx}`, `e2e/specs/m4/**`, `e2e/helpers/**`, `e2e/wdio.conf.ts` (per-spec env for scripted LLM / per-model scripts, see TC-M4-022/023), `apps/desktop/src/i18n/{en,vi}.json` (remove unused keys only). Other QA tasks edit sidecar tests in parallel — do not touch them.
@@ -23,7 +23,7 @@ Append `## Result` per AGENTS.md §3 including a table: case ID → test file �
 
 ## Result
 - Summary: Added the M4 component/static checks and authored the new WebdriverIO cases. Set the ESLint theme rule test timeout to 60 seconds and removed the unused budget translation key from both locales. E2E cases were not run, as requested.
-- Files changed: `apps/desktop/src/theme/theme.test.tsx`, `apps/desktop/src/i18n/en.json`, `apps/desktop/src/i18n/vi.json`, `e2e/specs/m4/{chat,cost,settings,shell,theme,scripted-llm}.spec.ts`, `e2e/fixtures/{m4-slow-chat,m4-fallback}.json`, `e2e/wdio.conf.ts`, `docs/tasks/M4-QA.md`.
+- Files changed: `apps/desktop/src/theme/theme.test.tsx`, `apps/desktop/src/i18n/en.json`, `apps/desktop/src/i18n/vi.json`, `e2e/specs/m4/{chat,cost,settings,shell,theme,scripted-llm}.spec.ts`, `e2e/fixtures/{m4-slow-chat,m4-fallback}.json`, `e2e/wdio.conf.ts`, `M4-QA.md`.
 - Dependencies added (with reason): None. Installed existing lockfile dependencies because `node_modules` was absent.
 - Decisions taken within scope: Slow-stream and fallback cases use dedicated scripted `tauri-driver` instances with distinct fixture paths and data directories; the default and other spec drivers are not restarted. Per-model scripts use model IDs from `config/models.seed.json`.
 - Open issues / follow-ups: Desktop-only coverage measured 70.12% lines, below the §2 target of 80%; the scoped coverage run also reported 68.63% statements, 57.37% branches, and 63.56% functions. `SafeMarkdown.tsx` measured 100% lines / 90% branches. The coverage command exited 1 on configured global thresholds. The production main JS chunk measured 1,125.96 kB (<1.5 MB). QA must execute the authored E2E cases in the batched window session; this run intentionally did not execute them.
@@ -66,7 +66,7 @@ Append `## Result` per AGENTS.md §3 including a table: case ID → test file �
 
 ## Result (fix round 1)
 - Summary: Added 16 component tests using the fake RPC transport for settings, cost, knowledge, code panels, and shell behavior. Desktop source coverage is now 85.56% lines and 70.44% branches, above the round target. No production code changed.
-- Files changed: `apps/desktop/src/features/round1-coverage.test.tsx`, `docs/tasks/M4-QA.md`.
+- Files changed: `apps/desktop/src/features/round1-coverage.test.tsx`, `M4-QA.md`.
 - Dependencies added (with reason): None.
 - Decisions taken within scope: Kept the coverage tests in a single feature test file to share one RPC test harness; all test responses are local and deterministic.
 - Open issues / follow-ups: `npm --cache .npm-cache exec -- vitest run apps/desktop --coverage` runs desktop tests but applies the root coverage thresholds to all workspaces, so the command exits 1 for unselected sidecar/vscode-ext files (0% in this desktop-only run). The desktop-only metrics meet the requested targets. E2E was not run.
@@ -91,7 +91,7 @@ Append `## Result` per AGENTS.md §3 including a table: case ID → test file �
 
 ## Result (fix round 2)
 - Summary: Added locale-aware number/date helpers mapping English to `en-US` and Vietnamese to `vi-VN`, replaced OS-locale formatting in desktop UI, added pure formatter and static regression tests, and made the FX test assert both locale renderings.
-- Files changed: `apps/desktop/src/i18n/format.ts`, `apps/desktop/src/i18n/format.test.tsx`, `apps/desktop/src/features/settings/fx/FxSettingsPage.tsx`, `apps/desktop/src/features/settings/pricing/PricingSettingsPage.tsx`, `apps/desktop/src/features/cost/LedgerTable.tsx`, `apps/desktop/src/features/cost/RevenueForm.tsx`, `apps/desktop/src/features/settings/api-keys/ApiKeysPage.tsx`, `apps/desktop/src/features/knowledge/DocumentTable.tsx`, `apps/desktop/src/features/round1-coverage.test.tsx`, `docs/tasks/M4-QA.md`.
+- Files changed: `apps/desktop/src/i18n/format.ts`, `apps/desktop/src/i18n/format.test.tsx`, `apps/desktop/src/features/settings/fx/FxSettingsPage.tsx`, `apps/desktop/src/features/settings/pricing/PricingSettingsPage.tsx`, `apps/desktop/src/features/cost/LedgerTable.tsx`, `apps/desktop/src/features/cost/RevenueForm.tsx`, `apps/desktop/src/features/settings/api-keys/ApiKeysPage.tsx`, `apps/desktop/src/features/knowledge/DocumentTable.tsx`, `apps/desktop/src/features/round1-coverage.test.tsx`, `M4-QA.md`.
 - Dependencies added (with reason): None.
 - Decisions taken within scope: Unknown locale tags fall back to `en-US`; date helpers preserve the user's local time zone while applying the selected app locale. Money formatting remains in the sidecar.
 - Open issues / follow-ups: None. E2E was not run as requested.
