@@ -77,3 +77,22 @@ ORCH-001, ORCH-003, ORCH-004, ORCH-009 (unit, names prefixed), plus state-machin
 ## Hand-back
 
 Append `## Result` per AGENTS.md §3.
+
+## Result
+- Summary: Added orchestration contracts, validation and IPC schemas, task/run state machines, DAG checks, path-lock scheduling, the mock execution adapter, SQLite tables/repository, RPC registration, and a plan/start smoke test. Mock worker attempts are persisted. The current engine supports the mock worker path and reaches `AWAITING_APPROVAL` for successful tasks.
+- Files changed: `src/types/schemas.ts`; `apps/sidecar/src/{container.ts,domain/remediation.ts,infra/sqlite/schema.ts,infra/sqlite/migrations/0014_orchestration.sql,infra/sqlite/migrations/meta/_journal.json,modules/orchestration/**,ports/agent-execution.ts,validation/errors.ts,validation/ipc.ts}`; `apps/sidecar/test/integration/orchestration.test.ts`; `docs/tasks/ORCH-01.md`.
+- Dependencies added (with reason): None. Ran `npm --cache .npm-cache install` because `node_modules` was absent.
+- Decisions taken within scope: Plan errors use the additive `PLAN_INVALID` error code and include a structured error list. Mock runs use a deterministic one-task supervisor plan by default; tests can inject role scripts.
+- Open issues / follow-ups: The engine does not yet run reviewer attempts, fix rounds, supervisor escalation/reassignment, parallel scheduling, or transient/budget enforcement. Startup recovery and full event-level persistence/coalescing are incomplete. The `orchestration` process kind was not added because it would require updating the desktop process-kind map outside this task's Scope. `npm test` stopped in `pretest`: its lint selftests fail because Git reports that it cannot read `C:\Users\admin\.config\git\ignore` in this sandbox. `npm run lint`, `npm run typecheck`, scoped ESLint, and focused orchestration tests (7) passed.
+
+## QA round 1 (Architect, 2026-10-22) — finish the remaining requirements
+
+Your Result lists gaps. Complete exactly these (budget enforcement beyond the agent-call/worker counters, recovery and real merges stay in ORCH-03):
+
+1. **Requirement 3 (scheduler)** fully: `pickRunnable` must honour deps COMPLETED, path-lock overlap with tasks in `running | awaiting_handoff | in_review | fix_required`, `maxConcurrentWorkers`, `maxAgentCalls`; order by longest remaining critical path, tie by id; a failed task blocks only transitive dependents (`BLOCKED`, reason `DEPENDENCY_FAILED`).
+2. **Requirement 4 (engine loop with mock adapter)**: worker attempt → reviewer attempt (mock verdict) → `pass` ⇒ task `completed`; `fix_required` ⇒ `FIX_REQUIRED` then a new worker attempt with the findings (new attempt id), up to `maxFixRounds`; exhaustion ⇒ one supervisor escalation (`reassign` to the other worker agent) ⇒ if it still fails, run `PAUSED` with reason `NEEDS_OWNER`. All tasks completed ⇒ run `AWAITING_APPROVAL`.
+3. **Requirement 5**: add process kind `orchestration` to the process registry (graph = the run's tasks as modules, edges = deps; module state from task state) and upsert it on every run/task change; `orch.event` coalesced ≤ 10/s per run.
+4. **Tests (names prefixed):** `ORCH-001` (valid DAG accepted; cycle, unknown dep, duplicate id, `..`/absolute path, empty acceptance criteria rejected), `ORCH-003` (overlapping allowedPaths ⇒ second QUEUED with reason `PATH_LOCK` until the first leaves review), `ORCH-004` (A fails ⇒ B BLOCKED, independent C completes), `ORCH-009` (reviewer always `fix_required` ⇒ exactly `maxFixRounds` fix attempts, one escalation, then `PAUSED`/`NEEDS_OWNER`, no extra worker attempt); task/run state-machine transition tables; scheduler ordering.
+5. Extend `apps/sidecar/test/integration/orchestration.test.ts`: plan → start → mock review pass → `awaiting_approval`, and a `fix_required` once path.
+
+Run prettier, typecheck, lint and `npx vitest run --project sidecar apps/sidecar/src/modules/orchestration`. Update `## Result`.
