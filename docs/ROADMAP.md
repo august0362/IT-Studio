@@ -203,6 +203,8 @@ Work order and QA verdict: `docs/tasks/OWNER-FB1.md`.
 
 - [ ] **UX-04** (C) Workflow map becomes the "System map" tab of Processes; sidebar entry removed.
 
+- [ ] **WC-02** (C) Nine more built-in web chats (DeepSeek, Qwen, Le Chat, Copilot, Kimi, Meta AI, Poe, HuggingChat, Z.ai), upgrade-safe one-time merge.
+
 ## PROC — Processes *(D40)*
 
 - [x] **PROC-01** (C) Sidecar process registry, module graphs per kind, instrumentation, retention 20, retry/cancel/dismiss, restart sweep.
