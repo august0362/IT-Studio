@@ -1,4 +1,23 @@
 {
+  "character": {
+    "workspace": "Không gian làm việc",
+    "toggleSidebar": "Thu gọn hoặc mở rộng thanh bên",
+    "collapse": "Thu gọn thanh bên",
+    "expand": "Mở rộng thanh bên",
+    "projects": "Nơi mỗi ý tưởng đi từ cuộc trò chuyện đầu tiên đến thành quả.",
+    "chat": "Cùng suy nghĩ. Cùng tạo nên điều hữu ích.",
+    "webchat": "Các cuộc trò chuyện trên web trong cùng một không gian.",
+    "code": "Biến ý tưởng thành mã chạy được, qua từng bước kiểm duyệt.",
+    "knowledge": "Lưu ngữ cảnh để câu trả lời sát với công việc hơn.",
+    "gallery": "Đưa ý tưởng thành hình. Tạo ảnh từ cuộc trò chuyện.",
+    "cost": "Theo dõi rõ ràng chi phí và doanh thu của bạn.",
+    "processes": "Theo dõi công việc đang diễn ra trong studio.",
+    "workflow": "Xem cách các phần trong studio kết nối với nhau.",
+    "settings": "Điều chỉnh studio theo cách bạn làm việc.",
+    "noProcesses": "Chưa có hoạt động phù hợp. Bắt đầu ở Trò chuyện để theo dõi công việc tại đây.",
+    "startChat": "Bắt đầu trò chuyện",
+    "openChat": "Mở Trò chuyện"
+  },
   "processes": {
     "heading": "Tiến trình",
     "tabs": { "label": "Chế độ xem tiến trình", "processes": "Tiến trình", "system-map": "Sơ đồ hệ thống" },

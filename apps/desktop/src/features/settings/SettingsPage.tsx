@@ -1,4 +1,6 @@
 import { Select } from '../../components/ui/primitives';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { Icon, type IconName } from '../../components/ui/Icon';
 import { useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ResolvedWebChatSettingsPage } from '../webchat/ResolvedWebChatSettingsPage';
@@ -21,6 +23,20 @@ import {
   type SettingSuggestion,
   type SettingsSectionRoute,
 } from './settings-sections';
+
+const SECTION_ICONS: Readonly<Record<SettingsSectionRoute, IconName>> = {
+  'settings-api-keys': 'key',
+  'settings-router': 'router',
+  'settings-pipeline': 'code',
+  'settings-budget': 'budget',
+  'settings-pricing': 'pricing',
+  'settings-fx': 'fx',
+  'settings-images': 'gallery',
+  'settings-web-chat': 'web',
+  'settings-vscode': 'open',
+  'settings-theme': 'palette',
+  'settings-labs': 'labs',
+};
 
 export function SettingsPage({
   section,
@@ -151,13 +167,14 @@ export function SettingsPage({
               <li key={route}>
                 <a
                   aria-current={route === section ? 'page' : undefined}
-                  className="block rounded px-3 py-2 hover:bg-surface-alt aria-[current=page]:bg-surface-alt focus-visible:outline-2 focus-visible:outline-focus-ring"
+                  className="flex items-center gap-3 rounded px-3 py-2 hover:bg-surface-alt aria-[current=page]:bg-surface-alt focus-visible:outline-2 focus-visible:outline-focus-ring"
                   href={`#${route}`}
                   onClick={(event) => {
                     event.preventDefault();
                     navigate(route);
                   }}
                 >
+                  <Icon name={SECTION_ICONS[route]} />
                   {title(route)}
                 </a>
               </li>
@@ -171,14 +188,15 @@ export function SettingsPage({
         ) : null}
       </div>
       <div ref={contentRoot} className="min-w-0 flex-1 space-y-5">
-        <h2
-          className="text-2xl font-semibold focus-visible:outline-2 focus-visible:outline-focus-ring"
+        <PageHeader
+          icon={SECTION_ICONS[section]}
+          title={t('settings.sectionHeading', { section: title(section) })}
+          subtitle={t('character.settings')}
           id="settings-page-heading"
-          ref={heading}
-          tabIndex={-1}
-        >
-          {t('settings.sectionHeading', { section: title(section) })}
-        </h2>
+          headingRef={heading}
+          focusable
+          level={2}
+        />
         <SettingsTargetContext value={target?.section === section ? target.id : undefined}>
           {content}
         </SettingsTargetContext>

@@ -3,6 +3,8 @@ import type { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Money } from '../../components/Money';
 import { KpiCards } from './KpiCards';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Icon } from '../../components/ui/Icon';
 
 export function PortfolioPage({
   data,
@@ -15,6 +17,18 @@ export function PortfolioPage({
   return (
     <div className="space-y-4">
       <KpiCards data={data} />
+      {data.projects.length === 0 ? (
+        <EmptyState
+          icon="cost"
+          description={t('cost.empty')}
+          action={
+            <a className="studio-button studio-button-primary" href="#projects">
+              <Icon name="projects" />
+              {t('nav.projects')}
+            </a>
+          }
+        />
+      ) : null}
       <section className="rounded border border-border bg-surface p-4">
         <h2 className="mb-3 font-semibold">{t('cost.projectResults')}</h2>
         <div className="overflow-x-auto">

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import { useTranslation } from 'react-i18next';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Money } from '../../components/Money';
+import { PageHeader } from '../../components/ui/PageHeader';
 import { useNotification } from '../../hooks/use-notification';
 import { ErrorPanel } from '../../components/ErrorPanel';
 import { RpcCallError } from '../../rpc/rpc-client';
@@ -158,9 +159,7 @@ function ProjectCodePage({ projectId }: { readonly projectId: ProjectId | null }
   const outputEntries = selected === undefined ? [] : Object.entries(selected.outputs);
   return (
     <section className="space-y-5" aria-labelledby="code-heading">
-      <h2 className="text-xl font-semibold" id="code-heading">
-        {t('code.heading')}
-      </h2>
+      <PageHeader icon="code" title={t('code.heading')} subtitle={t('character.code')} id="code-heading" level={2} />
       {projectId === null ? <p role="status">{t('code.pickProject')}</p> : null}
       <PromptBox
         busy={starting || (selected?.queued ?? false)}

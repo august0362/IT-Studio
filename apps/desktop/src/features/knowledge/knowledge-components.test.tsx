@@ -38,6 +38,25 @@ function renderWithClient(transport: FakeTransport, element: ReactNode): void {
 afterEach(cleanup);
 
 describe('knowledge components', () => {
+  it('UX-06 focuses the existing source form from an empty knowledge library', () => {
+    renderWithClient(
+      new FakeTransport(),
+      <>
+        <AddSourcesForm onStarted={vi.fn()} projectId={projectId} />
+        <DocumentTable
+          documents={[]}
+          projectId={projectId}
+          workspaceRoot="C:/workspace"
+          onStarted={vi.fn()}
+          onChanged={vi.fn()}
+        />
+      </>,
+    );
+    const empty = screen.getByText('No indexed documents yet.').closest('.studio-empty-state');
+    if (!(empty instanceof HTMLElement)) throw new Error('Missing empty state');
+    fireEvent.click(within(empty).getByRole('button'));
+    expect(screen.getByLabelText('Workspace-relative file or folder paths (one per line)')).toHaveFocus();
+  });
   it('submits source paths and reports the returned ingest job', async () => {
     const transport = new FakeTransport();
     transport.setStatus({ running: true, ready: true, restarts: 0 });

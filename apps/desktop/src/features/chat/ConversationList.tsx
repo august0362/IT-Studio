@@ -1,6 +1,7 @@
 import type { Conversation } from '@itstudio/schemas';
 import type { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Icon } from '../../components/ui/Icon';
 
 export function ConversationList({
   conversations,
@@ -16,7 +17,8 @@ export function ConversationList({
   const { t } = useTranslation();
   return (
     <aside aria-label={t('chat.conversations')} className="w-64 shrink-0 border-r border-border p-3">
-      <button className="mb-3 w-full rounded bg-primary px-3 py-2 text-primary-fg" onClick={onCreate} type="button">
+      <button className="studio-button studio-button-primary mb-3 w-full" onClick={onCreate} type="button">
+        <Icon name="plus" />
         {t('chat.new')}
       </button>
       <ul className="space-y-1">

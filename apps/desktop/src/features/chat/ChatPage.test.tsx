@@ -105,6 +105,13 @@ describe('ChatPage', () => {
     cleanup();
     useNavigationIntent.getState().clearIntent();
   });
+  it('UX-06 starts a conversation from the illustrated empty state without sending a paid request', async () => {
+    const transport = renderChat();
+    fireEvent.click(await screen.findByRole('button', { name: 'Start a conversation' }));
+    expect(await screen.findByRole('heading', { name: 'New conversation' })).toBeVisible();
+    expect(screen.getByRole('textbox', { name: 'Message' })).toBeVisible();
+    expect(transport.sent.some((line) => line.includes('"method":"chat.send"'))).toBe(false);
+  });
   it('TC-MW-009 opens a conversation selected by a workflow deep link', async () => {
     useNavigationIntent.getState().setIntent({ kind: 'conversation', id: '00000000-0000-4000-8000-000000000002' });
     renderChat(true);

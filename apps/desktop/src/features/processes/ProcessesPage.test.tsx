@@ -26,6 +26,11 @@ function setup(records: readonly ProcessRecord[]) {
   return { ...view, open };
 }
 describe('PROC-02 processes list', () => {
+  it('UX-06 offers Chat from the processes empty state', async () => {
+    setup([]);
+    expect(await screen.findByText('No matching activity yet. Start in Chat to see your work here.')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Open Chat' })).toHaveAttribute('href', '#chat');
+  });
   it('groups every status with labelled colored dots and only the allowed actions', async () => {
     const records = (['running', 'waiting', 'stopped', 'ended'] as const).map((status) =>
       processRecord({

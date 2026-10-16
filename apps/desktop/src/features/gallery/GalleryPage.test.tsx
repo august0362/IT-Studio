@@ -13,7 +13,7 @@ vi.mock('@tauri-apps/api/core', () => ({ convertFileSrc: (path: string) => `asse
 
 afterEach(cleanup);
 
-function setup() {
+function setup(empty = false) {
   const transport = new FakeTransport();
   transport.setStatus({ running: true, ready: true, restarts: 0 });
   const asset = {
@@ -35,7 +35,9 @@ function setup() {
     const method = String(request.method);
     const result =
       method === 'images.list'
-        ? [asset]
+        ? empty
+          ? []
+          : [asset]
         : method === 'images.delete'
           ? { deleted: true }
           : method === 'fx.get'
@@ -68,6 +70,11 @@ function setup() {
 }
 
 describe('GalleryPage', () => {
+  it('UX-06 offers Chat as the next action for an empty gallery', async () => {
+    setup(true);
+    expect(await screen.findByText('No generated images yet.')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Open Chat' })).toHaveAttribute('href', '#chat');
+  });
   it('lists local images and confirms deletion while cancel leaves the asset intact', async () => {
     const { transport } = setup();
     expect(await screen.findByAltText('A quiet garden')).toBeVisible();

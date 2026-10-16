@@ -1,4 +1,6 @@
 import type { ActivityEvent, ProcessKind, ProjectId, WorkflowModuleId } from '@itstudio/schemas';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { Icon } from '../../components/ui/Icon';
 import type { JSX } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -169,17 +171,22 @@ export function WorkflowPage({
 
   return (
     <section aria-label={t('workflow.heading')} className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">{t('workflow.heading')}</h1>
-        <button
-          className="rounded border border-border px-3 py-1"
-          onClick={() => {
-            void refreshGraph();
-          }}
-        >
-          {t('workflow.refresh')}
-        </button>
-      </div>
+      <PageHeader
+        icon="workflow"
+        title={t('workflow.heading')}
+        subtitle={t('character.workflow')}
+        action={
+          <button
+            className="rounded border border-border px-3 py-1"
+            onClick={() => {
+              void refreshGraph();
+            }}
+          >
+            <Icon name="refresh" />
+            {t('workflow.refresh')}
+          </button>
+        }
+      />
       {loadError ? (
         <p role="alert" className="text-danger">
           {t('workflow.loadError')}
