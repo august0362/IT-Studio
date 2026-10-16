@@ -255,3 +255,29 @@ describe('SidecarBridge', () => {
     bridge.dispose();
   });
 });
+
+describe('VSC-01 close message parsing', () => {
+  it('delivers valid close_window frames and ignores malformed reasons, refs and future types', async () => {
+    const state = setup();
+    const received: unknown[] = [];
+    state.bridge.onMessage((message) => received.push(message));
+    state.bridge.connect();
+    await settle();
+    const socket = state.sockets[0];
+    socket?.open();
+    socket?.receive(JSON.stringify({ type: 'welcome', sessionId: 'session' }));
+    for (const reason of ['studio_exit', 'project_closed', 'project_deleted'])
+      socket?.receive(JSON.stringify({ type: 'close_window', ref: 3, reason }));
+    for (const message of [
+      { type: 'future_type' },
+      { type: 'close_window', ref: -1, reason: 'studio_exit' },
+      { type: 'close_window', ref: 3, reason: 'unknown' },
+      { type: 'close_window', ref: '3', reason: 'project_closed' },
+    ])
+      socket?.receive(JSON.stringify(message));
+    expect(received).toEqual(
+      ['studio_exit', 'project_closed', 'project_deleted'].map((reason) => ({ type: 'close_window', ref: 3, reason })),
+    );
+    state.bridge.dispose();
+  });
+});

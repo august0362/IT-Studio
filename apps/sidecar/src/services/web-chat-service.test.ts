@@ -34,7 +34,15 @@ function setup(
     budget: { hardStop: false },
     pricing: { autoUpdate: false, updateIntervalHours: 24, maxAutoChangePercent: 50, extractionModelKey: 'openai/x' },
     fx: { autoUpdate: true, manualUsdToVnd: null },
-    vscode: { autoLaunch: true, codeExecutable: null, showDiffBeforeValidate: true, revealChangedFiles: true },
+    vscode: {
+      closeWithStudio: true,
+      closeWithProject: true,
+      closeManuallyOpened: false,
+      autoLaunch: true,
+      codeExecutable: null,
+      showDiffBeforeValidate: true,
+      revealChangedFiles: true,
+    },
     pipeline: {
       roleAssignment: { pm: [], coder: [], reviewer: [] },
       validationCommands: [],

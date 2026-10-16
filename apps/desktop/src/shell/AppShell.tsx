@@ -381,6 +381,14 @@ export function AppShell(): JSX.Element {
               void openNewProjectDialog();
             }}
             onClose={(id) => {
+              const project = projects.find((item) => item.id === id);
+              if (project && settingsQuery.data?.vscode.closeWithProject) {
+                void rpc
+                  .call('vscode.closeForProject', { projectId: project.id, reason: 'project_closed' })
+                  .catch((cause: unknown) => {
+                    setProjectError(asAppError(cause));
+                  });
+              }
               closeProject(id);
             }}
             openIds={visibleOpenIds}

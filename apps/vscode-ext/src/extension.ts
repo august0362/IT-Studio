@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { closeWindow } from './close-window';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   mapDiagnostics,
@@ -134,8 +135,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     sendDiagnostics: (diagnostics) => {
       bridge.sendSerialized(JSON.stringify({ type: 'diagnostics', diagnostics }));
     },
-    ack: (ref) => {
-      bridge.sendSerialized(JSON.stringify({ type: 'ack', ref }));
+    closeWindow: () => closeWindow((command) => vscode.commands.executeCommand(command)),
+    ack: (ref, closed) => {
+      bridge.sendSerialized(JSON.stringify({ type: 'ack', ref, ...(closed === undefined ? {} : { closed }) }));
     },
     revealChangedFiles: () => vscode.workspace.getConfiguration('itstudio').get('revealChangedFiles', false),
     log: (message) => {

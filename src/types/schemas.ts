@@ -1119,6 +1119,7 @@ export interface RpcMethodMap {
   };
 
   'workspace.openInVSCode': { params: { readonly projectId: ProjectId }; result: VSCodeStatus };
+  'vscode.closeForProject': { params: { readonly projectId: ProjectId; readonly reason: 'project_closed' | 'project_deleted' }; result: { readonly accepted: true } };
 }
 export type RpcMethod = keyof RpcMethodMap;
 
@@ -1170,10 +1171,11 @@ export type ExtToSidecar =
   | ExtHello
   | { readonly type: 'diagnostics'; readonly diagnostics: readonly Diagnostic[] }
   | { readonly type: 'file_saved_by_user'; readonly path: WorkspaceRelativePath; readonly hash: Sha256 }
-  | { readonly type: 'ack'; readonly ref: number }
+  | { readonly type: 'ack'; readonly ref: number; readonly closed?: boolean }
   | { readonly type: 'pong' };
 
 export type SidecarToExt =
+  | { readonly type: 'close_window'; readonly ref: number; readonly reason: 'studio_exit' | 'project_closed' | 'project_deleted' }
   | { readonly type: 'welcome'; readonly sessionId: string }
   | { readonly type: 'reveal'; readonly ref: number; readonly path: WorkspaceRelativePath; readonly line?: number }
   | { readonly type: 'show_diff'; readonly ref: number; readonly path: WorkspaceRelativePath; readonly before: string; readonly after: string; readonly title: string }
@@ -1207,6 +1209,9 @@ export interface FxSettings {
 }
 
 export interface VSCodeSettings {
+  readonly closeWithStudio: boolean;
+  readonly closeWithProject: boolean;
+  readonly closeManuallyOpened: boolean;
   readonly autoLaunch: boolean;
   /** Path to `code` executable; null = resolve from PATH. */
   readonly codeExecutable: string | null;

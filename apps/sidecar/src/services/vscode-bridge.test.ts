@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { WebSocket } from 'ws';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { createLogger } from '../infra/logger.js';
 import { createFakeIdGenerator } from '../infra/id.js';
@@ -20,10 +20,13 @@ afterEach(async () => {
 
 function manualTimers() {
   let nextHandle = 0;
+  let now = 0;
+  const due = new Map<number, number>();
   const timeouts = new Map<number, () => void>();
   const intervals = new Map<number, () => void>();
   const clock: VscodeBridgeTimers = {
-    setTimeout: (callback) => {
+    setTimeout: (callback, delayMs) => {
+      due.set(nextHandle + 1, now + delayMs);
       const handle = ++nextHandle;
       timeouts.set(handle, callback);
       return handle;
@@ -38,6 +41,15 @@ function manualTimers() {
   };
   return {
     clock,
+    advance(ms: number) {
+      now += ms;
+      for (const [handle, callback] of timeouts) {
+        if ((due.get(handle) ?? Infinity) <= now) {
+          timeouts.delete(handle);
+          callback();
+        }
+      }
+    },
     fireTimeout() {
       const [handle, callback] = timeouts.entries().next().value ?? [];
       if (typeof handle === 'number' && callback !== undefined) {
@@ -59,12 +71,17 @@ async function setup(options: { readonly useDefaultTimers?: boolean; readonly fa
   const savedFiles: unknown[] = [];
   const activities: unknown[] = [];
   const timer = manualTimers();
+  const logger = createLogger({ streams: [] });
+  const warn = vi.spyOn(logger, 'warn');
+  const info = vi.spyOn(logger, 'info');
+  const closed = vi.fn();
   const bridge = new VSCodeBridge({
     ids: createFakeIdGenerator(['a1111111-1111-4111-8111-111111111111']),
-    logger: createLogger({ streams: [] }),
+    logger,
     ...(options.useDefaultTimers ? {} : { timers: timer.clock }),
     randomToken: () => 'a'.repeat(64),
     events: {
+      windowClosed: closed,
       publishStatus: (value) => statuses.push(value),
       publishDiagnostics: (value) => diagnostics.push(value),
       publishInternal: (value) => savedFiles.push(value),
@@ -77,7 +94,7 @@ async function setup(options: { readonly useDefaultTimers?: boolean; readonly fa
   await bridge.activate(projectIdSchema.parse('b1111111-1111-4111-8111-111111111111'), root);
   const sessionJson: unknown = JSON.parse(readFileSync(join(root, '.itstudio', 'session.json'), 'utf8'));
   const session = sessionSchema.parse(sessionJson);
-  return { bridge, root, session, statuses, diagnostics, savedFiles, activities, timer };
+  return { bridge, root, session, statuses, diagnostics, savedFiles, activities, timer, warn, info, closed };
 }
 
 function connect(port: number, options: { readonly origin?: string } = {}): WebSocket {
@@ -253,5 +270,177 @@ describe('VSCodeBridge', () => {
     expect(await closed).toBe(4400);
     expect(state.statuses).toHaveLength(2);
     expect(state.statuses[1]).toMatchObject({ connected: false });
+  });
+});
+
+const projectA = projectIdSchema.parse('b1111111-1111-4111-8111-111111111111');
+const projectB = projectIdSchema.parse('b2222222-2222-4222-8222-222222222222');
+const closeSettings = {
+  autoLaunch: true,
+  codeExecutable: null,
+  showDiffBeforeValidate: true,
+  revealChangedFiles: true,
+  closeWithStudio: true,
+  closeWithProject: true,
+  closeManuallyOpened: false,
+};
+
+async function connectWindow(state: Awaited<ReturnType<typeof setup>>, root = state.root) {
+  const socket = connect(state.session.port);
+  await new Promise<void>((resolveWelcome, reject) => {
+    socket.once('error', reject);
+    socket.once('open', () => {
+      hello(socket, state.session.token, root);
+    });
+    socket.once('message', () => {
+      resolveWelcome();
+    });
+  });
+  const frames: unknown[] = [];
+  socket.on('message', (data) => {
+    const parsed = z
+      .object({ type: z.string(), ref: z.number().optional() })
+      .parse(JSON.parse(Buffer.isBuffer(data) ? data.toString('utf8') : '') as unknown);
+    frames.push(JSON.parse(Buffer.isBuffer(data) ? data.toString('utf8') : '') as unknown);
+    if (parsed.type === 'close_window') socket.send(JSON.stringify({ type: 'ack', ref: parsed.ref, closed: true }));
+  });
+  return { socket, frames };
+}
+
+describe('VSC-01 window ownership and closing', () => {
+  it.each(['project_closed', 'project_deleted'] as const)(
+    'closes only the launched project session on %s, with manual windows opt-in',
+    async (reason) => {
+      const state = await setup();
+      state.bridge.recordLaunch(projectA, state.root, 10);
+      const launched = await connectWindow(state);
+      const manual = await connectWindow(state);
+      const rootB = mkdtempSync(join(tmpdir(), 'itstudio-vscode-b-'));
+      directories.push(rootB);
+      await state.bridge.activate(projectB, rootB);
+      state.bridge.recordLaunch(projectB, rootB, 20);
+      const other = await connectWindow(state, rootB);
+      await state.bridge.closeWindows(closeSettings, reason, projectA);
+      expect(launched.frames).toEqual([expect.objectContaining({ type: 'close_window', reason })]);
+      expect(manual.frames).toEqual([]);
+      expect(other.frames).toEqual([]);
+      expect(state.closed).toHaveBeenCalledWith(projectA, state.root, reason);
+      await state.bridge.closeWindows({ ...closeSettings, closeManuallyOpened: true }, reason, projectA);
+      expect(manual.frames).toEqual([expect.objectContaining({ type: 'close_window', reason })]);
+      expect(other.frames).toEqual([]);
+    },
+  );
+
+  it('clears launched ownership on disconnect so a later manual window stays open', async () => {
+    const state = await setup();
+    state.bridge.recordLaunch(projectA, state.root, 10);
+    const launched = await connectWindow(state);
+    const disconnected = new Promise<void>((resolve) =>
+      launched.socket.once('close', () => {
+        resolve();
+      }),
+    );
+    launched.socket.close();
+    await disconnected;
+    const manual = await connectWindow(state);
+    await state.bridge.closeWindows(closeSettings, 'project_closed', projectA);
+    expect(manual.frames).toEqual([]);
+  });
+
+  it('sends nothing when the project or studio toggle is off', async () => {
+    const state = await setup();
+    state.bridge.recordLaunch(projectA, state.root, 10);
+    const window = await connectWindow(state);
+    await state.bridge.closeWindows({ ...closeSettings, closeWithProject: false }, 'project_closed', projectA);
+    await state.bridge.closeWindows({ ...closeSettings, closeWithStudio: false }, 'studio_exit');
+    expect(window.frames).toEqual([]);
+  });
+
+  it('sends exit to every owned project at once, logs older extension timeouts, and waits at most 2 seconds', async () => {
+    const state = await setup();
+    state.bridge.recordLaunch(projectA, state.root, 10);
+    const first = await connectWindow(state);
+    const rootB = mkdtempSync(join(tmpdir(), 'itstudio-vscode-b-'));
+    directories.push(rootB);
+    await state.bridge.activate(projectB, rootB);
+    state.bridge.recordLaunch(projectB, rootB, 20);
+    const second = await connectWindow(state, rootB);
+    first.socket.removeAllListeners('message');
+    second.socket.removeAllListeners('message');
+    const received = [first, second].map(
+      ({ socket }) =>
+        new Promise<unknown>((resolve) =>
+          socket.once('message', (data) => {
+            resolve(JSON.parse(Buffer.isBuffer(data) ? data.toString('utf8') : '') as unknown);
+          }),
+        ),
+    );
+    let finished = false;
+    const closing = state.bridge.closeWindows(closeSettings, 'studio_exit').then(() => {
+      finished = true;
+    });
+    expect(await Promise.all(received)).toEqual([
+      expect.objectContaining({ type: 'close_window', reason: 'studio_exit' }),
+      expect.objectContaining({ type: 'close_window', reason: 'studio_exit' }),
+    ]);
+    state.timer.advance(1999);
+    await Promise.resolve();
+    expect(finished).toBe(false);
+    state.timer.advance(1);
+    await closing;
+    expect(finished).toBe(true);
+    expect(state.warn).toHaveBeenCalledTimes(2);
+    expect(state.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: 'timeout', reason: 'studio_exit' }),
+      expect.stringContaining('older'),
+    );
+  });
+
+  it('logs project timeout at 3 seconds and a cancelled close without marking the process closed', async () => {
+    const state = await setup();
+    state.bridge.recordLaunch(projectA, state.root, 10);
+    const window = await connectWindow(state);
+    window.socket.removeAllListeners('message');
+    const received = new Promise<number>((resolve) =>
+      window.socket.once('message', (data) => {
+        resolve(
+          z.object({ ref: z.number() }).parse(JSON.parse(Buffer.isBuffer(data) ? data.toString('utf8') : '') as unknown)
+            .ref,
+        );
+      }),
+    );
+    const closing = state.bridge.closeWindows(closeSettings, 'project_closed', projectA);
+    const ref = await received;
+    window.socket.send(JSON.stringify({ type: 'ack', ref, closed: false }));
+    await closing;
+    expect(state.closed).not.toHaveBeenCalled();
+    expect(state.info).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'cancelled' }), expect.any(String));
+    const timeout = state.bridge.closeWindows(closeSettings, 'project_deleted', projectA);
+    state.timer.advance(3000);
+    await timeout;
+    expect(state.warn).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'timeout' }), expect.any(String));
+  });
+});
+
+describe('VSC-01 unsaved work after the ack deadline', () => {
+  it('records a window that closes after a long unsaved-work prompt', async () => {
+    const state = await setup();
+    state.bridge.recordLaunch(projectA, state.root, 10);
+    const window = await connectWindow(state);
+    window.socket.removeAllListeners('message');
+    const closing = state.bridge.closeWindows(closeSettings, 'project_closed', projectA);
+    state.timer.advance(3000);
+    await closing;
+    expect(state.closed).not.toHaveBeenCalled();
+    const disconnected = new Promise<void>((resolve) =>
+      window.socket.once('close', () => {
+        resolve();
+      }),
+    );
+    window.socket.close();
+    await disconnected;
+    await vi.waitFor(() => {
+      expect(state.closed).toHaveBeenCalledWith(projectA, state.root, 'project_closed');
+    });
   });
 });

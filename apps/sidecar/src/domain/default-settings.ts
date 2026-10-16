@@ -42,6 +42,9 @@ export function buildDefaultSettings(seeds: Seeds): AppSettings {
     },
     fx: { autoUpdate: true, manualUsdToVnd: null },
     vscode: {
+      closeWithStudio: true,
+      closeWithProject: true,
+      closeManuallyOpened: false,
       autoLaunch: true,
       codeExecutable: null,
       showDiffBeforeValidate: true,

@@ -25,6 +25,65 @@ afterEach(async () => {
 });
 
 describe('VS Code bridge integration', () => {
+  it.each(['project.delete', 'system.shutdown', 'stdin EOF'] as const)(
+    'VSC-01 sends close_window through the fake extension on %s',
+    async (trigger) => {
+      sidecar = await startSidecar();
+      const activeWorkspace = await mkdtemp(join(tmpdir(), 'itstudio-vscode-close-'));
+      workspace = activeWorkspace;
+      const project = projectSchema.parse(
+        (await sidecar.call('project.create', { name: 'Close windows', workspaceRoot: activeWorkspace })).result,
+      );
+      await sidecar.call('project.setActive', { projectId: project.id });
+      const session = z
+        .object({ port: z.number(), token: z.string() })
+        .parse(JSON.parse(await readFile(resolve(activeWorkspace, '.itstudio/session.json'), 'utf8')) as unknown);
+      const socket = new WebSocket(`ws://127.0.0.1:${String(session.port)}`);
+      await new Promise<void>((resolveWelcome, reject) => {
+        socket.once('error', reject);
+        socket.once('open', () => {
+          socket.send(
+            JSON.stringify({
+              type: 'hello',
+              protocolVersion: 1,
+              token: session.token,
+              workspaceRoot: activeWorkspace,
+              extensionVersion: 'test',
+            }),
+          );
+        });
+        socket.once('message', () => {
+          resolveWelcome();
+        });
+      });
+      try {
+        const received = new Promise<unknown>((resolveClose, reject) => {
+          socket.once('error', reject);
+          socket.once('message', (data) => {
+            const message = z
+              .object({ type: z.literal('close_window'), ref: z.number(), reason: z.string() })
+              .parse(JSON.parse(Buffer.isBuffer(data) ? data.toString('utf8') : '') as unknown);
+            socket.send(JSON.stringify({ type: 'ack', ref: message.ref, closed: true }));
+            resolveClose(message);
+          });
+        });
+        if (trigger === 'stdin EOF') sidecar.endStdin();
+        else
+          expect(
+            (await sidecar.call(trigger, trigger === 'project.delete' ? { projectId: project.id } : {})).error,
+          ).toBeUndefined();
+        expect(await received).toMatchObject({
+          type: 'close_window',
+          reason: trigger === 'project.delete' ? 'project_deleted' : 'studio_exit',
+        });
+        if (trigger !== 'project.delete') await waitFor(() => sidecar?.exitCode === 0);
+      } finally {
+        socket.close();
+      }
+    },
+    30_000,
+  );
+
   it('TC-M7-001 writes the session, completes a loopback handshake and publishes connected status', async () => {
     sidecar = await startSidecar();
     const activeWorkspace = await mkdtemp(join(tmpdir(), 'itstudio-vscode-e2e-'));

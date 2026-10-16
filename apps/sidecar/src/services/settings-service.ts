@@ -176,6 +176,16 @@ function addMissingTopLevelDefaults(value: unknown, defaults: AppSettings): unkn
   const stored = value;
   let changed = false;
   const merged: Record<string, unknown> = { ...stored };
+  if (isRecord(stored.vscode)) {
+    const vscode = { ...stored.vscode };
+    for (const key of ['closeWithStudio', 'closeWithProject', 'closeManuallyOpened'] as const) {
+      if (!(key in vscode)) {
+        vscode[key] = defaults.vscode[key];
+        changed = true;
+      }
+    }
+    merged.vscode = vscode;
+  }
   for (const [key, defaultValue] of Object.entries(defaults)) {
     if (!(key in stored)) {
       merged[key] = defaultValue;

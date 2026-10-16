@@ -90,6 +90,9 @@ export const fxSettingsSchema = z
   .readonly() satisfies z.ZodType<FxSettings>;
 export const vscodeSettingsSchema = z
   .strictObject({
+    closeWithStudio: z.boolean(),
+    closeWithProject: z.boolean(),
+    closeManuallyOpened: z.boolean(),
     autoLaunch: z.boolean(),
     codeExecutable: z.string().nullable(),
     showDiffBeforeValidate: z.boolean(),
@@ -181,6 +184,9 @@ export const settingsPatchSchema = z
       .exactOptional(),
     vscode: z
       .strictObject({
+        closeWithStudio: z.boolean().exactOptional(),
+        closeWithProject: z.boolean().exactOptional(),
+        closeManuallyOpened: z.boolean().exactOptional(),
         autoLaunch: z.boolean().exactOptional(),
         codeExecutable: z.string().nullable().exactOptional(),
         showDiffBeforeValidate: z.boolean().exactOptional(),

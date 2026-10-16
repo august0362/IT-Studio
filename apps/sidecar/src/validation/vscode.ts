@@ -23,10 +23,17 @@ export const extToSidecarSchema: z.ZodType<ExtToSidecar> = z.discriminatedUnion(
   extHelloSchema,
   z.object({ type: z.literal('diagnostics'), diagnostics: z.array(diagnosticSchema).readonly() }).readonly(),
   z.object({ type: z.literal('file_saved_by_user'), path: workspaceRelativePathSchema, hash: sha256Schema }).readonly(),
-  z.object({ type: z.literal('ack'), ref: z.number() }).readonly(),
+  z.object({ type: z.literal('ack'), ref: z.number(), closed: z.boolean().exactOptional() }).readonly(),
   z.object({ type: z.literal('pong') }).readonly(),
 ]);
 export const sidecarToExtSchema: z.ZodType<SidecarToExt> = z.discriminatedUnion('type', [
+  z
+    .object({
+      type: z.literal('close_window'),
+      ref: z.number().int().nonnegative(),
+      reason: z.enum(['studio_exit', 'project_closed', 'project_deleted']),
+    })
+    .readonly(),
   z.object({ type: z.literal('welcome'), sessionId: z.string() }).readonly(),
   z
     .object({
