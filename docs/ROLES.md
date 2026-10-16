@@ -258,3 +258,7 @@ Return {"items": [{"id", "triage", "summary"}]}.
 | Worker → UI | `PipelineEvent`, `FailureReport` | — | — |
 | Claude → Codex (dev) | `docs/tasks/<ID>.md` | template §1.1 | Architect rewrites |
 | Codex → Claude (dev) | diff + `## Result` | QA procedure §1.2 | fix round / rollback |
+
+## Runtime multi-agent orchestration
+
+The roles of the *runtime* orchestration feature (supervisor, workers, reviewer, engine) are defined only in `governance/MULTI_AGENT_ORCHESTRATION.md` (ADR-0006, D41). This file keeps describing how IT Studio itself is developed.
