@@ -1,6 +1,7 @@
 {
   "processes": {
     "heading": "Tiến trình",
+    "tabs": { "label": "Chế độ xem tiến trình", "processes": "Tiến trình", "system-map": "Sơ đồ hệ thống" },
     "counts": "Số tiến trình",
     "allProjects": "Tất cả dự án",
     "kind": "Loại",
@@ -736,6 +737,7 @@
     "applyFilters": "Áp dụng bộ lọc"
   },
   "workflow": {
+    "showProcesses": "Hiện tiến trình",
     "heading": "Quy trình",
     "graphLabel": "Sơ đồ quy trình",
     "minimapLabel": "Sơ đồ thu nhỏ quy trình",
