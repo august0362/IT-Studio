@@ -54,6 +54,15 @@ describe('web chat domain rules', () => {
       'claude',
       'google-ai-studio',
       'perplexity',
+      'deepseek',
+      'qwen',
+      'mistral-le-chat',
+      'copilot',
+      'kimi',
+      'meta-ai',
+      'poe',
+      'huggingchat',
+      'zai',
     ]);
     const issues = validateWebChatSettings({
       browser: 'default',
@@ -92,5 +101,35 @@ describe('web chat domain rules', () => {
         links: [{ id: 'long-name', name: 'x'.repeat(41), url: 'https://example.com' }],
       }).map((issue) => issue.path),
     ).toEqual(['webChat.links.0.name']);
+  });
+});
+
+describe('WC-02 presets', () => {
+  it('ships all nine enabled URLs and accepts every preset', () => {
+    expect(DEFAULT_WEB_CHAT_LINKS.slice(6).map(({ id, name, url, enabled }) => [id, name, url, enabled])).toEqual([
+      ['deepseek', 'DeepSeek', 'https://chat.deepseek.com/', true],
+      ['qwen', 'Qwen Chat', 'https://chat.qwen.ai/', true],
+      ['mistral-le-chat', 'Le Chat (Mistral)', 'https://chat.mistral.ai/chat', true],
+      ['copilot', 'Microsoft Copilot', 'https://copilot.microsoft.com/', true],
+      ['kimi', 'Kimi', 'https://www.kimi.com/', true],
+      ['meta-ai', 'Meta AI', 'https://www.meta.ai/', true],
+      ['poe', 'Poe', 'https://poe.com/', true],
+      ['huggingchat', 'HuggingChat', 'https://huggingface.co/chat/', true],
+      ['zai', 'Z.ai (GLM)', 'https://chat.z.ai/', true],
+    ]);
+    expect(DEFAULT_WEB_CHAT_LINKS.every((link) => isAllowedWebChatUrl(link.url))).toBe(true);
+  });
+  it('accepts 40 links and rejects 41', () => {
+    const links = Array.from({ length: 41 }, (_, index) => ({
+      id: String(index),
+      name: 'Chat',
+      url: 'https://example.com/',
+    }));
+    expect(validateWebChatSettings({ browser: 'default', customBrowserPath: null, links: links.slice(0, 40) })).toEqual(
+      [],
+    );
+    expect(validateWebChatSettings({ browser: 'default', customBrowserPath: null, links })).toEqual([
+      { path: 'webChat.links', message: 'Must contain at most 40 links.' },
+    ]);
   });
 });

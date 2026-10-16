@@ -291,3 +291,66 @@ fn all_children_have_an_empty_capability_set() {
             .any(|value| value.as_str() == Some(pane_label(slot).as_str())));
     }
 }
+
+#[test]
+fn wc02_accepts_forty_saved_links_and_rejects_forty_one() {
+    let mut saved: Vec<WebChatLink> = (0..40)
+        .map(|index| WebChatLink {
+            id: format!("custom-{index}"),
+            name: format!("Chat {index}"),
+            url: format!("https://chat-{index}.example/"),
+            enabled: true,
+        })
+        .collect();
+    assert!(plan_panes(&saved, &[pane(0, "custom-39")]).is_ok());
+    saved.push(WebChatLink {
+        id: "extra".into(),
+        name: "Extra".into(),
+        url: "https://extra.example/".into(),
+        enabled: true,
+    });
+    assert!(plan_panes(&saved, &[pane(0, "custom-39")]).is_err());
+}
+
+#[test]
+fn wc02_new_saved_origins_work_without_allowing_external_sign_in_hosts() {
+    let urls = [
+        "https://chat.deepseek.com/",
+        "https://chat.qwen.ai/",
+        "https://chat.mistral.ai/chat",
+        "https://copilot.microsoft.com/",
+        "https://www.kimi.com/",
+        "https://www.meta.ai/",
+        "https://poe.com/",
+        "https://huggingface.co/chat/",
+        "https://chat.z.ai/",
+    ];
+    let saved: Vec<WebChatLink> = urls
+        .iter()
+        .enumerate()
+        .map(|(index, url)| WebChatLink {
+            id: format!("preset-{index}"),
+            name: "Preset".into(),
+            url: (*url).into(),
+            enabled: true,
+        })
+        .collect();
+    let (_, origins) = plan_panes(&saved, &[pane(0, "preset-0")]).expect("valid new presets");
+    for url in urls {
+        let parsed = safe_https_url(url).expect("safe preset");
+        assert!(navigation_allowed(&parsed, &origins));
+        assert!(navigation_allowed(
+            &parsed.join("/sign-in").expect("same-origin path"),
+            &origins
+        ));
+    }
+    for url in [
+        "https://accounts.google.com/",
+        "https://login.microsoftonline.com/",
+        "https://login.live.com/",
+        "https://www.facebook.com/",
+    ] {
+        let parsed = safe_https_url(url).expect("safe external popup");
+        assert!(!navigation_allowed(&parsed, &origins));
+    }
+}

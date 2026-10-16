@@ -6,7 +6,11 @@ export const SETTINGS_SECTIONS = [
   { route: 'settings-pricing', keywords: 'prices cost update override giá chi phí' },
   { route: 'settings-fx', keywords: 'currency fx exchange rate usd vnd tiền tệ tỷ giá' },
   { route: 'settings-images', keywords: 'image generation flux dall-e hình ảnh tạo ảnh' },
-  { route: 'settings-web-chat', keywords: 'browser coccoc links panes web chat trình duyệt' },
+  {
+    route: 'settings-web-chat',
+    keywords:
+      'browser coccoc links panes web chat deepseek qwen le chat mistral microsoft copilot kimi meta ai poe huggingchat huggingface z.ai glm trình duyệt',
+  },
   { route: 'settings-vscode', keywords: 'editor extension launch code trình soạn thảo tiện ích' },
   { route: 'settings-theme', keywords: 'appearance theme dark light language locale giao diện tối sáng ngôn ngữ' },
   { route: 'settings-labs', keywords: 'labs experimental pipeline studio thử nghiệm' },

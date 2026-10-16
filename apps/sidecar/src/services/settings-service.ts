@@ -5,7 +5,7 @@ import type { Logger } from 'pino';
 import type { IClock } from '../infra/clock.js';
 import type { ISettingsRepository } from '../ports/settings-repository.js';
 import { appSettingsSchema, settingsPatchSchema } from '../validation/settings.js';
-import { reconcileWebChatLayout } from '../domain/web-chat.js';
+import { DEFAULT_WEB_CHAT_LINKS, reconcileWebChatLayout } from '../domain/web-chat.js';
 
 export interface SettingsServiceDependencies {
   readonly repository: ISettingsRepository;
@@ -52,8 +52,23 @@ export class SettingsService {
     if (!this.themeIds.has(parsed.data.ui.themeId)) {
       return this.recoverCorrupted(stored.json, 'Settings row refers to an unknown theme');
     }
-    if (upgraded !== decoded) await this.persist(parsed.data);
-    return { ok: true, value: parsed.data };
+    const settings = parsed.data;
+    if (settings.webChat.presetsVersion === undefined) {
+      const ids = new Set(settings.webChat.links.map((link) => link.id));
+      const origins = new Set(settings.webChat.links.map((link) => new URL(link.url).origin));
+      const additions = DEFAULT_WEB_CHAT_LINKS.slice(6).filter(
+        (link) => !ids.has(link.id) && !origins.has(new URL(link.url).origin),
+      );
+      const migrated = appSettingsSchema.safeParse({
+        ...settings,
+        webChat: { ...settings.webChat, links: [...settings.webChat.links, ...additions], presetsVersion: 1 },
+      });
+      if (!migrated.success) return validationError('Web chat presets upgrade failed validation');
+      await this.persist(migrated.data);
+      return { ok: true, value: migrated.data };
+    }
+    if (upgraded !== decoded) await this.persist(settings);
+    return { ok: true, value: settings };
   }
 
   update(patch: SettingsPatch): Promise<Result<AppSettings>> {
@@ -100,7 +115,10 @@ export class SettingsService {
   }
 
   private async persist(value: AppSettings): Promise<void> {
-    await this.repository.save(JSON.stringify(value), this.clock.now().toISOString());
+    await this.repository.save(
+      JSON.stringify({ ...value, webChat: { ...value.webChat, presetsVersion: 1 } }),
+      this.clock.now().toISOString(),
+    );
   }
 
   private async recoverCorrupted(json: string, reason: string): Promise<Result<AppSettings>> {

@@ -38,3 +38,17 @@ describe('web-chat layout validation', () => {
     ).toBe(false);
   });
 });
+
+it('WC-02 accepts forty saved links and rejects forty-one', () => {
+  const links = Array.from({ length: 41 }, (_, index) => ({
+    ...DEFAULT_WEB_CHAT_SETTINGS.links[0],
+    id: `link-${String(index)}`,
+    name: 'Chat',
+    url: 'https://example.com/',
+    enabled: true,
+  }));
+  expect(webChatSettingsSchema.safeParse({ ...DEFAULT_WEB_CHAT_SETTINGS, links: links.slice(0, 40) }).success).toBe(
+    true,
+  );
+  expect(webChatSettingsSchema.safeParse({ ...DEFAULT_WEB_CHAT_SETTINGS, links }).success).toBe(false);
+});

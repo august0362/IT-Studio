@@ -47,6 +47,8 @@ export const webChatLayoutSchema = z
   }) satisfies z.ZodType<WebChatLayout>;
 export const webChatSettingsSchema = z
   .strictObject({
+    // Internal saved-settings metadata; callers cannot set it through SettingsPatch.
+    presetsVersion: z.literal(1).exactOptional(),
     browser: webChatBrowserSchema,
     customBrowserPath: z.string().nullable(),
     layout: webChatLayoutSchema.exactOptional(),

@@ -19,7 +19,7 @@ use tokio::sync::Mutex;
 use crate::commands::require_main_webview;
 
 const MAX_PANES: usize = 4;
-const MAX_LINKS: usize = 20;
+const MAX_LINKS: usize = 40;
 const MAX_BOUND: f64 = 32_768.0;
 
 #[derive(Debug, Deserialize)]
@@ -346,7 +346,7 @@ fn plan_panes(
     panes: &[WebChatPaneRequest],
 ) -> Result<(BTreeMap<u8, PlannedPane>, HashSet<String>), String> {
     if links.len() > MAX_LINKS || panes.len() > MAX_PANES {
-        return Err("Web chat supports at most 20 saved links and four panes.".into());
+        return Err("Web chat supports at most 40 saved links and four panes.".into());
     }
     let mut saved = BTreeMap::new();
     let mut origins = HashSet::new();

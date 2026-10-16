@@ -10,7 +10,25 @@ import { FakeTransport } from '../../rpc/transport';
 
 afterEach(cleanup);
 
-function renderMenu() {
+const presetNames = [
+  'ChatGPT',
+  'Gemini',
+  'Grok',
+  'Claude',
+  'Google AI Studio',
+  'Perplexity',
+  'DeepSeek',
+  'Qwen Chat',
+  'Le Chat (Mistral)',
+  'Microsoft Copilot',
+  'Kimi',
+  'Meta AI',
+  'Poe',
+  'HuggingChat',
+  'Z.ai (GLM)',
+];
+
+function renderMenu(allPresets = false) {
   const transport = new FakeTransport();
   transport.setStatus({ running: true, ready: true, restarts: 0 });
   transport.send = (line) => {
@@ -18,7 +36,16 @@ function renderMenu() {
     const request = JSON.parse(line) as { readonly id: number; readonly method: string };
     const result =
       request.method === 'settings.get'
-        ? { webChat: { links: [{ id: 'chatgpt', name: 'ChatGPT', url: 'https://chatgpt.com/', enabled: true }] } }
+        ? {
+            webChat: {
+              links: (allPresets ? presetNames : ['ChatGPT']).map((name, index) => ({
+                id: String(index),
+                name,
+                url: 'https://chatgpt.com/',
+                enabled: true,
+              })),
+            },
+          }
         : request.method === 'webchat.open'
           ? { opened: true, browser: 'coccoc' }
           : request.method === 'webchat.projectBrief'
@@ -62,4 +89,12 @@ describe('WebChatMenu', () => {
     });
     expect(transport.sent.some((line) => line.includes('webchat.projectBrief'))).toBe(true);
   });
+});
+
+it('WC-02 renders fifteen named preset choices in the scrollable picker', async () => {
+  renderMenu(true);
+  fireEvent.click(await screen.findByRole('button', { name: 'Web chat' }));
+  for (const name of presetNames) expect(await screen.findByText(name, { exact: true })).toBeVisible();
+  expect(screen.getAllByRole('menuitem')).toHaveLength(17);
+  expect(screen.getByRole('menu')).toHaveClass('overflow-y-auto', 'max-h-[60vh]');
 });

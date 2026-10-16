@@ -21,6 +21,20 @@ export const DEFAULT_WEB_CHAT_LINKS: readonly WebChatLink[] = [
     enabled: true,
   },
   { id: 'perplexity' as WebChatLinkId, name: 'Perplexity', url: 'https://www.perplexity.ai/', enabled: true },
+  { id: 'deepseek' as WebChatLinkId, name: 'DeepSeek', url: 'https://chat.deepseek.com/', enabled: true },
+  { id: 'qwen' as WebChatLinkId, name: 'Qwen Chat', url: 'https://chat.qwen.ai/', enabled: true },
+  {
+    id: 'mistral-le-chat' as WebChatLinkId,
+    name: 'Le Chat (Mistral)',
+    url: 'https://chat.mistral.ai/chat',
+    enabled: true,
+  },
+  { id: 'copilot' as WebChatLinkId, name: 'Microsoft Copilot', url: 'https://copilot.microsoft.com/', enabled: true },
+  { id: 'kimi' as WebChatLinkId, name: 'Kimi', url: 'https://www.kimi.com/', enabled: true },
+  { id: 'meta-ai' as WebChatLinkId, name: 'Meta AI', url: 'https://www.meta.ai/', enabled: true },
+  { id: 'poe' as WebChatLinkId, name: 'Poe', url: 'https://poe.com/', enabled: true },
+  { id: 'huggingchat' as WebChatLinkId, name: 'HuggingChat', url: 'https://huggingface.co/chat/', enabled: true },
+  { id: 'zai' as WebChatLinkId, name: 'Z.ai (GLM)', url: 'https://chat.z.ai/', enabled: true },
 ];
 
 export const DEFAULT_WEB_CHAT_SETTINGS: WebChatSettings = {
@@ -45,7 +59,7 @@ export function validateWebChatSettings(
   },
 ): readonly WebChatIssue[] {
   const issues: WebChatIssue[] = [];
-  if (value.links.length > 20) issues.push({ path: 'webChat.links', message: 'Must contain at most 20 links.' });
+  if (value.links.length > 40) issues.push({ path: 'webChat.links', message: 'Must contain at most 40 links.' });
   const ids = new Set<string>();
   value.links.forEach((link, index) => {
     const prefix = `webChat.links.${String(index)}`;

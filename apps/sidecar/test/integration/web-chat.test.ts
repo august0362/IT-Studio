@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { z } from 'zod';
 import type { WebChatLinkId } from '@itstudio/schemas';
+import { DEFAULT_WEB_CHAT_LINKS } from '../../src/domain/web-chat.js';
 import { projectSchema } from '../../src/validation/projects.js';
 import { startSidecar, type SidecarHarness } from './harness.js';
 
@@ -19,14 +20,7 @@ describe('quick web chat integration', () => {
     const settings = await sidecar.call('settings.get');
     expect(settings.result).toMatchObject({
       webChat: {
-        links: [
-          { id: 'chatgpt', url: 'https://chatgpt.com/', enabled: true },
-          { id: 'gemini', url: 'https://gemini.google.com/app', enabled: true },
-          { id: 'grok', url: 'https://grok.com/', enabled: true },
-          { id: 'claude', url: 'https://claude.ai/new', enabled: true },
-          { id: 'google-ai-studio', url: 'https://aistudio.google.com/', enabled: true },
-          { id: 'perplexity', url: 'https://www.perplexity.ai/', enabled: true },
-        ],
+        links: DEFAULT_WEB_CHAT_LINKS,
       },
     });
     const linkId = z.custom<WebChatLinkId>((value) => value === 'chatgpt').parse('chatgpt');

@@ -218,3 +218,64 @@ describe('SettingsService', () => {
     opened.client.close();
   });
 });
+
+describe('WC-02 one-time presets upgrade', () => {
+  it('persists all fifteen on a fresh install and keeps later deletions across reads and updates', async () => {
+    const { opened, service } = createService();
+    try {
+      const fresh = await service.get();
+      if (!fresh.ok) throw new Error(fresh.error.message);
+      expect(fresh.value.webChat.links).toHaveLength(15);
+      const repository = new SettingsRepository(opened.db);
+      expect((await repository.load())?.json).toContain('"presetsVersion":1');
+      const links = fresh.value.webChat.links.filter((link) => link.id !== 'deepseek');
+      expect(await service.update({ webChat: { links } })).toMatchObject({ ok: true });
+      expect(await service.update({ budget: { hardStop: true } })).toMatchObject({ ok: true });
+      expect(await service.get()).toMatchObject({ ok: true, value: { webChat: { links } } });
+    } finally {
+      opened.client.close();
+    }
+  });
+
+  it.each([false, true])(
+    'appends once while preserving 20 existing links (duplicate origin/id: %s)',
+    async (duplicates) => {
+      const { opened, service, loaded } = createService();
+      try {
+        const defaults = buildDefaultSettings(loaded.value);
+        const legacyLinks = Array.from({ length: 20 }, (_, index) => ({
+          id: `custom-${String(index)}`,
+          name: `My link ${String(index)}`,
+          url: `https://custom-${String(index)}.example/chat`,
+          enabled: index !== 1,
+        }));
+        if (duplicates) {
+          legacyLinks[0] = {
+            id: 'my-deepseek',
+            name: 'My DeepSeek',
+            url: 'https://chat.deepseek.com/old',
+            enabled: false,
+          };
+          legacyLinks[1] = { id: 'qwen', name: 'My Qwen', url: 'https://other.example/', enabled: false };
+        }
+        const repository = new SettingsRepository(opened.db);
+        await repository.save(
+          JSON.stringify({ ...defaults, webChat: { ...defaults.webChat, links: legacyLinks } }),
+          '2026-01-01T00:00:00.000Z',
+        );
+        const result = await service.get();
+        if (!result.ok) throw new Error(result.error.message);
+        expect(result.value.webChat.links.slice(0, 20)).toEqual(legacyLinks);
+        expect(result.value.webChat.links).toHaveLength(duplicates ? 27 : 29);
+        if (duplicates) expect(result.value.webChat.links.some((link) => link.id === 'deepseek')).toBe(false);
+        expect(await service.get()).toEqual(result);
+        const links = result.value.webChat.links.filter((link) => link.id !== 'zai');
+        expect(await service.update({ webChat: { links } })).toMatchObject({ ok: true });
+        expect(await service.get()).toMatchObject({ ok: true, value: { webChat: { links } } });
+        expect((await repository.load())?.json).toContain('"presetsVersion":1');
+      } finally {
+        opened.client.close();
+      }
+    },
+  );
+});
