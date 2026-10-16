@@ -188,6 +188,10 @@ Work order and QA verdict: `docs/tasks/OWNER-FB1.md`.
 - [x] **REPO-01** (C) Move project docs into `docs/`, update every reference; `Start-IT-Studio.bat` one-click start from source.
 - [x] **V1-QA** (A) *(passed 2026-10-15, `docs/qa/V1-report.md`; owner acceptance pending)* Final v1 gate: full unit + integration + E2E + smoke + build, visual check, owner checklist `docs/qa/V1-owner-checklist.md`.
 
+## Research (not product scope)
+
+- Local Coding Agent & portable Specialized Agent Library — research roadmap, **not approved for implementation**: [`docs/research/PORTABLE_LOCAL_AGENT_ROADMAP.md`](research/PORTABLE_LOCAL_AGENT_ROADMAP.md) (R0 in progress: Qwen3.5 4B baseline validated with limitations; 9B download in progress, evaluation pending).
+
 ## PROV — More providers *(D38)*
 
 - [x] **PROV-01** (C) DeepSeek, OpenRouter, Qwen (region endpoint), Mistral via the OpenAI-compatible adapter; seed models/prices; API Keys page.
