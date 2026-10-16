@@ -13,6 +13,10 @@ import { RevenueForm } from './RevenueForm';
 import { LedgerTable } from './LedgerTable';
 import { PortfolioPage } from './PortfolioPage';
 import { useNavigationIntent } from '../../state/navigation-intent';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Icon } from '../../components/ui/Icon';
+import { Button } from '../../components/ui/primitives';
 
 const EMPTY_LEDGER_PAGE = { items: [], nextCursor: null } as const;
 
@@ -84,7 +88,7 @@ export function CostPage({ projectId }: { readonly projectId: ProjectId | null }
   );
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">{t('cost.heading')}</h1>
+      <PageHeader icon="cost" title={t('cost.heading')} subtitle={t('character.cost')} />
       {rangeControls}
       {projectId !== null ? (
         <ProjectCostView
@@ -162,7 +166,21 @@ function ProjectCostView({
         byDay={projectPnl.data.byDay}
       />
       {projectPnl.data.revenue.microUsd === 0 && projectPnl.data.cost.microUsd === 0 ? (
-        <p className="text-text-muted">{t('cost.empty')}</p>
+        <EmptyState
+          icon="cost"
+          description={t('cost.empty')}
+          action={
+            <Button
+              tone="primary"
+              onClick={() => {
+                document.getElementById('revenue-amount')?.focus();
+              }}
+            >
+              <Icon name="plus" />
+              {t('cost.addRevenue')}
+            </Button>
+          }
+        />
       ) : null}
       <BudgetBars
         projectId={projectId}

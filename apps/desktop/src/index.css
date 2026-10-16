@@ -324,14 +324,174 @@ body {
 }
 
 .studio-sidebar {
+  width: 17rem;
   background: var(--color-surface);
   gap: var(--space-4);
 }
+.studio-sidebar[data-collapsed='true'] {
+  width: 4.5rem;
+}
 .studio-sidebar h1 {
-  margin-bottom: var(--space-4);
-  padding: var(--space-2) var(--space-3);
   letter-spacing: -0.035em;
-  border-bottom: 2px solid var(--color-primary);
+}
+.studio-brand {
+  min-height: 3rem;
+  padding-block: var(--space-2);
+}
+.studio-brand-mark,
+.studio-page-emblem {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-panel);
+  color: var(--color-primary);
+  background: var(--color-surface);
+  box-shadow: 3px 3px 0 var(--color-surface-alt);
+}
+.studio-brand-mark {
+  color: var(--color-primary-fg);
+  background: var(--color-primary);
+}
+.studio-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 1.125rem;
+  height: 1.125rem;
+  vertical-align: middle;
+}
+.studio-brand-mark .studio-icon,
+.studio-page-emblem .studio-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+.studio-project-context {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 3.5rem;
+  border-block: 1px solid var(--color-border);
+  padding: var(--space-3);
+}
+.studio-sidebar[data-collapsed='true'] :where(.studio-brand, .studio-project-context, .studio-nav-link) {
+  justify-content: center;
+  padding-inline: 0;
+}
+.studio-nav-link {
+  min-height: var(--control-height);
+}
+.studio-nav-link[aria-current='page'] > .studio-icon {
+  color: var(--color-primary);
+}
+.studio-nav-tooltip {
+  position: fixed;
+  left: 4.75rem;
+  z-index: var(--z-popover);
+  display: none;
+  max-width: 18rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-panel);
+  pointer-events: none;
+}
+.studio-nav-link:is(:hover, :focus-visible) .studio-nav-tooltip {
+  display: block;
+}
+.studio-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  border-inline-start: 3px solid var(--color-primary);
+  border-radius: var(--radius-control) var(--radius-control) 0 0;
+  padding: var(--space-4);
+  background: linear-gradient(110deg, var(--color-surface-alt), var(--color-surface));
+  color: var(--color-text);
+  animation: studio-arrive var(--duration-normal) var(--ease-standard) both;
+}
+.studio-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.studio-empty-state {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  width: 100%;
+  min-height: 16rem;
+  animation: studio-arrive var(--duration-normal) var(--ease-standard) both;
+}
+.studio-empty-state > p {
+  max-width: 34rem;
+}
+.studio-empty-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 7rem;
+  height: 6rem;
+  margin-bottom: var(--space-3);
+}
+.studio-empty-orbit {
+  position: absolute;
+  inset: 0.25rem 0;
+  border: 1px dashed var(--color-border);
+  border-radius: 50%;
+  transform: rotate(-20deg);
+}
+.studio-empty-symbol {
+  display: grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface-alt);
+  color: var(--color-primary);
+  box-shadow: 4px 4px 0 var(--color-surface-alt);
+}
+.studio-empty-symbol .studio-icon {
+  width: 2rem;
+  height: 2rem;
+}
+.studio-empty-brand {
+  position: absolute;
+  bottom: 0;
+  right: 0.25rem;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-primary);
+}
+.studio-button:not(:disabled):active {
+  transform: translateY(1px);
+}
+.studio-dialog-backdrop > [role='dialog'],
+.studio-dialog-backdrop > [role='alertdialog'],
+[data-toast] {
+  animation: studio-arrive var(--duration-normal) var(--ease-standard) both;
+}
+@keyframes studio-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .studio-sidebar a {
   font-weight: 500;
@@ -457,7 +617,8 @@ body {
     transition: none !important;
     scroll-behavior: auto !important;
   }
-  .studio-theme-card:hover {
+  .studio-theme-card:hover,
+  .studio-button:not(:disabled):active {
     transform: none;
   }
 }
@@ -468,7 +629,8 @@ body {
   transition: none !important;
   scroll-behavior: auto !important;
 }
-:root[data-motion='reduced'] .studio-theme-card:hover {
+:root[data-motion='reduced'] .studio-theme-card:hover,
+:root[data-motion='reduced'] .studio-button:not(:disabled):active {
   transform: none;
 }
 

@@ -6,6 +6,9 @@ import { useEffect, useState } from 'react';
 import { useNavigationIntent } from '../../state/navigation-intent';
 import { useTranslation } from 'react-i18next';
 import { Money } from '../../components/Money';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Icon } from '../../components/ui/Icon';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { formatDate } from '../../i18n/format';
 import { useRpcQuery } from '../../hooks/use-rpc-query';
@@ -86,25 +89,38 @@ export function GalleryPage({
   const imageDirectory = firstAssetPath?.slice(0, separator);
   return (
     <section aria-labelledby="gallery-heading" className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold" id="gallery-heading">
-          {t('gallery.heading')}
-        </h1>
-        {imageDirectory !== undefined && imageDirectory.length > 0 ? (
-          <button
-            className="rounded border border-border px-3 py-2"
-            onClick={() => void invoke('plugin:opener|open_path', { path: imageDirectory, with: null })}
-            type="button"
-          >
-            {t('gallery.openFolder')}
-          </button>
-        ) : null}
-      </div>
+      <PageHeader
+        icon="gallery"
+        title={t('gallery.heading')}
+        subtitle={t('character.gallery')}
+        id="gallery-heading"
+        action={
+          imageDirectory !== undefined && imageDirectory.length > 0 ? (
+            <button
+              className="studio-button studio-button-secondary"
+              onClick={() => void invoke('plugin:opener|open_path', { path: imageDirectory, with: null })}
+              type="button"
+            >
+              <Icon name="projects" />
+              {t('gallery.openFolder')}
+            </button>
+          ) : undefined
+        }
+      />
       {error !== null ? <p role="alert">{error.message}</p> : null}
       {query.isLoading ? <p role="status">{t('gallery.loading')}</p> : null}
       {query.isError ? <p role="alert">{t('gallery.loadError')}</p> : null}
       {query.data?.length === 0 || (query.data === undefined && projectsForQuery.length === 0) ? (
-        <p className="text-text-muted">{t('gallery.empty')}</p>
+        <EmptyState
+          icon="gallery"
+          description={t('gallery.empty')}
+          action={
+            <a className="studio-button studio-button-primary" href="#chat">
+              <Icon name="chat" />
+              {t('character.openChat')}
+            </a>
+          }
+        />
       ) : null}
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {(query.data ?? []).map((asset) => {

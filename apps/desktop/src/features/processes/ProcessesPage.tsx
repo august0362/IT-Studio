@@ -6,16 +6,19 @@ import { useRpcClient } from '../../rpc/rpc-context';
 import { formatDateTime } from '../../i18n/format';
 import { ProcessDot } from './ProcessCounts';
 import { useProcesses } from './useProcesses';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Icon, type IconName } from '../../components/ui/Icon';
 
-const KIND_ICONS: Readonly<Record<ProcessKind, string>> = {
-  chat: '◌',
-  code_pipeline: '⌘',
-  knowledge_ingest: '▤',
-  image: '▧',
-  price_update: '＄',
-  key_verify: '⚿',
-  vscode_launch: '▷',
-  web_chat: '◎',
+const KIND_ICONS: Readonly<Record<ProcessKind, IconName>> = {
+  chat: 'chat',
+  code_pipeline: 'code',
+  knowledge_ingest: 'knowledge',
+  image: 'gallery',
+  price_update: 'pricing',
+  key_verify: 'key',
+  vscode_launch: 'open',
+  web_chat: 'web',
 };
 const STATUSES = ['running', 'waiting', 'stopped', 'ended'] as const;
 export function ProcessesPage({
@@ -69,9 +72,12 @@ export function ProcessesPage({
   );
   return (
     <section className="space-y-5" aria-labelledby="processes-heading">
-      <h1 id="processes-heading" className="text-2xl font-semibold">
-        {t('processes.heading')}
-      </h1>
+      <PageHeader
+        icon="processes"
+        title={t('processes.heading')}
+        subtitle={t('character.processes')}
+        id="processes-heading"
+      />
       <div className="flex flex-wrap items-center gap-3">
         <label>
           <input
@@ -140,6 +146,18 @@ export function ProcessesPage({
           </button>
         </p>
       ) : null}
+      {!query.isLoading && !query.error && records.length === 0 ? (
+        <EmptyState
+          icon="processes"
+          description={t('character.noProcesses')}
+          action={
+            <a className="studio-button studio-button-primary" href="#chat">
+              <Icon name="chat" />
+              {t('character.openChat')}
+            </a>
+          }
+        />
+      ) : null}
       {STATUSES.filter((status) => statuses.includes(status)).map((status) => (
         <section key={status} aria-label={t(`processes.status.${status}`)} className="space-y-2">
           <h2 className="font-semibold">
@@ -158,8 +176,8 @@ export function ProcessesPage({
                     <ProcessDot status={status} />
                     {t(`processes.status.${status}`)}
                   </span>
-                  <span>
-                    <span aria-hidden="true">{KIND_ICONS[record.kind]}</span> {t(`processes.kinds.${record.kind}`)}
+                  <span className="inline-flex items-center gap-2">
+                    <Icon name={KIND_ICONS[record.kind]} /> {t(`processes.kinds.${record.kind}`)}
                   </span>
                   <div className="min-w-40 flex-1">
                     <p className="font-medium">{record.title}</p>

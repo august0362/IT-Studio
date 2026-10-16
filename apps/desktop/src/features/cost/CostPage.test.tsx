@@ -68,6 +68,10 @@ describe('CostPage', () => {
   it('shows the empty activity state when the project has no revenue or cost', async () => {
     renderCostPage(false);
     expect(await screen.findByText('No cost activity in this range.')).toBeInTheDocument();
+    const empty = screen.getByText('No cost activity in this range.').closest('.studio-empty-state');
+    if (!(empty instanceof HTMLElement)) throw new Error('Missing empty state');
+    fireEvent.click(empty.querySelector('button') ?? empty);
+    expect(screen.getByRole('textbox', { name: 'Amount' })).toHaveFocus();
   });
 
   it('TC-M9-015 keeps Cost mounted through incomplete and reversed dates, then queries a valid same-day range', async () => {

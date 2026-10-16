@@ -1,4 +1,5 @@
 import type { AppError, ProjectId, WebChatLayout, WebChatSettings } from '@itstudio/schemas';
+import { PageHeader } from '../../components/ui/PageHeader';
 import { useQueryClient } from '@tanstack/react-query';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -181,35 +182,39 @@ function WebChatWorkspace({ host, initial, suspended, layoutRevision, onSettings
 
   return (
     <section aria-labelledby="webchat-heading" className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-2xl font-semibold" id="webchat-heading">
-          {t('nav.webChat')}
-        </h2>
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2">
-            {t('webChat.paneCount')}
-            <select
-              className="rounded border border-border bg-surface px-3 py-2"
-              disabled={saving || suspended || links.length === 0}
-              value={layout.panes.length}
-              onChange={(event) => {
-                void persist(withPaneCount(layout, links, Number(event.target.value)));
-              }}
-            >
-              {[1, 2, 3, 4].map((count) => (
-                <option key={count} value={count}>
-                  {count}
-                </option>
-              ))}
-            </select>
-          </label>
-          {onSettings ? (
-            <button className="rounded border border-border px-3 py-2" onClick={onSettings} type="button">
-              {t('chat.webChat.editLinks')}
-            </button>
-          ) : null}
-        </div>
-      </div>
+      <PageHeader
+        icon="web"
+        title={t('nav.webChat')}
+        subtitle={t('character.webchat')}
+        id="webchat-heading"
+        level={2}
+        action={
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2">
+              {t('webChat.paneCount')}
+              <select
+                className="rounded border border-border bg-surface px-3 py-2"
+                disabled={saving || suspended || links.length === 0}
+                value={layout.panes.length}
+                onChange={(event) => {
+                  void persist(withPaneCount(layout, links, Number(event.target.value)));
+                }}
+              >
+                {[1, 2, 3, 4].map((count) => (
+                  <option key={count} value={count}>
+                    {count}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {onSettings ? (
+              <button className="rounded border border-border px-3 py-2" onClick={onSettings} type="button">
+                {t('chat.webChat.editLinks')}
+              </button>
+            ) : null}
+          </div>
+        }
+      />
       {warning ? (
         <div className="flex items-start gap-3 rounded border border-warning bg-surface p-3" role="status">
           <p className="flex-1 text-sm">{t('webChat.signInWarning')}</p>

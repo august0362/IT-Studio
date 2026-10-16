@@ -57,6 +57,7 @@ export function RevenueForm({
         <label>
           {t('cost.amount')}
           <input
+            id="revenue-amount"
             className="ml-2 rounded border border-border bg-bg p-2"
             inputMode="decimal"
             value={amount}

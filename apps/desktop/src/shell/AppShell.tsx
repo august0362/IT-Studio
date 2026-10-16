@@ -369,7 +369,11 @@ export function AppShell(): JSX.Element {
   return (
     <div className="flex h-screen flex-col bg-bg text-text">
       <div className="flex min-h-0 flex-1">
-        <MainNav navigate={navigate} route={route} />
+        <MainNav
+          navigate={navigate}
+          route={route}
+          projectName={projects.find((project) => project.id === activeId)?.name}
+        />
         <div className="flex min-w-0 flex-1 flex-col">
           <ProjectTabs
             activeId={activeId}
