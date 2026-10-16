@@ -103,6 +103,9 @@ import { GoogleEmbeddingProvider } from './providers/embedding/google.js';
 import { FakeEmbeddingProvider } from './infra/fake-embedding-provider.js';
 import { createOrchestrationModule } from './modules/orchestration/index.js';
 import { OrchRepository } from './modules/orchestration/storage/orch-repository.js';
+import { ApiAgentAdapter } from './modules/orchestration/adapters/api-adapter.js';
+import { ClaudeCliAdapter } from './modules/orchestration/adapters/claude-cli-adapter.js';
+import { CodexCliAdapter } from './modules/orchestration/adapters/codex-cli-adapter.js';
 import { EmbeddingDispatcher } from './services/embedding-dispatcher.js';
 import { LanceDbVectorStore } from './infra/lancedb/vector-store.js';
 import { DocumentRepository } from './infra/sqlite/document-repository.js';
@@ -115,7 +118,13 @@ import { OpenAiDalle3Provider } from './providers/image/openai-dalle3.js';
 import { FluxTogetherProvider } from './providers/image/flux-together.js';
 import { FluxReplicateProvider } from './providers/image/flux-replicate.js';
 import { FakeImageProvider } from './infra/fake-image-provider.js';
-import { isoDateTimeSchema } from './validation/brand.js';
+import {
+  conversationIdSchema,
+  isoDateTimeSchema,
+  llmRequestIdSchema,
+  messageIdSchema,
+  projectIdSchema,
+} from './validation/brand.js';
 import { toolCallSchema } from './validation/chat.js';
 import { jsonObjectSchema, modelKeySchema } from './validation/common.js';
 import type { WorkflowInternalEvent } from './services/workflow-internal-events.js';
@@ -1003,9 +1012,62 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   });
   const server = new RpcServer(transport, events, logger);
   serverRef.current = server;
+  const orchProcessRunner = new NodeProcessRunner();
   const orchestration = createOrchestrationModule({
     repository: new OrchRepository(database.db),
     processes: processRegistry,
+    adapters: [
+      new ApiAgentAdapter(async ({ envelope, input, signal }) => {
+        const response = await llmRouter.dispatch(
+          {
+            id: llmRequestIdSchema.parse(ids.uuid()),
+            projectId: projectIdSchema.parse(envelope.projectId),
+            purpose: envelope.roleId === 'worker' ? CostPurpose.PIPELINE_CODER : CostPurpose.PIPELINE_REVIEWER,
+            messages: [
+              {
+                id: messageIdSchema.parse(ids.uuid()),
+                conversationId: conversationIdSchema.parse(ids.uuid()),
+                role: 'user',
+                createdAt: isoDateTimeSchema.parse(clock.now().toISOString()),
+                parts: [{ type: 'text', text: JSON.stringify({ envelope, input }) }],
+              },
+            ],
+            systemPrompt: `You are the ${envelope.roleId} agent. Return one JSON object.`,
+            requiredCapabilities: [ModelCapability.CHAT, ModelCapability.JSON_MODE],
+            responseFormat: 'json',
+            ...(envelope.modelId === 'mock' ? {} : { preferredModelKey: modelKeySchema.parse(envelope.modelId) }),
+            maxOutputTokens: 4096,
+            stream: false,
+          },
+          { signal },
+        );
+        if (!response.ok) return response;
+        const text = response.value.message.parts.find((part) => part.type === 'text');
+        return text === undefined
+          ? {
+              ok: false as const,
+              error: { code: ErrorCode.VALIDATION, message: 'Agent returned no text.', retryable: false },
+            }
+          : {
+              ok: true as const,
+              value: {
+                payload: z.unknown().parse(JSON.parse(text.text)),
+                usage: {
+                  inputTokens: response.value.usage.inputTokens,
+                  outputTokens: response.value.usage.outputTokens,
+                  cachedInputTokens: response.value.usage.cachedInputTokens,
+                  reasoningTokens: null,
+                  source: 'provider' as const,
+                  costMicroUsd: response.value.costMicroUsd,
+                  billing: 'api' as const,
+                },
+              },
+            };
+      }),
+      new ClaudeCliAdapter(orchProcessRunner),
+      new CodexCliAdapter(orchProcessRunner),
+    ],
+    includeMock: env.ITSTUDIO_E2E_ORCH_MOCK === '1' || process.env.NODE_ENV === 'test',
     validate: { workspaceRoot: dataDir, allowedCommands: [] },
     createRun: (projectId, request, specs) => {
       const now = isoDateTimeSchema.parse(clock.now().toISOString());

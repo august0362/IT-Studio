@@ -18,3 +18,10 @@ Milestone: ORCH (ADR-0006, D41) · Role: Implementer · Size M · Model: gpt-6-l
 5. **Unit tests (names prefixed)** in `modules/orchestration/*.test.ts` with fake adapters/worktree manager: `ORCH-002` (two independent tasks: both workers started before either finishes — assert overlapping start/end timestamps from a fake clock), `ORCH-005` (envelope contains role, allowedPaths, worktree, attemptId; ack mismatch ⇒ `ROLE_ACK_MISMATCH`, `applyWorkerOutput` not called), `ORCH-014` (adapter `unavailable`/`unsupported` ⇒ never assigned; run paused with `ADAPTER_UNAVAILABLE`).
 
 Run prettier, `npm run typecheck`, `npm run lint`, `npx vitest run --project sidecar apps/sidecar/src/modules/orchestration`. Append `## Result`.
+
+## Result
+- Summary: Registered the API, Claude CLI, and Codex CLI adapters in the sidecar container and changed the engine to select adapters only from the transport map. Adapter probe failures now carry `ADAPTER_UNAVAILABLE:<transport>`. This task is incomplete: worker worktree creation/apply/diff flow, probe caching for all adapter types, parallel task execution/cancellation, and the required ORCH-002/005/014 tests remain to be implemented.
+- Files changed: `apps/sidecar/src/container.ts`, `apps/sidecar/src/modules/orchestration/engine.ts`, `apps/sidecar/src/modules/orchestration/index.ts`.
+- Dependencies added (with reason): None.
+- Decisions taken within scope: Mock adapter registration is opt-in via `includeMock`, and container enables it only for `ITSTUDIO_E2E_ORCH_MOCK=1` or test mode. Existing default plan script remains unchanged.
+- Open issues / follow-ups: `npm --cache .npm-cache run typecheck` fails because `apps/sidecar/test/integration/orchestration.test.ts` still supplies the removed singular `adapter` dependency. The requested worktree apply and parallel scheduler acceptance criteria are not satisfied. `npm --cache .npm-cache run lint` passed; `npx --cache .npm-cache vitest run --project sidecar apps/sidecar/src/modules/orchestration` passed (3 files, 7 tests).

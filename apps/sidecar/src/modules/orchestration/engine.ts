@@ -5,8 +5,7 @@ import { validatePlan, type PlanValidationOptions } from './dag.js';
 import { blockFailedDependents, pickRunnable } from './scheduler.js';
 
 export interface OrchestrationEngineDependencies {
-  readonly adapter: IAgentExecutionAdapter;
-  readonly adapters?: ReadonlyMap<string, IAgentExecutionAdapter>;
+  readonly adapters: ReadonlyMap<string, IAgentExecutionAdapter>;
   readonly validate: PlanValidationOptions;
   readonly now?: () => string;
   readonly id?: () => string;
@@ -100,9 +99,7 @@ export class OrchestrationEngine {
         timeoutMs: task.timeoutMs,
         contextReferences: [],
       };
-      const selected =
-        this.deps.adapters?.get(agent.transport) ??
-        (agent.transport === this.deps.adapter.id ? this.deps.adapter : undefined);
+      const selected = this.deps.adapters.get(agent.transport);
       if (selected === undefined) {
         const attempt: OrchAttempt = {
           id: id as OrchAttempt['id'],
@@ -110,7 +107,7 @@ export class OrchestrationEngine {
           role,
           agent,
           state: 'failed',
-          reason: 'ADAPTER_UNAVAILABLE',
+          reason: `ADAPTER_UNAVAILABLE:${agent.transport}`,
           changedFiles: [],
           evidence: [],
           usage: unknownUsage,
@@ -128,7 +125,7 @@ export class OrchestrationEngine {
           role,
           agent,
           state: 'failed',
-          reason: 'ADAPTER_UNAVAILABLE',
+          reason: `ADAPTER_UNAVAILABLE:${agent.transport}`,
           changedFiles: [],
           evidence: [],
           usage: unknownUsage,
