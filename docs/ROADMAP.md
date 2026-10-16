@@ -201,7 +201,7 @@ Work order and QA verdict: `docs/tasks/OWNER-FB1.md`.
 
 - [x] **OWNER-FB3** (C) Process module states/captions, pipeline roles use keyed providers + capability filter, delete updates counts.
 
-- [ ] **UX-04** (C) Workflow map becomes the "System map" tab of Processes; sidebar entry removed.
+- [x] **UX-04** (C) Workflow map becomes the "System map" tab of Processes; sidebar entry removed.
 
 - [x] **WC-02** (C) Nine more built-in web chats (DeepSeek, Qwen, Le Chat, Copilot, Kimi, Meta AI, Poe, HuggingChat, Z.ai), upgrade-safe one-time merge.
 
