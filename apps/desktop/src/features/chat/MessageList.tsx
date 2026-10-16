@@ -48,7 +48,7 @@ export function MessageList({
   return (
     <ol
       aria-label={t('chat.messages')}
-      className="min-h-0 flex-1 space-y-4 overflow-auto p-4"
+      className="studio-messages min-h-0 flex-1 space-y-4 overflow-auto p-4"
       onScroll={(event) => {
         const list = event.currentTarget;
         atBottomRef.current = list.scrollHeight - list.scrollTop - list.clientHeight < 24;

@@ -24,7 +24,7 @@ export function ProjectTabs({
   return (
     <div
       aria-label={t('projects.all')}
-      className="flex min-h-12 items-center gap-1 overflow-x-auto border-b border-border bg-surface px-3"
+      className="studio-project-tabs flex min-h-12 items-center gap-1 overflow-x-auto border-b border-border bg-surface px-3"
       role="tablist"
     >
       <button

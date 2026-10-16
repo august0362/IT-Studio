@@ -293,7 +293,7 @@ function ProjectChatPage({ projectId, onNavigate = () => undefined }: ChatPagePr
           />
         </header>
         {conversationId === null ? (
-          <div className="grid flex-1 place-items-center p-6 text-text-muted">{t('chat.chooseConversation')}</div>
+          <div className="studio-empty m-4 grid flex-1 place-items-center">{t('chat.chooseConversation')}</div>
         ) : (
           <MessageList
             bubbles={state.bubbles}

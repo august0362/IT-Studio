@@ -207,9 +207,12 @@ Work order and QA verdict: `docs/tasks/OWNER-FB1.md`.
 
 - [ ] **WC-03** (C) Free-floating web-chat windows: drag, resize, maximize, minimize to dock, overlap with native z-order, smooth placeholders.
 
-- [ ] **UX-05** (C, gpt-6.1-sol high) Theme & visual design overhaul — Codex owns the design; AA contrast test, id migration, restyled primitives, new Appearance gallery.
+- [x] **UX-05** (C, gpt-6.1-sol high) Theme & visual design overhaul — Codex owns the design; AA contrast test, id migration, restyled primitives, new Appearance gallery.
 
 - [ ] **VSC-01** (C) Close Studio-launched VS Code windows on project close/delete and on Studio exit via the extension bridge (never kill processes).
+
+- [ ] **UX-06** (C, gpt-6.1-sol high) Theme round 2: icons, page headers, empty states, micro-interactions, collapsible sidebar, logomark.
+- [ ] **DX-02** (C) Vite ignores `src-tauri` (done in worktree; land when the owner is not running dev).
 
 ## PROC — Processes *(D40)*
 
