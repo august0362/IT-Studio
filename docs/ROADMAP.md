@@ -212,7 +212,7 @@ Work order and QA verdict: `docs/tasks/OWNER-FB1.md`.
 - [x] **VSC-01** (C) Close Studio-launched VS Code windows on project close/delete and on Studio exit via the extension bridge (never kill processes).
 
 - [x] **UX-06** (C, gpt-6.1-sol high) Theme round 2: icons, page headers, empty states, micro-interactions, collapsible sidebar, logomark.
-- [ ] **DX-02** (C) Vite ignores `src-tauri` (done in worktree; land when the owner is not running dev).
+- [x] **DX-02** (C) Vite ignores `src-tauri` (done in worktree; land when the owner is not running dev).
 
 ## PROC — Processes *(D40)*
 
