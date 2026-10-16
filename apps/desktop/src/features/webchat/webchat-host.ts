@@ -9,7 +9,9 @@ export interface IWebChatHost {
     activeSlots: readonly number[],
   ): Promise<void>;
   reload(slot: number): Promise<void>;
+  raise?(slot: number): Promise<void>;
   setVisible(visible: boolean): Promise<void>;
+  setPaneVisible?(slot: number, visible: boolean): Promise<void>;
   closeAll(): Promise<void>;
 }
 
@@ -36,9 +38,19 @@ export function createWebChatHost(): IWebChatHost {
         if (available) await invoke('webchat_reload', { slot });
       });
     },
+    raise(slot) {
+      return enqueue(async () => {
+        if (available) await invoke('webchat_raise', { paneId: slot });
+      });
+    },
     setVisible(visible) {
       return enqueue(async () => {
         if (available) await invoke('webchat_set_visible', { visible });
+      });
+    },
+    setPaneVisible(slot, visible) {
+      return enqueue(async () => {
+        if (available) await invoke('webchat_set_pane_visible', { slot, visible });
       });
     },
     closeAll() {

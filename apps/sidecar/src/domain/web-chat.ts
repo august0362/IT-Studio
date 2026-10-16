@@ -83,6 +83,21 @@ export function validateWebChatSettings(
           message: 'Select an enabled saved web-chat link.',
         });
     });
+    const windows = value.layout.windows ?? [];
+    const windowIds = new Set<string>();
+    windows.forEach((window, index) => {
+      if (!enabledIds.has(window.linkId))
+        issues.push({
+          path: `webChat.layout.windows.${String(index)}.linkId`,
+          message: 'Select an enabled saved web-chat link.',
+        });
+      if (windowIds.has(window.linkId))
+        issues.push({
+          path: `webChat.layout.windows.${String(index)}.linkId`,
+          message: 'A site may appear only once in free mode.',
+        });
+      windowIds.add(window.linkId);
+    });
   }
   if (value.browser === WebChatBrowser.CUSTOM && value.customBrowserPath === null)
     issues.push({ path: 'webChat.customBrowserPath', message: 'Choose a browser executable path.' });
@@ -104,9 +119,20 @@ export function reconcileWebChatLayout(
   const remaining = layout.panes
     .map((id, index) => ({ id, size: layout.sizes[index] ?? 1 }))
     .filter(({ id }) => enabled.has(id));
-  if (remaining.length === 0) return undefined;
+  if (remaining.length === 0) {
+    const freeWindow = layout.windows?.find((window) => enabled.has(window.linkId));
+    if (!freeWindow) return undefined;
+    const windows = layout.windows?.filter((window) => enabled.has(window.linkId));
+    return { ...layout, panes: [freeWindow.linkId], sizes: [1], ...(windows === undefined ? {} : { windows }) };
+  }
   const total = remaining.reduce((sum, { size }) => sum + size, 0);
-  return { panes: remaining.map(({ id }) => id), sizes: remaining.map(({ size }) => size / total) };
+  const windows = layout.windows?.filter((window) => enabled.has(window.linkId));
+  return {
+    ...layout,
+    panes: remaining.map(({ id }) => id),
+    sizes: remaining.map(({ size }) => size / total),
+    ...(windows === undefined ? {} : { windows }),
+  };
 }
 
 export function isAllowedWebChatUrl(value: string): boolean {

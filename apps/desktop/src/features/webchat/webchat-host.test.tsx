@@ -11,6 +11,18 @@ beforeEach(() => {
 });
 
 describe('native web chat host lifecycle', () => {
+  it('raises a native child after the caller has synced its bounds', async () => {
+    const host = createWebChatHost();
+    await host.sync([], [], [0]);
+    await host.raise?.(2);
+    expect(invoke).toHaveBeenNthCalledWith(1, 'webchat_sync', {
+      links: [],
+      panes: [],
+      activeSlots: [0],
+    });
+    expect(invoke).toHaveBeenNthCalledWith(2, 'webchat_raise', { paneId: 2 });
+  });
+
   it('discards queued sync work when the page closes so stale work cannot recreate a pane', async () => {
     const host = createWebChatHost();
     const sync = host.sync([], [], [0]);

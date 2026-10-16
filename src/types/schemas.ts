@@ -1284,6 +1284,18 @@ export interface WebChatLayout {
   readonly panes: readonly WebChatLinkId[];
   /** Pane width fractions, one per pane, totaling 1; each pane is at least 10%. */
   readonly sizes: readonly number[];
+  readonly mode?: 'tiled' | 'free';
+  readonly windows?: readonly WebChatWindowLayout[];
+}
+export interface WebChatWindowLayout {
+  readonly linkId: WebChatLinkId;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly maximized: boolean;
+  readonly minimized: boolean;
+  readonly zIndex: number;
 }
 export interface WebChatPaneBounds {
   readonly x: number;
