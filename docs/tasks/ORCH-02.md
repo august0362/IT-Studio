@@ -33,3 +33,10 @@ ORCH-002, 005, 006, 011, 014 (names prefixed) + adapter unit tests with fake pro
 ## Hand-back
 
 Append `## Result` per AGENTS.md §3.
+
+## Result
+- Summary: Added injectable API and CLI adapter implementations, cached CLI probing, acknowledgement verification, Git worktree create/cleanup support, and allowed the process runner to launch the orchestration CLI/Git executables.
+- Files changed: `apps/sidecar/src/infra/node-process-runner.ts`; `apps/sidecar/src/modules/orchestration/adapters/{api-adapter,cli-adapter,claude-cli-adapter,codex-cli-adapter}.ts`; `apps/sidecar/src/modules/orchestration/worktrees.ts`; this task record.
+- Dependencies added (with reason): None. Ran `npm.cmd --cache .npm-cache install` because `node_modules` was missing.
+- Decisions taken within scope: API dispatch is injected so it can reuse the configured router while keeping provider credentials out of child processes. CLI probing is cached for five minutes.
+- Open issues / follow-ups: This implementation is incomplete against ORCH-02. The shared RPC contract does not currently define `orch.adapters`, and `schemas.ts` is outside this task's Scope, so adapter-list RPC/status wiring and the required `ROLE_ACK_MISMATCH` error code need a contract update. Worker operation application, test-command evidence, process cancellation tracking, adapter/worktree tests, and ORCH-002/005/006/011/014 coverage remain outstanding. `npm run typecheck` passes. `npm run lint` did not finish before it was interrupted; `npm test` failed across existing SQLite-backed suites after install scripts were skipped by npm allow-scripts (including better-sqlite3 native setup); the run was interrupted after confirming the failure pattern. The CLI adapter still needs real CLI output-format handling and Codex output-file support before it is production-ready.
