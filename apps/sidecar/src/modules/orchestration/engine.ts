@@ -5,8 +5,7 @@ import { validatePlan, type PlanValidationOptions } from './dag.js';
 import { blockFailedDependents, pickRunnable } from './scheduler.js';
 
 export interface OrchestrationEngineDependencies {
-  readonly adapter: IAgentExecutionAdapter;
-  readonly adapters?: ReadonlyMap<string, IAgentExecutionAdapter>;
+  readonly adapters: ReadonlyMap<string, IAgentExecutionAdapter>;
   readonly validate: PlanValidationOptions;
   readonly now?: () => string;
   readonly id?: () => string;
@@ -38,6 +37,10 @@ export class OrchestrationEngine {
   private readonly deps: OrchestrationEngineDependencies;
   private readonly attemptsByRun = new Map<string, readonly OrchAttempt[]>();
   private readonly controllers = new Map<string, AbortController>();
+  private readonly probeCache = new Map<
+    string,
+    { readonly expiresAt: number; readonly status: Awaited<ReturnType<IAgentExecutionAdapter['probe']>> }
+  >();
   constructor(deps: OrchestrationEngineDependencies) {
     this.deps = deps;
   }
@@ -100,9 +103,7 @@ export class OrchestrationEngine {
         timeoutMs: task.timeoutMs,
         contextReferences: [],
       };
-      const selected =
-        this.deps.adapters?.get(agent.transport) ??
-        (agent.transport === this.deps.adapter.id ? this.deps.adapter : undefined);
+      const selected = this.deps.adapters.get(agent.transport);
       if (selected === undefined) {
         const attempt: OrchAttempt = {
           id: id as OrchAttempt['id'],
@@ -110,7 +111,7 @@ export class OrchestrationEngine {
           role,
           agent,
           state: 'failed',
-          reason: 'ADAPTER_UNAVAILABLE',
+          reason: `ADAPTER_UNAVAILABLE:${agent.transport}`,
           changedFiles: [],
           evidence: [],
           usage: unknownUsage,
@@ -120,7 +121,10 @@ export class OrchestrationEngine {
         attempts.push(attempt);
         return { ok: false, payload: undefined, usage: unknownUsage, attempt };
       }
-      const probed = await selected.probe();
+      const cached = this.probeCache.get(agent.transport);
+      const probed = cached !== undefined && cached.expiresAt > Date.now() ? cached.status : await selected.probe();
+      if (cached === undefined || cached.expiresAt <= Date.now())
+        this.probeCache.set(agent.transport, { status: probed, expiresAt: Date.now() + 300_000 });
       if (probed.status !== 'available') {
         const attempt: OrchAttempt = {
           id: id as OrchAttempt['id'],
@@ -128,7 +132,7 @@ export class OrchestrationEngine {
           role,
           agent,
           state: 'failed',
-          reason: 'ADAPTER_UNAVAILABLE',
+          reason: `ADAPTER_UNAVAILABLE:${agent.transport}`,
           changedFiles: [],
           evidence: [],
           usage: unknownUsage,

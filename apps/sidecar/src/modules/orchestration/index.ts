@@ -14,6 +14,7 @@ export interface OrchestrationModuleDependencies {
   readonly createRun: (projectId: ProjectId, request: string, tasks: readonly OrchTaskSpec[]) => OrchRun;
   readonly scripts?: Partial<Record<'supervisor' | 'worker' | 'reviewer', MockScript>>;
   readonly adapters?: readonly IAgentExecutionAdapter[];
+  readonly includeMock?: boolean;
   readonly publish?: (event: { readonly type: 'run'; readonly run: OrchRun }) => void;
 }
 export function createOrchestrationModule(deps: OrchestrationModuleDependencies) {
@@ -41,9 +42,9 @@ export function createOrchestrationModule(deps: OrchestrationModuleDependencies)
         })),
   };
   const mockAdapter = new MockAgentAdapter(scripts);
-  const adapterList = [mockAdapter, ...(deps.adapters ?? [])];
+  const adapterList = [...(deps.includeMock === true ? [mockAdapter] : []), ...(deps.adapters ?? [])];
   const adapterMap = new Map(adapterList.map((adapter) => [adapter.id, adapter]));
-  const engine = new OrchestrationEngine({ adapter: mockAdapter, adapters: adapterMap, validate: deps.validate });
+  const engine = new OrchestrationEngine({ adapters: adapterMap, validate: deps.validate });
   const activeRuns = new Map<string, Promise<OrchRun>>();
   const eventTimers = new Map<string, ReturnType<typeof setTimeout>>();
   const pendingEvents = new Map<string, { readonly type: 'run'; readonly run: OrchRun }>();
