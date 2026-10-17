@@ -3,6 +3,7 @@ import { create } from 'zustand';
 export type NavigationIntent =
   | { readonly kind: 'conversation'; readonly id: string }
   | { readonly kind: 'pipelineRun'; readonly id: string }
+  | { readonly kind: 'orchestrationRun'; readonly id: string }
   | { readonly kind: 'ingestJob'; readonly id: string }
   | { readonly kind: 'image'; readonly id: string }
   | { readonly kind: 'ledger'; readonly id: string; readonly field: 'requestId' | 'pipelineRunId' };

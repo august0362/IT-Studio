@@ -168,6 +168,12 @@ function mergeSettings(current: AppSettings, patch: SettingsPatch): AppSettings 
     image: { ...current.image, ...patch.image },
     ui: { ...current.ui, ...patch.ui },
     webChat,
+    orchestration: {
+      ...current.orchestration,
+      ...patch.orchestration,
+      roles: { ...current.orchestration.roles, ...patch.orchestration?.roles },
+      limits: { ...current.orchestration.limits, ...patch.orchestration?.limits },
+    },
   };
 }
 

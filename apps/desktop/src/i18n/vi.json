@@ -20,7 +20,11 @@
   },
   "processes": {
     "heading": "Tiến trình",
-    "tabs": { "label": "Chế độ xem tiến trình", "processes": "Tiến trình", "system-map": "Sơ đồ hệ thống" },
+    "tabs": {
+      "label": "Chế độ xem tiến trình",
+      "processes": "Tiến trình",
+      "system-map": "Sơ đồ hệ thống"
+    },
     "counts": "Số tiến trình",
     "allProjects": "Tất cả dự án",
     "kind": "Loại",
@@ -194,7 +198,8 @@
     "cancel": "Hủy",
     "nameRequired": "Hãy nhập tên dự án.",
     "folderRequired": "Hãy nhập đường dẫn tuyệt đối đến thư mục.",
-    "loadError": "Không thể tải danh sách dự án."
+    "loadError": "Không thể tải danh sách dự án.",
+    "activeOrchestration": "?i?u ph?i ?ang ho?t ??ng"
   },
   "chat": {
     "thinking": "Đang trả lời…",
@@ -323,7 +328,64 @@
     "failed": "Thất bại",
     "nothingWritten": "Chưa có thay đổi nào được ghi vào dự án.",
     "openPipelineSettings": "Mở Cài đặt → Pipeline",
-    "retryStart": "Khắc phục sự cố rồi chạy lại pipeline."
+    "retryStart": "Khắc phục sự cố rồi chạy lại pipeline.",
+    "views": "Ch? ?? xem m?",
+    "pipeline": "Quy tr?nh",
+    "orchestration": "?i?u ph?i",
+    "orchestrationDescription": "L?p k? ho?ch v? gi?m s?t l??t ch?y nhi?u t?c nh?n.",
+    "orchestrationPickProject": "Ch?n d? ?n ?? l?p k? ho?ch ?i?u ph?i.",
+    "orchestrationDisabled": "?i?u ph?i c?n b? ?i?u h?p kh? d?ng cho vai tr? gi?m s?t, nh?n vi?n v? ??nh gi?. H?y x?c nh?n d? ?n l? kho Git.",
+    "orchestrationRequest": "Y?u c?u",
+    "orchestrationPlanning": "?ang l?p k? ho?ch?",
+    "orchestrationPlan": "L?p k? ho?ch",
+    "orchestrationRun": "L??t ch?y",
+    "orchestrationCost": "Chi ph?",
+    "orchestrationCalls": "L??t g?i t?c nh?n",
+    "orchestrationElapsed": "Th?i gian ?? ch?y",
+    "orchestrationStart": "B?t ??u",
+    "orchestrationCancel": "H?y",
+    "orchestrationResume": "Ti?p t?c",
+    "orchestrationApprove": "Duy?t h?p nh?t",
+    "orchestrationDiscard": "Lo?i b?",
+    "orchestrationPaused": "L??t ch?y ?? t?m d?ng.",
+    "orchestrationAttempts": "C?c l?n th? v? b?ng ch?ng",
+    "orchestrationDuration": "Th?i l??ng",
+    "orchestrationUsage": "Token ??u v?o / ??u ra",
+    "orchestrationColumns": {
+      "assigned": "T?c nh?n ???c giao",
+      "fixRounds": "S? v?ng s?a"
+    },
+    "orchestrationWorktree": "C?y l?m vi?c",
+    "orchestrationBase": "B?n s?a ??i g?c",
+    "orchestrationHead": "B?n s?a ??i m?i",
+    "orchestrationUnknown": "kh?ng r?",
+    "orchestrationRoles": {
+      "supervisor": "Gi?m s?t",
+      "worker": "Nh?n vi?n",
+      "reviewer": "??nh gi?"
+    },
+    "orchestrationStates": {
+      "draft": "B?n nh?p",
+      "planning": "?ang l?p k? ho?ch",
+      "plan_ready": "K? ho?ch s?n s?ng",
+      "running": "?ang ch?y",
+      "paused": "?? t?m d?ng",
+      "paused_interrupted": "T?m d?ng sau gi?n ?o?n",
+      "awaiting_approval": "Ch? ph? duy?t",
+      "completed": "Ho?n t?t",
+      "failed": "Th?t b?i",
+      "cancelled": "?? h?y",
+      "ready": "S?n s?ng",
+      "queued": "?ang x?p h?ng",
+      "assigned": "?? giao",
+      "awaiting_handoff": "Ch? b?n giao",
+      "in_review": "?ang ??nh gi?",
+      "fix_required": "C?n s?a",
+      "integrating": "?ang t?ch h?p",
+      "validating": "?ang x?c th?c",
+      "blocked": "B? ch?n"
+    },
+    "orchestrationRaiseLimit": "T?ng gi?i h?n"
   },
   "settings": {
     "search": "Tìm cài đặt",
@@ -332,6 +394,7 @@
     "noMatches": "Không có mục cài đặt nào khớp với tìm kiếm.",
     "sectionHeading": "Cài đặt — {{section}}",
     "sections": {
+      "orchestration": "Điều phối",
       "api-keys": "Khóa API",
       "router": "Bộ định tuyến",
       "pipeline": "Quy trình",
@@ -345,6 +408,7 @@
       "labs": "Thử nghiệm"
     },
     "nav": {
+      "orchestration": "Điều phối",
       "router": "Bộ định tuyến",
       "budget": "Ngân sách",
       "pricing": "Giá",
@@ -479,6 +543,38 @@
         "flux_together": "FLUX (Together)",
         "flux_replicate": "FLUX (Replicate)",
         "midjourney_proxy": "Midjourney (đã tắt)"
+      }
+    },
+    "orchestration": {
+      "description": "Chọn tác nhân và giới hạn cho các lượt chạy dự án có giám sát.",
+      "roles": "Phân công vai trò",
+      "role": "Tác nhân {{role}}",
+      "model": "Mô hình",
+      "adapterStatus": "Trạng thái bộ điều hợp",
+      "available": "Khả dụng",
+      "unavailable": "Không khả dụng",
+      "unsupported": "Không được hỗ trợ",
+      "transport": "Giao thức",
+      "version": "Phiên bản",
+      "reason": "Lý do",
+      "supervisor": "Giám sát",
+      "workerA": "Nhân viên A",
+      "workerB": "Nhân viên B",
+      "reviewer": "Đánh giá",
+      "maxCost": "Chi phí tối đa (USD)",
+      "wallClock": "Thời gian tối đa (phút)",
+      "agentCalls": "Số lượt gọi tác nhân",
+      "concurrentWorkers": "Nhân viên chạy đồng thời",
+      "fixRounds": "Số vòng sửa",
+      "transientRetries": "Số lần thử lại tạm thời",
+      "hardStop": "Dừng cứng",
+      "invalid": "Nhập giá trị hợp lệ trong giới hạn hiển thị.",
+      "loadingAdapters": "Đang tải trạng thái bộ điều hợp…",
+      "transportNames": {
+        "api": "API",
+        "claude-cli": "Claude CLI",
+        "codex-cli": "Codex CLI",
+        "mock": "Gi? l?p"
       }
     },
     "webChat": {

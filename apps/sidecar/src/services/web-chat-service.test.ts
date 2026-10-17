@@ -17,6 +17,7 @@ import type { ProjectContextService } from './project-context.js';
 import type { IBrowserLauncher } from '../ports/browser-launcher.js';
 import { WebChatService } from './web-chat-service.js';
 import { projectSchema } from '../validation/projects.js';
+import { microUsdSchema } from '../validation/brand.js';
 
 function setup(
   browser: AppSettings['webChat']['browser'] = WebChatBrowser.DEFAULT,
@@ -58,6 +59,29 @@ function setup(
     image: { enabled: false, providerOrder: [] },
     ui: { themeId: 'theme' as AppSettings['ui']['themeId'], mode: 'system', locale: 'en' },
     webChat: { ...DEFAULT_WEB_CHAT_SETTINGS, browser, customBrowserPath },
+    orchestration: {
+      roles: {
+        supervisor: {
+          agentId: 'supervisor',
+          role: 'supervisor',
+          transport: 'api',
+          providerId: 'anthropic',
+          modelId: 'claude',
+        },
+        workerA: { agentId: 'worker-a', role: 'worker', transport: 'api', providerId: 'openai', modelId: 'gpt' },
+        workerB: { agentId: 'worker-b', role: 'worker', transport: 'api', providerId: 'openai', modelId: 'gpt' },
+        reviewer: { agentId: 'reviewer', role: 'reviewer', transport: 'api', providerId: 'openai', modelId: 'gpt' },
+      },
+      limits: {
+        maxCostMicroUsd: microUsdSchema.parse(0),
+        maxWallClockMs: 60_000,
+        maxAgentCalls: 40,
+        maxConcurrentWorkers: 2,
+        maxFixRounds: 2,
+        transientRetries: 1,
+        hardStop: false,
+      },
+    },
   };
   const getSettings = vi.fn((): Promise<Result<AppSettings>> => Promise.resolve({ ok: true, value: settings }));
   const settingsService = { get: getSettings } as unknown as SettingsService;

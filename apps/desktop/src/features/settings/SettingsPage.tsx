@@ -11,6 +11,7 @@ import { BudgetSettingsPage } from './budget/BudgetSettingsPage';
 import { FxSettingsPage } from './fx/FxSettingsPage';
 import { ImagesSettingsPage } from './images/ImagesSettingsPage';
 import { PipelineSettingsPage } from './pipeline/PipelineSettingsPage';
+import { OrchestrationSettingsPage } from './orchestration/OrchestrationSettingsPage';
 import { PricingSettingsPage } from './pricing/PricingSettingsPage';
 import { RouterSettingsPage } from './router/RouterSettingsPage';
 import { ThemePage } from './theme/ThemePage';
@@ -28,6 +29,7 @@ const SECTION_ICONS: Readonly<Record<SettingsSectionRoute, IconName>> = {
   'settings-api-keys': 'key',
   'settings-router': 'router',
   'settings-pipeline': 'code',
+  'settings-orchestration': 'studio',
   'settings-budget': 'budget',
   'settings-pricing': 'pricing',
   'settings-fx': 'fx',
@@ -96,6 +98,9 @@ export function SettingsPage({
       break;
     case 'settings-pipeline':
       content = <PipelineSettingsPage />;
+      break;
+    case 'settings-orchestration':
+      content = <OrchestrationSettingsPage />;
       break;
     case 'settings-budget':
       content = <BudgetSettingsPage />;

@@ -93,7 +93,7 @@ export function createOrchestrationModule(deps: OrchestrationModuleDependencies)
       ok: true,
       value: await Promise.all(
         adapterList
-          .filter((item) => item.id !== 'mock')
+          .filter((item) => item.id !== 'mock' || process.env.ITSTUDIO_E2E_ORCH_MOCK === '1')
           .map(async (adapter) => ({
             transport: adapter.id,
             ...(await adapter.probe()),
