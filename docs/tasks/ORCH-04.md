@@ -36,3 +36,11 @@ ORCH-018 (settings save/validation/"Saved"), ORCH-019 (E2E with mock adapters vi
 ## Hand-back
 
 Append `## Result` per AGENTS.md §3.
+
+## Result
+- Summary: Added orchestration settings contracts/defaults/validation, adapter status RPC, bilingual Settings controls and search entries, Code orchestration tab with planning/actions/live run and attempt details, process graph/deep links, and active project badges. Added ORCH-018 settings UI coverage.
+- Files changed: `src/types/schemas.ts`; sidecar orchestration settings defaults, validation, RPC registration, settings merge, and a settings fixture; desktop Code, Settings, Projects, process navigation, i18n, and their focused tests; this task file.
+- Dependencies added (with reason): None. Installed the pinned workspace dependencies with `npm --cache .npm-cache install` because `node_modules` was absent.
+- Decisions taken within scope: Orchestration settings updates are atomic at the orchestration object level. Model selectors use enabled code-capable models. The mock adapter reports available only when `ITSTUDIO_E2E_ORCH_MOCK=1`.
+- Open issues / follow-ups: The task contract does not expose Git-repository status, integration diff contents, selected branch, or formatted USD/VND `MoneyDisplay`, so the UI cannot pre-disable non-Git projects, render an integration diff, or show the required dual-currency limit display yet. Adapter probing is currently a placeholder and reports API available statically. ORCH-03 currently returns errors for approve/discard; the full ORCH-019 approve-and-merge E2E remains dependent on that work and is not included here. The workspace test suite's Node tests have one unrelated existing failure (`REPO-01` stale `../TESTING.md` reference); the normal `npm test` pretest also fails in this sandbox because Git cannot read `C:\Users\admin/.config/git/ignore`.
+- Verification: `npm run typecheck` passed. `npm run lint` passed (Git emitted the user ignore-file permission warning). Focused desktop tests passed (40/40). `npm run test --ignore-scripts` passed all Vitest suites (1,613 passed, 1 skipped) but its Node script suite had the unrelated REPO-01 failure described above. `npm test` was attempted and stopped in `lint:selftest` on the Git ignore-file permission warning.

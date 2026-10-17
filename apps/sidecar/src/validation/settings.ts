@@ -12,8 +12,10 @@ import type {
   WebChatSettings,
   WebChatLinkId,
   WebChatLayout,
+  OrchestrationSettings,
 } from '@itstudio/schemas';
 import { projectIdSchema, modelKeySchema, themeIdSchema, z } from './common.js';
+import { microUsdSchema } from './brand.js';
 import { routerConfigSchema, ladderEntrySchema, circuitBreakerConfigSchema } from './router.js';
 import { commandSpecSchema } from './worker.js';
 import { embeddingConfigSchema, chunkingConfigSchema } from './rag.js';
@@ -96,6 +98,52 @@ export const webChatSettingsSchema = z
 export const budgetSettingsSchema = z
   .strictObject({ hardStop: z.boolean() })
   .readonly() satisfies z.ZodType<BudgetSettings>;
+const orchAgentSchema = z
+  .strictObject({
+    agentId: z.string().min(1),
+    role: z.enum(['supervisor', 'worker', 'reviewer']),
+    transport: z.enum(['api', 'claude-cli', 'codex-cli', 'mock']),
+    providerId: z
+      .enum([
+        'anthropic',
+        'openai',
+        'google',
+        'xai',
+        'groq',
+        'together',
+        'replicate',
+        'deepseek',
+        'openrouter',
+        'qwen',
+        'mistral',
+      ])
+      .exactOptional(),
+    modelId: z.string().min(1).exactOptional(),
+  })
+  .readonly();
+export const orchestrationSettingsSchema = z
+  .strictObject({
+    roles: z
+      .strictObject({
+        supervisor: orchAgentSchema,
+        workerA: orchAgentSchema,
+        workerB: orchAgentSchema,
+        reviewer: orchAgentSchema,
+      })
+      .readonly(),
+    limits: z
+      .strictObject({
+        maxCostMicroUsd: microUsdSchema,
+        maxWallClockMs: z.number().int().min(1),
+        maxAgentCalls: z.number().int().min(1),
+        maxConcurrentWorkers: z.number().int().min(1).max(4),
+        maxFixRounds: z.number().int().min(0).max(3),
+        transientRetries: z.number().int().min(0).max(2),
+        hardStop: z.boolean(),
+      })
+      .readonly(),
+  })
+  .readonly() satisfies z.ZodType<OrchestrationSettings>;
 export const pricingSettingsSchema = z
   .strictObject({
     autoUpdate: z.boolean(),
@@ -168,6 +216,7 @@ export const appSettingsSchema = z
     image: imageSettingsSchema,
     ui: uiSettingsSchema,
     webChat: webChatSettingsSchema,
+    orchestration: orchestrationSettingsSchema,
   })
   .readonly() satisfies z.ZodType<AppSettings>;
 export const settingsPatchSchema = z
@@ -267,5 +316,6 @@ export const settingsPatchSchema = z
       })
       .readonly()
       .exactOptional(),
+    orchestration: orchestrationSettingsSchema.exactOptional(),
   })
   .readonly() satisfies z.ZodType<SettingsPatch>;

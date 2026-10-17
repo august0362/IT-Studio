@@ -25,6 +25,7 @@ export function ProjectsPage({
   const rpc = useRpcClient();
   const queryClient = useQueryClient();
   const projectsQuery = useRpcQuery('project.list', {});
+  const orchestrationQuery = useRpcQuery('orch.list', { limit: 200 });
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Project | null>(null);
   const [busy, setBusy] = useState(false);
@@ -140,6 +141,15 @@ export function ProjectsPage({
                 <tr className="border-t border-border" key={project.id}>
                   <th className="p-3" scope="row">
                     {project.name}
+                    {(orchestrationQuery.data ?? []).some(
+                      (run) =>
+                        run.projectId === project.id &&
+                        ['running', 'paused', 'paused_interrupted', 'awaiting_approval'].includes(run.state),
+                    ) ? (
+                      <span className="ml-2 rounded-full border border-primary px-2 py-1 text-xs text-primary">
+                        {t('projects.activeOrchestration')}
+                      </span>
+                    ) : null}
                   </th>
                   <td className="p-3">
                     <span className="block max-w-xs truncate" title={project.workspaceRoot}>

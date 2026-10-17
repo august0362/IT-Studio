@@ -232,6 +232,9 @@ export function AppShell(): JSX.Element {
     } else if (type === 'pipeline_run') {
       useNavigationIntent.getState().setIntent({ kind: 'pipelineRun', id });
       navigate('code');
+    } else if (type === 'orchestration_run') {
+      useNavigationIntent.getState().setIntent({ kind: 'orchestrationRun', id });
+      navigate('code');
     } else if (type === 'ingest_job') {
       useNavigationIntent.getState().setIntent({ kind: 'ingestJob', id });
       navigate('knowledge');
