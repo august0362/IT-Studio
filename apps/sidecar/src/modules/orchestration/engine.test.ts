@@ -51,7 +51,7 @@ function makeRun(): OrchRun {
 function fakeAdapter(run: IAgentExecutionAdapter['run']): IAgentExecutionAdapter {
   return {
     id: 'mock',
-    probe: async () => ({ status: 'available' }),
+    probe: () => Promise.resolve({ status: 'available' as const }),
     capabilities: () => ({
       roles: ['worker', 'reviewer', 'supervisor'],
       structuredOutput: true,
@@ -71,12 +71,13 @@ const wt: Worktree = {
 };
 function fakeWorkspace(overrides: Partial<IOrchWorkspace> = {}): IOrchWorkspace {
   return {
-    prepareAttempt: async () => ({ ok: true, value: wt }),
-    applyWorker: async () => ({
-      ok: true,
-      value: { changedFiles: ['src/a.ts'], baseSha: 'base', headSha: 'head', evidence: [] },
-    }),
-    diff: async () => ({ ok: true, value: 'diff' }),
+    prepareAttempt: () => Promise.resolve({ ok: true as const, value: wt }),
+    applyWorker: () =>
+      Promise.resolve({
+        ok: true as const,
+        value: { changedFiles: ['src/a.ts'], baseSha: 'base', headSha: 'head', evidence: [] },
+      }),
+    diff: () => Promise.resolve({ ok: true as const, value: 'diff' }),
     ...overrides,
   };
 }
