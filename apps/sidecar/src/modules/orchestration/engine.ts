@@ -229,6 +229,10 @@ export class OrchestrationEngine {
         return { ok: false, payload: undefined, usage: unknownUsage, attempt: dummyAttempt };
       }
 
+      // Reserve the call slot before any asynchronous worktree preparation so
+      // concurrent pipelines cannot all pass the same maxAgentCalls check.
+      calls += 1;
+
       const id = nextId();
       const startedAt = now();
       const workerAttemptNo =
@@ -251,6 +255,7 @@ export class OrchestrationEngine {
             endedAt: now() as OrchAttempt['startedAt'],
           };
           attempts.push(attempt);
+          calls -= 1;
           if (prepared.error.code === 'TARGET_FORBIDDEN') {
             control.fatalFailureReason = 'TARGET_FORBIDDEN';
           }
@@ -260,7 +265,6 @@ export class OrchestrationEngine {
         taskWorktrees.set(task.id, prepared.value);
       }
 
-      calls += 1;
       const envelope = {
         schemaVersion: '1',
         agentId: agent.agentId,
@@ -547,21 +551,27 @@ export class OrchestrationEngine {
         const task = tasks.find((t) => t.id === taskId);
         if (task === undefined) continue;
 
-        const candidateWorker =
-          workers.find((a) => task.candidateAgents.length === 0 || task.candidateAgents.includes(a.agentId)) ??
-          workers[0];
-        if (candidateWorker === undefined) {
+        const candidateWorkers = workers.filter(
+          (agent) => task.candidateAgents.length === 0 || task.candidateAgents.includes(agent.agentId),
+        );
+        if (candidateWorkers.length === 0) {
           control.pauseReason = 'ADAPTER_UNAVAILABLE:worker';
           tasks = tasks.map((t) => (t.id === task.id ? { ...t, stateReason: 'ADAPTER_UNAVAILABLE:worker' } : t));
           break;
         }
 
-        const workerProbe = await this.probeAdapter(candidateWorker.transport);
-        if (workerProbe.status !== 'available') {
-          control.pauseReason = `ADAPTER_UNAVAILABLE:${candidateWorker.transport}`;
-          tasks = tasks.map((t) =>
-            t.id === task.id ? { ...t, stateReason: `ADAPTER_UNAVAILABLE:${candidateWorker.transport}` } : t,
-          );
+        let candidateWorker: OrchRun['agents'][number] | undefined;
+        for (const candidate of candidateWorkers) {
+          const probe = await this.probeAdapter(candidate.transport);
+          if (probe.status === 'available') {
+            candidateWorker = candidate;
+            break;
+          }
+        }
+        if (candidateWorker === undefined) {
+          const reason = `ADAPTER_UNAVAILABLE:${candidateWorkers[0]?.transport ?? 'worker'}`;
+          control.pauseReason = reason;
+          tasks = tasks.map((t) => (t.id === task.id ? { ...t, stateReason: reason } : t));
           break;
         }
 
@@ -665,11 +675,16 @@ export class OrchestrationEngine {
             );
             const evidence = valResult.ok ? valResult.value : [];
 
+            if (!valResult.ok || evidence.some((item) => item.exitCode !== 0 || item.timedOut)) {
+              allComplete = false;
+              control.pauseReason = 'INTEGRATION_VALIDATION_FAILED';
+            }
+
             let integrationDiff = '';
             const diffRes = await this.deps.workspace.diff(integrationWorktree);
             if (diffRes.ok) integrationDiff = diffRes.value;
 
-            if (supervisor !== undefined && tasks[0] !== undefined) {
+            if (allComplete && supervisor !== undefined && tasks[0] !== undefined) {
               await invoke(tasks[0], supervisor, 'supervisor', {
                 kind: 'final-review',
                 integrationDiff,

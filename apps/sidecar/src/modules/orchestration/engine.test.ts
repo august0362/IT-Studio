@@ -300,6 +300,50 @@ describe('orchestration engine', () => {
     expect(runWorker).not.toHaveBeenCalled();
   });
 
+  it('ORCH-014 uses the next available candidate worker', async () => {
+    const unavailable: IAgentExecutionAdapter = {
+      ...fakeAdapter(vi.fn()),
+      id: 'codex-cli',
+      probe: () => Promise.resolve({ status: 'unavailable', reason: 'Missing binary' }),
+    };
+    const invokedRoles: string[] = [];
+    const available = fakeAdapter(async (envelope) => {
+      await Promise.resolve();
+      invokedRoles.push(envelope.roleId);
+      return {
+        ok: true,
+        value: {
+          ack: {
+            ack: true,
+            roleId: envelope.roleId,
+            taskId: envelope.taskId,
+            attemptId: envelope.attemptId,
+            allowedPaths: envelope.allowedPaths,
+          },
+          payload: envelope.roleId === 'worker' ? validWorker : validReview,
+          usage: unknownUsage,
+        },
+      };
+    });
+    const run = makeRun();
+    const task = run.tasks[0];
+    if (task === undefined) throw new Error('missing task');
+    const result = await new OrchestrationEngine({
+      adapters: new Map([
+        ['codex-cli', unavailable],
+        ['mock', available],
+      ]),
+      validate: noValidation,
+      workspace: fakeWorkspace(),
+    }).run({
+      ...run,
+      agents: [{ ...worker, transport: 'codex-cli' }, { ...worker, agentId: 'worker-2', transport: 'mock' }, reviewer],
+      tasks: [{ ...task, candidateAgents: ['worker-1', 'worker-2'] }],
+    });
+    expect(result.state).toBe('awaiting_approval');
+    expect(invokedRoles).toEqual(['worker', 'reviewer']);
+  });
+
   it('ORCH-002 (unit) two independent tasks both start before either finishes', async () => {
     const started: string[] = [];
     const finished: string[] = [];

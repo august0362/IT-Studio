@@ -9,3 +9,25 @@ Role: Reviewer / fixer (governance §1). Model: gpt-6-luna medium. Worktree: thi
 3. Fix every defect you find (within `apps/sidecar/src/modules/orchestration/**`, `apps/sidecar/test/integration/orchestration.test.ts`, additive contract fixes in `src/types/schemas.ts` / `validation/**`). Do not lower acceptance criteria.
 4. Run `npx prettier --write` on changed files, `npm run typecheck`, `npm run lint`, `npx vitest run --project sidecar apps/sidecar/src/modules/orchestration`.
 5. Append `## Review verdict` to this file: `PASS` or `FIX_REQUIRED`, a findings table (severity, file:line, issue, fixed? yes/no), the list of fixes you made, and the command results.
+
+## Review verdict
+
+**PASS**
+
+| Severity | File:line | Issue | Fixed? |
+|---|---|---|---|
+| High | `apps/sidecar/src/modules/orchestration/engine.ts:232` | Concurrent pipelines checked the call budget before awaiting worktree preparation but only incremented the shared call counter afterward, allowing multiple attempts to pass the same remaining slot. | yes |
+| Medium | `apps/sidecar/src/modules/orchestration/engine.ts:554` | Worker selection paused on the first unavailable candidate instead of probing the remaining eligible candidates. | yes |
+| High | `apps/sidecar/src/modules/orchestration/engine.ts:680` | A failed or timed-out integration validation could still proceed to final review and owner approval. | yes |
+
+Fixes made:
+- Reserved agent-call capacity before asynchronous worktree preparation and released the reservation if preparation fails.
+- Probed all eligible worker candidates and assigned the first available one; added an ORCH-014 regression test.
+- Paused with `INTEGRATION_VALIDATION_FAILED` and skipped final review when integration validation fails or times out.
+
+Command results:
+- `npx.cmd prettier --write apps/sidecar/src/modules/orchestration/engine.ts apps/sidecar/src/modules/orchestration/engine.test.ts` — passed.
+- `npm.cmd --cache .npm-cache run typecheck` — passed.
+- `npm.cmd --cache .npm-cache run lint` — passed (Git emitted a user-level ignore-file permission warning).
+- `npx.cmd vitest run --project sidecar apps/sidecar/src/modules/orchestration` — passed, 22 tests.
+- `npx.cmd vitest run --config vitest.integration.config.ts apps/sidecar/test/integration/orchestration` — passed, 3 tests.
