@@ -25,3 +25,8 @@ Run prettier, `npm run typecheck`, `npm run lint`, `npx vitest run --project sid
 - Dependencies added (with reason): None.
 - Decisions taken within scope: Mock adapter registration is opt-in via `includeMock`, and container enables it only for `ITSTUDIO_E2E_ORCH_MOCK=1` or test mode. Existing default plan script remains unchanged.
 - Open issues / follow-ups: `npm --cache .npm-cache run typecheck` fails because `apps/sidecar/test/integration/orchestration.test.ts` still supplies the removed singular `adapter` dependency. The requested worktree apply and parallel scheduler acceptance criteria are not satisfied. `npm --cache .npm-cache run lint` passed; `npx --cache .npm-cache vitest run --project sidecar apps/sidecar/src/modules/orchestration` passed (3 files, 7 tests).
+
+## QA round 1 (Architect) — scope extended, finish
+
+Scope now also includes `apps/sidecar/test/integration/orchestration.test.ts`. QA state: typecheck fails only there (`adapter` property removed — use `adapters` map with the mock adapter keyed `mock`); the two integration cases ORCH-001/ORCH-009 fail for the same reason. Unit 1 612 pass, lint OK.
+Do: (1) update that test to the new dependency shape; (2) add the missing unit tests `ORCH-002`, `ORCH-005`, `ORCH-014` exactly as specified above (they are not in the worktree yet); (3) run prettier, typecheck, lint, `npx vitest run --project sidecar apps/sidecar/src/modules/orchestration`; append `## Result`.
