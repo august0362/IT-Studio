@@ -51,3 +51,7 @@ Landed: OWNER-FB2-A/B, UX-03, PROC-01 (+PROC-01T), PROC-02. Lean QA: typecheck, 
 ## Addendum — owner feedback round 3 build (2026-10-16 21:54)
 
 Landed since 01:33: OWNER-FB3, WC-02, VSC-01, UX-04, UX-05, UX-06, WC-03, DX-02. QA: typecheck, unit 1 591 pass; targeted integration per task; `build:app` OK (NSIS + MSI); `smoke:install` 7/7. NSIS SHA-256 `8da4e75c9ee6da6c35181fd52e88e53cc87977c7f979431143829c4162ef4cc4` (93 490 781 bytes). Full E2E not re-run (navigation changed in UX-03/UX-04 — E2E specs may need path updates; owner checklist covers navigation).
+
+## Addendum — orchestration build (2026-10-17)
+
+Landed since 21:54: QA-E2E-FIX5/FIX6/HIDDEN, REPO-02 (archive), ORCH-01…04 + ORCH-AG (Antigravity implementation, Codex review PASS with 3 fixes). QA: unit 1 628 pass; E2E **14/14** (off-screen mode); integration 175/176 — BRK-C12 (ping p95 under burst) failed in the full run and passed when re-run alone (timing-sensitive); `build:app` OK; `smoke:install` 7/7. NSIS SHA-256 `28c7cd24c4d82b93e8ca61c96f930376dcb5f4e4322d805860fc6f10bdc22395`. ORCH-M01 (real-agent run) not yet executed.
