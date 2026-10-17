@@ -17,3 +17,7 @@ Role: Implementer · Size S · Model: gpt-6-luna medium · Deps pre-installed (n
 - `REVIEW_INVALID` — reviewer returns `{}` ⇒ task does not complete; after `maxFixRounds` it escalates like ORCH-009.
 
 Run prettier, `npm run typecheck`, `npm run lint`, `npx vitest run --project sidecar apps/sidecar/src/modules/orchestration`. Append `## Result`.
+
+## Blocked
+- Question: What project root/base SHA and worker apply infrastructure should the engine use for `WorktreeManager.create` and `applyWorkerOutput`? The task requires calls shaped as `create(run.id, task.id, attemptNo)`, `diff(wt)`, and `applyWorkerOutput(wt, task, payload)`, but the scoped helpers currently require project root + `WorktreeIdentity` + owned paths, and `WorkerApplyDependencies` + run/task/attempt IDs + test commands + output. `OrchRun` has no project root, and no worktree manager or apply dependencies are wired into the orchestration module/container.
+- Tried: inspected `engine.ts`, `worktrees.ts`, orchestration module wiring in `index.ts`, schemas, and existing tests. There is no scoped source for those missing runtime dependencies. Changing helper signatures alone cannot supply the missing project root or filesystem/transaction/command dependencies safely.
