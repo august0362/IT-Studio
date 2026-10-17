@@ -80,6 +80,8 @@ export const ErrorCode = {
   FALLBACK_DECLINED: 'FALLBACK_DECLINED',
   BUDGET_HARD_STOP: 'BUDGET_HARD_STOP',
   PATH_OUTSIDE_WORKSPACE: 'PATH_OUTSIDE_WORKSPACE',
+  PATH_DENIED: 'PATH_DENIED',
+  ROLE_ACK_MISMATCH: 'ROLE_ACK_MISMATCH',
   PATCH_CONFLICT: 'PATCH_CONFLICT',
   COMMAND_FAILED: 'COMMAND_FAILED',
   ROLLBACK_FAILED: 'ROLLBACK_FAILED',
@@ -1034,6 +1036,7 @@ type Empty = Readonly<Record<string, never>>;
 
 /** Exhaustive request/response catalog. Adding a method = additive change (no ADR needed). */
 export interface RpcMethodMap {
+  'orch.adapters': { params: Empty; result: readonly { readonly transport: OrchTransport; readonly status: 'available' | 'unavailable' | 'unsupported'; readonly version?: string; readonly reason?: string }[] };
   'orch.plan': { params: { readonly projectId: ProjectId; readonly request: string }; result: OrchRun };
   'orch.start': { params: { readonly runId: OrchRunId }; result: OrchRun };
   'orch.cancel': { params: { readonly runId: OrchRunId }; result: OrchRun };
@@ -1043,7 +1046,6 @@ export interface RpcMethodMap {
   'orch.get': { params: { readonly runId: OrchRunId }; result: OrchRun };
   'orch.list': { params: { readonly projectId?: ProjectId; readonly limit: number }; result: readonly OrchRun[] };
   'orch.attempts': { params: { readonly runId: OrchRunId; readonly taskId?: OrchTaskId }; result: readonly OrchAttempt[] };
-  'orch.adapters': { params: Empty; result: readonly { readonly transport: OrchTransport; readonly status: 'available' | 'unavailable' | 'unsupported'; readonly version?: string; readonly reason?: string }[] };
   'process.list': { params: { readonly projectId?: ProjectId; readonly status?: readonly ProcessStatus[]; readonly kind?: readonly ProcessKind[]; readonly limit: number }; result: readonly ProcessRecord[] };
   'process.get': { params: { readonly id: ProcessId }; result: ProcessRecord };
   'process.cancel': { params: { readonly id: ProcessId }; result: ProcessRecord };     // running/waiting → stopped (delegates to the owning service's cancel)

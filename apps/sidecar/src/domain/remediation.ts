@@ -64,6 +64,10 @@ const remediation: Record<ErrorCodeType, RemediationSteps> = {
     'Change the Hard Stop setting in Settings if you want paid calls to continue past the limit.',
   ],
   [ErrorCode.PATH_OUTSIDE_WORKSPACE]: () => ['Choose a file inside the active project workspace and retry.'],
+  [ErrorCode.PATH_DENIED]: () => ['Restrict the worker operation to the task allowed paths, then retry.'],
+  [ErrorCode.ROLE_ACK_MISMATCH]: () => [
+    'Retry the agent invocation after verifying its assigned role and task context.',
+  ],
   [ErrorCode.PATCH_CONFLICT]: (context) => [
     context?.files?.length
       ? `Review your edits to ${context.files.join(', ')} in VS Code and save or discard them.`

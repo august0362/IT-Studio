@@ -87,6 +87,7 @@ const orchAttemptSchema = z.custom<OrchAttempt>(
 );
 const orchEventSchema = z.custom<OrchEvent>((value) => typeof value === 'object' && value !== null && 'type' in value);
 export const rpcParamsSchemas = {
+  'orch.adapters': empty,
   'orch.plan': z.strictObject({ projectId: projectIdSchema, request: z.string().min(1) }).readonly(),
   'orch.start': z.strictObject({ runId: orchRunIdSchema }).readonly(),
   'orch.cancel': z.strictObject({ runId: orchRunIdSchema }).readonly(),
@@ -98,7 +99,6 @@ export const rpcParamsSchemas = {
     .strictObject({ projectId: projectIdSchema.exactOptional(), limit: z.number().int().min(1).max(200) })
     .readonly(),
   'orch.attempts': z.strictObject({ runId: orchRunIdSchema, taskId: orchTaskIdSchema.exactOptional() }).readonly(),
-  'orch.adapters': empty,
   'process.list': processListSchema,
   'process.get': processIdentitySchema,
   'process.cancel': processIdentitySchema,
@@ -282,15 +282,6 @@ export const rpcNotificationParamsSchemas = {
 } satisfies { [N in RpcNotificationName]: z.ZodType<RpcNotificationMap[N]> };
 
 export const rpcResultSchemas = {
-  'orch.plan': orchRunSchema,
-  'orch.start': orchRunSchema,
-  'orch.cancel': orchRunSchema,
-  'orch.resume': orchRunSchema,
-  'orch.approve': orchRunSchema,
-  'orch.discard': orchRunSchema,
-  'orch.get': orchRunSchema,
-  'orch.list': z.array(orchRunSchema).readonly(),
-  'orch.attempts': z.array(orchAttemptSchema).readonly(),
   'orch.adapters': z
     .array(
       z
@@ -303,6 +294,15 @@ export const rpcResultSchemas = {
         .readonly(),
     )
     .readonly(),
+  'orch.plan': orchRunSchema,
+  'orch.start': orchRunSchema,
+  'orch.cancel': orchRunSchema,
+  'orch.resume': orchRunSchema,
+  'orch.approve': orchRunSchema,
+  'orch.discard': orchRunSchema,
+  'orch.get': orchRunSchema,
+  'orch.list': z.array(orchRunSchema).readonly(),
+  'orch.attempts': z.array(orchAttemptSchema).readonly(),
   'process.list': z.array(processRecordSchema).readonly(),
   'process.get': processRecordSchema,
   'process.cancel': processRecordSchema,

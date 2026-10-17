@@ -13,6 +13,18 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            if cfg!(debug_assertions)
+                && std::env::var("ITSTUDIO_E2E_OFFSCREEN").as_deref() == Ok("1")
+            {
+                if let Some(window) = app.get_webview_window("main") {
+                    window.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(
+                        -32_000.0, -32_000.0,
+                    )))?;
+                    window.set_skip_taskbar(true)?;
+                    window.set_focusable(false)?;
+                }
+            }
+
             let default_data_dir = app.path().app_data_dir()?;
             let data_dir = sidecar::spawn::resolve_data_dir(
                 default_data_dir,
