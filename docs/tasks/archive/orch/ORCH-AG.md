@@ -5,10 +5,10 @@ Milestone: ORCH (ADR-0006, D41) · Implementer: Antigravity · Reviewer: Codex �
 ## Rules (from `AGENTS.md`, binding)
 
 - Work only in this worktree. Do not `git commit`, `push`, `reset`, `checkout` other branches or delete branches.
-- Do not edit `CONTEXT.md`, `ARCHITECTURE.md`, `ROLES.md`, `ROADMAP.md`, `CONVENTIONS.md`, `AGENTS.md`, `CHANGELOG.md`.
+- Do not edit `../../../CONTEXT.md`, `../../../ARCHITECTURE.md`, `../../../ROLES.md`, `../../../ROADMAP.md`, `../../../CONVENTIONS.md`, `AGENTS.md`, `CHANGELOG.md`.
 - Contracts come from `@itstudio/schemas` (`src/types/schemas.ts`); additive changes only where this file says so.
 - No `any`, `@ts-ignore`, `eslint-disable`, TS `enum`, `namespace`, default exports, `shell: true`, raw SQL. No real network or keychain in tests.
-- Paths in Markdown inside `docs/` are relative to the file (e.g. `../TESTING.md`), never `docs/...`.
+- Paths in Markdown inside `docs/` are relative to the file (e.g. `../../../TESTING.md`), never `docs/...`.
 
 Read first: `docs/decisions/ADR-0006-supervised-multi-agent-orchestration.md`, `docs/governance/MULTI_AGENT_ORCHESTRATION.md`, `docs/qa/ORCH-test-cases.md`, `apps/sidecar/src/modules/orchestration/**` (engine.ts, scheduler.ts, path-locks.ts, workspace.ts, worktrees.ts, adapters/*, index.ts), `apps/sidecar/test/integration/orchestration.test.ts`.
 
