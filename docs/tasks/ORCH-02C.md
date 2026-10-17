@@ -18,30 +18,10 @@ Role: Implementer · Size S · Model: gpt-6-luna medium · Deps pre-installed (n
 
 Run prettier, `npm run typecheck`, `npm run lint`, `npx vitest run --project sidecar apps/sidecar/src/modules/orchestration`. Append `## Result`.
 
-## Blocked
-- Question: What project root/base SHA and worker apply infrastructure should the engine use for `WorktreeManager.create` and `applyWorkerOutput`? The task requires calls shaped as `create(run.id, task.id, attemptNo)`, `diff(wt)`, and `applyWorkerOutput(wt, task, payload)`, but the scoped helpers currently require project root + `WorktreeIdentity` + owned paths, and `WorkerApplyDependencies` + run/task/attempt IDs + test commands + output. `OrchRun` has no project root, and no worktree manager or apply dependencies are wired into the orchestration module/container.
-- Tried: inspected `engine.ts`, `worktrees.ts`, orchestration module wiring in `index.ts`, schemas, and existing tests. There is no scoped source for those missing runtime dependencies. Changing helper signatures alone cannot supply the missing project root or filesystem/transaction/command dependencies safely.
-
-## Answer to Blocked (Architect) — use a workspace port (exact design)
-
-Scope extended: `modules/orchestration/workspace.ts` (new), `modules/orchestration/index.ts`, `apps/sidecar/src/container.ts` (orchestration wiring only).
-
-1. **New file `workspace.ts`:**
-```ts
-export interface AttemptResult { readonly changedFiles: readonly string[]; readonly baseSha: string; readonly headSha: string; readonly evidence: readonly CommandRun[] }
-export interface IOrchWorkspace {
-  prepareAttempt(run: OrchRun, task: OrchTask, attempt: number): Promise<Result<Worktree>>;
-  applyWorker(run: OrchRun, task: OrchTask, attempt: number, worktree: Worktree, output: CoderOutput, signal?: AbortSignal): Promise<Result<AttemptResult>>;
-  diff(worktree: Worktree): Promise<Result<string>>;
-}
-export class OrchWorkspace implements IOrchWorkspace { constructor(deps: { projects: { get(id: ProjectId): Promise<Project | null> }; worktrees: WorktreeManager; apply: Omit<WorkerApplyDependencies, 'projectId'>; runner: IProcessRunner }) }
-```
-   - `prepareAttempt`: look up `project.workspaceRoot` by `run.projectId` (missing ⇒ `NOT_FOUND`); base SHA = `git rev-parse HEAD` in that root, cached per `run.id` (first call); call `worktrees.create(root, { runId: run.id, taskId: task.id, attempt, baseSha }, task.allowedPaths)`.
-   - `applyWorker`: validate `output` with the existing CoderOutput Zod schema (`validation/pipeline.ts`), invalid ⇒ `VALIDATION`; then `applyWorkerOutput({ ...deps.apply, projectId: run.projectId }, worktree, run.id, task.id, attempt, task.allowedPaths, task.testCommands, output, signal)`.
-   - `diff`: `git diff <worktree.baseSha>..HEAD` in `worktree.path` via `runner` (argument array), return stdout.
-2. **engine.ts:** replace the optional deps from requirement 1 with `workspace?: IOrchWorkspace`. Requirements 2–5 stay the same but call `workspace.prepareAttempt / applyWorker / diff`.
-3. **index.ts:** accept `workspace?: IOrchWorkspace` in `createOrchestrationModule` deps and pass it to the engine.
-4. **container.ts:** build `new OrchWorkspace({ projects: <existing project repository>, worktrees: new WorktreeManager(<existing process runner>), apply: { runner, fileSystem, commands: <existing CommandRunner>, writer: <existing WriteTransactionService> }, runner })` and pass it as `workspace`. Use the instances the pipeline orchestrator already uses.
-5. Tests stay as specified (`ORCH-005`, `ORCH-006 (unit)`, `REVIEW_INVALID`) using a fake `IOrchWorkspace`; add one unit test for `OrchWorkspace.prepareAttempt` base-SHA caching with a fake runner.
-
-Then replace `## Blocked` with `## Result`.
+## Result
+- Summary: Added the orchestration workspace port and concrete project/worktree/apply integration. Worker attempts now receive isolated worktrees, apply validated output through the existing transactional worker path, and record changes and validation evidence. Reviewer inputs include the committed diff; invalid reviewer verdicts fail the review and consume fix rounds until escalation.
+- Files changed: `apps/sidecar/src/modules/orchestration/engine.ts`, `engine.test.ts`, `workspace.ts`, `index.ts`, `worktrees.ts`, `apps/sidecar/src/container.ts`, and this task file.
+- Dependencies added (with reason): None.
+- Decisions taken within scope: Reused the pipeline command runner, write transaction service, file system, and process runner in container wiring. Worker validation command failures now return `COMMAND_FAILED` so an unsuccessful test cannot count as a successful apply. Base SHA is cached per run as specified.
+- Open issues / follow-ups: None.
+- Verification: `npm --cache .npm-cache run typecheck`, `npm --cache .npm-cache run lint`, and `npx --cache .npm-cache vitest run --project sidecar apps/sidecar/src/modules/orchestration` passed (11 tests). The first `npx` invocation was blocked by PowerShell execution policy; the equivalent `npx.cmd` formatter invocation succeeded.

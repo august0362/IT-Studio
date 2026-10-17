@@ -103,6 +103,8 @@ import { GoogleEmbeddingProvider } from './providers/embedding/google.js';
 import { FakeEmbeddingProvider } from './infra/fake-embedding-provider.js';
 import { createOrchestrationModule } from './modules/orchestration/index.js';
 import { OrchRepository } from './modules/orchestration/storage/orch-repository.js';
+import { OrchWorkspace } from './modules/orchestration/workspace.js';
+import { WorktreeManager } from './modules/orchestration/worktrees.js';
 import { ApiAgentAdapter } from './modules/orchestration/adapters/api-adapter.js';
 import { ClaudeCliAdapter } from './modules/orchestration/adapters/claude-cli-adapter.js';
 import { CodexCliAdapter } from './modules/orchestration/adapters/codex-cli-adapter.js';
@@ -895,8 +897,9 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const pipelineRepository = new PipelineRepository(database.db);
   const roleCaller = new RoleCaller({ router: llmRouter, logger, ids, now: () => clock.now() });
   const writeTransaction = new WriteTransactionService({ fileSystem, ids, clock });
+  const workerProcessRunner = new NodeProcessRunner();
   const commandRunner = new CommandRunner({
-    processRunner: new NodeProcessRunner(),
+    processRunner: workerProcessRunner,
     fileSystem,
     ids,
     internalEvents: workflowInternalEvents,
@@ -1016,6 +1019,12 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const orchestration = createOrchestrationModule({
     repository: new OrchRepository(database.db),
     processes: processRegistry,
+    workspace: new OrchWorkspace({
+      projects: projectRepository,
+      worktrees: new WorktreeManager(workerProcessRunner),
+      apply: { runner: workerProcessRunner, fileSystem, commands: commandRunner, writer: writeTransaction },
+      runner: workerProcessRunner,
+    }),
     adapters: [
       new ApiAgentAdapter(async ({ envelope, input, signal }) => {
         const response = await llmRouter.dispatch(

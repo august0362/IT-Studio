@@ -1,14 +1,17 @@
-import type { OrchAttempt, OrchRun, OrchTask, OrchTaskSpec, OrchUsage } from '@itstudio/schemas';
+import type { CoderOutput, OrchAttempt, OrchRun, OrchTask, OrchTaskSpec, OrchUsage } from '@itstudio/schemas';
 import type { IAgentExecutionAdapter } from '../../ports/agent-execution.js';
 import { transitionRun } from './run-machine.js';
 import { validatePlan, type PlanValidationOptions } from './dag.js';
 import { blockFailedDependents, pickRunnable } from './scheduler.js';
+import type { IOrchWorkspace } from './workspace.js';
+import type { Worktree } from './worktrees.js';
 
 export interface OrchestrationEngineDependencies {
   readonly adapters: ReadonlyMap<string, IAgentExecutionAdapter>;
   readonly validate: PlanValidationOptions;
   readonly now?: () => string;
   readonly id?: () => string;
+  readonly workspace?: IOrchWorkspace;
 }
 const unknownUsage: OrchUsage = {
   inputTokens: null,
@@ -30,8 +33,37 @@ interface Verdict {
   readonly summary: string;
 }
 function isVerdict(value: unknown): value is Verdict {
-  if (typeof value !== 'object' || value === null || !('verdict' in value)) return false;
-  return value.verdict === 'pass' || value.verdict === 'fix_required' || value.verdict === 'reject';
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    !('verdict' in value) ||
+    !('findings' in value) ||
+    !('summary' in value)
+  )
+    return false;
+  if (
+    (value.verdict !== 'pass' && value.verdict !== 'fix_required' && value.verdict !== 'reject') ||
+    typeof value.summary !== 'string' ||
+    !Array.isArray(value.findings)
+  )
+    return false;
+  return value.findings.every(
+    (finding) =>
+      typeof finding === 'object' &&
+      finding !== null &&
+      'severity' in finding &&
+      (finding.severity === 'info' ||
+        finding.severity === 'warning' ||
+        finding.severity === 'error' ||
+        finding.severity === 'critical') &&
+      'path' in finding &&
+      typeof finding.path === 'string' &&
+      'message' in finding &&
+      typeof finding.message === 'string' &&
+      'suggestedFix' in finding &&
+      typeof finding.suggestedFix === 'string' &&
+      (!('line' in finding) || typeof finding.line === 'number'),
+  );
 }
 export class OrchestrationEngine {
   private readonly deps: OrchestrationEngineDependencies;
@@ -66,6 +98,7 @@ export class OrchestrationEngine {
     const reviewer = run.agents.find((agent) => agent.role === 'reviewer');
     let calls = run.agentCalls;
     let exhausted = false;
+    let workerWorktree: Worktree | undefined;
     const controller = new AbortController();
     this.controllers.set(run.id, controller);
     const nextId = () => (this.deps.id ?? (() => `mock-${String(attempts.length + 1)}`))();
@@ -78,6 +111,31 @@ export class OrchestrationEngine {
     ): Promise<{ ok: boolean; payload: unknown; usage: OrchUsage; attempt: OrchAttempt }> => {
       const id = nextId();
       const startedAt = now();
+      const workerAttemptNo =
+        role === 'worker' ? attempts.filter((item) => item.taskId === task.id && item.role === 'worker').length + 1 : 0;
+      let worktree: Worktree | undefined;
+      if (role === 'worker' && this.deps.workspace !== undefined) {
+        const prepared = await this.deps.workspace.prepareAttempt(run, task, workerAttemptNo);
+        if (!prepared.ok) {
+          const attempt: OrchAttempt = {
+            id: id as OrchAttempt['id'],
+            taskId: task.id,
+            role,
+            agent,
+            state: 'failed',
+            reason: prepared.error.code,
+            changedFiles: [],
+            evidence: [],
+            usage: unknownUsage,
+            startedAt: startedAt as OrchAttempt['startedAt'],
+            endedAt: now() as OrchAttempt['startedAt'],
+          };
+          attempts.push(attempt);
+          return { ok: false, payload: undefined, usage: unknownUsage, attempt };
+        }
+        worktree = prepared.value;
+        workerWorktree = prepared.value;
+      }
       calls += 1;
       const envelope = {
         schemaVersion: '1',
@@ -91,10 +149,10 @@ export class OrchestrationEngine {
         orchestrationRunId: run.id,
         taskId: task.id,
         attemptId: id,
-        assignedWorktree: null,
+        assignedWorktree: worktree?.path ?? null,
         allowedPaths: task.allowedPaths,
         approvedTools: [],
-        forbiddenActions: ['write-to-disk'],
+        forbiddenActions: worktree === undefined ? ['write-to-disk'] : [],
         objective: task.objective,
         requirements: [],
         acceptanceCriteria: task.acceptanceCriteria,
@@ -162,23 +220,50 @@ export class OrchestrationEngine {
               },
             }
           : result;
-      const payload = safeResult.ok ? safeResult.value.payload : undefined;
+      let applied: Awaited<ReturnType<IOrchWorkspace['applyWorker']>> | undefined;
+      if (safeResult.ok && worktree !== undefined && role === 'worker' && this.deps.workspace !== undefined)
+        applied = await this.deps.workspace.applyWorker(
+          run,
+          task,
+          workerAttemptNo,
+          worktree,
+          safeResult.value.payload as CoderOutput,
+          controller.signal,
+        );
+      const succeeded = safeResult.ok && (applied === undefined || applied.ok);
+      const payload = succeeded ? safeResult.value.payload : undefined;
       const attempt: OrchAttempt = {
         id: id as OrchAttempt['id'],
         taskId: task.id,
         role,
         agent,
-        state: controller.signal.aborted ? 'cancelled' : safeResult.ok ? 'succeeded' : 'failed',
-        ...(safeResult.ok ? {} : { reason: safeResult.error.code }),
-        changedFiles: [],
-        evidence: [],
+        state: controller.signal.aborted ? 'cancelled' : succeeded ? 'succeeded' : 'failed',
+        ...(succeeded
+          ? {}
+          : {
+              reason:
+                applied !== undefined && !applied.ok
+                  ? applied.error.code
+                  : safeResult.ok
+                    ? 'WORKER_FAILED'
+                    : safeResult.error.code,
+            }),
+        ...(applied?.ok
+          ? {
+              changedFiles: applied.value.changedFiles,
+              baseSha: applied.value.baseSha,
+              headSha: applied.value.headSha,
+              evidence: applied.value.evidence,
+            }
+          : { changedFiles: [], evidence: [] }),
+        ...(worktree === undefined ? {} : { worktree: worktree.path }),
         usage: safeResult.ok ? safeResult.value.usage : unknownUsage,
         startedAt: startedAt as OrchAttempt['startedAt'],
         endedAt: now() as OrchAttempt['startedAt'],
       };
       attempts.push(attempt);
       onChange?.({ ...run, state: 'running', tasks, agentCalls: calls }, attempts);
-      return { ok: safeResult.ok, payload, usage: safeResult.ok ? safeResult.value.usage : unknownUsage, attempt };
+      return { ok: succeeded, payload, usage: succeeded ? safeResult.value.usage : unknownUsage, attempt };
     };
     for (let schedulerStep = 0; schedulerStep < tasks.length + run.limits.maxAgentCalls; schedulerStep += 1) {
       if (controller.signal.aborted) break;
@@ -217,15 +302,36 @@ export class OrchestrationEngine {
         }
         current = { ...current, state: 'awaiting_handoff' };
         current = { ...current, state: 'in_review' };
+        const reviewDiff =
+          this.deps.workspace === undefined || workerWorktree === undefined
+            ? undefined
+            : await this.deps.workspace.diff(workerWorktree);
         const review = await invoke(current, reviewer, 'reviewer', {
           task: current,
           workerOutput: work.payload,
           previousFindings: findings,
+          ...(reviewDiff?.ok ? { diff: reviewDiff.value } : {}),
         });
         current = { ...current, attempts: [...current.attempts, review.attempt.id] };
-        const verdict = isVerdict(review.payload)
-          ? review.payload
-          : { verdict: 'pass' as const, findings: [], summary: 'Mock review passed.' };
+        const validVerdict = isVerdict(review.payload);
+        if (!validVerdict) {
+          const index = attempts.findIndex((item) => item.id === review.attempt.id);
+          if (index >= 0) attempts[index] = { ...review.attempt, state: 'failed', reason: 'REVIEW_INVALID' };
+        }
+        const verdict: Verdict = validVerdict
+          ? (review.payload as Verdict)
+          : {
+              verdict: 'fix_required' as const,
+              findings: [
+                {
+                  severity: 'error' as const,
+                  path: '',
+                  message: 'Reviewer returned an invalid verdict',
+                  suggestedFix: 'Return a valid reviewer verdict.',
+                },
+              ],
+              summary: 'Invalid reviewer verdict.',
+            };
         if (verdict.verdict === 'pass') {
           passed = true;
           const complete = { ...current, state: 'completed' as const };

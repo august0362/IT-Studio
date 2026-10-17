@@ -6,6 +6,7 @@ import type { OrchRepository } from './storage/orch-repository.js';
 import type { RpcServer } from '../../rpc/rpc-server.js';
 import type { ProcessRegistry } from '../../services/process-registry.js';
 import type { IAgentExecutionAdapter } from '../../ports/agent-execution.js';
+import type { IOrchWorkspace } from './workspace.js';
 
 export interface OrchestrationModuleDependencies {
   readonly repository: OrchRepository;
@@ -16,6 +17,7 @@ export interface OrchestrationModuleDependencies {
   readonly adapters?: readonly IAgentExecutionAdapter[];
   readonly includeMock?: boolean;
   readonly publish?: (event: { readonly type: 'run'; readonly run: OrchRun }) => void;
+  readonly workspace?: IOrchWorkspace;
 }
 export function createOrchestrationModule(deps: OrchestrationModuleDependencies) {
   const scripts = {
@@ -44,7 +46,11 @@ export function createOrchestrationModule(deps: OrchestrationModuleDependencies)
   const mockAdapter = new MockAgentAdapter(scripts);
   const adapterList = [...(deps.includeMock === true ? [mockAdapter] : []), ...(deps.adapters ?? [])];
   const adapterMap = new Map(adapterList.map((adapter) => [adapter.id, adapter]));
-  const engine = new OrchestrationEngine({ adapters: adapterMap, validate: deps.validate });
+  const engine = new OrchestrationEngine({
+    adapters: adapterMap,
+    validate: deps.validate,
+    ...(deps.workspace === undefined ? {} : { workspace: deps.workspace }),
+  });
   const activeRuns = new Map<string, Promise<OrchRun>>();
   const eventTimers = new Map<string, ReturnType<typeof setTimeout>>();
   const pendingEvents = new Map<string, { readonly type: 'run'; readonly run: OrchRun }>();

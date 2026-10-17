@@ -53,7 +53,7 @@ export class WorktreeManager {
     const status = await this.git(root, ['status', '--porcelain', '--', ...ownedPaths]);
     if (!status.ok || status.value.exitCode !== 0 || status.value.stdoutTail.trim() !== '')
       return fail('Git has uncommitted changes in paths owned by this run.');
-    const branch = `itstudio/orch/${identity.runId}/${identity.taskId}`;
+    const branch = `itstudio/orch/${identity.runId}/${identity.taskId}-${String(identity.attempt)}`;
     const path = join(root, '.itstudio', 'orch', identity.runId, `${identity.taskId}-${String(identity.attempt)}`);
     const created = await this.git(root, ['worktree', 'add', '-b', branch, path, identity.baseSha]);
     if (!created.ok || created.value.exitCode !== 0) return fail('Git could not create the orchestration worktree.');
@@ -176,7 +176,16 @@ export async function applyWorkerOutput(
     const result = await dependencies.commands.run(worktree.path, spec, signal);
     if (!result.ok) return result;
     evidence.push(result.value);
-    if (result.value.exitCode !== 0 || result.value.timedOut) break;
+    if (result.value.exitCode !== 0 || result.value.timedOut)
+      return {
+        ok: false,
+        error: {
+          code: ErrorCode.COMMAND_FAILED,
+          message: 'Worker validation command failed.',
+          remediation: ['Review the command evidence, fix the worktree, and retry.'],
+          retryable: false,
+        },
+      };
   }
   return {
     ok: true,
