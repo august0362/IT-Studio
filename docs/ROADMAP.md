@@ -230,9 +230,9 @@ Work order and QA verdict: ``.
 Tests: `docs/qa/ORCH-test-cases.md` · Roles: `docs/governance/MULTI_AGENT_ORCHESTRATION.md`
 
 - [x] **ORCH-01** (C) Engine core: contracts, persistence, DAG validation, scheduler, path locks, mock adapter, process hook.
-- [ ] **ORCH-02** (C) Adapters (api, claude-cli, codex-cli), probes, envelope/ack, worktrees, worker apply, process-tree cancel.
-- [ ] **ORCH-03** (C) Review/fix loop, integration branch, final review + owner approval merge, budgets/usage, recovery, safety.
-- [ ] **ORCH-04** (C) UI: Settings → Orchestration (with Saved confirmation), Code → Orchestration view, Projects badge, Processes links.
+- [x] **ORCH-02** (C) Adapters (api, claude-cli, codex-cli), probes, envelope/ack, worktrees, worker apply, process-tree cancel.
+- [x] **ORCH-03** (C) Review/fix loop, integration branch, final review + owner approval merge, budgets/usage, recovery, safety.
+- [x] **ORCH-04** (C) UI: Settings → Orchestration (with Saved confirmation), Code → Orchestration view, Projects badge, Processes links.
 - [ ] **ORCH-QA** (A) Traceability ORCH-001…019 with recorded results + one real-agent run (ORCH-M01).
 
 ## MOD — Sidecar feature modules *(D37; after v1 sign-off, before LLMPOOL)*
