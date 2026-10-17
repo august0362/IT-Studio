@@ -5,9 +5,14 @@ import { OrchestrationEngine } from '../../src/modules/orchestration/engine.js';
 describe('orchestration integration smoke', () => {
   it('ORCH-001 plans, starts and reaches awaiting_approval after mock review pass', async () => {
     const engine = new OrchestrationEngine({
-      adapter: new MockAgentAdapter({
-        reviewer: () => Promise.resolve({ verdict: 'pass', findings: [], summary: 'ok' }),
-      }),
+      adapters: new Map([
+        [
+          'mock',
+          new MockAgentAdapter({
+            reviewer: () => Promise.resolve({ verdict: 'pass', findings: [], summary: 'ok' }),
+          }),
+        ],
+      ]),
       validate: { workspaceRoot: '/workspace', allowedCommands: [] },
     });
     const validated = await engine.plan({
@@ -64,15 +69,20 @@ describe('orchestration integration smoke', () => {
   });
   it('ORCH-009 retries once after fix_required and pauses after the bounded fix rounds', async () => {
     const engine = new OrchestrationEngine({
-      adapter: new MockAgentAdapter({
-        reviewer: () =>
-          Promise.resolve({
-            verdict: 'fix_required',
-            findings: [{ severity: 'error', path: 'src/a.ts', message: 'issue', suggestedFix: 'correct it' }],
-            summary: 'fix',
+      adapters: new Map([
+        [
+          'mock',
+          new MockAgentAdapter({
+            reviewer: () =>
+              Promise.resolve({
+                verdict: 'fix_required',
+                findings: [{ severity: 'error', path: 'src/a.ts', message: 'issue', suggestedFix: 'correct it' }],
+                summary: 'fix',
+              }),
+            supervisor: () => Promise.resolve({ decision: 'reassign' }),
           }),
-        supervisor: () => Promise.resolve({ decision: 'reassign' }),
-      }),
+        ],
+      ]),
       validate: { workspaceRoot: '/workspace', allowedCommands: [] },
       id: (() => {
         let id = 0;
