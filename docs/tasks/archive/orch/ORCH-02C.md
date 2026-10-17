@@ -17,3 +17,11 @@ Role: Implementer · Size S · Model: gpt-6-luna medium · Deps pre-installed (n
 - `REVIEW_INVALID` — reviewer returns `{}` ⇒ task does not complete; after `maxFixRounds` it escalates like ORCH-009.
 
 Run prettier, `npm run typecheck`, `npm run lint`, `npx vitest run --project sidecar apps/sidecar/src/modules/orchestration`. Append `## Result`.
+
+## Result
+- Summary: Added the orchestration workspace port and concrete project/worktree/apply integration. Worker attempts now receive isolated worktrees, apply validated output through the existing transactional worker path, and record changes and validation evidence. Reviewer inputs include the committed diff; invalid reviewer verdicts fail the review and consume fix rounds until escalation.
+- Files changed: `apps/sidecar/src/modules/orchestration/engine.ts`, `engine.test.ts`, `workspace.ts`, `index.ts`, `worktrees.ts`, `apps/sidecar/src/container.ts`, and this task file.
+- Dependencies added (with reason): None.
+- Decisions taken within scope: Reused the pipeline command runner, write transaction service, file system, and process runner in container wiring. Worker validation command failures now return `COMMAND_FAILED` so an unsuccessful test cannot count as a successful apply. Base SHA is cached per run as specified.
+- Open issues / follow-ups: None.
+- Verification: `npm --cache .npm-cache run typecheck`, `npm --cache .npm-cache run lint`, and `npx --cache .npm-cache vitest run --project sidecar apps/sidecar/src/modules/orchestration` passed (11 tests). The first `npx` invocation was blocked by PowerShell execution policy; the equivalent `npx.cmd` formatter invocation succeeded.

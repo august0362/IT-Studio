@@ -1,4 +1,4 @@
-import { ErrorCode, type OrchRun, type OrchTaskSpec, type ProjectId, type Result } from '@itstudio/schemas';
+import { ErrorCode, type OrchRun, type OrchTaskSpec, type ProjectId } from '@itstudio/schemas';
 import { MockAgentAdapter, type MockScript } from './adapters/mock-adapter.js';
 import { OrchestrationEngine } from './engine.js';
 import type { PlanValidationOptions } from './dag.js';
@@ -6,6 +6,10 @@ import type { OrchRepository } from './storage/orch-repository.js';
 import type { RpcServer } from '../../rpc/rpc-server.js';
 import type { ProcessRegistry } from '../../services/process-registry.js';
 import type { IAgentExecutionAdapter } from '../../ports/agent-execution.js';
+import type { IOrchWorkspace } from './workspace.js';
+import { isTargetForbidden } from './workspace.js';
+import type { IProcessRunner } from '../../ports/process-runner.js';
+import type { IProjectLifecycleRepository } from '../../ports/project-repository.js';
 
 export interface OrchestrationModuleDependencies {
   readonly repository: OrchRepository;
@@ -16,38 +20,50 @@ export interface OrchestrationModuleDependencies {
   readonly adapters?: readonly IAgentExecutionAdapter[];
   readonly includeMock?: boolean;
   readonly publish?: (event: { readonly type: 'run'; readonly run: OrchRun }) => void;
+  readonly workspace?: IOrchWorkspace;
+  readonly runner?: IProcessRunner;
+  readonly projects?: Pick<IProjectLifecycleRepository, 'get'>;
+  readonly sidecarCwd?: string;
+  readonly appExecutableDir?: string;
 }
+
 export function createOrchestrationModule(deps: OrchestrationModuleDependencies) {
   const scripts = {
+    worker: () => Promise.resolve({ operations: [], summary: 'Done', assumptions: [] }),
+    reviewer: () => Promise.resolve({ verdict: 'pass', findings: [], summary: 'Pass' }),
+    supervisor: () =>
+      Promise.resolve({
+        tasks: [
+          {
+            id: 'T1',
+            title: 'Implement request',
+            objective: 'Complete the requested work.',
+            dependsOn: [],
+            role: 'worker',
+            candidateAgents: ['mock-worker'],
+            allowedPaths: ['src/**'],
+            testCommands: [],
+            acceptanceCriteria: ['Request is complete.'],
+            estimate: 'M',
+            timeoutMs: 600_000,
+          },
+        ],
+      }),
     ...deps.scripts,
-    supervisor:
-      deps.scripts?.supervisor ??
-      (() =>
-        Promise.resolve({
-          tasks: [
-            {
-              id: 'T1',
-              title: 'Implement request',
-              objective: 'Complete the requested work.',
-              dependsOn: [],
-              role: 'worker',
-              candidateAgents: ['mock-worker'],
-              allowedPaths: ['src/**'],
-              testCommands: [],
-              acceptanceCriteria: ['Request is complete.'],
-              estimate: 'M',
-              timeoutMs: 600_000,
-            },
-          ],
-        })),
   };
   const mockAdapter = new MockAgentAdapter(scripts);
   const adapterList = [...(deps.includeMock === true ? [mockAdapter] : []), ...(deps.adapters ?? [])];
   const adapterMap = new Map(adapterList.map((adapter) => [adapter.id, adapter]));
-  const engine = new OrchestrationEngine({ adapters: adapterMap, validate: deps.validate });
+  const engine = new OrchestrationEngine({
+    adapters: adapterMap,
+    validate: deps.validate,
+    ...(deps.workspace === undefined ? {} : { workspace: deps.workspace }),
+    ...(deps.appExecutableDir === undefined ? {} : { appExecutableDir: deps.appExecutableDir }),
+  });
   const activeRuns = new Map<string, Promise<OrchRun>>();
   const eventTimers = new Map<string, ReturnType<typeof setTimeout>>();
   const pendingEvents = new Map<string, { readonly type: 'run'; readonly run: OrchRun }>();
+
   function publish(event: { readonly type: 'run'; readonly run: OrchRun }): void {
     pendingEvents.set(event.run.id, event);
     if (eventTimers.has(event.run.id)) return;
@@ -61,18 +77,41 @@ export function createOrchestrationModule(deps: OrchestrationModuleDependencies)
       }, 100),
     );
   }
+
   async function plan(projectId: ProjectId, request: string): Promise<OrchRun | undefined> {
-    const plan = await engine.plan(
+    const planResult = await engine.plan(
       await scripts.supervisor({ request }, { roleId: 'supervisor' } as Parameters<MockScript>[1]),
     );
-    if (!plan.ok) return undefined;
-    const run = deps.createRun(projectId, request, plan.value);
+    if (!planResult.ok) return undefined;
+    const run = deps.createRun(projectId, request, planResult.value);
     deps.repository.save(run);
     deps.processes.upsertOrchestration(run);
     publish({ type: 'run', run });
     return run;
   }
-  async function start(runId: string): Promise<OrchRun | undefined> {
+
+  async function start(runId?: string): Promise<OrchRun | undefined> {
+    if (runId === undefined) {
+      const runs = deps.repository.list();
+      for (const run of runs) {
+        if (run.state === 'running') {
+          const interruptedRun: OrchRun = {
+            ...run,
+            state: 'paused_interrupted',
+            stateReason: 'INTERRUPTED',
+          };
+          const attempts = deps.repository
+            .attempts(run.id)
+            .map((attempt) =>
+              attempt.state === 'running' ? { ...attempt, state: 'unknown' as const, reason: 'INTERRUPTED' } : attempt,
+            );
+          deps.repository.save(interruptedRun, attempts);
+          deps.processes.upsertOrchestration(interruptedRun);
+          publish({ type: 'run', run: interruptedRun });
+        }
+      }
+      return undefined;
+    }
     const current = deps.repository.get(runId);
     if (current === undefined) return undefined;
     const running = engine.run(current, (updated, attempts) => {
@@ -88,6 +127,7 @@ export function createOrchestrationModule(deps: OrchestrationModuleDependencies)
     publish({ type: 'run', run });
     return run;
   }
+
   function register(server: RpcServer): void {
     server.register('orch.adapters', async () => ({
       ok: true,
@@ -100,18 +140,33 @@ export function createOrchestrationModule(deps: OrchestrationModuleDependencies)
           })),
       ),
     }));
+
     server.register('orch.plan', async ({ projectId, request }) => {
+      const project = deps.projects !== undefined ? await deps.projects.get(projectId) : null;
+      const workspaceRoot = project?.workspaceRoot ?? deps.validate.workspaceRoot;
+      if (isTargetForbidden(workspaceRoot, deps.sidecarCwd, deps.appExecutableDir)) {
+        return {
+          ok: false,
+          error: {
+            code: ErrorCode.TARGET_FORBIDDEN,
+            message: 'Target project path is forbidden.',
+            retryable: false,
+          },
+        };
+      }
       const run = await plan(projectId, request);
       return run === undefined
         ? { ok: false, error: { code: ErrorCode.PLAN_INVALID, message: 'Plan validation failed.', retryable: false } }
         : { ok: true, value: run };
     });
+
     server.register('orch.start', async ({ runId }) => {
       const run = await start(runId);
       return run === undefined
         ? { ok: false, error: { code: ErrorCode.NOT_FOUND, message: 'Run not found.', retryable: false } }
         : { ok: true, value: run };
     });
+
     server.register('orch.get', ({ runId }) => {
       const run = deps.repository.get(runId);
       return Promise.resolve(
@@ -120,27 +175,22 @@ export function createOrchestrationModule(deps: OrchestrationModuleDependencies)
           : { ok: true as const, value: run },
       );
     });
+
     server.register('orch.list', ({ projectId, limit }) =>
       Promise.resolve({ ok: true, value: deps.repository.list(projectId, limit) }),
     );
+
     server.register('orch.attempts', ({ runId }) =>
       Promise.resolve({ ok: true, value: deps.repository.attempts(runId) }),
     );
-    const unavailable = (): Promise<Result<OrchRun>> =>
-      Promise.resolve({
-        ok: false,
-        error: {
-          code: ErrorCode.CONFLICT,
-          message: 'This orchestration action is not available in ORCH-01.',
-          retryable: false,
-        },
-      });
+
     server.register('orch.cancel', async ({ runId }) => {
-      if (!engine.cancel(runId))
+      if (!engine.cancel(runId)) {
         return {
           ok: false,
           error: { code: ErrorCode.CONFLICT, message: 'The orchestration run is not active.', retryable: false },
         };
+      }
       const completed = await activeRuns.get(runId);
       return completed === undefined
         ? {
@@ -149,10 +199,126 @@ export function createOrchestrationModule(deps: OrchestrationModuleDependencies)
           }
         : { ok: true, value: completed };
     });
-    server.register('orch.resume', unavailable);
-    server.register('orch.approve', unavailable);
-    server.register('orch.discard', unavailable);
+
+    server.register('orch.resume', async ({ runId }) => {
+      const current = deps.repository.get(runId);
+      if (current === undefined) {
+        return { ok: false, error: { code: ErrorCode.NOT_FOUND, message: 'Run not found.', retryable: false } };
+      }
+      if (current.state !== 'paused' && current.state !== 'paused_interrupted') {
+        return {
+          ok: false,
+          error: { code: ErrorCode.CONFLICT, message: 'Run is not paused.', retryable: false },
+        };
+      }
+      const resumed: OrchRun = { ...current };
+      Reflect.deleteProperty(resumed, 'stateReason');
+      deps.repository.save(resumed, deps.repository.attempts(runId));
+      const completed = await start(runId);
+      return completed === undefined
+        ? { ok: false, error: { code: ErrorCode.INTERNAL, message: 'Resume failed to complete.', retryable: false } }
+        : { ok: true, value: completed };
+    });
+
+    server.register('orch.approve', async ({ runId }) => {
+      const current = deps.repository.get(runId);
+      if (current === undefined) {
+        return { ok: false, error: { code: ErrorCode.NOT_FOUND, message: 'Run not found.', retryable: false } };
+      }
+      if (current.state !== 'awaiting_approval') {
+        return {
+          ok: false,
+          error: { code: ErrorCode.CONFLICT, message: 'Run is not awaiting approval.', retryable: false },
+        };
+      }
+      const project = deps.projects !== undefined ? await deps.projects.get(current.projectId) : null;
+      const workspaceRoot = project?.workspaceRoot ?? deps.validate.workspaceRoot;
+      const attempts = deps.repository.attempts(runId);
+      const touchedFiles = Array.from(new Set(attempts.flatMap((a) => a.changedFiles)));
+
+      if (deps.runner !== undefined) {
+        const statusArgs = ['status', '--porcelain'];
+        if (touchedFiles.length > 0) {
+          statusArgs.push('--', ...touchedFiles);
+        }
+        const status = await deps.runner.run({
+          executable: 'git',
+          args: statusArgs,
+          cwd: workspaceRoot,
+          env: process.env,
+          timeoutMs: 30_000,
+        });
+        if (!status.ok || status.value.exitCode !== 0 || status.value.stdoutTail.trim() !== '') {
+          return {
+            ok: false,
+            error: {
+              code: ErrorCode.CONFLICT,
+              message: 'Working tree has uncommitted changes in touched files.',
+              retryable: false,
+            },
+          };
+        }
+        const integrationBranch = current.integrationBranch ?? `itstudio/orch/${current.id}/integration`;
+        const merge = await deps.runner.run({
+          executable: 'git',
+          args: ['merge', '--no-ff', integrationBranch],
+          cwd: workspaceRoot,
+          env: process.env,
+          timeoutMs: 30_000,
+        });
+        if (!merge.ok || merge.value.exitCode !== 0) {
+          return {
+            ok: false,
+            error: {
+              code: ErrorCode.CONFLICT,
+              message: 'Failed to merge integration branch into target branch.',
+              retryable: false,
+            },
+          };
+        }
+      }
+
+      const completed: OrchRun = { ...current, state: 'completed' };
+      deps.repository.save(completed, attempts);
+      deps.processes.upsertOrchestration(completed);
+      publish({ type: 'run', run: completed });
+      return { ok: true, value: completed };
+    });
+
+    server.register('orch.discard', async ({ runId }) => {
+      const current = deps.repository.get(runId);
+      if (current === undefined) {
+        return { ok: false, error: { code: ErrorCode.NOT_FOUND, message: 'Run not found.', retryable: false } };
+      }
+      const attempts = deps.repository.attempts(runId);
+      if (deps.workspace !== undefined) {
+        for (const att of attempts) {
+          if (att.worktree) {
+            await deps.workspace.cleanup(current, {
+              path: att.worktree,
+              branch: `itstudio/orch/${current.id}/${att.taskId ?? 'task'}-${String(att.id)}`,
+              baseSha: att.baseSha ?? '',
+            });
+          }
+        }
+        if (current.integrationBranch) {
+          const project = deps.projects !== undefined ? await deps.projects.get(current.projectId) : null;
+          const workspaceRoot = project?.workspaceRoot ?? deps.validate.workspaceRoot;
+          await deps.workspace.cleanup(current, {
+            path: `${workspaceRoot}/.itstudio/orch/${current.id}/integration`,
+            branch: current.integrationBranch,
+            baseSha: '',
+          });
+        }
+      }
+      const discarded: OrchRun = { ...current, state: 'cancelled', stateReason: 'DISCARDED' };
+      deps.repository.save(discarded, attempts);
+      deps.processes.upsertOrchestration(discarded);
+      publish({ type: 'run', run: discarded });
+      return { ok: true, value: discarded };
+    });
   }
+
   return {
     engine,
     register,

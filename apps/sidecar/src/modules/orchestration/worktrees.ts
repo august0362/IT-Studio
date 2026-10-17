@@ -53,17 +53,33 @@ export class WorktreeManager {
     const status = await this.git(root, ['status', '--porcelain', '--', ...ownedPaths]);
     if (!status.ok || status.value.exitCode !== 0 || status.value.stdoutTail.trim() !== '')
       return fail('Git has uncommitted changes in paths owned by this run.');
-    const branch = `itstudio/orch/${identity.runId}/${identity.taskId}`;
+    const branch = `itstudio/orch/${identity.runId}/${identity.taskId}-${String(identity.attempt)}`;
     const path = join(root, '.itstudio', 'orch', identity.runId, `${identity.taskId}-${String(identity.attempt)}`);
     const created = await this.git(root, ['worktree', 'add', '-b', branch, path, identity.baseSha]);
     if (!created.ok || created.value.exitCode !== 0) return fail('Git could not create the orchestration worktree.');
     return { ok: true, value: { path, branch, baseSha: identity.baseSha } };
   }
+  async createIntegration(projectRoot: string, runId: string, baseSha: string): Promise<Result<Worktree>> {
+    const root = resolve(projectRoot);
+    const top = await this.git(root, ['rev-parse', '--show-toplevel']);
+    if (
+      !top.ok ||
+      top.value.exitCode !== 0 ||
+      resolve(top.value.stdoutTail.trim()).toLocaleLowerCase() !== root.toLocaleLowerCase()
+    )
+      return fail('The project root must be the Git repository root.');
+    const branch = `itstudio/orch/${runId}/integration`;
+    const path = join(root, '.itstudio', 'orch', runId, 'integration');
+    const created = await this.git(root, ['worktree', 'add', '-b', branch, path, baseSha]);
+    if (!created.ok || created.value.exitCode !== 0) return fail('Git could not create the integration worktree.');
+    return { ok: true, value: { path, branch, baseSha } };
+  }
   async cleanup(projectRoot: string, worktree: Worktree): Promise<Result<void>> {
     const root = resolve(projectRoot);
-    const expectedPrefix = join(root, '.itstudio', 'orch') + '\\';
+    const expectedPrefix = resolve(join(root, '.itstudio', 'orch')).toLocaleLowerCase();
+    const normPath = resolve(worktree.path).toLocaleLowerCase();
     if (
-      !resolve(worktree.path).toLocaleLowerCase().startsWith(expectedPrefix.toLocaleLowerCase()) ||
+      (!normPath.startsWith(expectedPrefix + '\\') && !normPath.startsWith(expectedPrefix + '/')) ||
       !worktree.branch.startsWith('itstudio/orch/')
     )
       return fail('Refusing to remove a worktree or branch outside the orchestration namespace.');
@@ -176,7 +192,16 @@ export async function applyWorkerOutput(
     const result = await dependencies.commands.run(worktree.path, spec, signal);
     if (!result.ok) return result;
     evidence.push(result.value);
-    if (result.value.exitCode !== 0 || result.value.timedOut) break;
+    if (result.value.exitCode !== 0 || result.value.timedOut)
+      return {
+        ok: false,
+        error: {
+          code: ErrorCode.COMMAND_FAILED,
+          message: 'Worker validation command failed.',
+          remediation: ['Review the command evidence, fix the worktree, and retry.'],
+          retryable: false,
+        },
+      };
   }
   return {
     ok: true,

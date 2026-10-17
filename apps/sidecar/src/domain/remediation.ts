@@ -91,6 +91,9 @@ const remediation: Record<ErrorCodeType, RemediationSteps> = {
   ],
   [ErrorCode.VSCODE_UNAVAILABLE]: () => ['Install or open VS Code to view project changes, then retry.'],
   [ErrorCode.CANCELLED]: () => ['Start the operation again when you are ready.'],
+  [ErrorCode.TARGET_FORBIDDEN]: () => [
+    'Select a workspace root outside the IT Studio repository or install directory.',
+  ],
   [ErrorCode.INTERNAL]: () => ['Retry the operation; contact support if the problem continues.'],
 };
 

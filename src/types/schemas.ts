@@ -88,6 +88,7 @@ export const ErrorCode = {
   PIPELINE_REVIEW_REJECTED: 'PIPELINE_REVIEW_REJECTED',
   VSCODE_UNAVAILABLE: 'VSCODE_UNAVAILABLE',
   CANCELLED: 'CANCELLED',
+  TARGET_FORBIDDEN: 'TARGET_FORBIDDEN',
   INTERNAL: 'INTERNAL',
 } as const;
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
