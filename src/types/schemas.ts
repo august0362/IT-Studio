@@ -998,6 +998,7 @@ export interface OrchUsage { readonly inputTokens: number | null; readonly outpu
 export interface OrchAttempt { readonly id: OrchAttemptId; readonly taskId: OrchTaskId | null; readonly role: OrchRole; readonly agent: OrchAgentRef; readonly state: 'running' | 'succeeded' | 'failed' | 'cancelled' | 'unknown'; readonly reason?: string; readonly worktree?: string; readonly baseSha?: string; readonly headSha?: string; readonly changedFiles: readonly string[]; readonly evidence: readonly CommandRun[]; readonly verdict?: { readonly verdict: 'pass' | 'fix_required' | 'reject'; readonly findings: readonly { readonly severity: FindingSeverity; readonly path: string; readonly line?: number; readonly message: string; readonly suggestedFix: string }[]; readonly summary: string }; readonly usage: OrchUsage; readonly startedAt: IsoDateTime; readonly endedAt?: IsoDateTime }
 export interface OrchTask extends OrchTaskSpec { readonly state: OrchTaskState; readonly stateReason?: string; readonly assignedAgentId?: string; readonly fixRounds: number; readonly attempts: readonly OrchAttemptId[] }
 export interface OrchLimits { readonly maxCostMicroUsd: MicroUsd; readonly maxWallClockMs: number; readonly maxAgentCalls: number; readonly maxConcurrentWorkers: number; readonly maxFixRounds: number; readonly transientRetries: number; readonly hardStop: boolean }
+export interface OrchestrationSettings { readonly roles: { readonly supervisor: OrchAgentRef; readonly workerA: OrchAgentRef; readonly workerB: OrchAgentRef; readonly reviewer: OrchAgentRef }; readonly limits: OrchLimits }
 export interface OrchRun { readonly id: OrchRunId; readonly projectId: ProjectId; readonly request: string; readonly state: OrchRunState; readonly stateReason?: string; readonly agents: readonly OrchAgentRef[]; readonly tasks: readonly OrchTask[]; readonly limits: OrchLimits; readonly targetBranch: string; readonly integrationBranch?: string; readonly costMicroUsd: MicroUsd; readonly agentCalls: number; readonly createdAt: IsoDateTime; readonly updatedAt: IsoDateTime }
 export type OrchEvent = { readonly type: 'run'; readonly run: OrchRun } | { readonly type: 'task'; readonly runId: OrchRunId; readonly task: OrchTask; readonly reason: string } | { readonly type: 'attempt'; readonly runId: OrchRunId; readonly attempt: OrchAttempt };
 
@@ -1042,6 +1043,7 @@ export interface RpcMethodMap {
   'orch.get': { params: { readonly runId: OrchRunId }; result: OrchRun };
   'orch.list': { params: { readonly projectId?: ProjectId; readonly limit: number }; result: readonly OrchRun[] };
   'orch.attempts': { params: { readonly runId: OrchRunId; readonly taskId?: OrchTaskId }; result: readonly OrchAttempt[] };
+  'orch.adapters': { params: Empty; result: readonly { readonly transport: OrchTransport; readonly status: 'available' | 'unavailable' | 'unsupported'; readonly version?: string; readonly reason?: string }[] };
   'process.list': { params: { readonly projectId?: ProjectId; readonly status?: readonly ProcessStatus[]; readonly kind?: readonly ProcessKind[]; readonly limit: number }; result: readonly ProcessRecord[] };
   'process.get': { params: { readonly id: ProcessId }; result: ProcessRecord };
   'process.cancel': { params: { readonly id: ProcessId }; result: ProcessRecord };     // running/waiting → stopped (delegates to the owning service's cancel)
@@ -1294,6 +1296,7 @@ export interface AppSettings {
   readonly image: ImageSettings;
   readonly ui: UiSettings;
   readonly webChat: WebChatSettings;
+  readonly orchestration: OrchestrationSettings;
 }
 
 export type WebChatLinkId = Brand<string, 'WebChatLinkId'>;
@@ -1349,7 +1352,9 @@ export interface WebChatSettings {
 
 /** Deep-partial patch accepted by `settings.update`. */
 export type SettingsPatch = {
-  readonly [K in keyof AppSettings]?: AppSettings[K] extends readonly unknown[]
+  readonly [K in keyof AppSettings]?: K extends 'orchestration'
+    ? AppSettings[K]
+    : AppSettings[K] extends readonly unknown[]
     ? AppSettings[K]
     : AppSettings[K] extends object
       ? Partial<AppSettings[K]>

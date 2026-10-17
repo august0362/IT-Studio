@@ -79,6 +79,40 @@ export function createOrchestrationModule(deps: OrchestrationModuleDependencies)
     return run;
   }
   function register(server: RpcServer): void {
+    server.register('orch.adapters', () =>
+      Promise.resolve({
+        ok: true,
+        value: [
+          {
+            transport: 'api' as const,
+            status: 'available' as const,
+            reason: 'Configured API models are selected in Orchestration settings.',
+          },
+          {
+            transport: 'claude-cli' as const,
+            status: 'unavailable' as const,
+            reason: 'CLI probing is not enabled in this build.',
+          },
+          {
+            transport: 'codex-cli' as const,
+            status: 'unavailable' as const,
+            reason: 'CLI probing is not enabled in this build.',
+          },
+          process.env.ITSTUDIO_E2E_ORCH_MOCK === '1'
+            ? {
+                transport: 'mock' as const,
+                status: 'available' as const,
+                version: 'fixture',
+                reason: 'Mock adapter is available for local fixtures.',
+              }
+            : {
+                transport: 'mock' as const,
+                status: 'unavailable' as const,
+                reason: 'Mock adapter is enabled only by the orchestration E2E fixture.',
+              },
+        ],
+      }),
+    );
     server.register('orch.plan', async ({ projectId, request }) => {
       const run = await plan(projectId, request);
       return run === undefined

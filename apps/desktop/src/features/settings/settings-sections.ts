@@ -18,6 +18,12 @@ export const SETTINGS_SECTIONS = [
     keywords: 'roles agent clarify commands worker quy trình vai trò lệnh',
   },
   {
+    route: 'settings-orchestration',
+    en: 'Orchestration',
+    vi: 'Điều phối',
+    keywords: 'agents supervisor workers reviewer retries orchestration điều phối',
+  },
+  {
     route: 'settings-budget',
     en: 'Budget',
     vi: 'Ngân sách',
@@ -86,6 +92,41 @@ export interface SettingSearchEntry {
 }
 /** Stable targets for all visible settings, including settings represented by lists. */
 export const SETTINGS_FIELDS: readonly SettingSearchEntry[] = [
+  {
+    section: 'settings-orchestration',
+    id: 'orch-supervisor',
+    en: 'Orchestration supervisor agent',
+    vi: 'Tác nhân giám sát điều phối',
+    keywords: 'agent model transport supervisor orchestration',
+  },
+  {
+    section: 'settings-orchestration',
+    id: 'orch-worker-a',
+    en: 'Orchestration worker A model',
+    vi: 'Mô hình nhân viên điều phối A',
+    keywords: 'worker agent model',
+  },
+  {
+    section: 'settings-orchestration',
+    id: 'orch-worker-b',
+    en: 'Orchestration worker B model',
+    vi: 'Mô hình nhân viên điều phối B',
+    keywords: 'worker agent model',
+  },
+  {
+    section: 'settings-orchestration',
+    id: 'orch-reviewer',
+    en: 'Orchestration reviewer agent',
+    vi: 'Tác nhân đánh giá điều phối',
+    keywords: 'reviewer agent model',
+  },
+  {
+    section: 'settings-orchestration',
+    id: 'orch-limits',
+    en: 'Orchestration budget and limits',
+    vi: 'Ngân sách và giới hạn điều phối',
+    keywords: 'maximum cost wall clock calls workers fix retries hard stop',
+  },
   {
     section: 'settings-pipeline',
     id: 'pipeline-auto-clarify',

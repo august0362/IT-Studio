@@ -23,6 +23,7 @@ import { StageTimeline } from './StageTimeline';
 import { initialPipelineState, pipelineReducer } from './pipeline-store';
 import './monaco-setup';
 import { useNavigationIntent } from '../../state/navigation-intent';
+import { OrchestrationCodeView } from './OrchestrationCodeView';
 
 const busyStages: readonly string[] = [
   PipelineStage.SPECIFYING,
@@ -47,6 +48,7 @@ function ProjectCodePage({ projectId }: { readonly projectId: ProjectId | null }
   const [starting, setStarting] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [codeView, setCodeView] = useState<'pipeline' | 'orchestration'>('pipeline');
   const loadSequences = useRef(new Map<PipelineRun['id'], number>());
   const history = useQuery({
     queryKey: ['pipeline.list', { projectId, limit: 20 }],
@@ -97,6 +99,7 @@ function ProjectCodePage({ projectId }: { readonly projectId: ProjectId | null }
     for (const run of runs) if (state.entries[run.id] === undefined) dispatch({ type: 'started', run });
   }, [runs, state.entries]);
 
+  const activeCodeView = navigationIntent?.kind === 'orchestrationRun' ? 'orchestration' : codeView;
   useEffect(() => {
     if (navigationIntent?.kind !== 'pipelineRun') return;
     const run = runs.find((item) => item.id === navigationIntent.id);
@@ -104,6 +107,29 @@ function ProjectCodePage({ projectId }: { readonly projectId: ProjectId | null }
     selectRun(run);
     clearNavigationIntent();
   }, [clearNavigationIntent, navigationIntent, runs, selectRun]);
+
+  if (activeCodeView === 'orchestration')
+    return (
+      <section className="space-y-5">
+        <div aria-label={t('code.views')} className="flex gap-2" role="tablist">
+          {(['pipeline', 'orchestration'] as const).map((view) => (
+            <button
+              aria-selected={view === activeCodeView}
+              className="rounded border border-border px-3 py-2 aria-selected:bg-surface-alt"
+              key={view}
+              onClick={() => {
+                setCodeView(view);
+              }}
+              role="tab"
+              type="button"
+            >
+              {t(`code.${view}`)}
+            </button>
+          ))}
+        </div>
+        <OrchestrationCodeView projectId={projectId} />
+      </section>
+    );
 
   async function start(prompt: string): Promise<void> {
     if (projectId === null) return;
@@ -159,6 +185,22 @@ function ProjectCodePage({ projectId }: { readonly projectId: ProjectId | null }
   const outputEntries = selected === undefined ? [] : Object.entries(selected.outputs);
   return (
     <section className="space-y-5" aria-labelledby="code-heading">
+      <div aria-label={t('code.views')} className="flex gap-2" role="tablist">
+        {(['pipeline', 'orchestration'] as const).map((view) => (
+          <button
+            aria-selected={view === activeCodeView}
+            className="rounded border border-border px-3 py-2 aria-selected:bg-surface-alt"
+            key={view}
+            onClick={() => {
+              setCodeView(view);
+            }}
+            role="tab"
+            type="button"
+          >
+            {t(`code.${view}`)}
+          </button>
+        ))}
+      </div>
       <PageHeader icon="code" title={t('code.heading')} subtitle={t('character.code')} id="code-heading" level={2} />
       {projectId === null ? <p role="status">{t('code.pickProject')}</p> : null}
       <PromptBox

@@ -98,6 +98,7 @@ export const rpcParamsSchemas = {
     .strictObject({ projectId: projectIdSchema.exactOptional(), limit: z.number().int().min(1).max(200) })
     .readonly(),
   'orch.attempts': z.strictObject({ runId: orchRunIdSchema, taskId: orchTaskIdSchema.exactOptional() }).readonly(),
+  'orch.adapters': empty,
   'process.list': processListSchema,
   'process.get': processIdentitySchema,
   'process.cancel': processIdentitySchema,
@@ -290,6 +291,18 @@ export const rpcResultSchemas = {
   'orch.get': orchRunSchema,
   'orch.list': z.array(orchRunSchema).readonly(),
   'orch.attempts': z.array(orchAttemptSchema).readonly(),
+  'orch.adapters': z
+    .array(
+      z
+        .strictObject({
+          transport: z.enum(['api', 'claude-cli', 'codex-cli', 'mock']),
+          status: z.enum(['available', 'unavailable', 'unsupported']),
+          version: z.string().exactOptional(),
+          reason: z.string().exactOptional(),
+        })
+        .readonly(),
+    )
+    .readonly(),
   'process.list': z.array(processRecordSchema).readonly(),
   'process.get': processRecordSchema,
   'process.cancel': processRecordSchema,

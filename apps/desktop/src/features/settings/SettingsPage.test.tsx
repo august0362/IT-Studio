@@ -129,6 +129,7 @@ describe('UX-03 Settings navigation', () => {
       'API keys',
       'Router',
       'Pipeline',
+      'Orchestration',
       'Budget',
       'Pricing',
       'Currency (FX)',
@@ -183,7 +184,7 @@ describe('UX-03 Settings navigation', () => {
     expect(screen.getByRole('combobox', { name: 'Settings section' })).toBeDisabled();
     expect(screen.getByText('API keys form')).toBeVisible();
     fireEvent.change(search, { target: { value: '' } });
-    expect(sectionNav().getAllByRole('link')).toHaveLength(11);
+    expect(sectionNav().getAllByRole('link')).toHaveLength(12);
   });
 
   it('remembers the last section on sidebar re-entry and reload; an explicit deep link overrides it', () => {
