@@ -59,11 +59,27 @@ export class WorktreeManager {
     if (!created.ok || created.value.exitCode !== 0) return fail('Git could not create the orchestration worktree.');
     return { ok: true, value: { path, branch, baseSha: identity.baseSha } };
   }
+  async createIntegration(projectRoot: string, runId: string, baseSha: string): Promise<Result<Worktree>> {
+    const root = resolve(projectRoot);
+    const top = await this.git(root, ['rev-parse', '--show-toplevel']);
+    if (
+      !top.ok ||
+      top.value.exitCode !== 0 ||
+      resolve(top.value.stdoutTail.trim()).toLocaleLowerCase() !== root.toLocaleLowerCase()
+    )
+      return fail('The project root must be the Git repository root.');
+    const branch = `itstudio/orch/${runId}/integration`;
+    const path = join(root, '.itstudio', 'orch', runId, 'integration');
+    const created = await this.git(root, ['worktree', 'add', '-b', branch, path, baseSha]);
+    if (!created.ok || created.value.exitCode !== 0) return fail('Git could not create the integration worktree.');
+    return { ok: true, value: { path, branch, baseSha } };
+  }
   async cleanup(projectRoot: string, worktree: Worktree): Promise<Result<void>> {
     const root = resolve(projectRoot);
-    const expectedPrefix = join(root, '.itstudio', 'orch') + '\\';
+    const expectedPrefix = resolve(join(root, '.itstudio', 'orch')).toLocaleLowerCase();
+    const normPath = resolve(worktree.path).toLocaleLowerCase();
     if (
-      !resolve(worktree.path).toLocaleLowerCase().startsWith(expectedPrefix.toLocaleLowerCase()) ||
+      (!normPath.startsWith(expectedPrefix + '\\') && !normPath.startsWith(expectedPrefix + '/')) ||
       !worktree.branch.startsWith('itstudio/orch/')
     )
       return fail('Refusing to remove a worktree or branch outside the orchestration namespace.');

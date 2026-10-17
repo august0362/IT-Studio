@@ -25,6 +25,7 @@ export const errorCodeSchema = z.enum([
   'PIPELINE_REVIEW_REJECTED',
   'VSCODE_UNAVAILABLE',
   'CANCELLED',
+  'TARGET_FORBIDDEN',
   'INTERNAL',
 ]) satisfies z.ZodType<ErrorCode>;
 export const appErrorSchema = z

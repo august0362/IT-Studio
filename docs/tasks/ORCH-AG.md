@@ -39,3 +39,37 @@ Tests (unit with fakes, names prefixed): `ORCH-007`, `ORCH-008`, `ORCH-010`, `OR
 ## Result
 - Summary / Files changed / Decisions / Tests added (IDs) / Open issues
 ```
+
+## Result
+- Summary: Completed work items A–D for task ORCH-AG:
+  - A: Fixed all 22 lint errors in `apps/sidecar/src/modules/orchestration/engine.test.ts` without weakening tests.
+  - B: Implemented adapter availability gating via `probeAdapter` caching probe results for 5 minutes; unready or unsupported adapters keep tasks in `queued` with reason `ADAPTER_UNAVAILABLE:<transport>` and pause the run without invoking adapters.
+  - C: Implemented concurrent worker pool with `inFlight` and `pickRunnable` bounded by `maxConcurrentWorkers`; cancellation aborts in-flight attempts via `AbortController` and marks tasks and run as `cancelled`.
+  - D: Implemented integration worktree (`prepareIntegration`, `mergeTask` in topological order, reviewer attempt on integration conflict, integration validation commands, and supervisor final review); implemented `orch.approve` (merging `--no-ff` when working tree is clean for touched files) and `orch.discard` (worktree cleanup); implemented budget gating before calls (`BUDGET_CALLS`, `BUDGET_TIME`, `BUDGET_COST`); enforced target safety (`TARGET_FORBIDDEN`); and implemented restart sweep on `start()` (`running` -> `paused_interrupted`, `unknown` attempts) and `orch.resume`.
+- Files changed:
+  - `src/types/schemas.ts`: Additive addition of `TARGET_FORBIDDEN` error code.
+  - `apps/sidecar/src/validation/errors.ts`: Added `TARGET_FORBIDDEN` to error code schema.
+  - `apps/sidecar/src/domain/remediation.ts`: Added `TARGET_FORBIDDEN` remediation step.
+  - `apps/sidecar/src/modules/orchestration/worktrees.ts`: Added `createIntegration` method to `WorktreeManager`.
+  - `apps/sidecar/src/modules/orchestration/workspace.ts`: Added `isTargetForbidden`, `prepareIntegration`, `mergeTask`, and `validateIntegration`.
+  - `apps/sidecar/src/modules/orchestration/engine.ts`: Added adapter gating, concurrent worker pool, abort controller cancellation, integration worktree merging, budget enforcement, and final review.
+  - `apps/sidecar/src/modules/orchestration/index.ts`: Added restart sweep, `orch.resume`, `orch.approve`, `orch.discard`, and safety check on `orch.plan`.
+  - `apps/sidecar/src/modules/orchestration/engine.test.ts`: Fixed lint errors, added unit tests ORCH-002, 007, 008, 010, 011, 012, 014, 015, 016, 017.
+  - `apps/sidecar/test/integration/orchestration.test.ts`: Added integration test ORCH-013 with uncommitted modification safety and clean `--no-ff` merge verification.
+- Decisions:
+  - Preserved wall-clock elapsed budget calculation starting from `engine.run()` execution time rather than historical fixture timestamp.
+  - Integration branch merge on `orch.approve` inspects `git status --porcelain` for paths touched across all completed tasks in the run.
+- Tests added (IDs):
+  - `ORCH-002` (unit): Concurrent worker pool execution of independent tasks.
+  - `ORCH-007` (unit): Reviewer `fix_required` verdict handling with findings.
+  - `ORCH-008` (unit): Fix round iteration, worker retry, reviewer pass, and completion.
+  - `ORCH-010` (unit): Budget cost limit and adapter unavailability pause without agent call.
+  - `ORCH-011` (unit): Run cancellation aborting in-flight worker attempts.
+  - `ORCH-012` (unit): Startup sweep of running runs to `paused_interrupted` and resume with new attempt IDs.
+  - `ORCH-013` (integration): Full lifecycle in temp Git repo verifying uncommitted unrelated file survival and `--no-ff` merge into target branch.
+  - `ORCH-014` (unit): Probe gating preventing invocation of unavailable/unsupported adapters.
+  - `ORCH-015` (unit): Refusal of runs targeting IT Studio source repo / install directory (`TARGET_FORBIDDEN`).
+  - `ORCH-016` (unit): Run reaching `awaiting_approval` without merging until approval.
+  - `ORCH-017` (unit): Null token usage / cost representation without coercion to zero.
+- Open issues:
+  - None. All lint, typecheck, unit, and integration test suites pass with 0 errors.
