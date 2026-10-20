@@ -570,6 +570,8 @@
       "hardStop": "Dừng cứng",
       "invalid": "Nhập giá trị hợp lệ trong giới hạn hiển thị.",
       "loadingAdapters": "Đang tải trạng thái bộ điều hợp…",
+      "cliAgents": "Agent CLI theo gói thuê bao (không tính phí API)",
+      "apiModels": "Mô hình API",
       "transportNames": {
         "api": "API",
         "claude-cli": "Claude CLI",

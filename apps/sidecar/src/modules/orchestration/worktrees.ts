@@ -1,4 +1,5 @@
-import { join, resolve } from 'node:path';
+import { appendFile, readFile } from 'node:fs/promises';
+import { basename, join, resolve } from 'node:path';
 import {
   ErrorCode,
   type CoderOutput,
@@ -37,6 +38,16 @@ export class WorktreeManager {
   private async git(root: string, args: readonly string[]) {
     return this.runner.run({ executable: 'git', args, cwd: root, env: this.env, timeoutMs: 30_000 });
   }
+  /** Keeps run worktrees out of the owner's `git status` via the local, uncommitted `info/exclude`. */
+  private async excludeRunDirectory(root: string): Promise<void> {
+    const located = await this.git(root, ['rev-parse', '--git-path', 'info/exclude']);
+    if (!located.ok || located.value.exitCode !== 0) return;
+    const excludeFile = resolve(root, located.value.stdoutTail.trim());
+    const current = await readFile(excludeFile, 'utf8').catch(() => '');
+    if (current.split(/\r?\n/u).some((line) => line.trim() === '.itstudio/')) return;
+    const separator = current.length === 0 || current.endsWith('\n') ? '' : '\n';
+    await appendFile(excludeFile, `${separator}.itstudio/\n`).catch(() => undefined);
+  }
   async create(
     projectRoot: string,
     identity: WorktreeIdentity,
@@ -55,6 +66,7 @@ export class WorktreeManager {
       return fail('Git has uncommitted changes in paths owned by this run.');
     const branch = `itstudio/orch/${identity.runId}/${identity.taskId}-${String(identity.attempt)}`;
     const path = join(root, '.itstudio', 'orch', identity.runId, `${identity.taskId}-${String(identity.attempt)}`);
+    await this.excludeRunDirectory(root);
     const created = await this.git(root, ['worktree', 'add', '-b', branch, path, identity.baseSha]);
     if (!created.ok || created.value.exitCode !== 0) return fail('Git could not create the orchestration worktree.');
     return { ok: true, value: { path, branch, baseSha: identity.baseSha } };
@@ -70,6 +82,7 @@ export class WorktreeManager {
       return fail('The project root must be the Git repository root.');
     const branch = `itstudio/orch/${runId}/integration`;
     const path = join(root, '.itstudio', 'orch', runId, 'integration');
+    await this.excludeRunDirectory(root);
     const created = await this.git(root, ['worktree', 'add', '-b', branch, path, baseSha]);
     if (!created.ok || created.value.exitCode !== 0) return fail('Git could not create the integration worktree.');
     return { ok: true, value: { path, branch, baseSha } };
@@ -92,7 +105,22 @@ export class WorktreeManager {
   }
 }
 
-function globMatches(glob: string, path: string): boolean {
+/**
+ * Every worktree a run created (task attempts + integration), with the branch Git named for it:
+ * worktree `.itstudio/orch/<run>/<name>` always has branch `itstudio/orch/<run>/<name>`.
+ */
+export function runWorktrees(
+  projectRoot: string,
+  runId: string,
+  attemptWorktrees: readonly (string | undefined)[],
+  integrationBranch?: string,
+): readonly Worktree[] {
+  const paths = new Set(attemptWorktrees.filter((path): path is string => path !== undefined));
+  if (integrationBranch !== undefined) paths.add(join(resolve(projectRoot), '.itstudio', 'orch', runId, 'integration'));
+  return [...paths].map((path) => ({ path, branch: `itstudio/orch/${runId}/${basename(path)}`, baseSha: '' }));
+}
+
+export function globMatches(glob: string, path: string): boolean {
   const escaped = glob
     .replace(/[.+^${}()|[\]\\]/gu, '\\$&')
     .replace(/\*\*/gu, '.*')
@@ -164,7 +192,12 @@ export async function applyWorkerOutput(
       timeoutMs: 30_000,
       ...(signal === undefined ? {} : { signal }),
     });
-  const added = await git(['add', '-A']);
+  // Stage only the worker's own paths: the write journal under `.itstudio/tx` must never be committed.
+  // A worker with no operations gets an empty commit so the attempt still has its own head.
+  const added =
+    paths.length === 0
+      ? ({ ok: true, value: { exitCode: 0 } } as const)
+      : await git(['add', '-A', '--', ...new Set(paths)]);
   if (!added.ok || added.value.exitCode !== 0)
     return {
       ok: false,
@@ -172,7 +205,7 @@ export async function applyWorkerOutput(
         ? { code: ErrorCode.COMMAND_FAILED, message: 'Git could not stage worker changes.', retryable: false }
         : added.error,
     };
-  const committed = await git(['commit', '-m', `orch(${runId}/${taskId}#${String(attempt)})`]);
+  const committed = await git(['commit', '--allow-empty', '-m', `orch(${runId}/${taskId}#${String(attempt)})`]);
   if (!committed.ok || committed.value.exitCode !== 0)
     return {
       ok: false,

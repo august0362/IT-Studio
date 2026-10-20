@@ -1,4 +1,16 @@
-import { ErrorCode, type OrchRun, type OrchTaskSpec, type ProjectId } from '@itstudio/schemas';
+import { randomUUID } from 'node:crypto';
+import {
+  ErrorCode,
+  type CommandSpec,
+  type OrchAgentRef,
+  type OrchAttempt,
+  type OrchestrationSettings,
+  type OrchLimits,
+  type OrchRun,
+  type OrchTaskSpec,
+  type ProjectId,
+  type Result,
+} from '@itstudio/schemas';
 import { MockAgentAdapter, type MockScript } from './adapters/mock-adapter.js';
 import { OrchestrationEngine } from './engine.js';
 import type { PlanValidationOptions } from './dag.js';
@@ -8,6 +20,7 @@ import type { ProcessRegistry } from '../../services/process-registry.js';
 import type { IAgentExecutionAdapter } from '../../ports/agent-execution.js';
 import type { IOrchWorkspace } from './workspace.js';
 import { isTargetForbidden } from './workspace.js';
+import { runWorktrees } from './worktrees.js';
 import type { IProcessRunner } from '../../ports/process-runner.js';
 import type { IProjectLifecycleRepository } from '../../ports/project-repository.js';
 
@@ -15,7 +28,17 @@ export interface OrchestrationModuleDependencies {
   readonly repository: OrchRepository;
   readonly processes: Pick<ProcessRegistry, 'upsertOrchestration'>;
   readonly validate: PlanValidationOptions;
-  readonly createRun: (projectId: ProjectId, request: string, tasks: readonly OrchTaskSpec[]) => OrchRun;
+  readonly createRun: (
+    projectId: ProjectId,
+    request: string,
+    tasks: readonly OrchTaskSpec[],
+    options?: RunCreationOptions,
+  ) => OrchRun;
+  /**
+   * Owner settings for real runs. When present (and mock agents are not enabled) planning calls the
+   * configured supervisor agent and runs use the configured agents and limits.
+   */
+  readonly settings?: () => Promise<Result<OrchestrationRunSettings>>;
   readonly scripts?: Partial<Record<'supervisor' | 'worker' | 'reviewer', MockScript>>;
   readonly adapters?: readonly IAgentExecutionAdapter[];
   readonly includeMock?: boolean;
@@ -25,6 +48,39 @@ export interface OrchestrationModuleDependencies {
   readonly projects?: Pick<IProjectLifecycleRepository, 'get'>;
   readonly sidecarCwd?: string;
   readonly appExecutableDir?: string;
+}
+
+export interface RunCreationOptions {
+  readonly id: string;
+  readonly agents: readonly OrchAgentRef[];
+  readonly limits: OrchLimits;
+  readonly targetBranch: string;
+}
+
+export interface OrchestrationRunSettings {
+  readonly orchestration: OrchestrationSettings;
+  /** Commands a plan may use as task test commands (the project's validation commands). */
+  readonly allowedCommands: readonly CommandSpec[];
+}
+
+const PLAN_TIMEOUT_MS = 600_000;
+
+/** Distinct worker agents from the settings, in order (workerA and workerB may be the same agent). */
+export function settingsWorkers(settings: OrchestrationSettings): readonly OrchAgentRef[] {
+  const workers = [settings.roles.workerA, settings.roles.workerB];
+  return workers.filter((worker, index) => workers.findIndex((item) => item.agentId === worker.agentId) === index);
+}
+
+/** Keeps only known worker ids in each task; a task naming none of them may use every worker. */
+export function normalizeCandidates(
+  tasks: readonly OrchTaskSpec[],
+  workers: readonly OrchAgentRef[],
+): readonly OrchTaskSpec[] {
+  const ids = workers.map((worker) => worker.agentId);
+  return tasks.map((task) => {
+    const known = task.candidateAgents.filter((id) => ids.includes(id));
+    return { ...task, candidateAgents: known.length > 0 ? known : ids };
+  });
 }
 
 export function createOrchestrationModule(deps: OrchestrationModuleDependencies) {
@@ -57,6 +113,8 @@ export function createOrchestrationModule(deps: OrchestrationModuleDependencies)
   const engine = new OrchestrationEngine({
     adapters: adapterMap,
     validate: deps.validate,
+    // Attempt ids are primary keys across all runs; never reuse per-run counters.
+    id: () => randomUUID(),
     ...(deps.workspace === undefined ? {} : { workspace: deps.workspace }),
     ...(deps.appExecutableDir === undefined ? {} : { appExecutableDir: deps.appExecutableDir }),
   });
@@ -88,6 +146,65 @@ export function createOrchestrationModule(deps: OrchestrationModuleDependencies)
     deps.processes.upsertOrchestration(run);
     publish({ type: 'run', run });
     return run;
+  }
+
+  function forbidden(root: string): boolean {
+    return isTargetForbidden(root, deps.sidecarCwd, deps.appExecutableDir);
+  }
+
+  /** Real planning: the configured supervisor agent plans; the run uses the configured agents and limits. */
+  async function planWithAgents(
+    projectId: ProjectId,
+    request: string,
+    readSettings: () => Promise<Result<OrchestrationRunSettings>>,
+  ): Promise<Result<OrchRun>> {
+    const settings = await readSettings();
+    if (!settings.ok) return settings;
+    if (deps.workspace?.projectInfo === undefined)
+      return {
+        ok: false,
+        error: { code: ErrorCode.INTERNAL, message: 'Orchestration workspace is not configured.', retryable: false },
+      };
+    const info = await deps.workspace.projectInfo(projectId);
+    if (!info.ok) return info;
+    if (forbidden(info.value.root))
+      return {
+        ok: false,
+        error: { code: ErrorCode.TARGET_FORBIDDEN, message: 'Target project path is forbidden.', retryable: false },
+      };
+    const { roles, limits } = settings.value.orchestration;
+    const workers = settingsWorkers(settings.value.orchestration);
+    const allowedCommands = settings.value.allowedCommands;
+    const runId = randomUUID();
+    const planned = await engine.supervisePlan(roles.supervisor, {
+      projectId,
+      runId,
+      input: {
+        kind: 'plan',
+        request,
+        workers: workers.map((worker) => worker.agentId),
+        tree: info.value.tree,
+        allowedCommands,
+      },
+      timeoutMs: PLAN_TIMEOUT_MS,
+      validate: { workspaceRoot: info.value.root, allowedCommands },
+    });
+    if (!planned.plan.ok) return planned.plan;
+    const run = deps.createRun(projectId, request, normalizeCandidates(planned.plan.value, workers), {
+      id: runId,
+      agents: [roles.supervisor, ...workers, roles.reviewer],
+      limits,
+      targetBranch: info.value.branch,
+    });
+    const counted: OrchRun = {
+      ...run,
+      agentCalls: run.agentCalls + 1,
+      costMicroUsd: (run.costMicroUsd + (planned.attempt.usage.costMicroUsd ?? 0)) as OrchRun['costMicroUsd'],
+    };
+    deps.repository.save(counted, [planned.attempt]);
+    deps.processes.upsertOrchestration(counted);
+    publish({ type: 'run', run: counted });
+    return { ok: true, value: counted };
   }
 
   async function start(runId?: string): Promise<OrchRun | undefined> {
@@ -128,6 +245,19 @@ export function createOrchestrationModule(deps: OrchestrationModuleDependencies)
     return run;
   }
 
+  async function removeRunWorktrees(run: OrchRun, attempts: readonly OrchAttempt[]): Promise<void> {
+    if (deps.workspace === undefined) return;
+    const project = deps.projects !== undefined ? await deps.projects.get(run.projectId) : null;
+    const root = project?.workspaceRoot ?? deps.validate.workspaceRoot;
+    const worktrees = runWorktrees(
+      root,
+      run.id,
+      attempts.map((attempt) => attempt.worktree),
+      run.integrationBranch,
+    );
+    for (const worktree of worktrees) await deps.workspace.cleanup(run, worktree);
+  }
+
   function register(server: RpcServer): void {
     server.register('orch.adapters', async () => ({
       ok: true,
@@ -142,6 +272,8 @@ export function createOrchestrationModule(deps: OrchestrationModuleDependencies)
     }));
 
     server.register('orch.plan', async ({ projectId, request }) => {
+      if (deps.includeMock !== true && deps.settings !== undefined)
+        return await planWithAgents(projectId, request, deps.settings);
       const project = deps.projects !== undefined ? await deps.projects.get(projectId) : null;
       const workspaceRoot = project?.workspaceRoot ?? deps.validate.workspaceRoot;
       if (isTargetForbidden(workspaceRoot, deps.sidecarCwd, deps.appExecutableDir)) {
@@ -258,10 +390,28 @@ export function createOrchestrationModule(deps: OrchestrationModuleDependencies)
             },
           };
         }
+        const branch = await deps.runner.run({
+          executable: 'git',
+          args: ['rev-parse', '--abbrev-ref', 'HEAD'],
+          cwd: workspaceRoot,
+          env: process.env,
+          timeoutMs: 30_000,
+        });
+        const checkedOut = branch.ok && branch.value.exitCode === 0 ? branch.value.stdoutTail.trim() : '';
+        if (checkedOut !== current.targetBranch) {
+          return {
+            ok: false,
+            error: {
+              code: ErrorCode.CONFLICT,
+              message: `Check out ${current.targetBranch} in the project before approving (current: ${checkedOut || 'unknown'}).`,
+              retryable: false,
+            },
+          };
+        }
         const integrationBranch = current.integrationBranch ?? `itstudio/orch/${current.id}/integration`;
         const merge = await deps.runner.run({
           executable: 'git',
-          args: ['merge', '--no-ff', integrationBranch],
+          args: ['merge', '--no-ff', '-m', `Merge IT Studio orchestration run ${current.id}`, integrationBranch],
           cwd: workspaceRoot,
           env: process.env,
           timeoutMs: 30_000,
@@ -278,6 +428,8 @@ export function createOrchestrationModule(deps: OrchestrationModuleDependencies)
         }
       }
 
+      // The merge is done: task and integration worktrees/branches are no longer needed.
+      await removeRunWorktrees(current, attempts);
       const completed: OrchRun = { ...current, state: 'completed' };
       deps.repository.save(completed, attempts);
       deps.processes.upsertOrchestration(completed);
@@ -291,26 +443,7 @@ export function createOrchestrationModule(deps: OrchestrationModuleDependencies)
         return { ok: false, error: { code: ErrorCode.NOT_FOUND, message: 'Run not found.', retryable: false } };
       }
       const attempts = deps.repository.attempts(runId);
-      if (deps.workspace !== undefined) {
-        for (const att of attempts) {
-          if (att.worktree) {
-            await deps.workspace.cleanup(current, {
-              path: att.worktree,
-              branch: `itstudio/orch/${current.id}/${att.taskId ?? 'task'}-${String(att.id)}`,
-              baseSha: att.baseSha ?? '',
-            });
-          }
-        }
-        if (current.integrationBranch) {
-          const project = deps.projects !== undefined ? await deps.projects.get(current.projectId) : null;
-          const workspaceRoot = project?.workspaceRoot ?? deps.validate.workspaceRoot;
-          await deps.workspace.cleanup(current, {
-            path: `${workspaceRoot}/.itstudio/orch/${current.id}/integration`,
-            branch: current.integrationBranch,
-            baseSha: '',
-          });
-        }
-      }
+      await removeRunWorktrees(current, attempts);
       const discarded: OrchRun = { ...current, state: 'cancelled', stateReason: 'DISCARDED' };
       deps.repository.save(discarded, attempts);
       deps.processes.upsertOrchestration(discarded);

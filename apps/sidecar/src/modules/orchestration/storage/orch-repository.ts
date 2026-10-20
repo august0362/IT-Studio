@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import type { OrchAttempt, OrchRun } from '@itstudio/schemas';
 import type { AppDatabase } from '../../../infra/sqlite/database.js';
 import { orchAttempts, orchEvents, orchRuns, orchTasks } from '../../../infra/sqlite/schema.js';
@@ -29,28 +29,32 @@ export class OrchRepository {
         tx.insert(orchTasks)
           .values(
             run.tasks.map((task) => ({
-              id: task.id,
+              // Plan task ids (T1, T2, …) repeat in every run; the row key must be unique across runs.
+              id: `${run.id}/${task.id}`,
               runId: run.id,
               state: task.state,
               dataJson: JSON.stringify(task),
             })),
           )
           .run();
-      const insertedAttempts = attempts.filter(
-        (attempt) =>
+      const insertedAttempts = attempts.filter((attempt) => {
+        const dataJson = JSON.stringify(attempt);
+        const inserted =
           tx
             .insert(orchAttempts)
-            .values({
-              id: attempt.id,
-              runId: run.id,
-              taskId: attempt.taskId,
-              state: attempt.state,
-              dataJson: JSON.stringify(attempt),
-            })
+            .values({ id: attempt.id, runId: run.id, taskId: attempt.taskId, state: attempt.state, dataJson })
             .onConflictDoNothing()
             .returning({ id: orchAttempts.id })
-            .all().length > 0,
-      );
+            .all().length > 0;
+        // Known attempts still change later (review verdict, restart sweep to `unknown`): keep the latest copy,
+        // but emit an attempt event only for new attempts.
+        if (!inserted)
+          tx.update(orchAttempts)
+            .set({ state: attempt.state, dataJson })
+            .where(and(eq(orchAttempts.id, attempt.id), eq(orchAttempts.runId, run.id)))
+            .run();
+        return inserted;
+      });
       if (insertedAttempts.length > 0)
         tx.insert(orchEvents)
           .values(

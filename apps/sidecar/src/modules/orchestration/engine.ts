@@ -1,5 +1,19 @@
-import type { CoderOutput, MicroUsd, OrchAttempt, OrchRun, OrchTask, OrchTaskSpec, OrchUsage } from '@itstudio/schemas';
-import type { IAgentExecutionAdapter } from '../../ports/agent-execution.js';
+import { randomUUID } from 'node:crypto';
+import {
+  ErrorCode,
+  type AppError,
+  type CoderOutput,
+  type FindingSeverity,
+  type MicroUsd,
+  type OrchAgentRef,
+  type OrchAttempt,
+  type OrchRun,
+  type OrchTask,
+  type OrchTaskSpec,
+  type OrchUsage,
+  type Result,
+} from '@itstudio/schemas';
+import type { AgentEnvelope, IAgentExecutionAdapter } from '../../ports/agent-execution.js';
 import { transitionRun } from './run-machine.js';
 import { topologicalOrder, validatePlan, type PlanValidationOptions } from './dag.js';
 import { blockFailedDependents, pickRunnable } from './scheduler.js';
@@ -78,6 +92,28 @@ function isVerdict(value: unknown): value is Verdict {
   });
 }
 
+const SEVERITY: Readonly<Record<Verdict['findings'][number]['severity'], FindingSeverity>> = {
+  critical: 'blocker',
+  error: 'major',
+  warning: 'minor',
+  info: 'nit',
+};
+
+/** Maps the reviewer protocol verdict onto the stored `OrchAttempt.verdict` contract. */
+function storedVerdict(verdict: Verdict): NonNullable<OrchAttempt['verdict']> {
+  return {
+    verdict: verdict.verdict,
+    summary: verdict.summary,
+    findings: verdict.findings.map((finding) => ({
+      severity: SEVERITY[finding.severity],
+      path: finding.path,
+      ...(finding.line === undefined ? {} : { line: finding.line }),
+      message: finding.message,
+      suggestedFix: finding.suggestedFix,
+    })),
+  };
+}
+
 export class OrchestrationEngine {
   private readonly deps: OrchestrationEngineDependencies;
   private readonly attemptsByRun = new Map<string, readonly OrchAttempt[]>();
@@ -93,6 +129,79 @@ export class OrchestrationEngine {
 
   plan(input: unknown): Promise<ReturnType<typeof validatePlan>> {
     return Promise.resolve(validatePlan(input, this.deps.validate));
+  }
+
+  /**
+   * Asks a real supervisor agent for a plan and validates it. The attempt is returned so the caller can
+   * store it with the run as evidence of the planning call.
+   */
+  async supervisePlan(
+    agent: OrchAgentRef,
+    context: {
+      readonly projectId: string;
+      readonly runId: string;
+      readonly input: unknown;
+      readonly timeoutMs: number;
+      readonly validate?: PlanValidationOptions;
+    },
+  ): Promise<{ readonly plan: Result<readonly OrchTaskSpec[]>; readonly attempt: OrchAttempt }> {
+    const id = (this.deps.id ?? (() => randomUUID()))();
+    const startedAt = (this.deps.now ?? (() => new Date().toISOString()))();
+    const finish = (state: OrchAttempt['state'], usage: OrchUsage, reason?: string): OrchAttempt => ({
+      id: id as OrchAttempt['id'],
+      taskId: null,
+      role: 'supervisor',
+      agent,
+      state,
+      ...(reason === undefined ? {} : { reason }),
+      changedFiles: [],
+      evidence: [],
+      usage,
+      startedAt: startedAt as OrchAttempt['startedAt'],
+      endedAt: (this.deps.now ?? (() => new Date().toISOString()))() as OrchAttempt['startedAt'],
+    });
+    const failed = (code: AppError['code'], message: string, usage: OrchUsage = unknownUsage) => ({
+      plan: { ok: false as const, error: { code, message, retryable: false } },
+      attempt: finish('failed', usage, code),
+    });
+    const adapter = this.deps.adapters.get(agent.transport);
+    const probed = await this.probeAdapter(agent.transport);
+    if (adapter === undefined || probed.status !== 'available')
+      return failed(
+        ErrorCode.VALIDATION,
+        `Supervisor agent ${agent.transport} is ${probed.status}${probed.reason === undefined ? '' : `: ${probed.reason}`}`,
+      );
+    const envelope: AgentEnvelope = {
+      schemaVersion: '1',
+      agentId: agent.agentId,
+      roleId: 'supervisor',
+      roleVersion: '1',
+      modelId: agent.modelId ?? 'mock',
+      providerId: agent.providerId ?? 'mock',
+      transportId: agent.transport,
+      projectId: context.projectId,
+      orchestrationRunId: context.runId,
+      taskId: null,
+      attemptId: id,
+      assignedWorktree: null,
+      allowedPaths: [],
+      approvedTools: [],
+      forbiddenActions: ['write-to-disk'],
+      objective: 'Plan the owner request as a DAG of worker tasks.',
+      requirements: [],
+      acceptanceCriteria: [],
+      reportingSchema: {},
+      budgetPolicy: {},
+      timeoutMs: context.timeoutMs,
+      contextReferences: [],
+    };
+    const controller = new AbortController();
+    const result = await adapter.run(envelope, context.input, controller.signal, () => undefined);
+    if (!result.ok) return failed(result.error.code, result.error.message);
+    const plan = validatePlan(result.value.payload, context.validate ?? this.deps.validate);
+    return plan.ok
+      ? { plan, attempt: finish('succeeded', result.value.usage) }
+      : { plan, attempt: finish('failed', result.value.usage, ErrorCode.PLAN_INVALID) };
   }
 
   attempts(runId: string): readonly OrchAttempt[] {
@@ -125,7 +234,10 @@ export class OrchestrationEngine {
   async run(run: OrchRun, onChange?: (run: OrchRun, attempts: readonly OrchAttempt[]) => void): Promise<OrchRun> {
     if (!transitionRun(run.state, 'running').ok) return run;
 
-    const projectRoot = this.deps.projectRoot ?? this.deps.validate.workspaceRoot;
+    // With a workspace the real project root is checked per attempt (prepareAttempt / prepareIntegration);
+    // `validate.workspaceRoot` is then only the plan-validation root, not the target project.
+    const projectRoot =
+      this.deps.projectRoot ?? (this.deps.workspace === undefined ? this.deps.validate.workspaceRoot : undefined);
     if (projectRoot && isTargetForbidden(projectRoot, process.cwd(), this.deps.appExecutableDir)) {
       return {
         ...run,
@@ -264,6 +376,14 @@ export class OrchestrationEngine {
         worktree = prepared.value;
         taskWorktrees.set(task.id, prepared.value);
       }
+      let agentInput = input;
+      if (worktree !== undefined && this.deps.workspace?.workerContext !== undefined) {
+        const context = await this.deps.workspace.workerContext(worktree, task.allowedPaths);
+        if (context.ok && typeof input === 'object' && input !== null)
+          agentInput = { ...input, tree: context.value.tree, files: context.value.files };
+      }
+      // Reviewers read the task's worktree (CLI agents run there read-only); they never get write access.
+      const readOnlyWorktree = role === 'reviewer' ? taskWorktrees.get(task.id) : undefined;
 
       const envelope = {
         schemaVersion: '1',
@@ -277,7 +397,7 @@ export class OrchestrationEngine {
         orchestrationRunId: run.id,
         taskId: task.id,
         attemptId: id,
-        assignedWorktree: worktree?.path ?? null,
+        assignedWorktree: worktree?.path ?? readOnlyWorktree?.path ?? null,
         allowedPaths: task.allowedPaths,
         approvedTools: [],
         forbiddenActions: worktree === undefined ? ['write-to-disk'] : [],
@@ -328,7 +448,7 @@ export class OrchestrationEngine {
         return { ok: false, payload: undefined, usage: unknownUsage, attempt };
       }
 
-      const result = await selected.run(envelope, input, controller.signal, () => undefined);
+      const result = await selected.run(envelope, agentInput, controller.signal, () => undefined);
       const expectedAck = {
         ack: true,
         roleId: envelope.roleId,
@@ -455,14 +575,13 @@ export class OrchestrationEngine {
         }
 
         const validVerdict = isVerdict(review.payload);
-        if (!validVerdict) {
-          const index = attempts.findIndex((item) => item.id === review.attempt.id);
-          if (index >= 0) {
-            const existingAttempt = attempts[index];
-            if (existingAttempt !== undefined) {
-              attempts[index] = { ...existingAttempt, state: 'failed', reason: 'REVIEW_INVALID' };
-            }
-          }
+        const reviewIndex = attempts.findIndex((item) => item.id === review.attempt.id);
+        const reviewAttempt = attempts[reviewIndex];
+        if (reviewAttempt !== undefined) {
+          // Keep the reviewer's findings on the attempt so the owner can see why a fix was required.
+          attempts[reviewIndex] = validVerdict
+            ? { ...reviewAttempt, verdict: storedVerdict(review.payload as Verdict) }
+            : { ...reviewAttempt, state: 'failed', reason: 'REVIEW_INVALID' };
         }
         const verdict: Verdict = validVerdict
           ? (review.payload as Verdict)

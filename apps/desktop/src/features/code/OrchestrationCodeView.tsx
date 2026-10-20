@@ -10,6 +10,9 @@ import { useRpcClient } from '../../rpc/rpc-context';
 import { useNavigationIntent } from '../../state/navigation-intent';
 
 const activeStates: readonly string[] = [OrchRunState.RUNNING, OrchRunState.PAUSED, OrchRunState.PAUSED_INTERRUPTED];
+/** Slightly above the sidecar's supervisor planning timeout. */
+const PLAN_TIMEOUT_MS = 660_000;
+const RUN_TIMEOUT_MARGIN_MS = 120_000;
 export function OrchestrationCodeView({ projectId }: { readonly projectId: ProjectId | null }): JSX.Element {
   const { t } = useTranslation();
   const rpc = useRpcClient();
@@ -76,13 +79,25 @@ export function OrchestrationCodeView({ projectId }: { readonly projectId: Proje
   async function action(
     method: 'orch.plan' | 'orch.start' | 'orch.cancel' | 'orch.resume' | 'orch.approve' | 'orch.discard',
   ): Promise<void> {
-    setBusy(true);
     setError(null);
+    if ((method === 'orch.start' || method === 'orch.resume') && run !== null) {
+      // A run lasts minutes: progress arrives as orch.event, so Cancel must stay usable meanwhile.
+      setRun({ ...run, state: OrchRunState.RUNNING });
+      rpc
+        .call(method, { runId: run.id }, { timeoutMs: run.limits.maxWallClockMs + RUN_TIMEOUT_MARGIN_MS })
+        .then(setRun)
+        .catch((cause: unknown) => {
+          setError(cause instanceof Error ? cause.message : t('code.actionError'));
+        });
+      return;
+    }
+    setBusy(true);
     try {
       let result: OrchRun;
       if (method === 'orch.plan') {
         if (projectId === null) return;
-        result = await rpc.call(method, { projectId, request });
+        // Planning runs the supervisor agent, which can take several minutes.
+        result = await rpc.call(method, { projectId, request }, { timeoutMs: PLAN_TIMEOUT_MS });
       } else {
         if (run === null) return;
         result = await rpc.call(method, { runId: run.id });

@@ -375,6 +375,15 @@ describe('orchestration integration smoke', () => {
         timeoutMs: 10_000,
       });
       expect(log.ok && log.value.stdoutTail.trim()).toBe('1');
+
+      // Approval cleans up every run worktree and branch; run folders never show up in `git status`.
+      const git = async (args: readonly string[]) => {
+        const result = await runner.run({ executable: 'git', args, cwd: repoDir, env: process.env, timeoutMs: 10_000 });
+        return result.ok ? result.value.stdoutTail.trim() : '';
+      };
+      expect((await git(['worktree', 'list'])).split('\n')).toHaveLength(1);
+      expect(await git(['branch', '--list', 'itstudio/orch/*'])).toBe('');
+      expect(await git(['status', '--porcelain'])).not.toContain('.itstudio');
     } finally {
       rmSync(repoDir, { recursive: true, force: true });
     }

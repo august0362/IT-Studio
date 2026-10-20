@@ -449,6 +449,8 @@
       "hardStop": "Hard Stop",
       "invalid": "Enter a valid value within the shown limits.",
       "loadingAdapters": "Loading adapter status…",
+      "cliAgents": "Subscription CLI agents (no API cost)",
+      "apiModels": "API models",
       "transportNames": {
         "api": "API",
         "claude-cli": "Claude CLI",

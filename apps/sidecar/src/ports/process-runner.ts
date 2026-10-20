@@ -7,6 +7,10 @@ export interface ProcessRunInput {
   readonly env: NodeJS.ProcessEnv;
   readonly timeoutMs: number;
   readonly signal?: AbortSignal;
+  /** Written to the child's stdin, which is then closed. Without it stdin is ignored. */
+  readonly stdin?: string;
+  /** Upper bound for each of stdoutTail / stderrTail; defaults to 64 KB. */
+  readonly maxOutputBytes?: number;
 }
 
 export interface ProcessRunOutput {

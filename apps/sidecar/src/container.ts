@@ -108,6 +108,7 @@ import { WorktreeManager } from './modules/orchestration/worktrees.js';
 import { ApiAgentAdapter } from './modules/orchestration/adapters/api-adapter.js';
 import { ClaudeCliAdapter } from './modules/orchestration/adapters/claude-cli-adapter.js';
 import { CodexCliAdapter } from './modules/orchestration/adapters/codex-cli-adapter.js';
+import { buildAgentPrompt, extractJsonObjects } from './modules/orchestration/prompts.js';
 import { EmbeddingDispatcher } from './services/embedding-dispatcher.js';
 import { LanceDbVectorStore } from './infra/lancedb/vector-store.js';
 import { DocumentRepository } from './infra/sqlite/document-repository.js';
@@ -1027,47 +1028,61 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     }),
     adapters: [
       new ApiAgentAdapter(async ({ envelope, input, signal }) => {
+        const modelKey = modelKeySchema.safeParse(
+          envelope.modelId.startsWith(`${envelope.providerId}/`)
+            ? envelope.modelId
+            : `${envelope.providerId}/${envelope.modelId}`,
+        );
+        const requestId = llmRequestIdSchema.parse(ids.uuid());
         const response = await llmRouter.dispatch(
           {
-            id: llmRequestIdSchema.parse(ids.uuid()),
+            id: requestId,
             projectId: projectIdSchema.parse(envelope.projectId),
-            purpose: envelope.roleId === 'worker' ? CostPurpose.PIPELINE_CODER : CostPurpose.PIPELINE_REVIEWER,
+            purpose:
+              envelope.roleId === 'worker'
+                ? CostPurpose.PIPELINE_CODER
+                : envelope.roleId === 'reviewer'
+                  ? CostPurpose.PIPELINE_REVIEWER
+                  : CostPurpose.PIPELINE_PM,
             messages: [
               {
                 id: messageIdSchema.parse(ids.uuid()),
                 conversationId: conversationIdSchema.parse(ids.uuid()),
                 role: 'user',
                 createdAt: isoDateTimeSchema.parse(clock.now().toISOString()),
-                parts: [{ type: 'text', text: JSON.stringify({ envelope, input }) }],
+                parts: [{ type: 'text', text: buildAgentPrompt(envelope, input, { withAck: false }) }],
               },
             ],
-            systemPrompt: `You are the ${envelope.roleId} agent. Return one JSON object.`,
+            systemPrompt: `You are the ${envelope.roleId} agent of an IT Studio orchestration run. Follow the user message exactly and return one JSON object.`,
             requiredCapabilities: [ModelCapability.CHAT, ModelCapability.JSON_MODE],
             responseFormat: 'json',
-            ...(envelope.modelId === 'mock' ? {} : { preferredModelKey: modelKeySchema.parse(envelope.modelId) }),
-            maxOutputTokens: 4096,
+            ...(envelope.modelId === 'mock' || !modelKey.success ? {} : { preferredModelKey: modelKey.data }),
+            maxOutputTokens: envelope.roleId === 'worker' ? 16_384 : 8_192,
             stream: false,
           },
           { signal },
         );
         if (!response.ok) return response;
         const text = response.value.message.parts.find((part) => part.type === 'text');
-        return text === undefined
+        const payload = text === undefined ? undefined : extractJsonObjects(text.text)[0];
+        // The router reports 0; the real cost is priced by the ledger. Unknown stays null, never 0.
+        const recorded = await ledgerService.recordedCost(requestId);
+        return payload === undefined
           ? {
               ok: false as const,
-              error: { code: ErrorCode.VALIDATION, message: 'Agent returned no text.', retryable: false },
+              error: { code: ErrorCode.VALIDATION, message: 'Agent returned no JSON object.', retryable: false },
             }
           : {
               ok: true as const,
               value: {
-                payload: z.unknown().parse(JSON.parse(text.text)),
+                payload,
                 usage: {
                   inputTokens: response.value.usage.inputTokens,
                   outputTokens: response.value.usage.outputTokens,
                   cachedInputTokens: response.value.usage.cachedInputTokens,
                   reasoningTokens: null,
                   source: 'provider' as const,
-                  costMicroUsd: response.value.costMicroUsd,
+                  costMicroUsd: recorded?.microUsd ?? null,
                   billing: 'api' as const,
                 },
               },
@@ -1078,20 +1093,35 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     ],
     includeMock: env.ITSTUDIO_E2E_ORCH_MOCK === '1' || process.env.NODE_ENV === 'test',
     validate: { workspaceRoot: dataDir, allowedCommands: [] },
-    createRun: (projectId, request, specs) => {
+    runner: workerProcessRunner,
+    projects: projectRepository,
+    appExecutableDir: dirname(process.execPath),
+    settings: async () => {
+      const settings = await settingsService.get();
+      return settings.ok
+        ? {
+            ok: true as const,
+            value: {
+              orchestration: settings.value.orchestration,
+              allowedCommands: settings.value.pipeline.validationCommands,
+            },
+          }
+        : settings;
+    },
+    createRun: (projectId, request, specs, options) => {
       const now = isoDateTimeSchema.parse(clock.now().toISOString());
       return {
-        id: ids.uuid() as OrchRunId,
+        id: (options?.id ?? ids.uuid()) as OrchRunId,
         projectId,
         request,
         state: 'plan_ready',
-        agents: [
+        agents: options?.agents ?? [
           { agentId: 'mock-supervisor', role: 'supervisor', transport: 'mock' },
           { agentId: 'mock-worker', role: 'worker', transport: 'mock' },
           { agentId: 'mock-reviewer', role: 'reviewer', transport: 'mock' },
         ],
         tasks: specs.map((spec) => ({ ...spec, state: 'ready' as const, fixRounds: 0, attempts: [] })),
-        limits: {
+        limits: options?.limits ?? {
           maxCostMicroUsd: 2_000_000 as MicroUsd,
           maxWallClockMs: 3_600_000,
           maxAgentCalls: 40,
@@ -1100,7 +1130,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
           transientRetries: 1,
           hardStop: false,
         },
-        targetBranch: 'main',
+        targetBranch: options?.targetBranch ?? 'main',
         costMicroUsd: 0 as MicroUsd,
         agentCalls: 0,
         createdAt: now,

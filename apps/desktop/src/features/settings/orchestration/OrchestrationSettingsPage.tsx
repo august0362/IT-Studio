@@ -13,6 +13,8 @@ const roleFor: Readonly<Record<RoleField, OrchRole>> = {
   workerB: 'worker',
   reviewer: 'reviewer',
 };
+/** Agent CLIs that run on the owner's subscription (no API key, no per-token cost). */
+const cliTransports = ['claude-cli', 'codex-cli'] as const;
 const limits = [
   { key: 'maxCostMicroUsd', min: 0, max: 100_000_000, step: 100_000, scale: 1_000_000, label: 'maxCost' },
   { key: 'maxWallClockMs', min: 1, max: 1440, step: 1, scale: 60_000, label: 'wallClock' },
@@ -36,8 +38,18 @@ export function OrchestrationSettingsPage(): JSX.Element {
   const current = value ?? settingsQuery.data?.orchestration;
   const models = (modelsQuery.data ?? []).filter((model) => model.capabilities.includes('code') && model.enabled);
   function setRole(field: RoleField, modelKey: string): void {
+    if (current === undefined) return;
+    const cli = cliTransports.find((transport) => `cli:${transport}` === modelKey);
+    if (cli !== undefined) {
+      setValue({
+        ...current,
+        roles: { ...current.roles, [field]: { agentId: `${field}:${cli}`, role: roleFor[field], transport: cli } },
+      });
+      setSaved(false);
+      return;
+    }
     const model = models.find((candidate) => candidate.key === modelKey);
-    if (model === undefined || current === undefined) return;
+    if (model === undefined) return;
     const nextRef = {
       agentId: `${field}:${model.key}`,
       role: roleFor[field],
@@ -95,11 +107,13 @@ export function OrchestrationSettingsPage(): JSX.Element {
             <select
               className="w-full rounded border border-border bg-surface px-3 py-2"
               value={
-                models.find(
-                  (model) =>
-                    model.provider === current.roles[field].providerId &&
-                    model.providerModelId === current.roles[field].modelId,
-                )?.key ?? ''
+                current.roles[field].transport === 'api'
+                  ? (models.find(
+                      (model) =>
+                        model.provider === current.roles[field].providerId &&
+                        model.providerModelId === current.roles[field].modelId,
+                    )?.key ?? '')
+                  : `cli:${current.roles[field].transport}`
               }
               onChange={(event) => {
                 setRole(field, event.target.value);
@@ -108,11 +122,20 @@ export function OrchestrationSettingsPage(): JSX.Element {
               <option value="" disabled>
                 {t('settings.orchestration.model')}
               </option>
-              {models.map((model) => (
-                <option key={model.key} value={model.key}>
-                  {model.displayName} · {model.provider}
-                </option>
-              ))}
+              <optgroup label={t('settings.orchestration.cliAgents')}>
+                {cliTransports.map((transport) => (
+                  <option key={transport} value={`cli:${transport}`}>
+                    {t(`settings.orchestration.transportNames.${transport}`)}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label={t('settings.orchestration.apiModels')}>
+                {models.map((model) => (
+                  <option key={model.key} value={model.key}>
+                    {model.displayName} · {model.provider}
+                  </option>
+                ))}
+              </optgroup>
             </select>
           </label>
         ))}

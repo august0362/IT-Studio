@@ -1,4 +1,5 @@
-import { resolve } from 'node:path';
+import { createHash } from 'node:crypto';
+import { join, resolve } from 'node:path';
 import {
   ErrorCode,
   type CoderOutput,
@@ -7,12 +8,19 @@ import {
   type OrchRun,
   type OrchTask,
   type Project,
+  type ProjectId,
   type Result,
 } from '@itstudio/schemas';
 import type { IProjectLifecycleRepository } from '../../ports/project-repository.js';
 import type { IProcessRunner } from '../../ports/process-runner.js';
 import { coderOutputSchema } from '../../validation/pipeline.js';
-import { applyWorkerOutput, type Worktree, type WorktreeManager, type WorkerApplyDependencies } from './worktrees.js';
+import {
+  applyWorkerOutput,
+  globMatches,
+  type Worktree,
+  type WorktreeManager,
+  type WorkerApplyDependencies,
+} from './worktrees.js';
 
 export function isTargetForbidden(
   projectRoot: string,
@@ -63,7 +71,30 @@ export interface IOrchWorkspace {
   ): Promise<Result<AttemptResult>>;
   diff(worktree: Worktree): Promise<Result<string>>;
   cleanup(run: OrchRun, worktree: Worktree): Promise<Result<void>>;
+  /** Tracked files and the current content + sha256 of files inside `allowedPaths` (worker context). */
+  workerContext?(worktree: Worktree, allowedPaths: readonly string[]): Promise<Result<WorkerContext>>;
+  /** Root, current branch and tracked files of the run's project (supervisor planning context). */
+  projectInfo?(projectId: ProjectId): Promise<Result<ProjectInfo>>;
 }
+export interface WorkerContextFile {
+  readonly path: string;
+  readonly sha256: string;
+  /** Omitted when the file is binary or too large; the worker may still read it from its worktree. */
+  readonly content?: string;
+}
+export interface WorkerContext {
+  readonly tree: readonly string[];
+  readonly files: readonly WorkerContextFile[];
+}
+export interface ProjectInfo {
+  readonly root: string;
+  readonly branch: string;
+  readonly tree: readonly string[];
+}
+const MAX_TREE_ENTRIES = 400;
+const MAX_CONTEXT_FILE_BYTES = 64 * 1024;
+const MAX_CONTEXT_TOTAL_BYTES = 512 * 1024;
+const MAX_DIFF_CHARS = 200_000;
 export interface OrchWorkspaceDependencies {
   readonly projects: Pick<IProjectLifecycleRepository, 'get'>;
   readonly worktrees: WorktreeManager;
@@ -140,7 +171,7 @@ export class OrchWorkspace implements IOrchWorkspace {
   async mergeTask(_run: OrchRun, integration: Worktree, taskWorktree: Worktree): Promise<Result<MergeTaskResult>> {
     const merged = await this.deps.runner.run({
       executable: 'git',
-      args: ['merge', '--no-ff', taskWorktree.branch],
+      args: ['merge', '--no-ff', '-m', `Merge ${taskWorktree.branch}`, taskWorktree.branch],
       cwd: integration.path,
       env: process.env,
       timeoutMs: 30_000,
@@ -211,14 +242,88 @@ export class OrchWorkspace implements IOrchWorkspace {
       cwd: worktree.path,
       env: process.env,
       timeoutMs: 30_000,
+      maxOutputBytes: 4 * 1024 * 1024,
     });
     if (!result.ok) return result;
-    return result.value.exitCode === 0
-      ? { ok: true, value: result.value.stdoutTail }
-      : {
-          ok: false,
-          error: { code: ErrorCode.COMMAND_FAILED, message: 'Could not read the worktree diff.', retryable: false },
-        };
+    if (result.value.exitCode !== 0)
+      return {
+        ok: false,
+        error: { code: ErrorCode.COMMAND_FAILED, message: 'Could not read the worktree diff.', retryable: false },
+      };
+    const diff = result.value.stdoutTail;
+    return {
+      ok: true,
+      value:
+        diff.length > MAX_DIFF_CHARS
+          ? `${diff.slice(0, MAX_DIFF_CHARS)}\n[diff truncated: ${String(diff.length - MAX_DIFF_CHARS)} more characters]`
+          : diff,
+    };
+  }
+  private async trackedFiles(root: string): Promise<Result<readonly string[]>> {
+    const listed = await this.deps.runner.run({
+      executable: 'git',
+      args: ['ls-files'],
+      cwd: root,
+      env: process.env,
+      timeoutMs: 30_000,
+      maxOutputBytes: 4 * 1024 * 1024,
+    });
+    if (!listed.ok) return listed;
+    if (listed.value.exitCode !== 0)
+      return {
+        ok: false,
+        error: { code: ErrorCode.COMMAND_FAILED, message: 'Could not list the project files.', retryable: false },
+      };
+    return {
+      ok: true,
+      value: listed.value.stdoutTail
+        .split(/\r?\n/u)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0),
+    };
+  }
+  async workerContext(worktree: Worktree, allowedPaths: readonly string[]): Promise<Result<WorkerContext>> {
+    const tracked = await this.trackedFiles(worktree.path);
+    if (!tracked.ok) return tracked;
+    const files: WorkerContextFile[] = [];
+    let total = 0;
+    for (const path of tracked.value) {
+      if (!allowedPaths.some((pattern) => globMatches(pattern, path))) continue;
+      const read = await this.deps.apply.fileSystem.readFile(join(worktree.path, path));
+      if (!read.ok) continue;
+      const sha256 = createHash('sha256').update(read.value).digest('hex');
+      const text = read.value.includes(0) ? undefined : new TextDecoder('utf-8').decode(read.value);
+      const fits =
+        text !== undefined &&
+        read.value.byteLength <= MAX_CONTEXT_FILE_BYTES &&
+        total + read.value.byteLength <= MAX_CONTEXT_TOTAL_BYTES;
+      if (fits) total += read.value.byteLength;
+      files.push(fits ? { path, sha256, content: text } : { path, sha256 });
+    }
+    return { ok: true, value: { tree: tracked.value.slice(0, MAX_TREE_ENTRIES), files } };
+  }
+  async projectInfo(projectId: ProjectId): Promise<Result<ProjectInfo>> {
+    const project = await this.deps.projects.get(projectId);
+    if (project === null)
+      return { ok: false, error: { code: ErrorCode.NOT_FOUND, message: 'Project was not found.', retryable: false } };
+    const tracked = await this.trackedFiles(project.workspaceRoot);
+    if (!tracked.ok) return tracked;
+    const branch = await this.deps.runner.run({
+      executable: 'git',
+      args: ['rev-parse', '--abbrev-ref', 'HEAD'],
+      cwd: project.workspaceRoot,
+      env: process.env,
+      timeoutMs: 30_000,
+    });
+    const name = branch.ok && branch.value.exitCode === 0 ? branch.value.stdoutTail.trim() : '';
+    return {
+      ok: true,
+      value: {
+        root: project.workspaceRoot,
+        branch: name.length > 0 && name !== 'HEAD' ? name : 'main',
+        tree: tracked.value.slice(0, MAX_TREE_ENTRIES),
+      },
+    };
   }
   async cleanup(run: OrchRun, worktree: Worktree): Promise<Result<void>> {
     const project = await this.deps.projects.get(run.projectId);
