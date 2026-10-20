@@ -48,8 +48,8 @@ owner's decision. Work done directly by Claude (owner rule since 2026-10-20: no 
   `orchestration.test.ts` (mock supervisors approve).
 - Tooling: `.github/workflows/ci.yml`, `.github/rulesets/main-protection.json`, `scripts/dev/acceptance-fixture.mjs`
   (+ test).
-- Docs: `docs/qa/stabilization/01…06`, `ARCHITECTURE.md`, `CONTEXT.md`, `ROADMAP.md`, `HANDOFF.md`, `RUNNING.md`,
-  `TESTING.md`, ADR-0006, `CHANGELOG.md`.
+- Docs: `docs/qa/stabilization/01…06`, `../../ARCHITECTURE.md`, `../../CONTEXT.md`, `../../ROADMAP.md`, `../../HANDOFF.md`, `../../RUNNING.md`,
+  `../../TESTING.md`, ADR-0006, `CHANGELOG.md`.
 
 ## 4. Test results
 
