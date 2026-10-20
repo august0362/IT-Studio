@@ -18,7 +18,13 @@ import { resolveSafe } from '../../kernel/domain/path-guard.js';
 import { coderOutputSchema } from '../../kernel/validation/pipeline.js';
 import { fileOperationSchema } from '../../kernel/validation/worker.js';
 import { globMatches } from './glob.js';
-import { applyWorkerOutput, type Worktree, type WorktreeManager, type WorkerApplyDependencies } from './worktrees.js';
+import {
+  applyWorkerOutput,
+  canonicalPath,
+  type Worktree,
+  type WorktreeManager,
+  type WorkerApplyDependencies,
+} from './worktrees.js';
 
 export function isTargetForbidden(
   projectRoot: string,
@@ -184,11 +190,20 @@ export class OrchWorkspace implements IOrchWorkspace {
     if (tip.ok) this.baseShas.set(run.id, tip.value);
     return tip;
   }
+  /** Checked on the path as given and on its real path, so a junction or short name cannot hide IT Studio. */
+  private async targetForbidden(root: string): Promise<boolean> {
+    if (isTargetForbidden(root, this.deps.sidecarCwd, this.deps.appExecutableDir)) return true;
+    return isTargetForbidden(
+      await canonicalPath(root),
+      await canonicalPath(this.deps.sidecarCwd ?? process.cwd()),
+      this.deps.appExecutableDir === undefined ? undefined : await canonicalPath(this.deps.appExecutableDir),
+    );
+  }
   async prepareAttempt(run: OrchRun, task: OrchTask, attempt: number): Promise<Result<Worktree>> {
     const project: Project | null = await this.deps.projects.get(run.projectId);
     if (project === null)
       return { ok: false, error: { code: ErrorCode.NOT_FOUND, message: 'Project was not found.', retryable: false } };
-    if (isTargetForbidden(project.workspaceRoot, this.deps.sidecarCwd, this.deps.appExecutableDir))
+    if (await this.targetForbidden(project.workspaceRoot))
       return {
         ok: false,
         error: {
@@ -209,7 +224,7 @@ export class OrchWorkspace implements IOrchWorkspace {
     const project: Project | null = await this.deps.projects.get(run.projectId);
     if (project === null)
       return { ok: false, error: { code: ErrorCode.NOT_FOUND, message: 'Project was not found.', retryable: false } };
-    if (isTargetForbidden(project.workspaceRoot, this.deps.sidecarCwd, this.deps.appExecutableDir))
+    if (await this.targetForbidden(project.workspaceRoot))
       return {
         ok: false,
         error: {
@@ -484,7 +499,8 @@ export class OrchWorkspace implements IOrchWorkspace {
         'Run "git init", "git add -A" and "git commit" in the project folder.',
       );
     const repositoryRoot = top.value.stdoutTail.trim();
-    if (resolve(repositoryRoot).toLocaleLowerCase() !== resolve(root).toLocaleLowerCase())
+    // Git prints the real path; the project may be stored as a short (8.3) name or through a junction.
+    if ((await canonicalPath(repositoryRoot)).toLocaleLowerCase() !== (await canonicalPath(root)).toLocaleLowerCase())
       return invalid(
         `${root} is inside the Git repository ${resolve(repositoryRoot)}. Open the repository root as the project.`,
         'Create the project from the repository root folder.',

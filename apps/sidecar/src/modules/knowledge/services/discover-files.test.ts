@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { resolve } from 'node:path';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { NodeFileSystem } from '../../../kernel/infra/node-file-system.js';
 import { MemoryFileSystem } from '../../../kernel/infra/memory-file-system.js';
 import { discoverFiles } from './discover-files.js';
 
@@ -62,7 +65,8 @@ describe('discoverFiles', () => {
     expect(await discoverFiles(root, [link], fs)).toEqual({ ok: true, value: [] });
 
     fs.clearFailureInjection();
-    fs.injectFailureAtInvocation(3);
+    // realpath(root), stat(root), realpath(root), readdir(root): the readdir failure must propagate.
+    fs.injectFailureAtInvocation(4);
     expect((await discoverFiles(root, [root], fs)).ok).toBe(false);
   });
 
@@ -72,5 +76,29 @@ describe('discoverFiles', () => {
     await fs.mkdir(root, true);
     fs.injectFailureAtInvocation(1);
     expect((await discoverFiles(root, [root], fs)).ok).toBe(false);
+  });
+});
+
+describe('discoverFiles on the real file system (STAB CI-02)', () => {
+  it('CI-02 indexes a project opened through a junction or short path but never follows links inside it', async () => {
+    const base = mkdtempSync(join(tmpdir(), 'itstudio-rag-root-'));
+    try {
+      const real = join(base, 'real-project');
+      const outside = join(base, 'outside');
+      mkdirSync(join(real, 'docs'), { recursive: true });
+      mkdirSync(outside);
+      writeFileSync(join(real, 'docs', 'policy.md'), '# Policy');
+      writeFileSync(join(outside, 'secret.md'), '# Not part of the project');
+      symlinkSync(outside, join(real, 'docs', 'linked'), 'junction');
+      const opened = join(base, 'opened-through-junction');
+      symlinkSync(real, opened, 'junction');
+
+      expect(await discoverFiles(opened, [opened], new NodeFileSystem())).toEqual({
+        ok: true,
+        value: [join(opened, 'docs', 'policy.md')],
+      });
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
   });
 });

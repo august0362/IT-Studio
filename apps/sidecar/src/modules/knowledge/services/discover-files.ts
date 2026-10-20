@@ -1,4 +1,4 @@
-import { relative, resolve, sep } from 'node:path';
+import { join, relative, resolve, sep } from 'node:path';
 import type { AppError, Result } from '@itstudio/schemas';
 import type { IFileSystem } from '../../../kernel/ports/file-system.js';
 import { detectFormat } from './parsers/parse-document.js';
@@ -23,6 +23,11 @@ export async function discoverFiles(
   fileSystem: IFileSystem,
 ): Promise<Result<readonly string[]>> {
   const absoluteRoot = resolve(root);
+  // The root itself may be an 8.3 short name or sit below a junction (its real path differs); links *inside*
+  // the workspace are still skipped: a file's real path must be exactly the root's real path plus its own path.
+  const realRoot = await fileSystem.realpath(absoluteRoot);
+  if (!realRoot.ok) return realRoot;
+  const rootReal = realRoot.value;
   const found = new Set<string>();
   const visitedDirectories = new Set<string>();
 
@@ -31,7 +36,7 @@ export async function discoverFiles(
     if (!stat.ok) return stat;
     if (stat.value.isSymbolicLink) return { ok: true, value: undefined };
     const real = await fileSystem.realpath(path);
-    if (!real.ok || !inside(absoluteRoot, real.value) || real.value !== resolve(path))
+    if (!real.ok || !inside(rootReal, real.value) || real.value !== join(rootReal, relative(absoluteRoot, path)))
       return { ok: true, value: undefined };
     if (stat.value.isDirectory) {
       if (visitedDirectories.has(real.value)) return { ok: true, value: undefined };

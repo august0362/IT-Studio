@@ -1,9 +1,9 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { Project, ProjectId } from '@itstudio/schemas';
+import type { OrchRun, OrchTask, Project, ProjectId } from '@itstudio/schemas';
 import { NodeFileSystem } from '../../kernel/infra/node-file-system.js';
 import { NodeProcessRunner } from '../../kernel/infra/node-process-runner.js';
 import { OrchWorkspace, type OrchWorkspaceDependencies } from './workspace.js';
@@ -24,7 +24,7 @@ function git(cwd: string, ...args: string[]): void {
   execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { cwd, stdio: 'ignore' });
 }
 
-function workspace(root: string): OrchWorkspace {
+function workspace(root: string, sidecarCwd?: string): OrchWorkspace {
   const runner = new NodeProcessRunner();
   const deps: OrchWorkspaceDependencies = {
     projects: { get: () => Promise.resolve({ workspaceRoot: root } as Project) },
@@ -36,6 +36,7 @@ function workspace(root: string): OrchWorkspace {
       writer: { prepare: () => Promise.reject(new Error('unused')) },
     },
     runner,
+    ...(sidecarCwd === undefined ? {} : { sidecarCwd }),
   };
   return new OrchWorkspace(deps);
 }
@@ -85,5 +86,40 @@ describe('OrchWorkspace.projectInfo', () => {
       ok: true,
       value: { root: repo, branch: 'trunk', tree: ['src/a.js'] },
     });
+  });
+});
+
+function committedRepo(): string {
+  const repo = folder();
+  git(repo, 'init', '-q', '-b', 'main');
+  mkdirSync(join(repo, 'src'));
+  writeFileSync(join(repo, 'src', 'a.js'), 'export const a = 1;\n');
+  git(repo, 'add', '-A');
+  git(repo, 'commit', '-q', '-m', 'init');
+  return repo;
+}
+
+/** The project folder as the owner opened it: a junction to the repository (Git reports the real path). */
+function junctionTo(target: string): string {
+  const link = join(folder(), 'project-link');
+  symlinkSync(target, link, 'junction');
+  return link;
+}
+
+const run = { id: 'run-path', projectId, targetBranch: 'main' } as OrchRun;
+const task = { id: 'T1', allowedPaths: ['src/**'] } as unknown as OrchTask;
+
+describe('OrchWorkspace project paths (STAB CI-01)', () => {
+  it('CI-01 accepts a project opened through a junction or 8.3 short path and creates its worktree', async () => {
+    const link = junctionTo(committedRepo());
+    expect(await workspace(link).projectInfo(projectId)).toMatchObject({ ok: true, value: { branch: 'main' } });
+    const prepared = await workspace(link).prepareAttempt(run, task, 1);
+    expect(prepared).toMatchObject({ ok: true, value: { branch: 'itstudio/orch/run-path/T1-1' } });
+  });
+
+  it('CI-01 refuses a junction that points at IT Studio itself', async () => {
+    const itStudio = committedRepo();
+    const prepared = await workspace(junctionTo(itStudio), itStudio).prepareAttempt(run, task, 1);
+    expect(prepared).toMatchObject({ ok: false, error: { code: 'TARGET_FORBIDDEN' } });
   });
 });

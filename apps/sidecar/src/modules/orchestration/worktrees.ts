@@ -1,4 +1,4 @@
-import { appendFile, readFile } from 'node:fs/promises';
+import { appendFile, readFile, realpath } from 'node:fs/promises';
 import { basename, join, resolve, sep } from 'node:path';
 import {
   ErrorCode,
@@ -25,6 +25,17 @@ export interface Worktree {
   readonly path: string;
   readonly branch: string;
   readonly baseSha: string;
+}
+/**
+ * The real path: Windows 8.3 short names (`C:\Users\RUNNER~1`) and junctions resolved, as Git reports paths.
+ * Every root comparison and every worktree path uses this form; a path that does not exist is only resolved.
+ */
+export async function canonicalPath(path: string): Promise<string> {
+  return realpath(resolve(path)).catch(() => resolve(path));
+}
+
+async function sameDirectory(left: string, right: string): Promise<boolean> {
+  return (await canonicalPath(left)).toLocaleLowerCase() === (await canonicalPath(right)).toLocaleLowerCase();
 }
 function fail(message: string): Result<never> {
   return { ok: false, error: { code: ErrorCode.CONFLICT, message, retryable: false } };
@@ -54,13 +65,9 @@ export class WorktreeManager {
     identity: WorktreeIdentity,
     ownedPaths: readonly string[],
   ): Promise<Result<Worktree>> {
-    const root = resolve(projectRoot);
+    const root = await canonicalPath(projectRoot);
     const top = await this.git(root, ['rev-parse', '--show-toplevel']);
-    if (
-      !top.ok ||
-      top.value.exitCode !== 0 ||
-      resolve(top.value.stdoutTail.trim()).toLocaleLowerCase() !== root.toLocaleLowerCase()
-    )
+    if (!top.ok || top.value.exitCode !== 0 || !(await sameDirectory(top.value.stdoutTail.trim(), root)))
       return fail('The project root must be the Git repository root.');
     const status = await this.git(root, ['status', '--porcelain', '--', ...ownedPaths]);
     if (!status.ok || status.value.exitCode !== 0 || status.value.stdoutTail.trim() !== '')
@@ -73,13 +80,9 @@ export class WorktreeManager {
     return { ok: true, value: { path, branch, baseSha: identity.baseSha } };
   }
   async createIntegration(projectRoot: string, runId: string, baseSha: string): Promise<Result<Worktree>> {
-    const root = resolve(projectRoot);
+    const root = await canonicalPath(projectRoot);
     const top = await this.git(root, ['rev-parse', '--show-toplevel']);
-    if (
-      !top.ok ||
-      top.value.exitCode !== 0 ||
-      resolve(top.value.stdoutTail.trim()).toLocaleLowerCase() !== root.toLocaleLowerCase()
-    )
+    if (!top.ok || top.value.exitCode !== 0 || !(await sameDirectory(top.value.stdoutTail.trim(), root)))
       return fail('The project root must be the Git repository root.');
     const branch = `itstudio/orch/${runId}/integration`;
     const path = join(root, '.itstudio', 'orch', runId, 'integration');
@@ -93,9 +96,9 @@ export class WorktreeManager {
     return { ok: true, value: { path, branch, baseSha } };
   }
   async cleanup(projectRoot: string, worktree: Worktree): Promise<Result<void>> {
-    const root = resolve(projectRoot);
-    const expectedPrefix = resolve(join(root, '.itstudio', 'orch')).toLocaleLowerCase();
-    const normPath = resolve(worktree.path).toLocaleLowerCase();
+    const root = await canonicalPath(projectRoot);
+    const expectedPrefix = join(root, '.itstudio', 'orch').toLocaleLowerCase();
+    const normPath = (await canonicalPath(worktree.path)).toLocaleLowerCase();
     if (
       (!normPath.startsWith(expectedPrefix + '\\') && !normPath.startsWith(expectedPrefix + '/')) ||
       !worktree.branch.startsWith('itstudio/orch/')
@@ -110,8 +113,8 @@ export class WorktreeManager {
   }
   /** Worktrees Git has under `.itstudio/orch/<run>/`, with their branches (`git worktree list --porcelain`). */
   async listRun(projectRoot: string, runId: string): Promise<readonly Worktree[]> {
-    const root = resolve(projectRoot);
-    const prefix = resolve(join(root, '.itstudio', 'orch', runId)).toLocaleLowerCase() + sep;
+    const root = await canonicalPath(projectRoot);
+    const prefix = join(root, '.itstudio', 'orch', runId).toLocaleLowerCase() + sep;
     const listed = await this.git(root, ['worktree', 'list', '--porcelain']);
     if (!listed.ok || listed.value.exitCode !== 0) return [];
     const found: Worktree[] = [];
@@ -119,8 +122,9 @@ export class WorktreeManager {
       const lines = block.split(/\r?\n/u);
       const path = lines.find((line) => line.startsWith('worktree '))?.slice('worktree '.length);
       const branch = lines.find((line) => line.startsWith('branch refs/heads/'))?.slice('branch refs/heads/'.length);
-      if (path !== undefined && branch !== undefined && resolve(path).toLocaleLowerCase().startsWith(prefix))
-        found.push({ path: resolve(path), branch, baseSha: '' });
+      if (path === undefined || branch === undefined) continue;
+      const real = await canonicalPath(path);
+      if (real.toLocaleLowerCase().startsWith(prefix)) found.push({ path: real, branch, baseSha: '' });
     }
     return found;
   }
