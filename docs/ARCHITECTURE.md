@@ -8,7 +8,7 @@
 ## 1. Principles
 
 1. **Thin edges, thick core.** React = presentation + local UI state. Rust = process shell. All business logic = Node sidecar.
-2. **Contracts first.** Every cross-boundary payload is a type in `schemas.ts` and a zod validator in `apps/sidecar/src/validation/`. Validators are the runtime mirror of the types; a test asserts they stay in sync (`z.infer` ⇔ type equality).
+2. **Contracts first.** Every cross-boundary payload is a type in `schemas.ts` and a zod validator in `apps/sidecar/src/kernel/validation/`. Validators are the runtime mirror of the types; a test asserts they stay in sync (`z.infer` ⇔ type equality).
 3. **Services never throw across layers.** Public service methods return `Result<T>`; only the RPC layer converts `AppError` to `RpcError`.
 4. **Dependency inversion.** Services depend on interfaces (`ILlmProvider`, `ISecretStore`, `ILedgerRepository`, `IVectorStore`, `IClock`, `IFileSystem`, `IProcessRunner`), wired in one composition root (`apps/sidecar/src/container.ts`). All I/O is injectable → every service is unit-testable without network or disk.
 5. **Append-only money.** Ledger rows are immutable; corrections are new rows.
@@ -74,17 +74,20 @@
 ```
 apps/sidecar/src/
 ├─ main.ts                 # bootstrap, stdio loop
-├─ container.ts            # composition root (manual DI, no framework)
-├─ rpc/                    # RpcServer, method registry, notification bus
-├─ validation/             # zod mirrors of schemas.ts
-├─ domain/                 # pure logic: cost math, chunker, router state machine, verdict rules
-├─ services/               # ChatService, LlmRouter, LedgerService, PricingService, FxService,
-│                          # BudgetGuard, PnLService, RagService, PipelineOrchestrator,
-│                          # WorkspaceWorker, VSCodeBridge, SettingsService, ProjectService
-├─ providers/              # ILlmProvider impls: anthropic.ts, openai-compatible.ts, google.ts
-│                          # IEmbeddingProvider impls; IImageProvider impls (M8)
-├─ infra/                  # sqlite (drizzle schema + repos), lancedb, keychain, fs, process, http, clock
-└─ scheduler/              # interval jobs (pricing, fx) with jitter + single-flight
+├─ container.ts            # composition root: kernel infra → module factories → register…Rpc → lifecycle
+├─ e2e-doubles.ts          # scripted providers, keychain and browser for ITSTUDIO_E2E=1
+├─ kernel/                 # shared and feature-agnostic; never imports modules/
+│  ├─ domain/              # pure logic: money, cost math, path guard, diff, redaction, failure/remediation
+│  ├─ ports/               # interfaces (ILlmProvider, ISecretStore, IProcessTracker, …)
+│  ├─ infra/               # sqlite (drizzle schema, repositories, migrations), lancedb, keychain, fs, process, http
+│  ├─ providers/           # ILlmProvider / IEmbeddingProvider / IImageProvider impls + ProviderRegistry
+│  ├─ rpc/                 # RpcServer, line transport, EventBus
+│  ├─ validation/          # zod mirrors of schemas.ts, incl. the central RPC schema map (ipc.ts)
+│  ├─ config/              # seed loading
+│  └─ module-context.ts    # ModuleContext passed to every module factory
+└─ modules/<feature>/      # index.ts (create…Module + public types), rpc.ts, README.md; services/ domain/ prompts/
+                           # settings, processes, router, cost, workflow, vscode, images, knowledge, chat,
+                           # projects, web-chat, pipeline, orchestration (D37; rules in CONVENTIONS §3.2)
 ```
 
 - **Event bus:** typed `EventBus<RpcNotificationMap>` (Observer). Services publish; `RpcServer` forwards to stdout. Services never write to stdout directly.
@@ -380,7 +383,7 @@ A **Workflow** tab per project shows the app's modules as a live graph: which mo
 
 Each edge declares `{ from, to, contract, direction }` where `contract` names the schema type (e.g. `LlmRequest`, `RetrievalHit[]`, `FileOperation[]`). Disabled modules (e.g. VS Code bridge off, Gallery deferred) render greyed out.
 
-**Activity stream (sidecar `services/activity-recorder.ts`).** Subscribes to the existing in-process events — `router.event`, `chat.delta/completed/failed`, `pipeline.event`, `pipeline.failureReport`, `rag.progress`, `ledger.entry`, `budget.alert`, `pricing.updated`, `fx` changes, `vscode.status`, `vscode.diagnostics` — and maps each to an `ActivityEvent { id, projectId, moduleId, edge?, kind, summary, refs, durationMs?, cost?, ts }`. No service gets new instrumentation beyond what it already publishes; anything missing is added as an event, never as a polling job.
+**Activity stream (sidecar `modules/workflow/services/activity-recorder.ts`).** Subscribes to the existing in-process events — `router.event`, `chat.delta/completed/failed`, `pipeline.event`, `pipeline.failureReport`, `rag.progress`, `ledger.entry`, `budget.alert`, `pricing.updated`, `fx` changes, `vscode.status`, `vscode.diagnostics` — and maps each to an `ActivityEvent { id, projectId, moduleId, edge?, kind, summary, refs, durationMs?, cost?, ts }`. No service gets new instrumentation beyond what it already publishes; anything missing is added as an event, never as a polling job.
 
 - **Privacy:** summaries carry sizes, counts, model ids, stage names, file paths and costs — **never prompt / message / document text or keys** (pass through `domain/redact.ts`).
 - **Live:** notification `workflow.activity` (batched, ≤ 4 / s per project); the UI animates the edge and pulses the node.

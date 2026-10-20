@@ -28,7 +28,7 @@ interface FxConfig {
   readonly seedAsOf: string;
 }
 
-interface Seeds {
+export interface Seeds {
   readonly models: readonly ModelDescriptor[];
   readonly defaultLadder: readonly LadderEntry[];
   readonly defaultRoleAssignment: RoleAssignment;

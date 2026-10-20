@@ -28,7 +28,7 @@ afterEach(async () => {
   tempDirs = [];
 });
 
-const migrationRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../src/infra/sqlite/migrations');
+const migrationRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../src/kernel/infra/sqlite/migrations');
 
 async function projectHash(root: string): Promise<string> {
   const hash = createHash('sha256');

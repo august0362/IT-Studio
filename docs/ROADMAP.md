@@ -237,8 +237,8 @@ Tests: `docs/qa/ORCH-test-cases.md` · Roles: `docs/governance/MULTI_AGENT_ORCHE
 
 ## MOD — Sidecar feature modules *(D37; after v1 sign-off, before LLMPOOL)*
 
-- [ ] **MOD-01** (C) `kernel/` + module rules (eslint boundaries) + leaf modules cost, knowledge, images, vscode, web-chat, workflow (move-only).
-- [ ] **MOD-02** (C) Modules router, chat, pipeline, projects, settings; `container.ts` ≤ 250 lines composition root.
+- [x] **MOD-01** (C) `kernel/` + module rules (eslint boundaries) + leaf modules cost, knowledge, images, vscode, web-chat, workflow (move-only). Boundary rules now actually resolve `.js`→`.ts` imports (`scripts/lint/ts-resolver.cjs`).
+- [x] **MOD-02** (C) Modules router, chat, pipeline, projects, settings (+ processes, orchestration); `container.ts` ≤ 250 lines composition root (241), E2E doubles in `e2e-doubles.ts`.
 
 ## LLMPOOL — LLM key pool *(add-on, D36; after v1 sign-off)*
 
