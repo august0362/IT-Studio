@@ -302,10 +302,48 @@ export class OrchWorkspace implements IOrchWorkspace {
     }
     return { ok: true, value: { tree: tracked.value.slice(0, MAX_TREE_ENTRIES), files } };
   }
+  /** Orchestration works in Git worktrees: the project must be the root of a Git repository with a commit. */
+  private async checkRepository(root: string): Promise<Result<void>> {
+    const invalid = (message: string, remediation: string): Result<never> => ({
+      ok: false,
+      error: { code: ErrorCode.VALIDATION, message, remediation: [remediation], retryable: false },
+    });
+    const folder = await this.deps.apply.fileSystem.stat(root);
+    if (!folder.ok || !folder.value.isDirectory)
+      return invalid(
+        `The project folder ${root} does not exist.`,
+        'Open a project whose folder exists, or restore the folder.',
+      );
+    const git = (args: readonly string[]) =>
+      this.deps.runner.run({ executable: 'git', args, cwd: root, env: process.env, timeoutMs: 30_000 });
+    const top = await git(['rev-parse', '--show-toplevel']);
+    if (!top.ok)
+      return invalid('Git was not found on this computer.', 'Install Git for Windows, then restart IT Studio.');
+    if (top.value.exitCode !== 0)
+      return invalid(
+        `Orchestration needs a Git repository, but ${root} is not one. Run "git init" in that folder and commit your files, or open a project that is a Git repository.`,
+        'Run "git init", "git add -A" and "git commit" in the project folder.',
+      );
+    const repositoryRoot = top.value.stdoutTail.trim();
+    if (resolve(repositoryRoot).toLocaleLowerCase() !== resolve(root).toLocaleLowerCase())
+      return invalid(
+        `${root} is inside the Git repository ${resolve(repositoryRoot)}. Open the repository root as the project.`,
+        'Create the project from the repository root folder.',
+      );
+    const head = await git(['rev-parse', '--verify', 'HEAD']);
+    if (!head.ok || head.value.exitCode !== 0)
+      return invalid(
+        `The Git repository ${root} has no commits yet. Commit your files once, then plan again.`,
+        'Run "git add -A" and "git commit" in the project folder.',
+      );
+    return { ok: true, value: undefined };
+  }
   async projectInfo(projectId: ProjectId): Promise<Result<ProjectInfo>> {
     const project = await this.deps.projects.get(projectId);
     if (project === null)
       return { ok: false, error: { code: ErrorCode.NOT_FOUND, message: 'Project was not found.', retryable: false } };
+    const ready = await this.checkRepository(project.workspaceRoot);
+    if (!ready.ok) return ready;
     const tracked = await this.trackedFiles(project.workspaceRoot);
     if (!tracked.ok) return tracked;
     const branch = await this.deps.runner.run({
