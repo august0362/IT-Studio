@@ -33,6 +33,7 @@ follow-up (OBS-04).
 
 | Run | Commit | Outcome | Finding |
 |---|---|---|---|
+| `39473302355` | `e20eb35` | **success** (4/4 required ✓; non-blocking job ✗ as expected) | — |
 | `39451656683` | `ec27caa` | unit ✗, integration ✗, static ✓, build ✓ | Real defect STAB-D08: the runner's `TEMP` is an 8.3 short path (`C:\Users\RUNNER~1\…`); orchestration refused valid projects and Knowledge indexed nothing. Fixed in `2c63e6b`. |
 | `39470943728` | `2c63e6b` | static ✓, build ✓, unit ✗, integration ✗ | Unit: one desktop test (`WorkflowPage` M9-OBS-05) timed out in `findByLabelText` after Testing Library's 1 s default on the loaded runner (it passed in the first run) → `asyncUtilTimeout` raised to 5 s in `apps/desktop/src/test-setup.ts`. Integration: all orchestration and Knowledge cases now pass; only **BRK-C12** (ping p95 320 ms vs a fixed 200 ms budget) and **BRK-D07** (sidecar still starts on a data directory made read-only with `icacls` — the runner account is an elevated administrator) failed → machine-sensitive split, §4. |
 
@@ -49,7 +50,14 @@ The required `Integration tests` job runs every other integration case (`ITSTUDI
 no test was deleted or weakened. Follow-ups: express BRK-C12 relative to a measured baseline; make BRK-D07 deny write
 explicitly (deny ACE) or skip it with a reason when the process token is elevated.
 
-Final run: _filled in below._
+Final run on `e20eb35`: [`39473302355`](https://github.com/august0362/IT-Studio/actions/runs/39473302355) —
+**conclusion success**: the four required jobs passed; the non-blocking job failed on exactly BRK-C12 (p95 292 ms)
+and BRK-D07, as expected.
+
+Acceptance criteria: pull requests and pushes run the checks ✓; failures produce actionable logs (file:line
+annotations — runs `39451656683` and `39470943728` failed on real defects/flakes and pointed at them) ✓; a failing
+test fails CI ✓ (the same two runs; no synthetic canary branch was pushed); passing changes are green ✓
+(`39473302355`); no secrets in workflow files ✓.
 
 ## 5. Branch protection — status: **NOT ACTIVE (blocked on permissions)**
 

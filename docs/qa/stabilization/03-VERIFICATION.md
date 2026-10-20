@@ -38,12 +38,25 @@ failure one call later; `OrchestrationCodeView.test.tsx` adds Discard for `pause
 | G1 | working tree before `0151bcf` | `npm run typecheck`, `npm run lint`, `npm test` | local | 0 / 0 / 0 | unit 1 747 passed, 1 skipped; node 29/29 |
 | G2 | `0151bcf` | integration `orchestration.test.ts` + `orchestration-reliability.test.ts` | local | 0 | 23/23 |
 | CI1 | `ec27caa` | CI run `39451656683` | GitHub | failure | static ✓, build+smoke ✓; unit ✗ (2, 8.3 paths); integration ✗ (8.3 paths + timing) → STAB-D08 |
-| CI2 | `2c63e6b` | CI run `39470943728` | GitHub | see §3 | static ✓, build+smoke ✓, unit ✗ (1 UI timing flake: `WorkflowPage` M9-OBS-05 `findByLabelText` 1 s) |
+| CI2 | `2c63e6b` | CI run `39470943728` | GitHub | failure | static ✓, build+smoke ✓, unit ✗ (1 UI timing flake: `WorkflowPage` M9-OBS-05 `findByLabelText` 1 s), integration ✗ only BRK-C12 + BRK-D07 (machine-sensitive) |
 | L1 | working tree after `2c63e6b` | `vitest --project desktop` with `asyncUtilTimeout` 5 s | local | 0 | 412/412 |
 
 ## 3. Final gate
 
-Filled in at the end of the pass (`06-FINAL-REPORT.md` repeats the verdict).
+Final code commit: `e20eb35` (later commits on the branch change documentation only).
+
+| # | Commit | Command | Env | Exit | Result |
+|---|---|---|---|---|---|
+| F1 | `e20eb35` | CI run [`39473302355`](https://github.com/august0362/IT-Studio/actions/runs/39473302355): typecheck, ESLint, Prettier, secret scan, lint self-test | GitHub | 0 | pass |
+| F2 | `e20eb35` | CI `npm test` | GitHub | 0 | pass |
+| F3 | `e20eb35` | CI `npm run test:integration` (`stable` selection: every case except BRK-C12, BRK-D07) | GitHub | 0 | pass |
+| F4 | `e20eb35` | CI desktop + extension build, `build:sidecar` (SEA), `smoke:sidecar` | GitHub | 0 | pass |
+| F5 | `e20eb35` | CI machine-sensitive job (non-blocking) | GitHub | 1 | BRK-C12 p95 292 ms > 200 ms; BRK-D07: sidecar starts on the `icacls` read-only directory (elevated runner account) |
+| F6 | sidecar code of `2c63e6b` (identical in `e20eb35`) | `npm run test:integration` (all 26 files) | local | 1 | 191 passed, 1 skipped, 5 failed: BRK-C12 and 4 `router.test.ts` timeouts (TC-M2-006/009/020/021) while other commands ran on the machine. `router.test.ts` alone: 18/18 on the branch **and** 18/18 on `95dd972` → load-related, not a regression (router code unchanged) |
+| F7 | `2c63e6b` + Discard UI | E2E `orch/orchestration.spec.ts` (ORCH-019), off-screen, debug app rebuilt | local | 0 | 1 passing |
+
+Not run in this pass: the full E2E suite (14 specs; only the orchestration spec is affected), `build:app` (Tauri
+NSIS/MSI), `smoke:install` — release-gate steps after the merge (`06-FINAL-REPORT.md`) — and real-provider smoke.
 
 ## 4. Coverage limitations
 

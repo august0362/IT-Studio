@@ -7,7 +7,7 @@ owner's decision. Work done directly by Claude (owner rule since 2026-10-20: no 
 
 | Status | Value | Basis |
 |---|---|---|
-| **ENGINEERING_VERIFIED** | _see §4_ | automated gates on the final commit |
+| **ENGINEERING_VERIFIED** | **Yes**, for the scope of this pass and within the limits of `03-VERIFICATION.md` §4 | CI `39473302355` green on `e20eb35`; local integration and E2E evidence in `03-VERIFICATION.md` §3 |
 | **OWNER_ACCEPTED** | **No** — 13/40 checklist cases accepted earlier (16/10 build); 27 + 6 new orchestration cases not run | `04-OWNER-ACCEPTANCE.md` |
 | **RELEASE_READY** | **No** | needs owner acceptance, `main` protection, merge of this branch, a new installer build + install smoke |
 
@@ -53,7 +53,15 @@ owner's decision. Work done directly by Claude (owner rule since 2026-10-20: no 
 
 ## 4. Test results
 
-_Filled in from the final gate (§3 of `03-VERIFICATION.md`)._
+| Gate | Result |
+|---|---|
+| CI on `e20eb35` (typecheck, lint, format, secret scan, unit, integration, builds, sidecar smoke) | **pass** — run `39473302355` |
+| Unit (local, before the last two commits) | 1 747 passed, 1 skipped (baseline 1 678 + 1 skipped) |
+| Integration (local, all 26 files) | 191 passed, 1 skipped, 5 failed — BRK-C12 and 4 router timeouts under load; the router file passes alone, also on baseline |
+| New regression tests | unit: glob 46, final review 14, recovery 6, prompts 1, workspace 2, discovery 1, UI 2; node: fixture 2; integration: 20 (real Git + SQLite) |
+| E2E ORCH-019 (off-screen) | pass |
+| Machine-sensitive cases on CI | BRK-C12, BRK-D07 fail on the hosted runner — non-blocking job, documented in `05-CI-GOVERNANCE.md` §4 |
+| Not run | full E2E suite, `build:app`, `smoke:install`, real-provider smoke, owner acceptance |
 
 ## 5. Remaining risks
 
