@@ -1,0 +1,97 @@
+# Pull-request gate (docs/qa/stabilization/05-CI-GOVERNANCE.md). Every job uses the repository's own
+# scripts, so CI and a local `npm run typecheck && npm run lint && npm test` check the same things.
+# Windows only: the product is a Windows desktop app and the sidecar bundle is built with Node SEA on win-x64.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '24.19.0'
+  # The workspace scripts call `npm --cache .npm-cache ...`; keep every npm call on the same cache.
+  npm_config_cache: ${{ github.workspace }}/.npm-cache
+
+jobs:
+  static:
+    name: Typecheck, lint, format, secret scan
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Typecheck (root, workspaces, tests)
+        run: npm run typecheck
+      - name: ESLint
+        run: npx eslint . --max-warnings 0
+      - name: Prettier
+        run: npx prettier --check . --log-level warn
+      - name: Secret scan
+        run: node scripts/scan-secrets.mjs
+      - name: Lint rule self-test
+        run: npm run lint:selftest
+
+  unit:
+    name: Unit tests
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Unit + script tests
+        run: npm test
+
+  integration:
+    name: Integration tests
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Git identity for the temporary test repositories
+        run: |
+          git config --global user.name "IT Studio CI"
+          git config --global user.email "ci@example.invalid"
+      - name: Integration suite (real sidecar, real Git and SQLite, fake providers)
+        run: npm run test:integration
+
+  build:
+    name: Build and sidecar smoke
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Desktop frontend build
+        run: npm run vite:build -w @itstudio/desktop
+      - name: VS Code extension build
+        run: npm run build -w itstudio-vscode
+      - name: Sidecar single-executable bundle
+        run: npm run build:sidecar
+      - name: Sidecar smoke (start, ping, shutdown)
+        run: npm run smoke:sidecar
