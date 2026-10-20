@@ -25,7 +25,7 @@ export default defineConfig({
         functions: 70,
         branches: 60,
         statements: 70,
-        'apps/sidecar/src/domain/**': {
+        'apps/sidecar/src/{kernel,modules/*}/domain/**': {
           lines: 90,
           perFile: true,
         },

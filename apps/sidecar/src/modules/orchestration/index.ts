@@ -15,14 +15,14 @@ import { MockAgentAdapter, type MockScript } from './adapters/mock-adapter.js';
 import { OrchestrationEngine } from './engine.js';
 import type { PlanValidationOptions } from './dag.js';
 import type { OrchRepository } from './storage/orch-repository.js';
-import type { RpcServer } from '../../rpc/rpc-server.js';
-import type { ProcessRegistry } from '../../services/process-registry.js';
-import type { IAgentExecutionAdapter } from '../../ports/agent-execution.js';
+import type { RpcServer } from '../../kernel/rpc/rpc-server.js';
+import type { ProcessRegistry } from '../processes/index.js';
+import type { IAgentExecutionAdapter } from '../../kernel/ports/agent-execution.js';
 import type { IOrchWorkspace } from './workspace.js';
 import { isTargetForbidden } from './workspace.js';
 import { runWorktrees } from './worktrees.js';
-import type { IProcessRunner } from '../../ports/process-runner.js';
-import type { IProjectLifecycleRepository } from '../../ports/project-repository.js';
+import type { IProcessRunner } from '../../kernel/ports/process-runner.js';
+import type { IProjectLifecycleRepository } from '../../kernel/ports/project-repository.js';
 
 export interface OrchestrationModuleDependencies {
   readonly repository: OrchRepository;
@@ -467,3 +467,11 @@ export function createOrchestrationModule(deps: OrchestrationModuleDependencies)
     },
   };
 }
+
+export { ApiAgentAdapter } from './adapters/api-adapter.js';
+export { ClaudeCliAdapter } from './adapters/claude-cli-adapter.js';
+export { CodexCliAdapter } from './adapters/codex-cli-adapter.js';
+export { buildAgentPrompt, extractJsonObjects } from './prompts.js';
+export { OrchRepository } from './storage/orch-repository.js';
+export { OrchWorkspace } from './workspace.js';
+export { WorktreeManager } from './worktrees.js';

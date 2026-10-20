@@ -13,7 +13,7 @@ import {
   type OrchUsage,
   type Result,
 } from '@itstudio/schemas';
-import type { AgentEnvelope, IAgentExecutionAdapter } from '../../ports/agent-execution.js';
+import type { AgentEnvelope, IAgentExecutionAdapter } from '../../kernel/ports/agent-execution.js';
 import { transitionRun } from './run-machine.js';
 import { topologicalOrder, validatePlan, type PlanValidationOptions } from './dag.js';
 import { blockFailedDependents, pickRunnable } from './scheduler.js';

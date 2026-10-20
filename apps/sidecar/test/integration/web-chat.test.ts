@@ -3,8 +3,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { z } from 'zod';
 import type { WebChatLinkId } from '@itstudio/schemas';
-import { DEFAULT_WEB_CHAT_LINKS } from '../../src/domain/web-chat.js';
-import { projectSchema } from '../../src/validation/projects.js';
+import { DEFAULT_WEB_CHAT_LINKS } from '../../src/kernel/domain/web-chat.js';
+import { projectSchema } from '../../src/kernel/validation/projects.js';
 import { startSidecar, type SidecarHarness } from './harness.js';
 
 let sidecar: SidecarHarness | undefined;

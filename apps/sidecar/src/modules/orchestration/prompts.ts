@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import type { AgentEnvelope } from '../../ports/agent-execution.js';
-import { coderOutputSchema, toJsonSchema } from '../../validation/pipeline.js';
+import type { AgentEnvelope } from '../../kernel/ports/agent-execution.js';
+import { coderOutputSchema, toJsonSchema } from '../../kernel/validation/pipeline.js';
 import { supervisorPlanSchema } from './dag.js';
 
 /** Verdict shape the engine accepts from a reviewer (mirrors `isVerdict` in engine.ts). */

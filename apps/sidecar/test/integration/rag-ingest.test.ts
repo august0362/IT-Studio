@@ -3,12 +3,12 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { CostPurpose, type ProjectId } from '@itstudio/schemas';
 import { z } from 'zod';
-import { appSettingsSchema } from '../../src/validation/settings.js';
-import { projectSchema } from '../../src/validation/projects.js';
-import { sourceDocumentSchema } from '../../src/validation/rag.js';
-import { providerIdSchema } from '../../src/validation/common.js';
-import { LanceDbVectorStore } from '../../src/infra/lancedb/vector-store.js';
-import { loadSeeds } from '../../src/config/load-seeds.js';
+import { appSettingsSchema } from '../../src/kernel/validation/settings.js';
+import { projectSchema } from '../../src/kernel/validation/projects.js';
+import { sourceDocumentSchema } from '../../src/kernel/validation/rag.js';
+import { providerIdSchema } from '../../src/kernel/validation/common.js';
+import { LanceDbVectorStore } from '../../src/kernel/infra/lancedb/vector-store.js';
+import { loadSeeds } from '../../src/kernel/config/load-seeds.js';
 import { startSidecar, waitFor, type SidecarHarness } from './harness.js';
 
 let sidecar: SidecarHarness | undefined;

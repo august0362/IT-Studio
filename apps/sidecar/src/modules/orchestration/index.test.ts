@@ -9,7 +9,7 @@ import type {
   ProjectId,
   Result,
 } from '@itstudio/schemas';
-import type { AgentEnvelope, IAgentExecutionAdapter } from '../../ports/agent-execution.js';
+import type { AgentEnvelope, IAgentExecutionAdapter } from '../../kernel/ports/agent-execution.js';
 import { createOrchestrationModule, normalizeCandidates, settingsWorkers, type RunCreationOptions } from './index.js';
 import type { IOrchWorkspace } from './workspace.js';
 import type { OrchRepository } from './storage/orch-repository.js';

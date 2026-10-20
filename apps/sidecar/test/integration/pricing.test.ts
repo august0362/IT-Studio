@@ -2,11 +2,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { ModelDescriptor, PriceEntry, ProjectId } from '@itstudio/schemas';
-import { projectSchema } from '../../src/validation/projects.js';
-import { conversationSchema } from '../../src/validation/chat.js';
-import { ledgerEntrySchema, priceTableSchema, priceUpdateRunSchema } from '../../src/validation/cost.js';
-import { microUsdSchema } from '../../src/validation/brand.js';
-import { loadSeeds } from '../../src/config/load-seeds.js';
+import { projectSchema } from '../../src/kernel/validation/projects.js';
+import { conversationSchema } from '../../src/kernel/validation/chat.js';
+import { ledgerEntrySchema, priceTableSchema, priceUpdateRunSchema } from '../../src/kernel/validation/cost.js';
+import { microUsdSchema } from '../../src/kernel/validation/brand.js';
+import { loadSeeds } from '../../src/kernel/config/load-seeds.js';
 import { startSidecar, waitFor, type SidecarHarness } from './harness.js';
 import { z } from 'zod';
 

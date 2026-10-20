@@ -22,7 +22,7 @@ const nativePackages = [
   '@napi-rs/keyring-win32-x64-msvc',
   'apache-arrow',
 ];
-const nativeModules = join(root, 'apps/sidecar/src/infra/native-modules.ts');
+const nativeModules = join(root, 'apps/sidecar/src/kernel/infra/native-modules.ts');
 
 if (process.platform !== 'win32' || process.arch !== 'x64')
   throw new Error('The M9-01 SEA bundle must be built with Node.js on Windows x64.');
@@ -59,7 +59,7 @@ await runStep('esbuild sidecar bundle', async () => {
           context.onLoad({ filter: new RegExp(SYSTEM_SERVICE_FILTER_SOURCE) }, async (args) => ({
             contents: (await readFile(args.path, 'utf8')).replaceAll(
               'import.meta.dirname',
-              "require('node:path').join(require('node:path').dirname(process.execPath), 'resources/apps/sidecar/src/services')",
+              "require('node:path').join(require('node:path').dirname(process.execPath), 'resources/apps/sidecar/src/modules/settings/services')",
             ),
             loader: 'ts',
           }));
@@ -109,7 +109,7 @@ await runStep('stage runtime resources', async () => {
 
   await stageNativeBinary('@lancedb/lancedb-win32-x64-msvc', 'lancedb.win32-x64-msvc.node');
   await stageNativeBinary('@napi-rs/keyring-win32-x64-msvc', 'keyring.win32-x64-msvc.node');
-  await cp(join(root, 'apps/sidecar/src/infra/sqlite/migrations'), join(resources, 'migrations'), {
+  await cp(join(root, 'apps/sidecar/src/kernel/infra/sqlite/migrations'), join(resources, 'migrations'), {
     recursive: true,
   });
   await mkdir(join(resources, 'apps/sidecar'), { recursive: true });

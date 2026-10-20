@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { projectSchema } from '../../src/validation/projects.js';
-import { conversationSchema } from '../../src/validation/chat.js';
-import { appSettingsSchema } from '../../src/validation/settings.js';
+import { projectSchema } from '../../src/kernel/validation/projects.js';
+import { conversationSchema } from '../../src/kernel/validation/chat.js';
+import { appSettingsSchema } from '../../src/kernel/validation/settings.js';
 import { startSidecar, type SidecarHarness, waitFor, waitForLine } from './break-helpers-01.js';
 
 let sidecar: SidecarHarness | undefined;

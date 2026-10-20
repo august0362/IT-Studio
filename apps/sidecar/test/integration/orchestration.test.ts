@@ -3,14 +3,14 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { CommandRunId, FileOperation, MicroUsd, OrchAttempt, OrchRun, ProjectId } from '@itstudio/schemas';
-import type { PreparedWriteTransaction } from '../../src/services/write-transaction.js';
+import type { PreparedWriteTransaction } from '../../src/modules/pipeline/services/write-transaction.js';
 import { MockAgentAdapter } from '../../src/modules/orchestration/adapters/mock-adapter.js';
 import { OrchestrationEngine } from '../../src/modules/orchestration/engine.js';
 import { createOrchestrationModule } from '../../src/modules/orchestration/index.js';
 import { OrchWorkspace } from '../../src/modules/orchestration/workspace.js';
 import { WorktreeManager } from '../../src/modules/orchestration/worktrees.js';
-import { NodeProcessRunner } from '../../src/infra/node-process-runner.js';
-import { NodeFileSystem } from '../../src/infra/node-file-system.js';
+import { NodeProcessRunner } from '../../src/kernel/infra/node-process-runner.js';
+import { NodeFileSystem } from '../../src/kernel/infra/node-file-system.js';
 import type { OrchRepository } from '../../src/modules/orchestration/storage/orch-repository.js';
 describe('orchestration integration smoke', () => {
   it('ORCH-001 plans, starts and reaches awaiting_approval after mock review pass', async () => {

@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { parse, resolve } from 'node:path';
-import { appSettingsSchema } from '../../src/validation/settings.js';
-import { settings } from '../../src/infra/sqlite/schema.js';
-import { openDatabase } from '../../src/infra/sqlite/database.js';
-import { projectSchema } from '../../src/validation/projects.js';
+import { appSettingsSchema } from '../../src/kernel/validation/settings.js';
+import { settings } from '../../src/kernel/infra/sqlite/schema.js';
+import { openDatabase } from '../../src/kernel/infra/sqlite/database.js';
+import { projectSchema } from '../../src/kernel/validation/projects.js';
 import { startSidecar, type SidecarHarness } from './harness.js';
 
 let sidecar: SidecarHarness | undefined;

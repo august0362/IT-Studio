@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { Project, ProjectId } from '@itstudio/schemas';
-import { NodeFileSystem } from '../../infra/node-file-system.js';
-import { NodeProcessRunner } from '../../infra/node-process-runner.js';
+import { NodeFileSystem } from '../../kernel/infra/node-file-system.js';
+import { NodeProcessRunner } from '../../kernel/infra/node-process-runner.js';
 import { OrchWorkspace, type OrchWorkspaceDependencies } from './workspace.js';
 import { WorktreeManager } from './worktrees.js';
 

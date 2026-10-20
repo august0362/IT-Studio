@@ -26,10 +26,10 @@ export default {
   concurrency: 2,
   coverageAnalysis: 'perTest',
   mutate: [
-    'apps/sidecar/src/domain/path-guard.ts',
-    'apps/sidecar/src/services/write-transaction.ts',
-    'apps/sidecar/src/domain/pipeline-machine.ts',
-    'apps/sidecar/src/domain/template.ts',
+    'apps/sidecar/src/kernel/domain/path-guard.ts',
+    'apps/sidecar/src/modules/pipeline/services/write-transaction.ts',
+    'apps/sidecar/src/modules/pipeline/domain/pipeline-machine.ts',
+    'apps/sidecar/src/kernel/domain/template.ts',
   ],
   reporters: ['clear-text', 'progress'],
   vitest: {

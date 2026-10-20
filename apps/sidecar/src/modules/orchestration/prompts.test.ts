@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AgentEnvelope } from '../../ports/agent-execution.js';
+import type { AgentEnvelope } from '../../kernel/ports/agent-execution.js';
 import { agentAcknowledgement, agentPromptKind, buildAgentPrompt, extractJsonObjects } from './prompts.js';
 
 const envelope: AgentEnvelope = {

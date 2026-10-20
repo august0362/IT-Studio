@@ -2,12 +2,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { z } from 'zod';
-import { appSettingsSchema } from '../../src/validation/settings.js';
-import { conversationSchema } from '../../src/validation/chat.js';
-import { projectSchema } from '../../src/validation/projects.js';
-import { ledgerEntrySchema } from '../../src/validation/cost.js';
-import { microUsdSchema } from '../../src/validation/brand.js';
-import { providerIdSchema } from '../../src/validation/common.js';
+import { appSettingsSchema } from '../../src/kernel/validation/settings.js';
+import { conversationSchema } from '../../src/kernel/validation/chat.js';
+import { projectSchema } from '../../src/kernel/validation/projects.js';
+import { ledgerEntrySchema } from '../../src/kernel/validation/cost.js';
+import { microUsdSchema } from '../../src/kernel/validation/brand.js';
+import { providerIdSchema } from '../../src/kernel/validation/common.js';
 import { startSidecar, waitFor, type SidecarHarness } from './harness.js';
 
 let sidecar: SidecarHarness | undefined;

@@ -1,0 +1,229 @@
+import {
+  ErrorCode,
+  type AppError,
+  type FxRate,
+  type ModelKey,
+  type PriceEntry,
+  type PriceRow,
+  type PriceTable,
+  type PriceTableVersion,
+  type Result,
+} from '@itstudio/schemas';
+import type { IClock } from '../../../kernel/infra/clock.js';
+import type { IIdGenerator } from '../../../kernel/infra/id.js';
+import type { IPriceRepository, StoredPriceTable } from '../../../kernel/ports/price-repository.js';
+import { isoDateTimeSchema, modelKeySchema, priceTableVersionSchema } from '../../../kernel/validation/common.js';
+import { priceEntrySchema } from '../../../kernel/validation/cost.js';
+import { parseUsdDecimal, toMoneyDisplay } from '../../../kernel/domain/money.js';
+
+const STALE_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
+
+export interface PricingServiceDependencies {
+  readonly repository: IPriceRepository;
+  readonly seed: PriceTable;
+  readonly knownModels: ReadonlySet<ModelKey>;
+  readonly ids: IIdGenerator;
+  readonly clock: IClock;
+}
+
+export class PricingService {
+  private readonly repository: IPriceRepository;
+  private readonly seed: PriceTable;
+  private readonly knownModels: ReadonlySet<ModelKey>;
+  private readonly ids: IIdGenerator;
+  private readonly clock: IClock;
+  private latestAutomaticEntries: readonly PriceEntry[];
+
+  constructor(dependencies: PricingServiceDependencies) {
+    this.repository = dependencies.repository;
+    this.seed = dependencies.seed;
+    this.knownModels = dependencies.knownModels;
+    this.ids = dependencies.ids;
+    this.clock = dependencies.clock;
+    this.latestAutomaticEntries = dependencies.seed.entries;
+  }
+
+  initialize(): void {
+    const existing = this.repository.current();
+    if (existing !== null) {
+      const automatic = new Map(this.seed.entries.map((entry) => [entry.modelKey, entry]));
+      const manualOverrides = new Set(existing.manualOverrides);
+      for (const entry of existing.automaticEntries ?? []) automatic.set(entry.modelKey, entry);
+      for (const entry of existing.entries) {
+        if (!manualOverrides.has(entry.modelKey)) automatic.set(entry.modelKey, entry);
+      }
+      this.latestAutomaticEntries = [...automatic.values()];
+      const existingKeys = new Set(existing.entries.map((entry) => entry.modelKey));
+      const missingSeeds = this.seed.entries.filter((entry) => !existingKeys.has(entry.modelKey));
+      if (missingSeeds.length > 0) {
+        this.repository.insert({
+          ...existing,
+          version: priceTableVersionSchema.parse('seed-' + this.ids.uuid()),
+          // Preserve the age of existing prices and keep the previous version immutable.
+          effectiveFrom: isoDateTimeSchema.parse(new Date(Date.parse(existing.effectiveFrom) + 1).toISOString()),
+          entries: [...existing.entries, ...missingSeeds.map((entry) => ({ ...entry, origin: 'seed' as const }))],
+          automaticEntries: this.latestAutomaticEntries,
+        });
+      }
+      return;
+    }
+    this.repository.insert({ ...this.seed, manualOverrides: [] });
+  }
+
+  current(): PriceTable {
+    const current = this.requireCurrent();
+    return toPriceTable(current);
+  }
+
+  getRows(fx: FxRate): { readonly table: PriceTable; readonly rows: readonly PriceRow[]; readonly stale: boolean } {
+    const table = this.current();
+    const overrides = this.manualOverrides();
+    return {
+      table,
+      stale: this.isStale(),
+      rows: table.entries.map((entry) => ({
+        entry,
+        input: toMoneyDisplay(entry.inputPerMTokMicroUsd, fx),
+        output: toMoneyDisplay(entry.outputPerMTokMicroUsd, fx),
+        cachedInput: toMoneyDisplay(entry.cachedInputPerMTokMicroUsd, fx),
+        ...(entry.perImageMicroUsd === undefined ? {} : { perImage: toMoneyDisplay(entry.perImageMicroUsd, fx) }),
+        overridden: overrides.has(entry.modelKey),
+        origin: overrides.has(entry.modelKey) ? 'manual_override' : (entry.origin ?? 'seed'),
+      })),
+    };
+  }
+
+  overrideUsd(input: {
+    readonly modelKey: ModelKey;
+    readonly inputPerMTokUsd: string;
+    readonly outputPerMTokUsd: string;
+    readonly cachedInputPerMTokUsd: string;
+  }): Result<PriceTable> {
+    try {
+      const previous = this.current().entries.find((entry) => entry.modelKey === input.modelKey);
+      if (previous === undefined) return validationError('Price entry refers to an unknown model.');
+      return this.override({
+        ...previous,
+        inputPerMTokMicroUsd: parseUsdDecimal(input.inputPerMTokUsd),
+        outputPerMTokMicroUsd: parseUsdDecimal(input.outputPerMTokUsd),
+        cachedInputPerMTokMicroUsd: parseUsdDecimal(input.cachedInputPerMTokUsd),
+      });
+    } catch {
+      return validationError('USD prices must be non-negative decimals with at most six decimal places.');
+    }
+  }
+
+  manualOverrides(): ReadonlySet<ModelKey> {
+    return new Set(this.requireCurrent().manualOverrides);
+  }
+
+  isStale(now = this.clock.now()): boolean {
+    const effectiveFrom = Date.parse(this.requireCurrent().effectiveFrom);
+    return now.getTime() - effectiveFrom >= STALE_AFTER_MS;
+  }
+
+  override(entry: PriceEntry): Result<PriceTable> {
+    const parsed = priceEntrySchema.safeParse(entry);
+    if (!parsed.success) return validationError('Price entry failed validation.');
+    if (!this.knownModels.has(parsed.data.modelKey)) return validationError('Price entry refers to an unknown model.');
+    const current = this.requireCurrent();
+    const entries = current.entries.map((existing): PriceEntry =>
+      existing.modelKey === parsed.data.modelKey ? { ...parsed.data, origin: 'manual_override' } : existing,
+    );
+    if (!current.entries.some((existing) => existing.modelKey === parsed.data.modelKey))
+      entries.push({ ...parsed.data, origin: 'manual_override' });
+    const manualOverrides = new Set(current.manualOverrides);
+    manualOverrides.add(parsed.data.modelKey);
+    return { ok: true, value: this.insertVersion(current, entries, [...manualOverrides]) };
+  }
+
+  clearOverride(modelKey: ModelKey): Result<PriceTable> {
+    const parsedKey = modelKeySchema.safeParse(modelKey);
+    if (!parsedKey.success || !this.knownModels.has(parsedKey.data))
+      return validationError('Cannot clear an override for an unknown model.');
+    const current = this.requireCurrent();
+    if (!current.manualOverrides.includes(parsedKey.data))
+      return validationError('This model does not have a manual price override to clear.');
+    const automaticEntry = this.latestAutomaticEntries.find((entry) => entry.modelKey === parsedKey.data);
+    if (automaticEntry === undefined) return validationError('No automatic or seed price is available for this model.');
+    const entries = current.entries.map((entry) => (entry.modelKey === parsedKey.data ? automaticEntry : entry));
+    const manualOverrides = current.manualOverrides.filter((key) => key !== parsedKey.data);
+    return { ok: true, value: this.insertVersion(current, entries, manualOverrides) };
+  }
+
+  applyExtracted(entries: readonly PriceEntry[]): PriceTable {
+    const current = this.requireCurrent();
+    const automatic = new Map(this.latestAutomaticEntries.map((entry) => [entry.modelKey, entry]));
+    for (const entry of entries) automatic.set(entry.modelKey, { ...entry, origin: 'auto_extracted' });
+    this.latestAutomaticEntries = [...automatic.values()];
+    const overrides = new Set(current.manualOverrides);
+    const currentEntries = new Map(current.entries.map((entry) => [entry.modelKey, entry]));
+    const merged = [...automatic.values()].map((entry) =>
+      overrides.has(entry.modelKey) ? (currentEntries.get(entry.modelKey) ?? entry) : entry,
+    );
+    return this.insertAutoVersion(current, merged);
+  }
+
+  private requireCurrent(): StoredPriceTable {
+    const current = this.repository.current();
+    if (current === null) throw new Error('PricingService.initialize must run before use');
+    return current;
+  }
+
+  private insertVersion(
+    previous: StoredPriceTable,
+    entries: readonly PriceEntry[],
+    manualOverrides: readonly ModelKey[],
+  ): PriceTable {
+    const now = this.clock.now();
+    const priorTime = Date.parse(previous.effectiveFrom);
+    const effectiveFrom = isoDateTimeSchema.parse(new Date(Math.max(now.getTime(), priorTime + 1)).toISOString());
+    const version: PriceTableVersion = priceTableVersionSchema.parse(`manual-${this.ids.uuid()}`);
+    const next: StoredPriceTable = {
+      version,
+      effectiveFrom,
+      origin: 'manual_override',
+      entries: [...entries],
+      manualOverrides: [...manualOverrides],
+      automaticEntries: this.latestAutomaticEntries,
+    };
+    this.repository.insert(next);
+    return toPriceTable(next);
+  }
+
+  private insertAutoVersion(previous: StoredPriceTable, entries: readonly PriceEntry[]): PriceTable {
+    const now = this.clock.now();
+    const priorTime = Date.parse(previous.effectiveFrom);
+    const effectiveFrom = isoDateTimeSchema.parse(new Date(Math.max(now.getTime(), priorTime + 1)).toISOString());
+    const version: PriceTableVersion = priceTableVersionSchema.parse(`auto-${this.ids.uuid()}`);
+    const next: StoredPriceTable = {
+      version,
+      effectiveFrom,
+      origin: 'auto_extracted',
+      entries: [...entries],
+      manualOverrides: [...previous.manualOverrides],
+      automaticEntries: this.latestAutomaticEntries,
+    };
+    this.repository.insert(next);
+    return toPriceTable(next);
+  }
+}
+
+function toPriceTable(table: StoredPriceTable): PriceTable {
+  return {
+    version: table.version,
+    effectiveFrom: table.effectiveFrom,
+    origin: table.origin,
+    entries: table.entries,
+  };
+}
+
+function validationError(message: string): Result<never> {
+  const error: AppError = {
+    code: ErrorCode.VALIDATION,
+    message,
+    retryable: false,
+    remediation: ['Review the model and non-negative integer prices, then try again.'],
+  };
+  return { ok: false, error };
+}

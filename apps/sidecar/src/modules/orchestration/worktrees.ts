@@ -8,11 +8,11 @@ import {
   type ProjectId,
   type Result,
 } from '@itstudio/schemas';
-import type { IProcessRunner } from '../../ports/process-runner.js';
-import type { IFileSystem } from '../../ports/file-system.js';
-import type { CommandRunner } from '../../services/command-runner.js';
-import type { WriteTransactionService } from '../../services/write-transaction.js';
-import { normalizeRelative } from '../../domain/path-guard.js';
+import type { IProcessRunner } from '../../kernel/ports/process-runner.js';
+import type { IFileSystem } from '../../kernel/ports/file-system.js';
+import type { CommandRunner } from '../pipeline/index.js';
+import type { WriteTransactionService } from '../pipeline/index.js';
+import { normalizeRelative } from '../../kernel/domain/path-guard.js';
 
 export interface WorktreeIdentity {
   readonly runId: string;

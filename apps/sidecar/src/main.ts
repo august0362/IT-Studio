@@ -1,7 +1,7 @@
 import { ProviderId, type ProviderId as ProviderIdType } from '@itstudio/schemas';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { isSea } from './infra/native-modules.js';
+import { isSea } from './kernel/infra/native-modules.js';
 
 const PROVIDERS: readonly ProviderIdType[] = Object.values(ProviderId);
 
@@ -12,7 +12,7 @@ export function describeSidecar(): string {
 async function startSidecar(): Promise<void> {
   if (process.env.ITSTUDIO_E2E_CRASH_ON_START === '1') process.exit(1);
   try {
-    const { verifyNativeModules } = await import('./infra/native-modules.js');
+    const { verifyNativeModules } = await import('./kernel/infra/native-modules.js');
     verifyNativeModules();
   } catch (error) {
     const missing = error instanceof Error ? error.message : 'Unknown native module load failure';

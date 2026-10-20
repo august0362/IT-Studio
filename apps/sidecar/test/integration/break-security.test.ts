@@ -7,11 +7,11 @@ import WebSocket from 'ws';
 import { z } from 'zod';
 import type { ConversationId, PipelineRunId } from '@itstudio/schemas';
 import { makeProject, rawRequest, startSidecar, type SidecarHarness, waitFor } from './break-helpers-01.js';
-import { appSettingsSchema } from '../../src/validation/settings.js';
-import { providerIdSchema } from '../../src/validation/common.js';
-import { conversationSchema } from '../../src/validation/chat.js';
-import { rpcParamsSchemas, rpcResultSchemas } from '../../src/validation/ipc.js';
-import { workspaceRelativePathSchema } from '../../src/validation/brand.js';
+import { appSettingsSchema } from '../../src/kernel/validation/settings.js';
+import { providerIdSchema } from '../../src/kernel/validation/common.js';
+import { conversationSchema } from '../../src/kernel/validation/chat.js';
+import { rpcParamsSchemas, rpcResultSchemas } from '../../src/kernel/validation/ipc.js';
+import { workspaceRelativePathSchema } from '../../src/kernel/validation/brand.js';
 
 let sidecar: SidecarHarness | undefined;
 

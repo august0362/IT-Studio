@@ -23,7 +23,7 @@ const requiredResources = [
   'config/models.seed.json',
   'config/pricing.seed.json',
   'migrations/meta/_journal.json',
-  'apps/sidecar/src/infra/sqlite/migrations/meta/_journal.json',
+  'apps/sidecar/src/kernel/infra/sqlite/migrations/meta/_journal.json',
 ];
 
 async function digest(path) {

@@ -3,10 +3,10 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { CostPurpose, type ProjectId, type ProviderId } from '@itstudio/schemas';
 import { z } from 'zod';
-import { appSettingsSchema } from '../../src/validation/settings.js';
-import { chatMessageSchema, conversationSchema } from '../../src/validation/chat.js';
-import { projectSchema } from '../../src/validation/projects.js';
-import { providerIdSchema } from '../../src/validation/common.js';
+import { appSettingsSchema } from '../../src/kernel/validation/settings.js';
+import { chatMessageSchema, conversationSchema } from '../../src/kernel/validation/chat.js';
+import { projectSchema } from '../../src/kernel/validation/projects.js';
+import { providerIdSchema } from '../../src/kernel/validation/common.js';
 import { startSidecar, waitFor, type SidecarHarness } from './harness.js';
 
 let sidecar: SidecarHarness | undefined;

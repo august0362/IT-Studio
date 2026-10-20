@@ -2,7 +2,7 @@ import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
 import type { ProjectId } from '@itstudio/schemas';
-import { projectSchema } from '../../src/validation/projects.js';
+import { projectSchema } from '../../src/kernel/validation/projects.js';
 import { startSidecar, type SidecarHarness, waitFor } from './harness.js';
 
 let nextRawId = 90_000;

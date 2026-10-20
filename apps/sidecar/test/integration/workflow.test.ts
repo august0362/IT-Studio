@@ -3,12 +3,12 @@ import { mkdir, cp, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
-import { projectSchema } from '../../src/validation/projects.js';
-import { appSettingsSchema } from '../../src/validation/settings.js';
-import { conversationSchema } from '../../src/validation/chat.js';
-import { pipelineRunSchema } from '../../src/validation/pipeline.js';
-import { providerIdSchema } from '../../src/validation/common.js';
-import { activityEventSchema, workflowGraphSchema } from '../../src/validation/workflow.js';
+import { projectSchema } from '../../src/kernel/validation/projects.js';
+import { appSettingsSchema } from '../../src/kernel/validation/settings.js';
+import { conversationSchema } from '../../src/kernel/validation/chat.js';
+import { pipelineRunSchema } from '../../src/kernel/validation/pipeline.js';
+import { providerIdSchema } from '../../src/kernel/validation/common.js';
+import { activityEventSchema, workflowGraphSchema } from '../../src/kernel/validation/workflow.js';
 import { startSidecar, waitFor, type SidecarHarness } from './harness.js';
 
 let sidecar: SidecarHarness | undefined;

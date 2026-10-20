@@ -5,12 +5,12 @@ import { cp, mkdir, readFile, readdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
-import { appSettingsSchema } from '../../src/validation/settings.js';
-import { projectSchema } from '../../src/validation/projects.js';
-import { processRecordSchema } from '../../src/validation/process.js';
-import { pipelineRunSchema } from '../../src/validation/pipeline.js';
-import { modelKeySchema, providerIdSchema } from '../../src/validation/common.js';
-import { isoDateTimeSchema } from '../../src/validation/brand.js';
+import { appSettingsSchema } from '../../src/kernel/validation/settings.js';
+import { projectSchema } from '../../src/kernel/validation/projects.js';
+import { processRecordSchema } from '../../src/kernel/validation/process.js';
+import { pipelineRunSchema } from '../../src/kernel/validation/pipeline.js';
+import { modelKeySchema, providerIdSchema } from '../../src/kernel/validation/common.js';
+import { isoDateTimeSchema } from '../../src/kernel/validation/brand.js';
 import { startSidecar, waitFor, type SidecarHarness } from './harness.js';
 
 let sidecar: SidecarHarness | undefined;

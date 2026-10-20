@@ -11,9 +11,9 @@ import {
   type ProjectId,
   type Result,
 } from '@itstudio/schemas';
-import type { IProjectLifecycleRepository } from '../../ports/project-repository.js';
-import type { IProcessRunner } from '../../ports/process-runner.js';
-import { coderOutputSchema } from '../../validation/pipeline.js';
+import type { IProjectLifecycleRepository } from '../../kernel/ports/project-repository.js';
+import type { IProcessRunner } from '../../kernel/ports/process-runner.js';
+import { coderOutputSchema } from '../../kernel/validation/pipeline.js';
 import {
   applyWorkerOutput,
   globMatches,

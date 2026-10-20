@@ -1,5 +1,10 @@
 import { OrchRole, OrchTransport, type OrchUsage, type Result } from '@itstudio/schemas';
-import type { AgentEnvelope, AgentEvent, AgentOutput, IAgentExecutionAdapter } from '../../../ports/agent-execution.js';
+import type {
+  AgentEnvelope,
+  AgentEvent,
+  AgentOutput,
+  IAgentExecutionAdapter,
+} from '../../../kernel/ports/agent-execution.js';
 
 export interface ApiAgentRequest {
   readonly envelope: AgentEnvelope;

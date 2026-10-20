@@ -3,10 +3,10 @@ import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { z } from 'zod';
 import type { ProjectId } from '@itstudio/schemas';
-import { appSettingsSchema } from '../../src/validation/settings.js';
-import { projectSchema } from '../../src/validation/projects.js';
-import { conversationSchema } from '../../src/validation/chat.js';
-import { providerIdSchema } from '../../src/validation/common.js';
+import { appSettingsSchema } from '../../src/kernel/validation/settings.js';
+import { projectSchema } from '../../src/kernel/validation/projects.js';
+import { conversationSchema } from '../../src/kernel/validation/chat.js';
+import { providerIdSchema } from '../../src/kernel/validation/common.js';
 import { startSidecar, waitFor, type SidecarHarness } from './harness.js';
 
 export const responseSchema = z.object({

@@ -16,4 +16,4 @@ apps/desktop/src/index.css
 **/node_modules/**
 .npm-cache/**
 /.stryker-tmp/
-apps/sidecar/src/infra/sqlite/migrations/**
+apps/sidecar/src/kernel/infra/sqlite/migrations/**

@@ -1,7 +1,7 @@
 import { and, desc, eq } from 'drizzle-orm';
 import type { OrchAttempt, OrchRun } from '@itstudio/schemas';
-import type { AppDatabase } from '../../../infra/sqlite/database.js';
-import { orchAttempts, orchEvents, orchRuns, orchTasks } from '../../../infra/sqlite/schema.js';
+import type { AppDatabase } from '../../../kernel/infra/sqlite/database.js';
+import { orchAttempts, orchEvents, orchRuns, orchTasks } from '../../../kernel/infra/sqlite/schema.js';
 
 export class OrchRepository {
   private readonly db: AppDatabase;

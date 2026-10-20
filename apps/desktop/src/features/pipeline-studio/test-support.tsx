@@ -6,7 +6,7 @@ import { vi } from 'vitest';
 import { RpcClient } from '../../rpc/rpc-client';
 import { RpcClientProvider } from '../../rpc/rpc-context';
 import { FakeTransport } from '../../rpc/transport';
-import { pipelineModules } from '../../../../sidecar/src/domain/pipeline-process';
+import { pipelineModules } from '../../../../sidecar/src/modules/pipeline/domain/pipeline-process';
 import { pipeline } from './test-fixtures';
 
 let canvasWidth = 1280;

@@ -15,9 +15,9 @@ function isWorkspaceConvention(file, line) {
   // The pipeline reads conventions from the user's project workspace, independently of this repo's docs.
   const conventionsFile = `${documentNames[2]}.md`;
   return (
-    (file === 'apps/sidecar/src/services/project-context.ts' &&
+    (file === 'apps/sidecar/src/modules/projects/services/project-context.ts' &&
       line.trim() === `const conventionsPath = join(root, '${conventionsFile}');`) ||
-    (file === 'apps/sidecar/src/services/project-context.test.ts' &&
+    (file === 'apps/sidecar/src/modules/projects/services/project-context.test.ts' &&
       line.trim() === 'await fs.writeFile(`${root}/' + conventionsFile + "`, 'x'.repeat(2100));") ||
     (file === 'docs/tasks/archive/M6/M6-05.md' &&
       (line.startsWith('3. Role calls') || line.includes('Add `project-context.test.ts`')))

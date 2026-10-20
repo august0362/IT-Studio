@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import eslint from '@eslint/js';
 import boundaries from 'eslint-plugin-boundaries';
 import reactHooks from 'eslint-plugin-react-hooks';
@@ -45,51 +46,50 @@ const withoutDefaultExportRestriction = restrictedSyntax.filter(
   ({ selector }) => selector !== 'ExportDefaultDeclaration',
 );
 
-const sidecarLayers = [
-  'rpc',
-  'services',
-  'domain',
-  'providers',
-  'infra',
-  'validation',
-  'scheduler',
-  'prompts',
-  'ports',
+// Sidecar feature modules (CONTEXT D37): kernel/ is shared and never imports modules/; a module imports
+// kernel/, its own files and other modules' index.ts only; container.ts/main.ts compose kernel + module
+// entry points; domain/ folders stay pure (domain, port types and zod validation only; tests may use kernel fakes).
+const sidecarSrc = 'apps/sidecar/src';
+
+const sidecarElements = [
+  { type: 'kernel-domain', pattern: `${sidecarSrc}/kernel/domain` },
+  { type: 'kernel-contract', pattern: `${sidecarSrc}/kernel/ports` },
+  { type: 'kernel-contract', pattern: `${sidecarSrc}/kernel/validation` },
+  { type: 'kernel', pattern: `${sidecarSrc}/kernel` },
+  { type: 'module-domain', pattern: `${sidecarSrc}/modules/*/domain`, capture: ['module'] },
+  { type: 'module', pattern: `${sidecarSrc}/modules/*`, capture: ['module'] },
+  { type: 'composition-root', pattern: sidecarSrc },
 ];
 
-const allowedTargets = {
-  rpc: ['services', 'validation'],
-  services: ['domain', 'ports'],
-  providers: ['domain', 'ports'],
-  infra: ['domain', 'ports'],
-  validation: ['domain'],
-  scheduler: ['services'],
-};
+const kernelTypes = ['kernel', 'kernel-domain', 'kernel-contract'];
+const kernelTargets = kernelTypes.map((type) => ({ element: { type } }));
+const moduleEntryPoint = { element: { type: 'module', fileInternalPath: 'index.ts' } };
+const sameModule = (type) => ({ element: { type, captured: { module: '{{ from.captured.module }}' } } });
+const pureTargets = [{ element: { type: 'kernel-domain' } }, { element: { type: 'kernel-contract' } }];
 
 const boundaryPolicies = [
   { allow: { to: { module: { origin: 'external' } } } },
   { allow: { to: { module: { origin: 'core' } } } },
   { allow: { dependency: { relationship: { to: 'internal' } } } },
-  ...Object.entries(allowedTargets).map(([from, targets]) => ({
-    from: { element: { type: from } },
-    allow: { to: targets.map((type) => ({ element: { type } })) },
-  })),
-  ...sidecarLayers.map((from) => {
-    const disallowedTargets = sidecarLayers.filter((type) => {
-      if (from === 'domain') {
-        return true;
-      }
-
-      return type !== from && !allowedTargets[from]?.includes(type);
-    });
-
-    return {
-      from: { element: { type: from } },
-      disallow: {
-        to: disallowedTargets.map((type) => ({ element: { type } })),
-      },
-    };
-  }),
+  { from: { element: { type: 'kernel' } }, allow: { to: kernelTargets } },
+  { from: { element: { type: 'kernel-contract' } }, allow: { to: pureTargets } },
+  { from: { element: { type: 'kernel-domain' } }, allow: { to: pureTargets } },
+  {
+    from: { element: { type: 'module' } },
+    allow: { to: [...kernelTargets, sameModule('module'), sameModule('module-domain'), moduleEntryPoint] },
+  },
+  {
+    from: { element: { type: 'module-domain' } },
+    allow: { to: [...pureTargets, sameModule('module-domain')] },
+  },
+  {
+    from: { element: { types: ['kernel-domain', 'kernel-contract', 'module-domain'] }, file: { categories: 'test' } },
+    allow: { to: kernelTargets },
+  },
+  {
+    from: { element: { type: 'composition-root' } },
+    allow: { to: [...kernelTargets, moduleEntryPoint, { element: { type: 'composition-root' } }] },
+  },
 ];
 
 export default [
@@ -209,10 +209,12 @@ export default [
       boundaries,
     },
     settings: {
-      'boundaries/elements': sidecarLayers.map((type) => ({
-        type,
-        pattern: `apps/sidecar/src/${type}/**`,
-      })),
+      'boundaries/elements': sidecarElements,
+      'boundaries/files': [{ category: 'test', pattern: '**/*.test.ts' }],
+      'import/resolver': {
+        [join(import.meta.dirname, 'scripts/lint/ts-resolver.cjs')]: {},
+        node: {},
+      },
     },
     rules: {
       'boundaries/dependencies': [

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { MicroUsd, OrchAgentRef, OrchAttempt, OrchRun, OrchTask, ProjectId } from '@itstudio/schemas';
 import { OrchestrationEngine } from './engine.js';
-import type { IAgentExecutionAdapter } from '../../ports/agent-execution.js';
+import type { IAgentExecutionAdapter } from '../../kernel/ports/agent-execution.js';
 import { OrchWorkspace, type IOrchWorkspace } from './workspace.js';
 import type { Worktree } from './worktrees.js';
 import { createOrchestrationModule } from './index.js';

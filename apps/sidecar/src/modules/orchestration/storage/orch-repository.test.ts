@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { MicroUsd, OrchAttempt, OrchRun, OrchTask } from '@itstudio/schemas';
-import { openDatabase } from '../../../infra/sqlite/database.js';
-import { projects } from '../../../infra/sqlite/schema.js';
+import { openDatabase } from '../../../kernel/infra/sqlite/database.js';
+import { projects } from '../../../kernel/infra/sqlite/schema.js';
 import { OrchRepository } from './orch-repository.js';
 
 function run(id: string): OrchRun {

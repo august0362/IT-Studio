@@ -7,7 +7,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { projectSchema } from '../../src/validation/projects.js';
+import { projectSchema } from '../../src/kernel/validation/projects.js';
 import { waitFor } from './harness.js';
 
 let child: ChildProcess | undefined;

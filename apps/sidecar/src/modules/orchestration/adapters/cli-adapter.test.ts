@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 import { describe, expect, it, vi } from 'vitest';
-import type { AgentEnvelope } from '../../../ports/agent-execution.js';
-import type { IProcessRunner, ProcessRunInput } from '../../../ports/process-runner.js';
+import type { AgentEnvelope } from '../../../kernel/ports/agent-execution.js';
+import type { IProcessRunner, ProcessRunInput } from '../../../kernel/ports/process-runner.js';
 import { agentAcknowledgement } from '../prompts.js';
 import { CliAgentAdapter, parseClaudeOutput, parseCodexUsage } from './cli-adapter.js';
 

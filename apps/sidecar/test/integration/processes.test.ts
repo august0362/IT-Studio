@@ -4,12 +4,12 @@ import { resolve } from 'node:path';
 import type { ProcessRecord, RpcNotificationMap } from '@itstudio/schemas';
 import { z } from 'zod';
 import { startSidecar, waitFor, type SidecarHarness } from './harness.js';
-import { appSettingsSchema } from '../../src/validation/settings.js';
-import { projectSchema } from '../../src/validation/projects.js';
-import { conversationSchema } from '../../src/validation/chat.js';
-import { processEventSchema, processRecordSchema } from '../../src/validation/process.js';
-import { pipelineRunSchema } from '../../src/validation/pipeline.js';
-import { modelKeySchema, providerIdSchema } from '../../src/validation/common.js';
+import { appSettingsSchema } from '../../src/kernel/validation/settings.js';
+import { projectSchema } from '../../src/kernel/validation/projects.js';
+import { conversationSchema } from '../../src/kernel/validation/chat.js';
+import { processEventSchema, processRecordSchema } from '../../src/kernel/validation/process.js';
+import { pipelineRunSchema } from '../../src/kernel/validation/pipeline.js';
+import { modelKeySchema, providerIdSchema } from '../../src/kernel/validation/common.js';
 
 let sidecar: SidecarHarness | undefined;
 afterEach(async () => {

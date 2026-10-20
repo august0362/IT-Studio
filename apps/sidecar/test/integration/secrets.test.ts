@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { secretStatusSchema } from '../../src/validation/models.js';
+import { secretStatusSchema } from '../../src/kernel/validation/models.js';
 import { startSidecar, type SidecarHarness } from './harness.js';
 
 let sidecar: SidecarHarness | undefined;

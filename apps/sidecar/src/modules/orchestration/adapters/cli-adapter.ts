@@ -3,8 +3,13 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { ErrorCode, OrchRole, OrchTransport, type OrchUsage, type Result } from '@itstudio/schemas';
-import type { IProcessRunner } from '../../../ports/process-runner.js';
-import type { AgentEnvelope, AgentEvent, AgentOutput, IAgentExecutionAdapter } from '../../../ports/agent-execution.js';
+import type { IProcessRunner } from '../../../kernel/ports/process-runner.js';
+import type {
+  AgentEnvelope,
+  AgentEvent,
+  AgentOutput,
+  IAgentExecutionAdapter,
+} from '../../../kernel/ports/agent-execution.js';
 import { agentAcknowledgement, buildAgentPrompt, extractJsonObjects } from '../prompts.js';
 
 const unknownUsage: OrchUsage = {

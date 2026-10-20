@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { mkdir } from 'node:fs/promises';
 import { z } from 'zod';
-import { appSettingsSchema } from '../../src/validation/settings.js';
-import { conversationSchema } from '../../src/validation/chat.js';
-import { modelKeySchema, providerIdSchema } from '../../src/validation/common.js';
-import { projectSchema } from '../../src/validation/projects.js';
-import { routerConfigSchema } from '../../src/validation/router.js';
-import { llmRequestIdSchema } from '../../src/validation/brand.js';
+import { appSettingsSchema } from '../../src/kernel/validation/settings.js';
+import { conversationSchema } from '../../src/kernel/validation/chat.js';
+import { modelKeySchema, providerIdSchema } from '../../src/kernel/validation/common.js';
+import { projectSchema } from '../../src/kernel/validation/projects.js';
+import { routerConfigSchema } from '../../src/kernel/validation/router.js';
+import { llmRequestIdSchema } from '../../src/kernel/validation/brand.js';
 import { startSidecar, waitFor, type SidecarHarness } from './harness.js';
 
 let sidecar: SidecarHarness | undefined;
