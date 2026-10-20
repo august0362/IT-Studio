@@ -82,3 +82,13 @@ Failures → defects → fix tasks (`Mx-FIXn`) → re-test (regression of the wh
 - L1–L3 run on every task QA (fast suite).
 - L4 E2E suites of **all previous milestones** run at every milestone QA gate (full regression).
 - A bug fix always adds a test that fails before the fix.
+
+## 9. Continuous integration (STAB, 2026-10-21)
+
+- `.github/workflows/ci.yml` runs on every pull request and push (Windows runner): typecheck, ESLint, Prettier, secret
+  scan, lint self-test, unit (`npm test`), integration (`npm run test:integration`), desktop + extension builds,
+  SEA sidecar build and `smoke:sidecar`. E2E, installer smoke and real-provider tests stay manual release steps.
+- Hosted runners are slower and use an 8.3 short `TEMP` (`C:\Users\RUNNER~1\…`). Compare paths by real path
+  (`realpath`), never as strings; reproduce locally by pointing `TEMP`/`TMP` at a short name of a temp folder.
+- UI tests: Testing Library async utilities wait up to 5 s (`apps/desktop/src/test-setup.ts`) — do not lower it.
+- Details and branch-protection status: `qa/stabilization/05-CI-GOVERNANCE.md`.

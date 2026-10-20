@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 ## [Unreleased]
 
 ### Added
+- Add GitHub Actions CI on Windows: typecheck, lint, format, secret scan, unit, integration, builds and sidecar smoke ([STAB-04](docs/qa/stabilization/05-CI-GOVERNANCE.md))
+- Add `scripts/dev/acceptance-fixture.mjs`, a disposable Git project for owner acceptance checks ([STAB-03](docs/qa/stabilization/04-OWNER-ACCEPTANCE.md))
 - Add Processes: every chat, pipeline, knowledge ingest, image, price update, key check, VS Code launch and web-chat pane is a process with a coloured status dot, retry/cancel/dismiss, and a full-screen module pipeline viewer ([PROC-01](docs/tasks/archive/owner-feedback/PROC-01.md), [PROC-02](docs/tasks/archive/owner-feedback/PROC-02.md))
 - Add a folder picker for new projects, a Projects page (history, open, delete without touching files), tab restore and a chat thinking indicator ([OWNER-FB2-B](docs/tasks/archive/owner-feedback/OWNER-FB2-B.md))
 - Move all configuration into one searchable Settings page; the sidebar keeps the main features ([UX-03](docs/tasks/archive/owner-feedback/UX-03.md))
@@ -59,6 +61,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 - Add L3 sidecar integration harness and M1 integration suite ([M1-QA](docs/tasks/archive/M1/M1-QA.md))
 
 ### Fixed
+- Orchestration: `src/**` allowances accept nested paths again through one tested glob matcher; unsafe patterns and paths never match ([STAB-01](docs/qa/stabilization/02-DEFECTS.md))
+- Orchestration: a run reaches Awaiting approval only after an explicit, valid `approveForOwner: true` final review; rejected, invalid, failed or timed-out reviews pause the run ([STAB-01](docs/qa/stabilization/02-DEFECTS.md))
+- Orchestration: interrupted runs are swept at startup, resume continues from saved attempts with new attempt ids and never drops or redoes completed tasks ([STAB-01](docs/qa/stabilization/02-DEFECTS.md))
+- Orchestration: integration conflicts are resolved only by an engine-applied resolution of exactly the conflicted files, otherwise the merge is aborted and the run pauses ([STAB-01](docs/qa/stabilization/02-DEFECTS.md))
+- Orchestration: approval merges the reviewed integration commit only while the target branch is unchanged; stale approvals pause for re-integration, failed merges are aborted ([STAB-01](docs/qa/stabilization/02-DEFECTS.md))
+- Orchestration and Knowledge: compare project roots by real path, so projects behind 8.3 short names or junctions work and Knowledge no longer indexes nothing for them ([STAB-05](docs/qa/stabilization/02-DEFECTS.md))
+- Allow discarding a paused or interrupted orchestration run ([STAB-02](docs/qa/stabilization/02-DEFECTS.md))
 - Chat Auto now tries every provider you have a key for, probes an open circuit once before giving up, logs each failed attempt and names the real reason per model; chat advice points to Settings → Router ([OWNER-FB2-A](docs/tasks/archive/owner-feedback/OWNER-FB2-A.md))
 - Fix crash recovery leaving the interrupted run in `writing` and blocking the project's pipeline queue; recovered runs are now `rolled_back` with a report ([QA-BREAK-FIX-A](docs/tasks/archive/hardening/QA-BREAK-FIX-A.md))
 - Reject unknown RPC parameters and unsafe money values, keep concurrent settings updates, keep deleted knowledge sources deleted during re-indexing, serialize same-project pipeline starts and keep the sidecar responsive during query bursts ([QA-BREAK-FIX-A](docs/tasks/archive/hardening/QA-BREAK-FIX-A.md))
@@ -116,6 +125,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 - Refresh official pricing source URLs and record the 2026-10-04 seed audit; retain unconfirmed prices and document context-tier/time-limited caveats ([OWNER-FB1 P5](docs/tasks/archive/owner-feedback/OWNER-FB1.md))
 
 ### Docs
+- Add the stabilization reports `docs/qa/stabilization/01…06`, ARCH §8.3, ADR-0006 amendments and corrected dates/status lines ([STAB](docs/qa/stabilization/06-FINAL-REPORT.md))
 - Add dark-glow design guidance and update theme/roadmap/handoff status for OWNER-FB1; native visual/provider-login smoke and M9-QA release checks remain pending ([OWNER-FB1](docs/tasks/archive/owner-feedback/OWNER-FB1.md))
 - Add v2/v3 planning baseline: requirements specifications (docs/specs/v2-requirements.md, docs/specs/v3-requirements.md), delivery plan (docs/plans/v2-v3-delivery-plan.md), re-planned ROADMAP M10–M19 + REL-V2/REL-V3 and 83 task work orders; open questions Q-06…Q-11
 - Add continuation guide for another agent (docs/HANDOFF.md)

@@ -22,9 +22,12 @@
 | MW Workflow map (v1 addendum) | **Done** (conditional QA sign-off; exploratory follow-up) | 6 / 6 |
 | WC Quick web chat (v1 addendum) | **Done** | 1 / 1 |
 | OWNER-FB1 Owner feedback | **Done** (landed 2026-10-14; native web-chat/theme follow-ups open) | 5 / 5 packages |
-| V1 hardening & polish | In progress (QA-BREAK-01/02, UX-02, V1-POLISH-01) | 2 / 6 |
+| V1 hardening & polish | **Done** (corrected 2026-10-21: the row said "in progress 2 / 6" after all six were checked) | 6 / 6 |
 | M8 Image generation | **Done** (conditional QA sign-off; exploratory follow-up) | 6 / 6 |
 | M9 Packaging & release | **Done** (QA signed off 2026-10-14) | 7 / 7 |
+| ORCH Supervised orchestration (D41) | **Done**; S1 defects found and fixed by STAB (2026-10-21) | 5 / 5 |
+| MOD Sidecar feature modules (D37) | **Done** | 2 / 2 |
+| STAB Reliability & release hardening | Engineering verified; owner acceptance and branch protection pending — [final report](qa/stabilization/06-FINAL-REPORT.md) | 5 / 7 |
 | **v2** M10 Agent Orchestrator | Specified — waits for owner go-ahead | 0 / 11 |
 | **v2** M11 Agent Memory | Specified | 0 / 9 |
 | **v2** M12 Channels framework + Outbox + VS Code chat | Specified | 0 / 10 |
@@ -234,6 +237,19 @@ Tests: `docs/qa/ORCH-test-cases.md` · Roles: `docs/governance/MULTI_AGENT_ORCHE
 - [x] **ORCH-03** (C) Review/fix loop, integration branch, final review + owner approval merge, budgets/usage, recovery, safety.
 - [x] **ORCH-04** (C) UI: Settings → Orchestration (with Saved confirmation), Code → Orchestration view, Projects badge, Processes links.
 - [x] **ORCH-QA** (A) Traceability ORCH-001…019 with recorded results + one real-agent run (ORCH-M01). ORCH-019 off-screen E2E passed; ORCH-M01 real run done 2026-10-20.
+  *Correction 2026-10-21:* the stabilization pass found S1 defects in the final-review gate, recovery, conflict handling and approval (STAB-D02…D05) and an S2 glob defect (STAB-D01); fixed in STAB-01/05, see [02-DEFECTS](qa/stabilization/02-DEFECTS.md).
+
+## STAB — Reliability, verification & release hardening *(2026-10-20 … 21, owner master prompt)*
+
+Reports: [baseline](qa/stabilization/01-BASELINE.md) · [defects](qa/stabilization/02-DEFECTS.md) · [verification](qa/stabilization/03-VERIFICATION.md) · [owner acceptance (VN)](qa/stabilization/04-OWNER-ACCEPTANCE.md) · [CI & governance](qa/stabilization/05-CI-GOVERNANCE.md) · [final report](qa/stabilization/06-FINAL-REPORT.md). Branch `stabilization/v1-hardening`.
+
+- [x] **STAB-01** (C) Orchestration: glob matcher (P0-01), final review gate (P0-02), crash recovery/resume (P1-01), real conflict resolution (P1-02), stale-approval protection (P1-03).
+- [x] **STAB-02** (C) Code → Orchestration: Discard for paused/interrupted runs.
+- [x] **STAB-03** (C) Disposable acceptance project `scripts/dev/acceptance-fixture.mjs`.
+- [x] **STAB-04** (C) GitHub Actions CI (`.github/workflows/ci.yml`).
+- [x] **STAB-05** (C) Real-path comparison for project roots (8.3 short names, junctions) in orchestration and Knowledge discovery.
+- [ ] **STAB-06** (owner) Protect `main` (needs repository admin: `gh auth login` or GitHub settings) — [05-CI-GOVERNANCE](qa/stabilization/05-CI-GOVERNANCE.md).
+- [ ] **STAB-07** (owner) Owner acceptance — [04-OWNER-ACCEPTANCE](qa/stabilization/04-OWNER-ACCEPTANCE.md).
 
 ## MOD — Sidecar feature modules *(D37; after v1 sign-off, before LLMPOOL)*
 

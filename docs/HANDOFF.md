@@ -1,6 +1,6 @@
 # HANDOFF — read this first if you are a new AI / engineer continuing IT Studio
 
-> Last updated: **2026-10-14** by the Architect / QA agent (Claude) during v1 hardening.
+> Last updated: **2026-10-21** by Claude after the stabilization pass (sections 0, 1 and 2.1 refreshed; older sections keep their dates).
 > Keep this file current whenever you stop. It complements — does not replace — the binding documents:
 >
 > | Document | What it is |
@@ -21,17 +21,21 @@
 
 ---
 
-## 0. TL;DR for the next agent
+## 0. TL;DR for the next agent (2026-10-21)
 
-1. Read §3 (owner rules) and §2 (how work is done) — they are not written anywhere else.
-2. v1 is feature-complete, M1–M9 gates are signed off and **v1 hardening is done** (§4, V1-QA 2026-10-15). The owner is testing the build with `docs/qa/V1-owner-checklist.md`.
-3. Next, only after the owner's verdict: **MOD-01/02** (sidecar feature modules, D37) → **LLMPOOL-01/02** (key pool, D36) → ask before v2 (M10).
-4. Talk to the owner in **Vietnamese**; write repo files in **English**, except documents the owner personally uses (e.g. the owner checklist), which are Vietnamese.
-5. Project documents live in `docs/` since REPO-01; `AGENTS.md` and `CHANGELOG.md` stay at the root.
+1. Read §3 (owner rules) and §2 (how work is done). **Since 2026-10-20 Claude implements directly** — no Codex,
+   sub-agents or real-agent orchestration runs unless the owner asks (§2.1).
+2. v1 (M0–M9, PSTUDIO, PROV, OWNER-FB2/3, PROC-01/02, ORCH, MOD-01/02) is implemented. The **stabilization pass**
+   (branch `stabilization/v1-hardening`, reports in `docs/qa/stabilization/`) fixed S1/S2 orchestration defects and
+   path handling and added CI. It is **not merged into `main`** yet: the owner decides after review.
+3. Open: owner acceptance (`docs/qa/stabilization/04-OWNER-ACCEPTANCE.md`, Vietnamese), `main` branch protection
+   (needs the owner's GitHub admin login), then LLMPOOL-01/02 — ask the owner before starting it and before v2 (M10).
+4. Talk to the owner in **Vietnamese**; repo files in **English**, except documents the owner personally uses.
+5. `ROADMAP.md` is the source of truth for task status; the table in §1 below is a 2026-10-14 snapshot.
 
 ---
 
-## 1. Status per milestone (2026-10-14)
+## 1. Status per milestone (snapshot 2026-10-14 — superseded by the ROADMAP progress table)
 
 | Milestone | Tasks done | Status | Notes |
 |---|---|---|---|
@@ -61,6 +65,7 @@ Numbers on `main` after OWNER-FB1 (2026-10-14): 1 041 unit tests (1 skipped), 11
 ### 2.1 Roles
 - **Architect / PM / QA** (Claude): decides, writes specs (`docs/tasks/<ID>.md`), contracts (`src/types/schemas.ts`, additive only), docs and decisions; pre-installs dependencies; triages test failures (test defect vs product defect); runs the gates that the Codex sandbox cannot run; resolves merge conflicts; lands work. Does **not** write feature or test code (owner instruction, re-confirmed 2026-10-14: "dùng codex làm agent thực thi, bạn đưa ra quyết định").
 - **Implementer** (Codex CLI, following `AGENTS.md`): writes all code and tests within the task Scope.
+- **Since 2026-10-20 (owner):** "bỏ phần điều khiển codex đi … từ sau chỉ claude làm thôi" — Claude writes product and test code itself; Codex, sub-agents and orchestration runs that call real agents are used only when the owner asks. §2.2–2.4 describe the earlier Codex workflow and stay valid when the owner asks for it.
 - History: on 2026-10-04 the owner temporarily let Codex act as lead for OWNER-FB1 and M9-QA. That arrangement ended when OWNER-FB1 landed; `AGENTS.md` and `CONTEXT.md` keep the split above.
 
 ### 2.2 Task lifecycle

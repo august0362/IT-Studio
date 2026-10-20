@@ -266,6 +266,32 @@ SPECIFYING (PM) ─► CODING (Coder) ─► REVIEWING (Reviewer)
 
 Built by `FailureReportBuilder` from stage + `AppError` + last 60 lines of relevant logs; `nextSteps` from a remediation table keyed by `ErrorCode` (e.g. `PATCH_CONFLICT` → "A file changed while the pipeline ran. Save or discard your edits in VS Code, then re-run."). Shown in the Code tab and pushed via `pipeline.failureReport`.
 
+### 8.3 Supervised orchestration (D41, ADR-0006; gates as of STAB 2026-10-21)
+
+Module `apps/sidecar/src/modules/orchestration/`. The deterministic engine is the authority; agent output is data.
+
+- **Paths.** `allowedPaths` globs use one matcher (`glob.ts`): trailing `**` = everything below, `*`/`?` never cross
+  `/`, unsafe patterns/paths never match. A worker write passes schema path validation → glob allowance →
+  forbidden segments → write transaction `resolveSafe` (realpath containment). Project roots are compared by real
+  path (8.3 short names, junctions); `TARGET_FORBIDDEN` is checked on the given and the real path.
+- **Run outcome.** `AWAITING_APPROVAL` requires: every task passed review, every completed task merged into a fresh
+  integration branch built on the current target tip, the distinct validation commands passed, and the supervisor
+  final review parsed as `{ approveForOwner: true, summary, risks }`. Any other outcome is `paused` with a reason
+  (`FINAL_REVIEW_REJECTED|INVALID|FAILED|UNAVAILABLE`, `INTEGRATION_CONFLICT|FAILED|VALIDATION_FAILED|SOURCE_MISSING`,
+  budget reasons, `NEEDS_OWNER`) or `cancelled`/`failed`.
+- **Conflicts.** The reviewer stays read-only; it returns the resolved content of exactly the conflicted files; the
+  workspace writes it through the write transaction, requires zero unmerged entries and commits the merge, or aborts
+  the merge and pauses the run.
+- **Persistence & recovery.** Attempts are saved as `running` before a worktree or agent call exists. At startup
+  (before RPC) `recoverInterrupted()` turns `running` runs into `paused_interrupted`, in-flight tasks into `queued`,
+  running attempts into `unknown`; nothing restarts by itself. `orch.resume` continues from the persisted attempts
+  (completed tasks keep their worktree, unreviewed work is reviewed, new attempt numbers); one engine session per run.
+- **Approval.** The run stores `integrationBaseSha` and `integrationHeadSha`. `orch.approve` merges that exact SHA with
+  `--no-ff` only if the target branch is checked out, its HEAD is still `integrationBaseSha`, the integration branch
+  still points at `integrationHeadSha` and no file the merge changes has uncommitted edits; otherwise the approval is
+  stale (run → `paused`, resume re-integrates and re-reviews) or blocked. A failed merge is aborted; `completed` is
+  saved before worktree cleanup; approvals, resume and discard are serialized per run.
+
 ## 9. Workspace Worker
 
 ### 9.1 Path safety

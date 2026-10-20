@@ -1,6 +1,8 @@
 # Running IT Studio
 
-> Current status (2026-10-04): v1 implementation and OWNER-FB1 installer builds are delivered. Release sign-off remains pending M9-QA, runtime-isolated install smoke and the native provider/theme follow-ups recorded in `` and `docs/HANDOFF.md`.
+> Current status (2026-10-21): v1 (incl. orchestration) is implemented; M9 was signed off on 2026-10-14 and the V1-QA gate passed on 2026-10-15 (`qa/V1-report.md`). The stabilization branch `stabilization/v1-hardening` holds reliability fixes not yet merged into `main`; owner acceptance is pending (`qa/stabilization/04-OWNER-ACCEPTANCE.md`). The last installer was built on 2026-10-17 and does not contain those fixes.
+>
+> *Earlier status line (2026-10-04), kept for history:* v1 implementation and OWNER-FB1 installer builds are delivered. Release sign-off remains pending M9-QA, runtime-isolated install smoke and the native provider/theme follow-ups recorded in `` and `docs/HANDOFF.md`.
 
 ## Install IT Studio
 

@@ -1,7 +1,9 @@
 # ADR-0006 — Supervised multi-agent orchestration (runtime, v1 add-on)
 
-- Date: 2026-10-22
+- Date: 2026-10-22 *(correction 2026-10-21: this date is in the future of the record — the ADR was committed on
+  2026-10-16 in `0351aaf`; ORCH-01…04 landed 2026-10-17. The original text is kept unchanged below.)*
 - Status: Accepted by owner instruction (master implementation prompt, 2026-10-22; answers in chat)
+- Amended: 2026-10-21 by the stabilization pass — see "Amendments" at the end.
 - Decision record: `../CONTEXT.md` D41
 - Canonical roles: `docs/governance/MULTI_AGENT_ORCHESTRATION.md`
 - Work orders: `docs/tasks/ORCH-01.md` … `ORCH-04.md`; test cases `docs/qa/ORCH-test-cases.md`
@@ -36,3 +38,22 @@ External tool facts verified on 2026-10-22: `claude 2.1.296` supports non-intera
 - No Freebuff/Solar integration; the adapter interface keeps future CLIs possible if they gain a documented headless mode.
 - Development orchestration of IT Studio itself keeps using `scripts/dev/run-task.sh`; aligning it with this engine is a later task.
 - Mock-agent tests prove engine behaviour, not model quality; real-adapter smoke tests run only with the owner's keys/subscriptions.
+
+## Amendments
+
+### 2026-10-21 — stabilization pass (`docs/qa/stabilization/02-DEFECTS.md`, STAB-D01…D05)
+
+Implementation defects found after ORCH-QA made parts of this decision ineffective; the fixes make the code match
+the decision and settle details the decision left open. No role, transport or budget default changed.
+
+1. **Final review is a gate (§6).** The supervisor's final review must parse as
+   `{ approveForOwner: boolean, summary, risks[] }` (strict); only `approveForOwner: true` leads to
+   `AWAITING_APPROVAL`. Rejection, invalid output, adapter failure/timeout or a missing supervisor pause the run.
+2. **Conflicts (§6).** "The reviewer gets an integration-fix task" is realised without write access: the reviewer
+   returns the resolved content of the conflicted files; the engine applies it through the write transaction and
+   commits only when Git has no unmerged entry; otherwise the merge is aborted and the run pauses.
+3. **Recovery (§8).** Attempts are persisted before any side effect; the restart sweep runs at sidecar startup; a
+   resume continues from persisted attempts (completed tasks are kept, new attempt ids, no automatic relaunch).
+4. **Approval (§6).** The approved object is the reviewed integration commit on top of the target commit it was built
+   on. If the target branch moved (or the integration branch changed), the approval is stale: the run pauses and a
+   resume re-integrates on the new tip, re-validates and asks for a new final review.
