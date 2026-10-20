@@ -1,12 +1,14 @@
-﻿import { OrchRunState, type OrchRun, type ProjectId } from '@itstudio/schemas';
+﻿import { OrchRunState, type AppError, type OrchAttempt, type OrchRun, type ProjectId } from '@itstudio/schemas';
 import { startTransition, useEffect, useState, type JSX } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { SafeMarkdown } from '../../components/SafeMarkdown';
 import { useNotification } from '../../hooks/use-notification';
 import { useRpcQuery } from '../../hooks/use-rpc-query';
 import { ProcessGraph } from '../processes/ProcessGraph';
 import { useRpcClient } from '../../rpc/rpc-context';
+import { RpcCallError } from '../../rpc/rpc-client';
 import { useNavigationIntent } from '../../state/navigation-intent';
 
 const activeStates: readonly string[] = [OrchRunState.RUNNING, OrchRunState.PAUSED, OrchRunState.PAUSED_INTERRUPTED];
@@ -19,7 +21,7 @@ export function OrchestrationCodeView({ projectId }: { readonly projectId: Proje
   const [request, setRequest] = useState('');
   const [run, setRun] = useState<OrchRun | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Pick<AppError, 'message' | 'remediation'> | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const list = useRpcQuery('orch.list', { ...(projectId === null ? {} : { projectId }), limit: 20 });
   const processList = useRpcQuery('process.list', {
@@ -31,7 +33,7 @@ export function OrchestrationCodeView({ projectId }: { readonly projectId: Proje
   const roles = useRpcQuery('settings.get', {});
   const intent = useNavigationIntent((state) => state.intent);
   const clearIntent = useNavigationIntent((state) => state.clearIntent);
-  const attempts = useQuery({
+  const attempts = useQuery<readonly OrchAttempt[], RpcCallError>({
     queryKey: ['orch.attempts', run?.id],
     queryFn: () => (run === null ? Promise.resolve([]) : rpc.call('orch.attempts', { runId: run.id })),
     enabled: run !== null,
@@ -43,10 +45,7 @@ export function OrchestrationCodeView({ projectId }: { readonly projectId: Proje
   useNotification('orch.event', (event) => {
     if (event.type === 'run' && event.run.projectId === projectId) setRun(event.run);
     else if (run !== null && event.type !== 'run' && event.runId === run.id) {
-      void rpc
-        .call('orch.get', { runId: run.id })
-        .then(setRun)
-        .catch(() => undefined);
+      void rpc.call('orch.get', { runId: run.id }).then(setRun).catch(showError);
     }
   });
   useEffect(() => {
@@ -76,6 +75,13 @@ export function OrchestrationCodeView({ projectId }: { readonly projectId: Proje
       adapters.data?.some((adapter) => adapter.transport === agent.transport && adapter.status === 'available'),
     );
   const disabled = projectId === null || !adaptersReady || !rolesReady;
+  function showError(cause: unknown): void {
+    setError(
+      cause instanceof RpcCallError
+        ? cause.appError
+        : { message: cause instanceof Error ? cause.message : t('code.actionError') },
+    );
+  }
   async function action(
     method: 'orch.plan' | 'orch.start' | 'orch.cancel' | 'orch.resume' | 'orch.approve' | 'orch.discard',
   ): Promise<void> {
@@ -86,9 +92,7 @@ export function OrchestrationCodeView({ projectId }: { readonly projectId: Proje
       rpc
         .call(method, { runId: run.id }, { timeoutMs: run.limits.maxWallClockMs + RUN_TIMEOUT_MARGIN_MS })
         .then(setRun)
-        .catch((cause: unknown) => {
-          setError(cause instanceof Error ? cause.message : t('code.actionError'));
-        });
+        .catch(showError);
       return;
     }
     setBusy(true);
@@ -105,13 +109,20 @@ export function OrchestrationCodeView({ projectId }: { readonly projectId: Proje
       setRun(result);
       if (method === 'orch.plan') await list.refetch();
     } catch (cause: unknown) {
-      setError(cause instanceof Error ? cause.message : t('code.actionError'));
+      showError(cause);
     } finally {
       setBusy(false);
     }
   }
   const elapsed = Math.floor(elapsedMs / 60_000);
   const unknown = t('code.orchestrationUnknown');
+  const visibleError =
+    error ??
+    list.error?.appError ??
+    processList.error?.appError ??
+    adapters.error?.appError ??
+    roles.error?.appError ??
+    attempts.error?.appError;
   return (
     <section className="space-y-5" aria-labelledby="orch-code-heading">
       <PageHeader
@@ -147,10 +158,17 @@ export function OrchestrationCodeView({ projectId }: { readonly projectId: Proje
       >
         {busy ? t('code.orchestrationPlanning') : t('code.orchestrationPlan')}
       </button>
-      {error ? (
-        <p className="text-danger" role="alert">
-          {error}
-        </p>
+      {visibleError ? (
+        <div className="space-y-2 text-danger" role="alert">
+          <p>{visibleError.message}</p>
+          {visibleError.remediation?.length ? (
+            <ol className="list-decimal pl-5" aria-label={t('code.orchestrationRemediation')}>
+              {visibleError.remediation.map((step, index) => (
+                <li key={index}>{step}</li>
+              ))}
+            </ol>
+          ) : null}
+        </div>
       ) : null}
       {run ? (
         <div className="space-y-4 rounded border border-border p-4">
@@ -286,6 +304,10 @@ export function OrchestrationCodeView({ projectId }: { readonly projectId: Proje
                   {t(`settings.orchestration.transportNames.${attempt.agent.transport}`)}
                 </p>
                 <p>
+                  {t('code.orchestrationAttemptState')}: {t(`code.orchestrationAttemptStates.${attempt.state}`)}
+                  {attempt.reason ? ` · ${t('code.orchestrationReason')}: ${attempt.reason}` : ''}
+                </p>
+                <p>
                   {t('code.orchestrationDuration')}:{' '}
                   {attempt.endedAt
                     ? `${String(Math.max(0, Math.round((Date.parse(attempt.endedAt) - Date.parse(attempt.startedAt)) / 1000)))} s`
@@ -298,13 +320,32 @@ export function OrchestrationCodeView({ projectId }: { readonly projectId: Proje
                 </p>
                 <p>
                   {t('code.orchestrationWorktree')}: {attempt.worktree ?? unknown} · {t('code.orchestrationBase')}:{' '}
-                  {attempt.baseSha ?? unknown} · {t('code.orchestrationHead')}: {attempt.headSha ?? unknown} ·{' '}
-                  {attempt.reason ?? unknown}
+                  {attempt.baseSha ?? unknown} · {t('code.orchestrationHead')}: {attempt.headSha ?? unknown}
                 </p>
+                {attempt.role === 'reviewer' && attempt.verdict !== undefined ? (
+                  <section className="space-y-2 border-t border-border pt-2">
+                    <h5 className="font-semibold">
+                      {t('code.orchestrationVerdict')}: {t(`code.orchestrationVerdicts.${attempt.verdict.verdict}`)}
+                    </h5>
+                    <SafeMarkdown source={attempt.verdict.summary} />
+                    {attempt.verdict.findings.map((finding, index) => (
+                      <article className="border-t border-border pt-2" key={`${finding.path}-${String(index)}`}>
+                        <strong>{t(`code.severity.${finding.severity}`)}</strong> · {finding.path}
+                        {finding.line === undefined ? '' : `:${String(finding.line)}`}
+                        <SafeMarkdown source={finding.message} />
+                        <p className="font-medium">{t('code.orchestrationSuggestedFix')}</p>
+                        <SafeMarkdown source={finding.suggestedFix} />
+                      </article>
+                    ))}
+                  </section>
+                ) : null}
+                <p className="font-medium">{t('code.orchestrationChangedFiles')}</p>
                 <ul className="list-disc pl-5">
                   {attempt.changedFiles.map((path) => (
                     <li key={path}>{path}</li>
                   ))}
+                </ul>
+                <ul className="list-disc pl-5">
                   {attempt.evidence.map((item) => (
                     <li key={item.id}>
                       {item.spec.executable} {item.spec.args.join(' ')}:{' '}

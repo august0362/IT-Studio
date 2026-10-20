@@ -351,6 +351,24 @@
     "orchestrationAttempts": "C?c l?n th? v? b?ng ch?ng",
     "orchestrationDuration": "Th?i l??ng",
     "orchestrationUsage": "Token ??u v?o / ??u ra",
+    "orchestrationRemediation": "Các bước khắc phục lỗi",
+    "orchestrationAttemptState": "Trạng thái lần thử",
+    "orchestrationReason": "Lý do",
+    "orchestrationChangedFiles": "Tệp đã thay đổi",
+    "orchestrationVerdict": "Kết luận đánh giá",
+    "orchestrationSuggestedFix": "Cách sửa đề xuất",
+    "orchestrationVerdicts": {
+      "pass": "Đạt",
+      "fix_required": "Cần sửa",
+      "reject": "Từ chối"
+    },
+    "orchestrationAttemptStates": {
+      "running": "Đang chạy",
+      "succeeded": "Thành công",
+      "failed": "Thất bại",
+      "cancelled": "Đã hủy",
+      "unknown": "không rõ"
+    },
     "orchestrationColumns": {
       "assigned": "T?c nh?n ???c giao",
       "fixRounds": "S? v?ng s?a"

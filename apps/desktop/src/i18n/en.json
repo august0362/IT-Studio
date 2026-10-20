@@ -351,6 +351,24 @@
     "orchestrationAttempts": "Attempts and evidence",
     "orchestrationDuration": "Duration",
     "orchestrationUsage": "Input / output tokens",
+    "orchestrationRemediation": "Steps to resolve the error",
+    "orchestrationAttemptState": "Attempt state",
+    "orchestrationReason": "Reason",
+    "orchestrationChangedFiles": "Changed files",
+    "orchestrationVerdict": "Verdict",
+    "orchestrationSuggestedFix": "Suggested fix",
+    "orchestrationVerdicts": {
+      "pass": "Pass",
+      "fix_required": "Fix required",
+      "reject": "Reject"
+    },
+    "orchestrationAttemptStates": {
+      "running": "Running",
+      "succeeded": "Succeeded",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "unknown": "unknown"
+    },
     "orchestrationColumns": {
       "assigned": "Assigned agent",
       "fixRounds": "Fix rounds"
