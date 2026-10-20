@@ -1017,6 +1017,9 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
   const server = new RpcServer(transport, events, logger);
   serverRef.current = server;
   const orchProcessRunner = new NodeProcessRunner();
+  // Orchestration must never target IT Studio itself: the install folder when packaged, the source
+  // repository in development (the dev shell starts the sidecar there). A packaged app's cwd is arbitrary.
+  const itStudioRoot = isSea() ? dirname(process.execPath) : process.cwd();
   const orchestration = createOrchestrationModule({
     repository: new OrchRepository(database.db),
     processes: processRegistry,
@@ -1025,6 +1028,8 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
       worktrees: new WorktreeManager(workerProcessRunner),
       apply: { runner: workerProcessRunner, fileSystem, commands: commandRunner, writer: writeTransaction },
       runner: workerProcessRunner,
+      sidecarCwd: itStudioRoot,
+      appExecutableDir: dirname(process.execPath),
     }),
     adapters: [
       new ApiAgentAdapter(async ({ envelope, input, signal }) => {
@@ -1095,6 +1100,7 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
     validate: { workspaceRoot: dataDir, allowedCommands: [] },
     runner: workerProcessRunner,
     projects: projectRepository,
+    sidecarCwd: itStudioRoot,
     appExecutableDir: dirname(process.execPath),
     settings: async () => {
       const settings = await settingsService.get();
