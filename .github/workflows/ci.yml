@@ -74,7 +74,28 @@ jobs:
           git config --global user.name "IT Studio CI"
           git config --global user.email "ci@example.invalid"
       - name: Integration suite (real sidecar, real Git and SQLite, fake providers)
+        env:
+          ITSTUDIO_INTEGRATION_SELECTION: stable
         run: npm run test:integration
+
+  integration-machine-sensitive:
+    # Not a required check: these cases assert absolute latency or OS permission behaviour that depends on the
+    # runner (vitest.integration.config.ts). They still run on every push so a real regression stays visible.
+    name: Integration (machine-sensitive, non-blocking)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Latency and read-only data directory cases
+        env:
+          ITSTUDIO_INTEGRATION_SELECTION: machine-sensitive
+        run: npm run test:integration -- apps/sidecar/test/integration/break-concurrency.test.ts apps/sidecar/test/integration/break-durability.test.ts
 
   build:
     name: Build and sidecar smoke
