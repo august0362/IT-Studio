@@ -1097,6 +1097,24 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
       new CodexCliAdapter(orchProcessRunner),
     ],
     includeMock: env.ITSTUDIO_E2E_ORCH_MOCK === '1' || process.env.NODE_ENV === 'test',
+    ...(env.ITSTUDIO_E2E_ORCH_MOCK === '1'
+      ? {
+          scripts: {
+            worker: () =>
+              Promise.resolve({
+                summary: 'Create the orchestration E2E fixture file.',
+                operations: [
+                  {
+                    kind: 'create',
+                    path: 'src/orchestration-e2e.ts',
+                    content: 'export const orchestrationE2e = true;\n',
+                  },
+                ],
+                assumptions: [],
+              }),
+          },
+        }
+      : {}),
     validate: { workspaceRoot: dataDir, allowedCommands: [] },
     runner: workerProcessRunner,
     projects: projectRepository,

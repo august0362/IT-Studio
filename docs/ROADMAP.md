@@ -233,7 +233,7 @@ Tests: `docs/qa/ORCH-test-cases.md` · Roles: `docs/governance/MULTI_AGENT_ORCHE
 - [x] **ORCH-02** (C) Adapters (api, claude-cli, codex-cli), probes, envelope/ack, worktrees, worker apply, process-tree cancel.
 - [x] **ORCH-03** (C) Review/fix loop, integration branch, final review + owner approval merge, budgets/usage, recovery, safety.
 - [x] **ORCH-04** (C) UI: Settings → Orchestration (with Saved confirmation), Code → Orchestration view, Projects badge, Processes links.
-- [ ] **ORCH-QA** (A) Traceability ORCH-001…019 with recorded results + one real-agent run (ORCH-M01).
+- [x] **ORCH-QA** (A) Traceability ORCH-001…019 with recorded results + one real-agent run (ORCH-M01). ORCH-019 off-screen E2E passed; ORCH-M01 real run done 2026-10-20.
 
 ## MOD — Sidecar feature modules *(D37; after v1 sign-off, before LLMPOOL)*
 

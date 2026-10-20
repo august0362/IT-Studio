@@ -7,6 +7,7 @@ import { SafeMarkdown } from '../../components/SafeMarkdown';
 import { useNotification } from '../../hooks/use-notification';
 import { useRpcQuery } from '../../hooks/use-rpc-query';
 import { ProcessGraph } from '../processes/ProcessGraph';
+import { useProcesses } from '../processes/useProcesses';
 import { useRpcClient } from '../../rpc/rpc-context';
 import { RpcCallError } from '../../rpc/rpc-client';
 import { useNavigationIntent } from '../../state/navigation-intent';
@@ -24,11 +25,7 @@ export function OrchestrationCodeView({ projectId }: { readonly projectId: Proje
   const [error, setError] = useState<Pick<AppError, 'message' | 'remediation'> | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const list = useRpcQuery('orch.list', { ...(projectId === null ? {} : { projectId }), limit: 20 });
-  const processList = useRpcQuery('process.list', {
-    ...(projectId === null ? {} : { projectId }),
-    kind: ['orchestration'],
-    limit: 100,
-  });
+  const processList = useProcesses(projectId ?? undefined);
   const adapters = useRpcQuery('orch.adapters', {});
   const roles = useRpcQuery('settings.get', {});
   const intent = useNavigationIntent((state) => state.intent);
@@ -39,7 +36,7 @@ export function OrchestrationCodeView({ projectId }: { readonly projectId: Proje
     enabled: run !== null,
     refetchInterval: run === null ? false : 2000,
   });
-  const processRecord = processList.data?.find(
+  const processRecord = processList.records.find(
     (record) => record.ref?.type === 'orchestration_run' && record.ref.id === run?.id,
   );
   useNotification('orch.event', (event) => {
@@ -119,7 +116,7 @@ export function OrchestrationCodeView({ projectId }: { readonly projectId: Proje
   const visibleError =
     error ??
     list.error?.appError ??
-    processList.error?.appError ??
+    (processList.error instanceof RpcCallError ? processList.error.appError : undefined) ??
     adapters.error?.appError ??
     roles.error?.appError ??
     attempts.error?.appError;
@@ -359,13 +356,15 @@ export function OrchestrationCodeView({ projectId }: { readonly projectId: Proje
         </div>
       ) : null}
       {processRecord !== undefined ? (
-        <ProcessGraph
-          record={processRecord}
-          packets={[]}
-          onSelect={() => undefined}
-          fitRevision={0}
-          onCanvasClick={() => undefined}
-        />
+        <div className="studio-root relative h-80 rounded border border-border bg-surface">
+          <ProcessGraph
+            record={processRecord}
+            packets={[]}
+            onSelect={() => undefined}
+            fitRevision={0}
+            onCanvasClick={() => undefined}
+          />
+        </div>
       ) : null}
       <ul className="space-y-1">
         {(list.data ?? [])

@@ -17,7 +17,13 @@ const appPath = resolve(root, 'apps/desktop/src-tauri/target/debug/itstudio-desk
 const npmCliPath = process.env.npm_execpath;
 const driversByWorker = new Map<string, ChildProcess[]>();
 let e2eTempRoot: string | undefined;
-const tauriCapabilities: TauriCapabilities[] = [{ browserName: 'wry', 'tauri:options': { application: appPath } }];
+const tauriCapabilities: TauriCapabilities[] = [
+  {
+    browserName: 'wry',
+    'tauri:options': { application: appPath },
+    'wdio:enforceWebDriverClassic': true,
+  },
+];
 
 function newestSourceMtime(path: string): number {
   const info = statSync(path);
@@ -53,6 +59,7 @@ function startDriver(
     readonly imageScript?: string;
     readonly imagePriceMicroUsd?: number;
     readonly llmScriptText?: string;
+    readonly orchestrationMock?: boolean;
   } = {},
 ): ChildProcess {
   const imageScriptPath =
@@ -80,6 +87,7 @@ function startDriver(
         ITSTUDIO_DATA_DIR: join(workerRoot, `data-${String(port)}`),
         WEBVIEW2_USER_DATA_FOLDER: join(workerRoot, `webview-${String(port)}`),
         ITSTUDIO_E2E: '1',
+        ...(options.orchestrationMock === true ? { ITSTUDIO_E2E_ORCH_MOCK: '1' } : {}),
         ...(process.env.ITSTUDIO_E2E_VISIBLE === '1' ? {} : { ITSTUDIO_E2E_OFFSCREEN: '1' }),
         ITSTUDIO_E2E_VERIFIER_OUTCOME: options.verifierOutcome ?? 'success',
         ...(llmScriptPath === undefined
@@ -161,6 +169,7 @@ export const config: Options.Testrunner & { capabilities: Capabilities.Requested
     './specs/m6/code.spec.ts',
     './specs/m8/images.spec.ts',
     './specs/mw/workflow.spec.ts',
+    './specs/orch/orchestration.spec.ts',
     // shutdown must stay last: it closes the app window
     './specs/m1/shutdown.spec.ts',
   ],
@@ -215,11 +224,10 @@ export const config: Options.Testrunner & { capabilities: Capabilities.Requested
     };
     driversByWorker.set(cid, workerDrivers);
     const needs = (file: string) => specs.some((spec) => spec.replaceAll('\\', '/').endsWith(file));
-    await launch(
-      4444,
-      4454,
-      needs('/m5/knowledge.spec.ts') ? { llmText: 'The blue lantern is in the north archive room [1].' } : {},
-    );
+    await launch(4444, 4454, {
+      ...(needs('/m5/knowledge.spec.ts') ? { llmText: 'The blue lantern is in the north archive room [1].' } : {}),
+      ...(needs('/orch/orchestration.spec.ts') ? { orchestrationMock: true } : {}),
+    });
     if (needs('/m1/fatal.spec.ts')) await launch(4445, 4455, { crashOnStart: true });
     if (needs('/m1/startup.spec.ts')) await launch(4452, 4462, { verifierOutcome: 'timeout' });
     if (needs('/m4/scripted-llm.spec.ts')) {

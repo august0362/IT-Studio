@@ -370,6 +370,12 @@
       "unknown": "không rõ"
     },
     "orchestrationColumns": {
+      "title": "Công việc",
+      "state": "Trạng thái",
+      "dependsOn": "Phụ thuộc",
+      "allowedPaths": "Đường dẫn được phép",
+      "candidateAgents": "Tác nhân có thể giao",
+      "estimate": "Ước lượng",
       "assigned": "T?c nh?n ???c giao",
       "fixRounds": "S? v?ng s?a"
     },

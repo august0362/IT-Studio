@@ -1,12 +1,25 @@
-import type { AppError, OrchAgentRef, OrchAttempt, OrchRun } from '@itstudio/schemas';
+import type { AppError, OrchAgentRef, OrchAttempt, OrchRun, ProcessRecord } from '@itstudio/schemas';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { i18n } from '../../i18n';
 import { RpcClient } from '../../rpc/rpc-client';
 import { RpcClientProvider } from '../../rpc/rpc-context';
 import { FakeTransport } from '../../rpc/transport';
 import { OrchestrationCodeView } from './OrchestrationCodeView';
+import { processRecord } from '../processes/test-support';
+
+vi.mock('../processes/ProcessGraph', () => ({
+  ProcessGraph: ({ record }: { readonly record: ProcessRecord }) => (
+    <div aria-label="Task DAG">
+      {record.modules.map((module) => (
+        <p key={module.id}>
+          {module.label}: {module.state}
+        </p>
+      ))}
+    </div>
+  ),
+}));
 
 const disposers: (() => void)[] = [];
 afterEach(() => {
@@ -248,6 +261,7 @@ describe('OrchestrationCodeView', () => {
   it('ORCH-019 plans, starts, receives live updates and approves', async () => {
     const transport = setup();
     await plan();
+    expect(await screen.findByRole('columnheader', { name: 'Task' })).toBeInTheDocument();
     fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
     expect(await screen.findByRole('button', { name: 'Cancel' })).toBeEnabled();
     const run = fixture('awaiting_approval');
@@ -258,6 +272,39 @@ describe('OrchestrationCodeView', () => {
     expect(await screen.findByRole('heading', { name: 'Run: Completed' })).toBeInTheDocument();
     for (const method of ['orch.plan', 'orch.start', 'orch.approve'])
       expect(transport.sent.some((line) => line.includes(method))).toBe(true);
+  });
+
+  it('ORCH-019 renders and updates the DAG from process events without reopening the view', async () => {
+    const run = fixture();
+    const transport = setup(run);
+    await plan();
+    await screen.findByRole('button', { name: 'Start' });
+    const process = processRecord({
+      kind: 'orchestration',
+      ref: { type: 'orchestration_run', id: run.id },
+      modules: [{ id: 'T1', label: 'Add greeting', state: 'waiting' }],
+      edges: [],
+    });
+    act(() => {
+      transport.receive(
+        JSON.stringify({ jsonrpc: '2.0', method: 'process.event', params: { type: 'upsert', process } }),
+      );
+    });
+    expect(await screen.findByText('Add greeting: waiting')).toBeInTheDocument();
+    act(() => {
+      transport.receive(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'process.event',
+          params: {
+            type: 'upsert',
+            process: { ...process, modules: [{ id: 'T1', label: 'Add greeting', state: 'done' }] },
+          },
+        }),
+      );
+    });
+    expect(await screen.findByText('Add greeting: done')).toBeInTheDocument();
+    expect(transport.sent.filter((line) => line.includes('process.list'))).toHaveLength(1);
   });
 
   it('ORCH-04 disables planning until a project is selected', () => {
