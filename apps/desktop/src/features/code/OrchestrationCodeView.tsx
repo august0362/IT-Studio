@@ -214,28 +214,31 @@ export function OrchestrationCodeView({ projectId }: { readonly projectId: Proje
                 </button>
               ) : null}
               {run.state === OrchRunState.AWAITING_APPROVAL ? (
-                <>
-                  <button
-                    className="rounded border border-primary px-3 py-2"
-                    disabled={busy}
-                    onClick={() => {
-                      void action('orch.approve');
-                    }}
-                    type="button"
-                  >
-                    {t('code.orchestrationApprove')}
-                  </button>
-                  <button
-                    className="rounded border border-danger px-3 py-2"
-                    disabled={busy}
-                    onClick={() => {
-                      void action('orch.discard');
-                    }}
-                    type="button"
-                  >
-                    {t('code.orchestrationDiscard')}
-                  </button>
-                </>
+                <button
+                  className="rounded border border-primary px-3 py-2"
+                  disabled={busy}
+                  onClick={() => {
+                    void action('orch.approve');
+                  }}
+                  type="button"
+                >
+                  {t('code.orchestrationApprove')}
+                </button>
+              ) : null}
+              {/* A paused run (rejected final review, unresolved conflict, stale approval) can also be dropped. */}
+              {run.state === OrchRunState.AWAITING_APPROVAL ||
+              run.state === OrchRunState.PAUSED ||
+              run.state === OrchRunState.PAUSED_INTERRUPTED ? (
+                <button
+                  className="rounded border border-danger px-3 py-2"
+                  disabled={busy}
+                  onClick={() => {
+                    void action('orch.discard');
+                  }}
+                  type="button"
+                >
+                  {t('code.orchestrationDiscard')}
+                </button>
               ) : null}
             </div>
           </header>

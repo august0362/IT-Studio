@@ -172,6 +172,9 @@ describe('OrchestrationCodeView', () => {
     ['orch.cancel', 'running', 'Cancel'],
     ['orch.approve', 'awaiting_approval', 'Approve merge'],
     ['orch.discard', 'awaiting_approval', 'Discard'],
+    // STAB OBS-03: a paused run (rejected final review, conflict, stale approval) can be discarded too.
+    ['orch.discard', 'paused', 'Discard'],
+    ['orch.discard', 'paused_interrupted', 'Discard'],
   ] as const)('ORCH-04 displays %s remediation below the error', async (method, state, button) => {
     const error: AppError = {
       code: 'VALIDATION',
