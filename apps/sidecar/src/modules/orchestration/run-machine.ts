@@ -6,7 +6,8 @@ const transitions: Readonly<Record<OrchRunState, readonly OrchRunState[]>> = {
   running: ['paused', 'paused_interrupted', 'awaiting_approval', 'failed', 'cancelled'],
   paused: ['running', 'cancelled'],
   paused_interrupted: ['running', 'cancelled'],
-  awaiting_approval: ['completed', 'cancelled'],
+  // `paused`: the target branch or the reviewed integration commit changed; the approval became stale.
+  awaiting_approval: ['completed', 'paused', 'cancelled'],
   completed: [],
   failed: [],
   cancelled: [],

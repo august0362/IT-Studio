@@ -20,6 +20,8 @@ describe('orchestration integration smoke', () => {
           'mock',
           new MockAgentAdapter({
             reviewer: () => Promise.resolve({ verdict: 'pass', findings: [], summary: 'ok' }),
+            // STAB P0-02: the final review must explicitly approve the run for the owner.
+            supervisor: () => Promise.resolve({ approveForOwner: true, summary: 'ok', risks: [] }),
           }),
         ],
       ]),
@@ -305,24 +307,28 @@ describe('orchestration integration smoke', () => {
           updatedAt: new Date().toISOString() as OrchRun['updatedAt'],
         }),
         scripts: {
-          supervisor: () =>
-            Promise.resolve({
-              tasks: [
-                {
-                  id: 'T1',
-                  title: 'task',
-                  objective: 'work',
-                  dependsOn: [],
-                  role: 'worker',
-                  candidateAgents: ['w'],
-                  allowedPaths: ['src/**'],
-                  testCommands: [],
-                  acceptanceCriteria: ['done'],
-                  estimate: 'S',
-                  timeoutMs: 1000,
-                },
-              ],
-            }),
+          supervisor: (input) =>
+            Promise.resolve(
+              typeof input === 'object' && input !== null && 'kind' in input && input.kind === 'final-review'
+                ? { approveForOwner: true, summary: 'Ready for the owner.', risks: [] }
+                : {
+                    tasks: [
+                      {
+                        id: 'T1',
+                        title: 'task',
+                        objective: 'work',
+                        dependsOn: [],
+                        role: 'worker',
+                        candidateAgents: ['w'],
+                        allowedPaths: ['src/**'],
+                        testCommands: [],
+                        acceptanceCriteria: ['done'],
+                        estimate: 'S',
+                        timeoutMs: 1000,
+                      },
+                    ],
+                  },
+            ),
           worker: () =>
             Promise.resolve({
               operations: [{ kind: 'create', path: 'src/feature.ts', content: 'export const feature = 2;\n' }],

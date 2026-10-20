@@ -1,5 +1,5 @@
 import { appendFile, readFile } from 'node:fs/promises';
-import { basename, join, resolve } from 'node:path';
+import { basename, join, resolve, sep } from 'node:path';
 import {
   ErrorCode,
   type CoderOutput,
@@ -12,7 +12,8 @@ import type { IProcessRunner } from '../../kernel/ports/process-runner.js';
 import type { IFileSystem } from '../../kernel/ports/file-system.js';
 import type { CommandRunner } from '../pipeline/index.js';
 import type { WriteTransactionService } from '../pipeline/index.js';
-import { normalizeRelative } from '../../kernel/domain/path-guard.js';
+import { isForbidden, normalizeRelative } from '../../kernel/domain/path-guard.js';
+import { globMatches } from './glob.js';
 
 export interface WorktreeIdentity {
   readonly runId: string;
@@ -83,6 +84,10 @@ export class WorktreeManager {
     const branch = `itstudio/orch/${runId}/integration`;
     const path = join(root, '.itstudio', 'orch', runId, 'integration');
     await this.excludeRunDirectory(root);
+    // Integration is derived state: a previous session's branch (crash, stale approval, resume) is rebuilt.
+    await this.git(root, ['worktree', 'remove', '--force', path]);
+    await this.git(root, ['worktree', 'prune']);
+    await this.git(root, ['branch', '-D', branch]);
     const created = await this.git(root, ['worktree', 'add', '-b', branch, path, baseSha]);
     if (!created.ok || created.value.exitCode !== 0) return fail('Git could not create the integration worktree.');
     return { ok: true, value: { path, branch, baseSha } };
@@ -103,6 +108,22 @@ export class WorktreeManager {
       ? { ok: true, value: undefined }
       : fail('Git could not remove the orchestration branch.');
   }
+  /** Worktrees Git has under `.itstudio/orch/<run>/`, with their branches (`git worktree list --porcelain`). */
+  async listRun(projectRoot: string, runId: string): Promise<readonly Worktree[]> {
+    const root = resolve(projectRoot);
+    const prefix = resolve(join(root, '.itstudio', 'orch', runId)).toLocaleLowerCase() + sep;
+    const listed = await this.git(root, ['worktree', 'list', '--porcelain']);
+    if (!listed.ok || listed.value.exitCode !== 0) return [];
+    const found: Worktree[] = [];
+    for (const block of listed.value.stdoutTail.split(/\r?\n\r?\n/u)) {
+      const lines = block.split(/\r?\n/u);
+      const path = lines.find((line) => line.startsWith('worktree '))?.slice('worktree '.length);
+      const branch = lines.find((line) => line.startsWith('branch refs/heads/'))?.slice('branch refs/heads/'.length);
+      if (path !== undefined && branch !== undefined && resolve(path).toLocaleLowerCase().startsWith(prefix))
+        found.push({ path: resolve(path), branch, baseSha: '' });
+    }
+    return found;
+  }
 }
 
 /**
@@ -118,15 +139,6 @@ export function runWorktrees(
   const paths = new Set(attemptWorktrees.filter((path): path is string => path !== undefined));
   if (integrationBranch !== undefined) paths.add(join(resolve(projectRoot), '.itstudio', 'orch', runId, 'integration'));
   return [...paths].map((path) => ({ path, branch: `itstudio/orch/${runId}/${basename(path)}`, baseSha: '' }));
-}
-
-export function globMatches(glob: string, path: string): boolean {
-  const escaped = glob
-    .replace(/[.+^${}()|[\]\\]/gu, '\\$&')
-    .replace(/\*\*/gu, '.*')
-    .replace(/\*/gu, '[^/]*')
-    .replace(/\?/gu, '[^/]');
-  return new RegExp(`^${escaped}$`, 'u').test(path);
 }
 
 export interface WorkerApplyDependencies {
@@ -171,18 +183,26 @@ export async function applyWorkerOutput(
     const entries = operation.kind === 'rename' ? [operation.from, operation.to] : [operation.path];
     for (const entry of entries) {
       const normalized = normalizeRelative(entry);
-      if (!normalized.ok || !allowedPaths.some((pattern) => globMatches(pattern, normalized.value))) return failPath();
+      if (
+        !normalized.ok ||
+        isForbidden(normalized.value) ||
+        !allowedPaths.some((pattern) => globMatches(pattern, normalized.value))
+      )
+        return failPath();
       paths.push(normalized.value);
     }
   }
-  const prepared = await dependencies.writer.prepare(worktree.path, dependencies.projectId, output.operations, [
-    ...new Set(paths),
-  ]);
-  if (!prepared.ok) return prepared;
-  const committedWrite = await prepared.value.commit();
-  if (!committedWrite.ok) return committedWrite;
-  const validatedWrite = await prepared.value.markValidated();
-  if (!validatedWrite.ok) return validatedWrite;
+  // The write transaction refuses an empty operation list; a worker with nothing to change still gets a commit.
+  if (output.operations.length > 0) {
+    const prepared = await dependencies.writer.prepare(worktree.path, dependencies.projectId, output.operations, [
+      ...new Set(paths),
+    ]);
+    if (!prepared.ok) return prepared;
+    const committedWrite = await prepared.value.commit();
+    if (!committedWrite.ok) return committedWrite;
+    const validatedWrite = await prepared.value.markValidated();
+    if (!validatedWrite.ok) return validatedWrite;
+  }
   const git = async (args: readonly string[]) =>
     dependencies.runner.run({
       executable: 'git',

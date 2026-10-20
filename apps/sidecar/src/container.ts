@@ -220,6 +220,8 @@ export function createContainer(env: NodeJS.ProcessEnv, dependencies: ContainerD
         { svc: 'sidecar', models: seeds.models.length, warningsCount: seeds.warnings.length },
         'seeds loaded',
       );
+      // Before any RPC can arrive: runs a dead process left `running` become resumable (never auto-resumed).
+      orchestration.recoverInterrupted();
       transport.start();
       workflow.recorder.start();
       cost.start();

@@ -20,7 +20,28 @@ export const orchVerdictSchema = z.strictObject({
 
 export const supervisorReportSchema = z.strictObject({ summary: z.string(), risks: z.array(z.string()) });
 
-export type AgentPromptKind = 'plan' | 'supervisor-report' | 'worker' | 'reviewer';
+/**
+ * Supervisor final review (governance doc: `{ approveForOwner, summary, risks[] }`). Strict: a missing,
+ * mistyped or extra field (for example a `verdict` next to `approveForOwner`) makes the review invalid.
+ */
+export const finalReviewSchema = z.strictObject({
+  approveForOwner: z.boolean(),
+  summary: z.string().trim().min(1),
+  risks: z.array(z.string()),
+});
+export type FinalReview = z.infer<typeof finalReviewSchema>;
+
+/** Reviewer answer to an integration conflict: the full resolved content of every conflicted file. */
+export const conflictResolutionSchema = z.strictObject({
+  resolutions: z
+    .array(z.strictObject({ path: z.string().min(1), content: z.string() }))
+    .min(1)
+    .max(50),
+  summary: z.string(),
+});
+
+export type AgentPromptKind =
+  'plan' | 'supervisor-report' | 'final-review' | 'worker' | 'reviewer' | 'conflict-resolution';
 
 function inputKind(input: unknown): unknown {
   return typeof input === 'object' && input !== null && 'kind' in input ? input.kind : undefined;
@@ -28,8 +49,10 @@ function inputKind(input: unknown): unknown {
 
 export function agentPromptKind(envelope: Pick<AgentEnvelope, 'roleId'>, input: unknown): AgentPromptKind {
   if (envelope.roleId === 'worker') return 'worker';
-  if (envelope.roleId === 'reviewer') return 'reviewer';
-  return inputKind(input) === 'plan' ? 'plan' : 'supervisor-report';
+  if (envelope.roleId === 'reviewer')
+    return inputKind(input) === 'integration-conflict' ? 'conflict-resolution' : 'reviewer';
+  if (inputKind(input) === 'plan') return 'plan';
+  return inputKind(input) === 'final-review' ? 'final-review' : 'supervisor-report';
 }
 
 const INSTRUCTIONS: Readonly<Record<AgentPromptKind, string>> = {
@@ -40,7 +63,10 @@ const INSTRUCTIONS: Readonly<Record<AgentPromptKind, string>> = {
 - testCommands: [] unless a command appears in input.allowedCommands; then copy it exactly.
 - estimate is "S", "M" or "L"; timeoutMs is between 120000 and 1800000.
 - Keep the plan minimal: do not add tasks the request does not need.`,
-  'supervisor-report': `You are the Supervisor. input.kind says which decision is needed ("final-review" of the integrated change, or "reassign" after repeated review failures). Return a short summary and the main risks for the owner.`,
+  'supervisor-report': `You are the Supervisor. A task failed review repeatedly (input.decision "reassign"). Return a short summary and the main risks for the owner.`,
+  'final-review': `You are the Supervisor doing the final review before the owner sees the run. Check input.integrationDiff (all tasks merged) and input.evidence (validation command results) against the owner's request and every task's acceptance criteria.
+- approveForOwner true only when the change is complete, in scope, safe and every validation command passed; otherwise false.
+- summary: what changed and why you approve or not. risks: anything the owner must check before merging.`,
   worker: `You are a Worker. Implement input.task exactly and satisfy every acceptance criterion.
 - Change only files inside the assignment's allowedPaths; any other path is rejected.
 - Do not edit files or run commands yourself: return file operations, IT Studio applies them. You may read files in the working directory.
@@ -51,13 +77,19 @@ const INSTRUCTIONS: Readonly<Record<AgentPromptKind, string>> = {
 - Check scope (only allowedPaths), correctness, edge cases, security (injection, path traversal, secret leakage) and tests.
 - verdict "pass" only when there are no "error" or "critical" findings; "fix_required" with concrete findings otherwise; "reject" only when the task cannot be done safely.
 - Every finding needs severity, path, message and a concrete suggestedFix.`,
+  'conflict-resolution': `You are the integration Reviewer. Merging input.task into the integration branch produced Git conflicts in input.conflictedFiles (each with its current content, including conflict markers).
+- Return the complete resolved content of every conflicted file in "resolutions", keeping the intent of both sides.
+- No conflict markers may remain. Do not return any file that is not in input.conflictedFiles.
+- IT Studio writes the files and re-runs validation; you never change files yourself.`,
 };
 
 const SCHEMAS: Readonly<Record<AgentPromptKind, z.ZodType>> = {
   plan: supervisorPlanSchema,
   'supervisor-report': supervisorReportSchema,
+  'final-review': finalReviewSchema,
   worker: coderOutputSchema,
   reviewer: orchVerdictSchema,
+  'conflict-resolution': conflictResolutionSchema,
 };
 
 export function agentAcknowledgement(envelope: AgentEnvelope) {

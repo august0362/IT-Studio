@@ -9,6 +9,8 @@ import type { OrchRepository } from './storage/orch-repository.js';
 
 const worker: OrchAgentRef = { agentId: 'worker-1', role: 'worker', transport: 'mock' };
 const reviewer: OrchAgentRef = { agentId: 'reviewer-1', role: 'reviewer', transport: 'mock' };
+// STAB P0-02: every run needs a supervisor whose final review explicitly approves it for the owner.
+const supervisor: OrchAgentRef = { agentId: 'supervisor-1', role: 'supervisor', transport: 'mock' };
 const unknownUsage = {
   inputTokens: null,
   outputTokens: null,
@@ -42,7 +44,7 @@ function makeRun(): OrchRun {
     projectId: 'project-1' as ProjectId,
     request: 'Request',
     state: 'plan_ready',
-    agents: [worker, reviewer],
+    agents: [supervisor, worker, reviewer],
     tasks: [task],
     limits: {
       maxCostMicroUsd: 1_000_000 as MicroUsd,
@@ -76,7 +78,11 @@ function fakeAdapter(run: IAgentExecutionAdapter['run']): IAgentExecutionAdapter
 }
 
 const validReview = { verdict: 'pass', findings: [], summary: 'Looks good' };
+const validFinal = { approveForOwner: true, summary: 'Ready for the owner', risks: [] };
 const validWorker = { operations: [], summary: 'Done', assumptions: [] };
+function payloadFor(role: string): unknown {
+  return role === 'worker' ? validWorker : role === 'supervisor' ? validFinal : validReview;
+}
 const noValidation = { workspaceRoot: 'C:/mock-repo', allowedCommands: [] };
 const wt: Worktree = {
   path: 'C:/repo/.itstudio/orch/run-1/task-1-1',
@@ -181,7 +187,7 @@ describe('orchestration engine', () => {
             attemptId: envelope.attemptId,
             allowedPaths: envelope.allowedPaths,
           },
-          payload: envelope.roleId === 'worker' ? validWorker : validReview,
+          payload: payloadFor(envelope.roleId),
           usage: unknownUsage,
         },
       };
@@ -320,7 +326,7 @@ describe('orchestration engine', () => {
             attemptId: envelope.attemptId,
             allowedPaths: envelope.allowedPaths,
           },
-          payload: envelope.roleId === 'worker' ? validWorker : validReview,
+          payload: payloadFor(envelope.roleId),
           usage: unknownUsage,
         },
       };
@@ -337,11 +343,17 @@ describe('orchestration engine', () => {
       workspace: fakeWorkspace(),
     }).run({
       ...run,
-      agents: [{ ...worker, transport: 'codex-cli' }, { ...worker, agentId: 'worker-2', transport: 'mock' }, reviewer],
+      agents: [
+        supervisor,
+        { ...worker, transport: 'codex-cli' },
+        { ...worker, agentId: 'worker-2', transport: 'mock' },
+        reviewer,
+      ],
       tasks: [{ ...task, candidateAgents: ['worker-1', 'worker-2'] }],
     });
     expect(result.state).toBe('awaiting_approval');
-    expect(invokedRoles).toEqual(['worker', 'reviewer']);
+    // The final review is part of every run that reaches the owner (STAB P0-02).
+    expect(invokedRoles).toEqual(['worker', 'reviewer', 'supervisor']);
   });
 
   it('ORCH-002 (unit) two independent tasks both start before either finishes', async () => {
@@ -385,7 +397,7 @@ describe('orchestration engine', () => {
             attemptId: envelope.attemptId,
             allowedPaths: envelope.allowedPaths,
           },
-          payload: validReview,
+          payload: payloadFor(envelope.roleId),
           usage: unknownUsage,
         },
       };
@@ -589,8 +601,8 @@ describe('orchestration engine', () => {
           },
         };
       }
-      reviewerCalls += 1;
-      if (reviewerCalls === 1) {
+      if (envelope.roleId === 'reviewer') reviewerCalls += 1;
+      if (envelope.roleId === 'reviewer' && reviewerCalls === 1) {
         return {
           ok: true,
           value: {
@@ -627,7 +639,7 @@ describe('orchestration engine', () => {
             attemptId: envelope.attemptId,
             allowedPaths: envelope.allowedPaths,
           },
-          payload: validReview,
+          payload: payloadFor(envelope.roleId),
           usage: unknownUsage,
         },
       };
@@ -823,7 +835,7 @@ describe('orchestration engine', () => {
             attemptId: envelope.attemptId,
             allowedPaths: envelope.allowedPaths,
           },
-          payload: envelope.roleId === 'worker' ? validWorker : validReview,
+          payload: payloadFor(envelope.roleId),
           usage: unknownUsage,
         },
       };
@@ -853,7 +865,7 @@ describe('orchestration engine', () => {
             attemptId: envelope.attemptId,
             allowedPaths: envelope.allowedPaths,
           },
-          payload: envelope.roleId === 'worker' ? validWorker : validReview,
+          payload: payloadFor(envelope.roleId),
           usage: {
             inputTokens: null,
             outputTokens: null,

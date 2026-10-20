@@ -1,17 +1,18 @@
+import { globToRegExp } from './glob.js';
+
+/** Stand-in for an unsafe pattern, which matches nothing (plan validation rejects those anyway). */
+const NOTHING = /(?!)/u;
+
 function globRegex(glob: string): RegExp {
-  let source = '^';
-  for (let index = 0; index < glob.length; index += 1) {
-    const char = glob[index] ?? '';
-    if (char === '*' && glob[index + 1] === '*') {
-      source += '.*';
-      index += 1;
-    } else if (char === '*') source += '[^/]*';
-    else if (char === '?') source += '[^/]';
-    else source += char.replace(/[|\\{}()[\]^$+?.]/gu, '\\$&');
-  }
-  return new RegExp(`${source}$`, 'u');
+  return globToRegExp(glob) ?? NOTHING;
 }
-export function pathsOverlap(left: string, right: string): boolean {
+/**
+ * Conservative: two allowances overlap when one path could fall under both. Compared case-insensitively
+ * because `src/**` and `SRC/**` are the same folder on Windows.
+ */
+export function pathsOverlap(leftInput: string, rightInput: string): boolean {
+  const left = leftInput.toLocaleLowerCase('en-US');
+  const right = rightInput.toLocaleLowerCase('en-US');
   if (
     left === right ||
     left.startsWith(`${right.replace(/\*+$/u, '')}/`) ||

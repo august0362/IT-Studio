@@ -50,9 +50,23 @@ describe('orchestration prompts', () => {
 
   it('picks the payload kind from role and input', () => {
     expect(agentPromptKind({ roleId: 'supervisor' }, { kind: 'plan' })).toBe('plan');
-    expect(agentPromptKind({ roleId: 'supervisor' }, { kind: 'final-review' })).toBe('supervisor-report');
+    // STAB P0-02 / P1-02: the final review and conflict resolution have their own payload schemas.
+    expect(agentPromptKind({ roleId: 'supervisor' }, { kind: 'final-review' })).toBe('final-review');
+    expect(agentPromptKind({ roleId: 'supervisor' }, { decision: 'reassign' })).toBe('supervisor-report');
     expect(agentPromptKind({ roleId: 'worker' }, {})).toBe('worker');
-    expect(agentPromptKind({ roleId: 'reviewer' }, { kind: 'integration-conflict' })).toBe('reviewer');
+    expect(agentPromptKind({ roleId: 'reviewer' }, {})).toBe('reviewer');
+    expect(agentPromptKind({ roleId: 'reviewer' }, { kind: 'integration-conflict' })).toBe('conflict-resolution');
+  });
+
+  it('STAB P0-02 asks the final reviewer for approveForOwner and P1-02 the conflict reviewer for resolutions', () => {
+    const final = buildAgentPrompt({ ...envelope, roleId: 'supervisor' }, { kind: 'final-review' }, { withAck: false });
+    expect(final).toContain('"approveForOwner"');
+    const conflict = buildAgentPrompt(
+      { ...envelope, roleId: 'reviewer' },
+      { kind: 'integration-conflict' },
+      { withAck: false },
+    );
+    expect(conflict).toContain('"resolutions"');
   });
 
   it('includes the exact acknowledgement only for CLI agents and always the payload schema', () => {

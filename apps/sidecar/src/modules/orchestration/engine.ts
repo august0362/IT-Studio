@@ -3,6 +3,8 @@ import {
   ErrorCode,
   type AppError,
   type CoderOutput,
+  type CommandRun,
+  type CommandSpec,
   type FindingSeverity,
   type MicroUsd,
   type OrchAgentRef,
@@ -16,8 +18,10 @@ import {
 import type { AgentEnvelope, IAgentExecutionAdapter } from '../../kernel/ports/agent-execution.js';
 import { transitionRun } from './run-machine.js';
 import { topologicalOrder, validatePlan, type PlanValidationOptions } from './dag.js';
+import { conflictResolutionSchema, finalReviewSchema, type FinalReview } from './prompts.js';
+import { requeueUnfinished, taskResume, type TaskResume } from './recovery.js';
 import { blockFailedDependents, pickRunnable } from './scheduler.js';
-import { isTargetForbidden, type IOrchWorkspace } from './workspace.js';
+import { isTargetForbidden, type ConflictResolution, type IOrchWorkspace, type MergeConflict } from './workspace.js';
 import type { Worktree } from './worktrees.js';
 
 export interface OrchestrationEngineDependencies {
@@ -112,6 +116,26 @@ function storedVerdict(verdict: Verdict): NonNullable<OrchAttempt['verdict']> {
       suggestedFix: finding.suggestedFix,
     })),
   };
+}
+
+/** Stores the supervisor's final review in the attempt verdict shape the UI already shows. */
+function storedFinalReview(review: FinalReview): NonNullable<OrchAttempt['verdict']> {
+  return {
+    verdict: review.approveForOwner ? 'pass' : 'reject',
+    summary: review.summary,
+    findings: review.risks.map((message) => ({ severity: 'minor' as const, path: '', message, suggestedFix: '' })),
+  };
+}
+
+/** Every task may list the same project command; integration runs each distinct command once. */
+function distinctCommands(commands: readonly CommandSpec[]): readonly CommandSpec[] {
+  const seen = new Set<string>();
+  return commands.filter((command) => {
+    const key = JSON.stringify([command.executable, command.args]);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export class OrchestrationEngine {
@@ -231,7 +255,15 @@ export class OrchestrationEngine {
     return probed;
   }
 
-  async run(run: OrchRun, onChange?: (run: OrchRun, attempts: readonly OrchAttempt[]) => void): Promise<OrchRun> {
+  /**
+   * Runs (or resumes) a run. `history` holds the attempts persisted by earlier engine sessions of this run:
+   * completed tasks keep their result and worktree, unfinished tasks continue with new attempt ids.
+   */
+  async run(
+    run: OrchRun,
+    onChange?: (run: OrchRun, attempts: readonly OrchAttempt[]) => void,
+    history: readonly OrchAttempt[] = [],
+  ): Promise<OrchRun> {
     if (!transitionRun(run.state, 'running').ok) return run;
 
     // With a workspace the real project root is checked per attempt (prepareAttempt / prepareIntegration);
@@ -246,10 +278,25 @@ export class OrchestrationEngine {
       };
     }
 
-    let tasks: OrchTask[] = run.tasks.map((task) => ({
-      ...task,
-      state: task.state === 'draft' || task.state === 'ready' ? 'queued' : task.state,
-    }));
+    // Every session rebuilds integration and decides its own outcome: earlier integration results and the
+    // reason of an earlier pause do not carry over.
+    const base: OrchRun = { ...run };
+    for (const key of ['stateReason', 'integrationBranch', 'integrationBaseSha', 'integrationHeadSha'] as const)
+      Reflect.deleteProperty(base, key);
+    const extras: {
+      baseSha?: string;
+      integrationBranch?: string;
+      integrationBaseSha?: string;
+      integrationHeadSha?: string;
+    } = {};
+    const resumes = new Map<string, TaskResume>(
+      run.tasks.map((task) => [task.id, taskResume(run.id, task.id, history)]),
+    );
+    let tasks: OrchTask[] = requeueUnfinished(run.tasks).map((task) => {
+      if (task.state === 'completed' || resumes.get(task.id)?.reviewPassed !== true) return task;
+      // The review already passed; only the task state was not saved before the engine stopped.
+      return { ...task, state: 'completed' as const };
+    });
     const attempts: OrchAttempt[] = [];
     const specs: OrchTaskSpec[] = tasks;
     const workers = run.agents.filter((agent) => agent.role === 'worker');
@@ -262,18 +309,44 @@ export class OrchestrationEngine {
     } = {};
 
     const taskWorktrees = new Map<string, Worktree>();
+    for (const [taskId, resume] of resumes)
+      if (resume.worktree !== undefined) taskWorktrees.set(taskId, resume.worktree);
     const controller = new AbortController();
     this.controllers.set(run.id, controller);
 
     const isAborted = () => controller.signal.aborted;
     const isPaused = () => control.pauseReason !== undefined;
     const isFatal = () => control.fatalFailureReason !== undefined;
+    const stopped = () => isAborted() || isPaused() || isFatal();
     const nextId = () => (this.deps.id ?? (() => `mock-${String(attempts.length + 1)}`))();
     const now = () => (this.deps.now ?? (() => new Date().toISOString()))();
 
     const calculateCost = (): number => {
       return attempts.reduce<number>((sum, a) => sum + (a.usage.costMicroUsd ?? 0), run.costMicroUsd);
     };
+    const snapshot = (): OrchRun => ({
+      ...base,
+      ...extras,
+      state: 'running',
+      tasks,
+      agentCalls: calls,
+      costMicroUsd: calculateCost() as MicroUsd,
+    });
+    const persist = (): void => onChange?.(snapshot(), attempts);
+    const record = (attempt: OrchAttempt): OrchAttempt => {
+      const index = attempts.findIndex((item) => item.id === attempt.id);
+      if (index < 0) attempts.push(attempt);
+      else attempts[index] = attempt;
+      persist();
+      return attempt;
+    };
+    const update = (id: string, patch: Partial<OrchAttempt>): void => {
+      const existing = attempts.find((item) => item.id === id);
+      if (existing !== undefined) record({ ...existing, ...patch });
+    };
+    const workerAttempts = (taskId: string): number =>
+      (resumes.get(taskId)?.workerAttempts ?? 0) +
+      attempts.filter((item) => item.taskId === taskId && item.role === 'worker').length;
 
     const runStartedTime = new Date(now()).getTime();
 
@@ -297,7 +370,7 @@ export class OrchestrationEngine {
     if (run.costMicroUsd >= run.limits.maxCostMicroUsd) {
       this.controllers.delete(run.id);
       return {
-        ...run,
+        ...base,
         state: 'paused',
         stateReason: 'BUDGET_COST',
         tasks,
@@ -308,7 +381,7 @@ export class OrchestrationEngine {
     if (calls >= run.limits.maxAgentCalls) {
       this.controllers.delete(run.id);
       return {
-        ...run,
+        ...base,
         state: 'paused',
         stateReason: 'BUDGET_CALLS',
         tasks,
@@ -321,6 +394,7 @@ export class OrchestrationEngine {
       agent: OrchRun['agents'][number],
       role: 'worker' | 'reviewer' | 'supervisor',
       input: unknown,
+      readOnly?: Worktree,
     ): Promise<{ ok: boolean; payload: unknown; usage: OrchUsage; attempt: OrchAttempt }> => {
       const budgetCheck = checkBudget();
       if (!budgetCheck.ok) {
@@ -347,34 +421,38 @@ export class OrchestrationEngine {
 
       const id = nextId();
       const startedAt = now();
-      const workerAttemptNo =
-        role === 'worker' ? attempts.filter((item) => item.taskId === task.id && item.role === 'worker').length + 1 : 0;
+      const workerAttemptNo = role === 'worker' ? workerAttempts(task.id) + 1 : 0;
+      const started: OrchAttempt = {
+        id: id as OrchAttempt['id'],
+        taskId: task.id,
+        role,
+        agent,
+        state: 'running',
+        changedFiles: [],
+        evidence: [],
+        usage: unknownUsage,
+        startedAt: startedAt as OrchAttempt['startedAt'],
+      };
+      // Saved before a worktree exists or money is spent: after a crash the restart sweep marks it UNKNOWN,
+      // its number (and worktree name) is never reused and its worktree is still found for cleanup.
+      record(started);
+      const failedAttempt = (reason: string): OrchAttempt =>
+        record({ ...started, state: 'failed', reason, endedAt: now() as OrchAttempt['startedAt'] });
       let worktree: Worktree | undefined;
       if (role === 'worker' && this.deps.workspace !== undefined) {
-        const prepared = await this.deps.workspace.prepareAttempt(run, task, workerAttemptNo);
+        const prepared = await this.deps.workspace.prepareAttempt(snapshot(), task, workerAttemptNo);
         if (!prepared.ok) {
-          const attempt: OrchAttempt = {
-            id: id as OrchAttempt['id'],
-            taskId: task.id,
-            role,
-            agent,
-            state: 'failed',
-            reason: prepared.error.code,
-            changedFiles: [],
-            evidence: [],
-            usage: unknownUsage,
-            startedAt: startedAt as OrchAttempt['startedAt'],
-            endedAt: now() as OrchAttempt['startedAt'],
-          };
-          attempts.push(attempt);
           calls -= 1;
           if (prepared.error.code === 'TARGET_FORBIDDEN') {
             control.fatalFailureReason = 'TARGET_FORBIDDEN';
           }
+          const attempt = failedAttempt(prepared.error.code);
           return { ok: false, payload: undefined, usage: unknownUsage, attempt };
         }
         worktree = prepared.value;
         taskWorktrees.set(task.id, prepared.value);
+        if (base.baseSha === undefined && extras.baseSha === undefined) extras.baseSha = prepared.value.baseSha;
+        record({ ...started, worktree: prepared.value.path });
       }
       let agentInput = input;
       if (worktree !== undefined && this.deps.workspace?.workerContext !== undefined) {
@@ -383,7 +461,7 @@ export class OrchestrationEngine {
           agentInput = { ...input, tree: context.value.tree, files: context.value.files };
       }
       // Reviewers read the task's worktree (CLI agents run there read-only); they never get write access.
-      const readOnlyWorktree = role === 'reviewer' ? taskWorktrees.get(task.id) : undefined;
+      const readOnlyWorktree = role === 'reviewer' ? (readOnly ?? taskWorktrees.get(task.id)) : undefined;
 
       const envelope = {
         schemaVersion: '1',
@@ -412,39 +490,13 @@ export class OrchestrationEngine {
 
       const selected = this.deps.adapters.get(agent.transport);
       if (selected === undefined) {
-        const attempt: OrchAttempt = {
-          id: id as OrchAttempt['id'],
-          taskId: task.id,
-          role,
-          agent,
-          state: 'failed',
-          reason: `ADAPTER_UNAVAILABLE:${agent.transport}`,
-          changedFiles: [],
-          evidence: [],
-          usage: unknownUsage,
-          startedAt: startedAt as OrchAttempt['startedAt'],
-          endedAt: now() as OrchAttempt['startedAt'],
-        };
-        attempts.push(attempt);
+        const attempt = failedAttempt(`ADAPTER_UNAVAILABLE:${agent.transport}`);
         return { ok: false, payload: undefined, usage: unknownUsage, attempt };
       }
 
       const probed = await this.probeAdapter(agent.transport);
       if (probed.status !== 'available') {
-        const attempt: OrchAttempt = {
-          id: id as OrchAttempt['id'],
-          taskId: task.id,
-          role,
-          agent,
-          state: 'failed',
-          reason: `ADAPTER_UNAVAILABLE:${agent.transport}`,
-          changedFiles: [],
-          evidence: [],
-          usage: unknownUsage,
-          startedAt: startedAt as OrchAttempt['startedAt'],
-          endedAt: now() as OrchAttempt['startedAt'],
-        };
-        attempts.push(attempt);
+        const attempt = failedAttempt(`ADAPTER_UNAVAILABLE:${agent.transport}`);
         return { ok: false, payload: undefined, usage: unknownUsage, attempt };
       }
 
@@ -481,7 +533,7 @@ export class OrchestrationEngine {
       }
       const succeeded = safeResult.ok && (applied === undefined || applied.ok);
       const payload = succeeded ? safeResult.value.payload : undefined;
-      const attempt: OrchAttempt = {
+      const attempt = record({
         id: id as OrchAttempt['id'],
         taskId: task.id,
         role,
@@ -509,12 +561,7 @@ export class OrchestrationEngine {
         usage: safeResult.ok ? safeResult.value.usage : unknownUsage,
         startedAt: startedAt as OrchAttempt['startedAt'],
         endedAt: now() as OrchAttempt['startedAt'],
-      };
-      attempts.push(attempt);
-      onChange?.(
-        { ...run, state: 'running', tasks, agentCalls: calls, costMicroUsd: calculateCost() as MicroUsd },
-        attempts,
-      );
+      });
       return { ok: succeeded, payload, usage: succeeded ? safeResult.value.usage : unknownUsage, attempt };
     };
 
@@ -525,64 +572,62 @@ export class OrchestrationEngine {
     ): Promise<void> => {
       let current: OrchTask = { ...task, state: 'assigned' };
       tasks = tasks.map((t) => (t.id === current.id ? current : t));
-      onChange?.(
-        { ...run, state: 'running', tasks, agentCalls: calls, costMicroUsd: calculateCost() as MicroUsd },
-        attempts,
-      );
+      persist();
 
       current = { ...current, state: 'running' };
       tasks = tasks.map((t) => (t.id === current.id ? current : t));
-      onChange?.(
-        { ...run, state: 'running', tasks, agentCalls: calls, costMicroUsd: calculateCost() as MicroUsd },
-        attempts,
-      );
+      persist();
 
+      const resume = resumes.get(task.id);
       let passed = false;
       let fixCount = 0;
-      let findings: Verdict['findings'] = [];
+      let findings: readonly unknown[] = resume?.findings ?? [];
+      // A worker attempt that finished before the engine stopped is reviewed, not redone.
+      let reviewOnly = resume?.reviewPending === true && taskWorktrees.has(task.id);
 
-      while (!passed && calls < run.limits.maxAgentCalls && !isAborted() && !isPaused() && !isFatal()) {
-        const work = await invoke(current, worker, 'worker', { task: current, findings });
-        current = { ...current, attempts: [...current.attempts, work.attempt.id] };
-        if (isAborted() || isPaused() || isFatal()) {
-          break;
+      while (!passed && calls < run.limits.maxAgentCalls && !stopped()) {
+        let workerOutput: unknown = null;
+        if (!reviewOnly) {
+          const work = await invoke(current, worker, 'worker', { task: current, findings });
+          current = { ...current, attempts: [...current.attempts, work.attempt.id] };
+          if (stopped()) {
+            break;
+          }
+          if (!work.ok) {
+            current = { ...current, state: 'failed', stateReason: work.attempt.reason ?? 'WORKER_FAILED' };
+            break;
+          }
+          workerOutput = work.payload;
         }
-        if (!work.ok) {
-          current = { ...current, state: 'failed', stateReason: work.attempt.reason ?? 'WORKER_FAILED' };
-          break;
-        }
+        reviewOnly = false;
 
         current = { ...current, state: 'awaiting_handoff' as const };
         current = { ...current, state: 'in_review' as const };
         tasks = tasks.map((t) => (t.id === current.id ? current : t));
-        onChange?.(
-          { ...run, state: 'running', tasks, agentCalls: calls, costMicroUsd: calculateCost() as MicroUsd },
-          attempts,
-        );
+        persist();
 
         const tw = taskWorktrees.get(current.id);
         const reviewDiff =
           this.deps.workspace === undefined || tw === undefined ? undefined : await this.deps.workspace.diff(tw);
         const review = await invoke(current, rev, 'reviewer', {
           task: current,
-          workerOutput: work.payload,
+          workerOutput,
           previousFindings: findings,
           ...(reviewDiff?.ok ? { diff: reviewDiff.value } : {}),
         });
         current = { ...current, attempts: [...current.attempts, review.attempt.id] };
-        if (isAborted() || isPaused() || isFatal()) {
+        if (stopped()) {
           break;
         }
 
         const validVerdict = isVerdict(review.payload);
-        const reviewIndex = attempts.findIndex((item) => item.id === review.attempt.id);
-        const reviewAttempt = attempts[reviewIndex];
-        if (reviewAttempt !== undefined) {
-          // Keep the reviewer's findings on the attempt so the owner can see why a fix was required.
-          attempts[reviewIndex] = validVerdict
-            ? { ...reviewAttempt, verdict: storedVerdict(review.payload as Verdict) }
-            : { ...reviewAttempt, state: 'failed', reason: 'REVIEW_INVALID' };
-        }
+        // Keep the reviewer's findings on the attempt so the owner can see why a fix was required.
+        update(
+          review.attempt.id,
+          validVerdict
+            ? { verdict: storedVerdict(review.payload as Verdict) }
+            : { state: 'failed', reason: 'REVIEW_INVALID' },
+        );
         const verdict: Verdict = validVerdict
           ? (review.payload as Verdict)
           : {
@@ -634,17 +679,142 @@ export class OrchestrationEngine {
         current = { ...current, state: 'failed' };
       }
       tasks = tasks.map((t) => (t.id === current.id ? current : t));
-      onChange?.(
-        { ...run, state: 'running', tasks, agentCalls: calls, costMicroUsd: calculateCost() as MicroUsd },
-        attempts,
+      persist();
+    };
+
+    /** The supervisor's final review is a gate: only an explicit, valid `approveForOwner: true` passes. */
+    const finalReview = async (integrationDiff: string, evidence: readonly CommandRun[]): Promise<boolean> => {
+      const anchor = tasks[0];
+      if (supervisor === undefined || anchor === undefined) {
+        control.pauseReason = 'FINAL_REVIEW_UNAVAILABLE';
+        return false;
+      }
+      const review = await invoke(anchor, supervisor, 'supervisor', {
+        kind: 'final-review',
+        integrationDiff,
+        evidence,
+      });
+      if (stopped()) return false;
+      const parsed = review.ok ? finalReviewSchema.safeParse(review.payload) : undefined;
+      if (parsed?.success !== true) {
+        update(
+          review.attempt.id,
+          review.ok ? { evidence, state: 'failed', reason: 'FINAL_REVIEW_INVALID' } : { evidence },
+        );
+        control.pauseReason = review.ok ? 'FINAL_REVIEW_INVALID' : 'FINAL_REVIEW_FAILED';
+        return false;
+      }
+      update(review.attempt.id, { evidence, verdict: storedFinalReview(parsed.data) });
+      if (!parsed.data.approveForOwner) {
+        control.pauseReason = 'FINAL_REVIEW_REJECTED';
+        return false;
+      }
+      return true;
+    };
+
+    /** Asks the reviewer (read-only) for the resolved content of every conflicted file; the engine applies it. */
+    const resolveConflict = async (
+      taskId: string,
+      integration: Worktree,
+      conflict: MergeConflict,
+    ): Promise<{ readonly attemptId?: string; readonly resolutions?: readonly ConflictResolution[] }> => {
+      const task = tasks.find((item) => item.id === taskId);
+      if (reviewer === undefined || task === undefined) return {};
+      const review = await invoke(
+        task,
+        reviewer,
+        'reviewer',
+        {
+          kind: 'integration-conflict',
+          task: { id: task.id, title: task.title, objective: task.objective },
+          conflictedFiles: conflict.files,
+          diff: conflict.diff,
+        },
+        integration,
       );
+      const parsed = review.ok ? conflictResolutionSchema.safeParse(review.payload) : undefined;
+      const changedFiles = conflict.files.map((file) => file.path);
+      update(
+        review.attempt.id,
+        review.ok && parsed?.success !== true
+          ? { changedFiles, state: 'failed', reason: 'CONFLICT_RESOLUTION_INVALID' }
+          : { changedFiles },
+      );
+      return parsed?.success === true
+        ? { attemptId: review.attempt.id, resolutions: parsed.data.resolutions }
+        : { attemptId: review.attempt.id };
+    };
+
+    /** Merges every completed task into a fresh integration branch, validates it and asks for the final review. */
+    const integrateAndReview = async (): Promise<boolean> => {
+      const workspace = this.deps.workspace;
+      if (workspace === undefined) return finalReview('', []);
+      const prepared = await workspace.prepareIntegration(snapshot());
+      if (!prepared.ok) {
+        if (prepared.error.code === ErrorCode.TARGET_FORBIDDEN) control.fatalFailureReason = 'TARGET_FORBIDDEN';
+        else control.pauseReason = 'INTEGRATION_FAILED';
+        return false;
+      }
+      const integration = prepared.value;
+      extras.integrationBranch = integration.branch;
+      extras.integrationBaseSha = integration.baseSha;
+      persist();
+      let head: string | undefined;
+      const completed = topologicalOrder(
+        specs.filter((spec) => tasks.some((task) => task.id === spec.id && task.state === 'completed')),
+      );
+      for (const spec of completed) {
+        const source = taskWorktrees.get(spec.id);
+        // A completed task whose change cannot be found must never be dropped from the merge silently.
+        if (source === undefined) {
+          control.pauseReason = 'INTEGRATION_SOURCE_MISSING';
+          return false;
+        }
+        const conflictAttempt: { id?: string } = {};
+        const merged = await workspace.mergeTask(snapshot(), integration, source, async (conflict) => {
+          const resolved = await resolveConflict(spec.id, integration, conflict);
+          if (resolved.attemptId !== undefined) conflictAttempt.id = resolved.attemptId;
+          return resolved.resolutions;
+        });
+        if (stopped()) return false;
+        if (!merged.ok) {
+          control.pauseReason = 'INTEGRATION_FAILED';
+          return false;
+        }
+        if (merged.value.conflict && merged.value.resolved !== true) {
+          const attempt = attempts.find((item) => item.id === conflictAttempt.id);
+          if (attempt?.state === 'succeeded' && merged.value.reason !== undefined)
+            update(attempt.id, { state: 'failed', reason: merged.value.reason });
+          control.pauseReason = 'INTEGRATION_CONFLICT';
+          return false;
+        }
+        head = merged.value.headSha ?? head;
+      }
+      const validation = await workspace.validateIntegration(
+        snapshot(),
+        integration,
+        distinctCommands(run.tasks.flatMap((task) => task.testCommands)),
+      );
+      const evidence = validation.ok ? validation.value : [];
+      if (!validation.ok || evidence.some((item) => item.exitCode !== 0 || item.timedOut)) {
+        control.pauseReason = 'INTEGRATION_VALIDATION_FAILED';
+        return false;
+      }
+      const diff = await workspace.diff(integration);
+      if (!diff.ok) {
+        control.pauseReason = 'INTEGRATION_FAILED';
+        return false;
+      }
+      const approved = await finalReview(diff.value, evidence);
+      if (approved && head !== undefined) extras.integrationHeadSha = head;
+      return approved;
     };
 
     // Parallel worker pool
     const inFlight = new Map<string, Promise<void>>();
     const runningTaskIds = new Set<string>();
 
-    while (!isAborted() && !isPaused() && !isFatal()) {
+    while (!stopped()) {
       tasks = [...blockFailedDependents(tasks)];
 
       const currentTotalCost = calculateCost();
@@ -739,125 +909,32 @@ export class OrchestrationEngine {
       );
     }
 
-    let allComplete = tasks.length > 0 && tasks.every((t) => t.state === 'completed');
-    let integrationBranch: string | undefined;
-
-    // Item D.1: Integration branch & Final review
-    if (allComplete && !isAborted() && !isPaused() && !isFatal()) {
-      if (this.deps.workspace !== undefined) {
-        const prep = await this.deps.workspace.prepareIntegration(run);
-        if (!prep.ok) {
-          allComplete = false;
-          control.fatalFailureReason = prep.error.code;
-        } else {
-          const integrationWorktree = prep.value;
-          integrationBranch = integrationWorktree.branch;
-
-          const orderedTasks = topologicalOrder(
-            specs.filter((s) => tasks.some((t) => t.id === s.id && t.state === 'completed')),
-          );
-          let hasConflict = false;
-          for (const s of orderedTasks) {
-            const tw = taskWorktrees.get(s.id);
-            if (tw === undefined) continue;
-            const merged = await this.deps.workspace.mergeTask(run, integrationWorktree, tw);
-            if (!merged.ok || merged.value.conflict) {
-              if (reviewer !== undefined) {
-                const conflictTask = tasks.find((t) => t.id === s.id) ?? tasks[0];
-                if (conflictTask !== undefined) {
-                  const conflictReview = await invoke(conflictTask, reviewer, 'reviewer', {
-                    kind: 'integration-conflict',
-                    diff: merged.ok ? merged.value.diff : '',
-                  });
-                  const valid = isVerdict(conflictReview.payload);
-                  if (!valid || (conflictReview.payload as Verdict).verdict !== 'pass') {
-                    hasConflict = true;
-                    break;
-                  }
-                }
-              } else {
-                hasConflict = true;
-                break;
-              }
-            }
-          }
-
-          if (hasConflict) {
-            allComplete = false;
-            control.pauseReason = 'INTEGRATION_CONFLICT';
-          } else {
-            const validationCommands = run.tasks.flatMap((t) => t.testCommands);
-            const valResult = await this.deps.workspace.validateIntegration(
-              run,
-              integrationWorktree,
-              validationCommands,
-            );
-            const evidence = valResult.ok ? valResult.value : [];
-
-            if (!valResult.ok || evidence.some((item) => item.exitCode !== 0 || item.timedOut)) {
-              allComplete = false;
-              control.pauseReason = 'INTEGRATION_VALIDATION_FAILED';
-            }
-
-            let integrationDiff = '';
-            const diffRes = await this.deps.workspace.diff(integrationWorktree);
-            if (diffRes.ok) integrationDiff = diffRes.value;
-
-            if (allComplete && supervisor !== undefined && tasks[0] !== undefined) {
-              await invoke(tasks[0], supervisor, 'supervisor', {
-                kind: 'final-review',
-                integrationDiff,
-                evidence,
-              });
-            }
-          }
-        }
-      } else {
-        if (supervisor !== undefined && tasks[0] !== undefined) {
-          await invoke(tasks[0], supervisor, 'supervisor', {
-            kind: 'final-review',
-            integrationDiff: '',
-            evidence: [],
-          });
-        }
-      }
-    }
+    const allComplete = tasks.length > 0 && tasks.every((t) => t.state === 'completed');
+    const readyForOwner = allComplete && !stopped() && (await integrateAndReview());
 
     this.attemptsByRun.set(run.id, attempts);
     this.controllers.delete(run.id);
 
-    const totalCost = calculateCost();
     const isCancelled = isAborted();
     const fatal = isFatal();
-    const isAwaitingApproval = allComplete && !isCancelled && !fatal && !isPaused();
+    // AWAITING_APPROVAL only when every task passed review, integration merged and validated, and the
+    // supervisor explicitly approved it for the owner.
+    const isAwaitingApproval = readyForOwner && !isCancelled && !fatal && !isPaused();
 
-    const baseResult: OrchRun = {
-      ...run,
+    const result: OrchRun = {
+      ...snapshot(),
       state: isCancelled ? 'cancelled' : fatal ? 'failed' : isAwaitingApproval ? 'awaiting_approval' : 'paused',
-      tasks,
-      agentCalls: calls,
-      costMicroUsd: totalCost as MicroUsd,
     };
-
     if (isCancelled) {
-      return { ...baseResult, stateReason: 'CANCELLED' };
+      return { ...result, stateReason: 'CANCELLED' };
     }
     if (fatal && control.fatalFailureReason !== undefined) {
-      return { ...baseResult, stateReason: control.fatalFailureReason };
+      return { ...result, stateReason: control.fatalFailureReason };
     }
     if (isAwaitingApproval) {
-      const copy: OrchRun = { ...baseResult };
-      Reflect.deleteProperty(copy, 'stateReason');
-      if (integrationBranch !== undefined) {
-        return { ...copy, integrationBranch };
-      }
-      return copy;
+      return result;
     }
-    return {
-      ...baseResult,
-      stateReason: control.pauseReason ?? 'TASK_FAILURE',
-      ...(integrationBranch !== undefined ? { integrationBranch } : {}),
-    };
+    return { ...result, stateReason: control.pauseReason ?? 'TASK_FAILURE' };
   }
 }
 

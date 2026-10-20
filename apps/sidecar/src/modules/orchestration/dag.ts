@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { OrchTaskSpec, Result } from '@itstudio/schemas';
+import { isSafeGlob } from './glob.js';
 import { pathSetsOverlap } from './path-locks.js';
 
 export interface PlanValidationOptions {
@@ -30,14 +31,6 @@ const taskSchema = z
   })
   .strict();
 export const supervisorPlanSchema = z.object({ tasks: z.array(taskSchema).min(1).max(20) }).strict();
-function globMatches(glob: string, file: string): boolean {
-  const escaped = glob
-    .replace(/[.+^${}()|[\]\\]/gu, '\\$&')
-    .replace(/\*\*/gu, '.*')
-    .replace(/\*/gu, '[^/]*')
-    .replace(/\?/gu, '[^/]');
-  return new RegExp(`^${escaped}$`, 'u').test(file);
-}
 export function validatePlan(input: unknown, options: PlanValidationOptions): Result<readonly OrchTaskSpec[]> {
   const errors: string[] = [];
   const parsed = supervisorPlanSchema.safeParse(input);
@@ -62,7 +55,8 @@ export function validatePlan(input: unknown, options: PlanValidationOptions): Re
         /^[A-Za-z]:/u.test(path) ||
         path.split(/[\\/]/u).includes('..') ||
         path.split(/[\\/]/u).some((part) => ['.git', 'node_modules', '.itstudio'].includes(part.toLowerCase())) ||
-        path.includes('\\')
+        path.includes('\\') ||
+        !isSafeGlob(path)
       )
         errors.push(`${task.id} has unsafe workspace path ${path}.`);
     }
@@ -129,12 +123,4 @@ export function criticalPathLengths(tasks: readonly OrchTaskSpec[]): ReadonlyMap
 }
 export function allowedPathOverlap(a: OrchTaskSpec, b: OrchTaskSpec): boolean {
   return pathSetsOverlap(a.allowedPaths, b.allowedPaths);
-}
-export function pathIsInsideWorkspace(root: string, path: string): boolean {
-  return (
-    path.length > 0 &&
-    !path.startsWith('/') &&
-    !path.includes('..') &&
-    globMatches('**', `${root.replaceAll('\\', '/')}/${path}`)
-  );
 }
