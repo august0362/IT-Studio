@@ -12,9 +12,12 @@ Khi làm xong một bài: sửa dòng *Trạng thái*, ghi ngày, và (nếu KH�
 
 ## 0. Chuẩn bị (khoảng 10 phút)
 
-1. **Bản cần thử:** nhánh `stabilization/v1-hardening` (đã gồm toàn bộ bản sửa). Cách nhanh nhất: mở thư mục
-   project, bấm đúp `Start-IT-Studio.bat` (chạy từ mã nguồn). Bản cài `.exe` ngày 16/10 **không** có các bản sửa
-   này — đừng dùng nó cho các bài ORCH và RAG bên dưới.
+1. **Bản cần thử:** nhánh `stabilization/v1-hardening` (đã gồm toàn bộ bản sửa). Hai cách:
+   - **Bản cài mới (21/10/2026):** `apps\desktop\src-tauri\target\release\bundle\nsis\IT Studio_0.1.0_x64-setup.exe`
+     (SHA-256 bắt đầu bằng `b9e5c0bb`, đã qua install smoke 7/7). Không có bản MSI lần này.
+   - Hoặc chạy từ mã nguồn: bấm đúp `Start-IT-Studio.bat` khi đang ở nhánh trên.
+
+   Bản cài ngày 16–17/10 **không** có các bản sửa này — đừng dùng nó cho các bài ORCH và RAG bên dưới.
 2. **Project thử dùng một lần** (không bao giờ thử trên project thật của bạn). Mở PowerShell trong thư mục IT
    Studio và chạy:
    ```

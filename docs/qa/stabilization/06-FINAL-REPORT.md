@@ -9,7 +9,7 @@ owner's decision. Work done directly by Claude (owner rule since 2026-10-20: no 
 |---|---|---|
 | **ENGINEERING_VERIFIED** | **Yes**, for the scope of this pass and within the limits of `03-VERIFICATION.md` §4 | CI `39473302355` green on `e20eb35`; local integration and E2E evidence in `03-VERIFICATION.md` §3 |
 | **OWNER_ACCEPTED** | **No** — 13/40 checklist cases accepted earlier (16/10 build); 27 + 6 new orchestration cases not run | `04-OWNER-ACCEPTANCE.md` |
-| **RELEASE_READY** | **No** | needs owner acceptance, `main` protection, merge of this branch, a new installer build + install smoke |
+| **RELEASE_READY** | **No** | needs owner acceptance, `main` protection, merge of this branch, an installer rebuilt from the merged `main` (the 2026-10-21 NSIS from this branch passed install smoke 7/7) |
 
 ## 1. Completed
 
@@ -33,7 +33,7 @@ owner's decision. Work done directly by Claude (owner rule since 2026-10-20: no 
 | `main` branch protection | **Blocked** — no authenticated GitHub admin access in this session; nothing configured or claimed | `gh auth login` (then Claude applies `.github/rulesets/main-protection.json` and verifies a rejected direct push), or import the ruleset in GitHub *Settings → Rules* |
 | Owner acceptance | Not run (human cases) | follow `04-OWNER-ACCEPTANCE.md` |
 | Real-adapter validation | Not run in this pass (no real agents/providers called) | owner cases ORCH-R1…R6 |
-| Installer | Not rebuilt; the 2026-10-17 installer lacks these fixes | `npm run build:app` + `npm run smoke:install` after merge |
+| Installer | NSIS rebuilt from this branch on 2026-10-21 (install smoke 7/7); MSI not produced (WiX download timeout) | use the new NSIS for acceptance; rebuild after the merge |
 
 ## 3. Files modified (by area)
 
@@ -61,7 +61,8 @@ owner's decision. Work done directly by Claude (owner rule since 2026-10-20: no 
 | New regression tests | unit: glob 46, final review 14, recovery 6, prompts 1, workspace 2, discovery 1, UI 2; node: fixture 2; integration: 20 (real Git + SQLite) |
 | E2E ORCH-019 (off-screen) | pass |
 | Machine-sensitive cases on CI | BRK-C12, BRK-D07 fail on the hosted runner — non-blocking job, documented in `05-CI-GOVERNANCE.md` §4 |
-| Not run | full E2E suite, `build:app`, `smoke:install`, real-provider smoke, owner acceptance |
+| Installer (`build:app` + `smoke:install`) | NSIS built from `aa9ba39` (SHA-256 `b9e5c0bb…e00a`), install smoke 7/7; MSI not produced (WiX download timeout) |
+| Not run | full E2E suite, MSI, real-provider smoke, owner acceptance |
 
 ## 5. Remaining risks
 

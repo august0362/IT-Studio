@@ -55,8 +55,11 @@ Final code commit: `e20eb35` (later commits on the branch change documentation o
 | F6 | sidecar code of `2c63e6b` (identical in `e20eb35`) | `npm run test:integration` (all 26 files) | local | 1 | 191 passed, 1 skipped, 5 failed: BRK-C12 and 4 `router.test.ts` timeouts (TC-M2-006/009/020/021) while other commands ran on the machine. `router.test.ts` alone: 18/18 on the branch **and** 18/18 on `95dd972` → load-related, not a regression (router code unchanged) |
 | F7 | `2c63e6b` + Discard UI | E2E `orch/orchestration.spec.ts` (ORCH-019), off-screen, debug app rebuilt | local | 0 | 1 passing |
 
-Not run in this pass: the full E2E suite (14 specs; only the orchestration spec is affected), `build:app` (Tauri
-NSIS/MSI), `smoke:install` — release-gate steps after the merge (`06-FINAL-REPORT.md`) — and real-provider smoke.
+| F8 | `aa9ba39` (code = `8df4d37`) | `npm run build:app` | local | 1 | NSIS built: `IT Studio_0.1.0_x64-setup.exe`, 93 577 002 bytes, SHA-256 `b9e5c0bb165b2c69da7b1db1b1fc042821058a924827097c7e91f6dc3399e00a`; the MSI step failed with `timeout: global` while downloading the WiX bundler (same network issue as the 2026-10-16 build in `../V1-report.md`) — no MSI from this pass |
+| F9 | NSIS of F8 | `npm run smoke:install` | local | 0 | 7/7 PASS: silent install to a temp folder, bundled self-contained sidecar, ready < 30 s, graceful exit < 5 s, clean silent uninstall (the owner's SQLite DB was copied to `%APPDATA%\com.itstudio.app\backup-before-stab-install-smoke-2026-10-21` first; no IT Studio install was present) |
+
+Not run in this pass: the full E2E suite (14 specs; only the orchestration spec is affected), the MSI installer
+(bundler download timeout) and real-provider smoke.
 
 ## 4. Coverage limitations
 
