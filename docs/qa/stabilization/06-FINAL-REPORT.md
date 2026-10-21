@@ -80,5 +80,5 @@ owner's decision. Work done directly by Claude (owner rule since 2026-10-20: no 
 1. Owner: review the branch (or open a PR from `stabilization/v1-hardening`), apply branch protection, run the
    acceptance guide with the disposable project.
 2. After acceptance: merge via PR (CI green), rebuild the installer, run `smoke:install`, update `V1-report.md`.
-3. Then, on the owner's go-ahead only: OBS-01 decision (dependent task bases), OBS-02 (run-level evidence), SHA-pin
-   the GitHub Actions, LLMPOOL-01/02.
+3. Then, on the owner's go-ahead only: OBS-01 decision (dependent task bases), OBS-02 (run-level evidence),
+   LLMPOOL-01/02. (GitHub Actions are SHA-pinned since 2026-10-21.)

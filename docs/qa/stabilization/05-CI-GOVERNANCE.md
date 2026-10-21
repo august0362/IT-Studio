@@ -26,8 +26,9 @@ Not in CI (deliberately): Tauri release build and installer smoke (`build:app`, 
 E2E (needs Edge WebDriver matching WebView2 and an interactive desktop), real-provider smoke (`ITSTUDIO_LIVE=1`,
 costs money). They stay manual release-gate steps (`../../RUNNING.md`, `../../TESTING.md`).
 
-Actions are pinned to major tags (`actions/checkout@v5`, `actions/setup-node@v5`); pinning to commit SHAs is a
-follow-up (OBS-04).
+Actions are pinned to full commit SHAs (2026-10-21, OBS-04): `actions/checkout` v5.1.0
+(`fbc6f39…`) and `actions/setup-node` v5.0.0 (`a0853c2…`) — exactly what `@v5` resolved to in the green runs. Newer
+majors exist (v7); upgrading is a separate, reviewed change.
 
 ## 3. What CI found
 
